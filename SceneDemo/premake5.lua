@@ -1,4 +1,6 @@
 
+include "vendor/dependencies.lua"
+
 outputDir = "%{cfg.system}/%{cfg.buildcfg}/%{cfg.architecture}"
 
 project "SceneDemo"
@@ -9,10 +11,20 @@ project "SceneDemo"
 	targetdir ("out/bin/" .. outputDir)
 	objdir ("out/obj/" .. outputDir)
 	
+	dependson
+	{
+		"PHOENIX"
+	}
+	
 	files
 	{
 		"src/**.h",
 		"src/**.cpp"
+	}
+	
+	includedirs
+	{
+		"%{SceneDemo_IncludeDirs.PHOENIX}",
 	}
 	
 	filter "system:windows"
@@ -20,8 +32,18 @@ project "SceneDemo"
 		systemversion "latest"
 		warnings "High"
 	
-	filter "configurations:Debug"
-		symbols "On"
-	
-	filter "configurations:Release"
-		optimize "On"
+		filter "configurations:Debug"
+			symbols "On"
+			
+			links
+			{
+				"%{SceneDemo_Libraries.PHOENIX_win64_debug}",
+			}
+		
+		filter "configurations:Release"
+			optimize "On"
+			
+			links
+			{
+				"%{SceneDemo_Libraries.PHOENIX_win64_release}",
+			}

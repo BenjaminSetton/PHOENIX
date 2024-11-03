@@ -17,15 +17,21 @@ project "PHOENIX"
 		"src/**.cpp"
 	}
 	
+	forceincludes
+	{
+		"force_include/basic_types.h"
+	}
+	
 	includedirs
 	{
-		"%{TANG_IncludeDirs.vulkan}",
-		"%{TANG_IncludeDirs.glfw}"
+		"%{PHX_IncludeDirs.vulkan}",
+		"%{PHX_IncludeDirs.glfw}",
+		"%{PHX_IncludeDirs.force_include}"
 	}
 	
 	links
 	{
-		"%{TANG_Libraries.vulkan}"
+		"%{PHX_Libraries.vulkan}"
 	}
 	
 	filter "system:windows"
@@ -40,7 +46,7 @@ project "PHOENIX"
 		
 		links
 		{
-			"%{TANG_Libraries.glfw_debug}",
+			"%{PHX_Libraries.glfw_debug}",
 		}
 	
 	filter "configurations:Release"
@@ -49,5 +55,5 @@ project "PHOENIX"
 		
 		links
 		{
-			"%{TANG_Libraries.glfw_release}",
+			"%{PHX_Libraries.glfw_release}",
 		}

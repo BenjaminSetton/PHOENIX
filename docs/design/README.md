@@ -7,7 +7,7 @@ The goal is to provide more flexibility than the older APIs, but less verbosity 
 
 # Important API ojects
 **IRenderDevice**
-- Provides a way to interface with the physical render device. This is where the client can request information about the render device, such as it's name, available memory, and other stats. 
+- Provides a way to interface with the physical and logical render device. This is where the client can request information about the render device, such as it's name, available memory, and other stats. 
 - Any allocations performed by the client must be done through the render device since this is the object that owns all the virtual memory. For example, if the client wishes to allocate a buffer in VRAM it must get the handle to the render device and call a function to allocate the buffer's memory. Any allocation call must return a valid ID in case the allocation was successful, or a reserved invalid ID otherwise.
 - (?) Must handle calls between different threads when using graphics APIs that allow multi-threaded allocations.
 - Must issue the correct graphics API calls once a graphics API is selected by the client
@@ -33,6 +33,10 @@ The goal is to provide more flexibility than the older APIs, but less verbosity 
 - Must issue the correct graphics API calls once a graphics API is selected by the client
 **IPipeline**
 - Contains the entire state of the pipeline that may later be submitted to the GPU, and offers a way to alter the state of the pipeline. This holds information such as the rasterizer state, the blend state, cull mode, primitive topology, render target and depth formats, etc.
+- Must issue the correct graphics API calls once a graphics API is selected by the client
+**IFrameBuffer**
+- Provides a way to add or remove texture objects into a collection called a framebuffer. This can then be bound to a render pass and used to output the data of the render pass
+- Holds references (non-owning) to a collection of framebuffer attachments
 - Must issue the correct graphics API calls once a graphics API is selected by the client
 **IShader**
 - Contains basic information about a shader object, such as the shader's bytecode, it's type (pixel, geometry, vertex, compute) and other pieces of metadata (e.g. compile status). It does *not* directly provide a way to compile shaders from file, but rather represents the shader object itself and owns the pointer to it's shader bytecode. 
@@ -70,8 +74,11 @@ The library must contain minimal dependencies to make it as easy as possible to 
 - **NAMESPACES**: Everything inside the PHOENIX library must be inside the PHX namespace. E.g. `namespace PHX { ... }`
 - **FILE NAMES**: Every filename must follow the *snake_case* naming convention. E.g. "file_utils.h"
 - **CLASS NAMES**: Every class name must follow the *PascalCase* naming convention. E.g `class IDeviceContext { ... }`.
-- **ENUMS**: All enums must be declared as *enum class*, so every time the enum value is used it must be scoped in. E.g. `enum class TextureFormat { R8G8B8A8_UINT, ... }`
+- **ENUM TYPENAMES**: All enums must be declared as *enum class*, so every time the enum value is used it must be scoped in. They must also follow the *PascalCase* naming convention. E.g. `enum class TextureFormat { ... }`
+- **ENUM VALUES**: All enum values must follow the upper-case *snake_case* naming convention. E.g. `enum class TextureFormat { RGBA8_UINT, RGBA32_FLOAT, ... }`
 - **MACROS**: All macros must follow the *MACRO_CASE* naming convention and be pre-prended by "PHX". E.g. `#define PHX_ASSERT_ALWAYS(...)`
+- **CONSTANT EXPRESSION VALUES**: All constant expressions values must follow the upper-case *snake_case* naming convention. E.g. `static constexpr bool SHOW_WINDOW = true;`
+- **CONSTANT EXPRESSION FUNCTIONS**: All constant expression functions must follow the *PascalCase* naming convention, much like member functions (defined below). E.g. `constexpr u64 CalculateFixedNumber(...)`
 - **MEMBER FUNCTIONS**: All member functions from a class must follow the *PascalCase* naming convention. E.g. `void ITexture::SetEnable(bool val) const;`
 - **MEMBER VARIABLES**: All member variables must follow the *camelCase* naming convention. They must also be pre-pended with "m_". E.g. `bool m_isEnabled;`
 - **CONST CORRECTNESS**: The library must be as const-correct as possible. This means marking pointers/references as const when they must NOT be mutated, as well as marking member functions as const when they must NOT modify the object state. Loose variables by value may be marked as const for extra precaution, but this is not required.
