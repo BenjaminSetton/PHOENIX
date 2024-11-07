@@ -17,16 +17,14 @@ project "PHOENIX"
 		"src/**.cpp"
 	}
 	
-	forceincludes
-	{
-		"force_include/basic_types.h"
-	}
-	
+	-- For library includes, I'll list the most specific include directories first. Not sure if
+	-- the preprocessor looks for files through the include_dirs in the same order that
+	-- they're declared, but it doesn't hurt to organize them this way I guess
 	includedirs
 	{
-		"%{PHX_IncludeDirs.vulkan}",
-		"%{PHX_IncludeDirs.glfw}",
-		"%{PHX_IncludeDirs.force_include}"
+		"%{PHX_IncludeDirs.dep_vulkan}",
+		"%{PHX_IncludeDirs.dep_glfw}",
+		"%{PHX_IncludeDirs.lib_inc}"
 	}
 	
 	links

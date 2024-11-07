@@ -5,6 +5,8 @@
 
 #include "logger.h"
 
+#include "PHX/types/basic_types.h"
+
 #define LOG_FORMAT_CODE(logType) \
 	char buffer[MAX_BUFFER_SIZE_BYTES]; \
 	va_list va; \
@@ -31,32 +33,32 @@ namespace PHX
 	static const char* LogDebugBuffer   = "DEBUG";
 
 	// Define simple logging functions
-	static void Log_Internal(LogType type, const char* message)
+	static void Log_Internal(LOG_TYPE type, const char* message)
 	{
 		const char* logTypeColor = nullptr;
 		const char* logTypeBuffer = nullptr;
 
 		switch (type)
 		{
-		case LogType::DEBUG:
+		case LOG_TYPE::DEBUG:
 		{
 			logTypeColor = LogDebugColor;
 			logTypeBuffer = LogDebugBuffer;
 			break;
 		}
-		case LogType::INFO:
+		case LOG_TYPE::INFO:
 		{
 			logTypeColor = LogInfoColor;
 			logTypeBuffer = LogInfoBuffer;
 			break;
 		}
-		case LogType::WARNING:
+		case LOG_TYPE::WARNING:
 		{
 			logTypeColor = LogWarningColor;
 			logTypeBuffer = LogWarningBuffer;
 			break;
 		}
-		case LogType::ERR:
+		case LOG_TYPE::ERR:
 		{
 			logTypeColor = LogErrorColor;
 			logTypeBuffer = LogErrorBuffer;
@@ -91,16 +93,16 @@ namespace PHX
 
 	void LogError(const char* format, ...)
 	{
-		LOG_FORMAT_CODE(LogType::ERR);
+		LOG_FORMAT_CODE(LOG_TYPE::ERR);
 	}
 
 	void LogWarning(const char* format, ...)
 	{
-		LOG_FORMAT_CODE(LogType::WARNING);
+		LOG_FORMAT_CODE(LOG_TYPE::WARNING);
 	}
 
 	void LogInfo(const char* format, ...)
 	{
-		LOG_FORMAT_CODE(LogType::INFO);
+		LOG_FORMAT_CODE(LOG_TYPE::INFO);
 	}
 }

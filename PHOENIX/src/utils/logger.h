@@ -2,7 +2,7 @@
 
 namespace PHX
 {
-	enum class LogType
+	enum class LOG_TYPE
 	{
 		DEBUG = -1,
 		INFO,
