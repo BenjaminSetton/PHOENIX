@@ -1,10 +1,18 @@
 
-#include <cstdarg> // va_start, va_end
+#include <stdio.h> // vsprintf_s
+#include <stdarg.h> // va_start, va_end
+
+// This include must come before the GLFW includes below because those define a "max" macro
+// which messes with how the max values of PHX types are calculated
+#include "window_win64.h"
+
+#define GLFW_EXPOSE_NATIVE_WIN32
 #include <glfw/glfw3.h> // GLFWwindow
+#include <glfw/glfw3native.h>
+#undef GLFW_EXPOSE_NATIVE_WIN32
 
 #include "../../utils/logger.h"
 #include "../../utils/sanity.h"
-#include "window_win64.h"
 
 namespace PHX
 {
@@ -126,6 +134,11 @@ namespace PHX
 	bool WindowWin64::ShouldClose()
 	{
 		return glfwWindowShouldClose(m_handle);
+	}
+
+	void* WindowWin64::GetHandle()
+	{
+		return reinterpret_cast<void*>(glfwGetWin32Window(m_handle));
 	}
 
 	u32 WindowWin64::GetCurrentWidth()

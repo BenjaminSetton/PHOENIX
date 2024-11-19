@@ -2,6 +2,7 @@
 #include "PHX/factory/object_factory.h"
 
 #include "../platform/vulkan/render_device_vk.h"
+#include "../platform/vulkan/swap_chain_vk.h"
 #include "../utils/logger.h"
 #include "../utils/sanity.h"
 
@@ -52,6 +53,36 @@ namespace PHX
 		else
 		{
 			LogError("Failed to create render device. A graphics API has not been selected!");
+		}
+
+		return nullptr;
+	}
+
+	std::shared_ptr<ISwapChain> ObjectFactory::CreateSwapChain(const SwapChainCreateInfo& createInfo)
+	{
+		if (m_selectedAPI != GRAPHICS_API::INVALID)
+		{
+			switch (m_selectedAPI)
+			{
+			case GRAPHICS_API::VULKAN:
+			{
+				return std::make_shared<SwapChainVk>(createInfo);
+			}
+			case GRAPHICS_API::OPENGL:
+			{
+				TODO();
+				break;
+			}
+			case GRAPHICS_API::DIRECTX:
+			{
+				TODO();
+				break;
+			}
+			}
+		}
+		else
+		{
+			LogError("Failed to create swap chain. A graphics API has not been selected!");
 		}
 
 		return nullptr;

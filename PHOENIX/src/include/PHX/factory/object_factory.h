@@ -4,6 +4,7 @@
 
 #include "../types/basic_types.h"
 #include "PHX/interface/render_device.h"
+#include "PHX/interface/swap_chain.h"
 #include "PHX/interface/window.h"
 
 namespace PHX
@@ -30,6 +31,7 @@ namespace PHX
 
 		std::shared_ptr<IWindow> CreateWindow(const WindowCreateInfo& createInfo);
 		std::shared_ptr<IRenderDevice> CreateRenderDevice(const RenderDeviceCreateInfo& createInfo);
+		std::shared_ptr<ISwapChain> CreateSwapChain(const SwapChainCreateInfo& createInfo);
 
 	private:
 

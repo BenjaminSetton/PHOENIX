@@ -4,9 +4,17 @@
 
 namespace PHX
 {
+	// Forward declarations
+	class IRenderDevice;
+	class IWindow;
+
 	struct SwapChainCreateInfo
 	{
-		// TODO
+		u32 width                   = 1920;
+		u32 height                  = 1080;
+		bool enableVSync            = false;
+		IRenderDevice* renderDevice = nullptr;
+		IWindow* window             = nullptr;
 	};
 
 	class ISwapChain
@@ -14,8 +22,6 @@ namespace PHX
 	public:
 
 		virtual ~ISwapChain() { }
-
-		virtual bool Create(const SwapChainCreateInfo& createInfo) = 0;
 
 	};
 }

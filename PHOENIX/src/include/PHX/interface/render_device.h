@@ -1,10 +1,12 @@
 #pragma once
 
 #include "../types/basic_types.h"
-#include "window.h"
 
 namespace PHX
 {
+	// Forward declarations
+	class IWindow;
+
 	typedef void(*DebugMessageCallbackFn)(const char* msg);
 
 	struct RenderDeviceCreateInfo

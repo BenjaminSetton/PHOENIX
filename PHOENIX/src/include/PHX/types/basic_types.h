@@ -1,12 +1,12 @@
 #pragma once
 
-#include <cstdint>
-#include <limits>
+#include <cstdint> // (u)int8_t, (u)int16_t, (u)int32_t, (u)int64_t 
+#include <limits>  // std::numeric_limits
 
 namespace PHX
 {
 	// unsigned int
-	typedef uint8_t u8;
+	typedef uint8_t  u8;
 	typedef uint16_t u16;
 	typedef uint32_t u32;
 	typedef uint64_t u64;
@@ -23,7 +23,7 @@ namespace PHX
 
 
 	// signed int
-	typedef int8_t i8;
+	typedef int8_t  i8;
 	typedef int16_t i16;
 	typedef int32_t i32;
 	typedef int64_t i64;

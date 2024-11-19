@@ -1,56 +1,27 @@
 
+#include <set>
+//#include <string>
 #include <vector>
 
 #include "render_device_vk.h"
 
 #include "../utils/logger.h"
 #include "../utils/sanity.h"
+#include "swap_chain_vk.h"
 #include "utils/queue_family_indices.h"
+#include "utils/swap_chain_helpers.h"
 
 namespace PHX
 {
-	static std::vector<const char*> validationLayers =
+	static const std::vector<const char*> validationLayers =
 	{
 		"VK_LAYER_KHRONOS_validation"
 	};
 
-	static std::vector<const char*> deviceExtensions =
+	static const std::vector<const char*> deviceExtensions =
 	{
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
 	};
-
-	struct SwapChainSupportDetails
-	{
-		VkSurfaceCapabilitiesKHR capabilities;
-		std::vector<VkSurfaceFormatKHR> formats;
-		std::vector<VkPresentModeKHR> presentModes;
-	};
-
-	SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface)
-	{
-		SwapChainSupportDetails details;
-		vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
-
-		u32 formatCount;
-		vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, nullptr);
-
-		if (formatCount != 0)
-		{
-			details.formats.resize(formatCount);
-			vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats.data());
-		}
-
-		u32 presentModeCount;
-		vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, nullptr);
-
-		if (presentModeCount != 0)
-		{
-			details.presentModes.resize(presentModeCount);
-			vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes.data());
-		}
-
-		return details;
-	}
 
 	//static std::vector<const char*> GetRequiredExtensions()
 	//{
@@ -100,40 +71,27 @@ namespace PHX
 
 	static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
 	{
-		u32 layerCount;
-		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
+		u32 extensionCount;
+		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
-		std::vector<VkLayerProperties> availableLayers(layerCount);
-		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
+		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-		for (const char* layerName : validationLayers)
+		std::set<const char*> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+		for (const auto& extension : availableExtensions)
 		{
-			bool layerFound = false;
-
-			for (const auto& layerProperties : availableLayers)
-			{
-				if (strcmp(layerName, layerProperties.layerName) == 0)
-				{
-					layerFound = true;
-					break;
-				}
-			}
-
-			if (!layerFound)
-			{
-				return false;
-			}
+			requiredExtensions.erase(extension.extensionName);
 		}
 
-		return true;
+		return requiredExtensions.empty();
 	}
 
 	static bool IsDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface)
 	{
 		QueueFamilyIndices indices = FindQueueFamilies(device, surface);
-		bool extensionsSupported = CheckDeviceExtensionSupport(device);
+		bool allExtensionsSupported = CheckDeviceExtensionSupport(device);
 		bool swapChainAdequate = false;
-		if (extensionsSupported)
+		if (allExtensionsSupported)
 		{
 			SwapChainSupportDetails details = QuerySwapChainSupport(device, surface);
 			swapChainAdequate = !details.formats.empty() && !details.presentModes.empty();
@@ -142,10 +100,70 @@ namespace PHX
 		VkPhysicalDeviceFeatures supportedFeatures;
 		vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
 
-		return indices.IsComplete() && extensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy;
+		return (indices.IsComplete() && allExtensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy);
 	}
 
-	static void CreateVkInstance(bool enableValidation, VkInstance& out_vkInstance)
+	//-----------------------------------------------------------------------------------//
+
+	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_vkInstance(VK_NULL_HANDLE), m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE)
+	{
+		//const IWindow* window = dynamic_cast<SwapChainVk*>(ci.window);
+		//ASSERT_PTR(swapChainVk);
+		const bool enableValidation = ci.validationLayerCount > 0;
+		const VkSurfaceKHR surface = nullptr;// swapChainVk->GetSurface();
+
+		CreateVkInstance(enableValidation);
+		CreatePhysicalDevice(surface);
+		CreateLogicalDevice(enableValidation, surface);
+
+		LogInfo("Constructed Vk device!");
+	}
+
+	RenderDeviceVk::~RenderDeviceVk()
+	{
+		LogInfo("Destructed Vk device!");
+	}
+
+	bool RenderDeviceVk::AllocateBuffer()
+	{
+		LogInfo("Allocated buffer!");
+		return true; 
+	}
+
+	bool RenderDeviceVk::AllocateCommandBuffer()
+	{
+		LogInfo("Allocated command buffer!"); 
+		return true; 
+	}
+
+	bool RenderDeviceVk::AllocateTexture()
+	{
+		LogInfo("Allocated texture!");
+		return true;
+	}
+
+	bool RenderDeviceVk::AllocateShader()
+	{
+		LogInfo("Allocated shader!");
+		return true;
+	}
+
+	VkInstance RenderDeviceVk::GetInstance() const
+	{
+		return m_vkInstance;
+	}
+
+	VkDevice RenderDeviceVk::GetLogicalDevice() const
+	{
+		return m_logicalDevice;
+	}
+
+	VkPhysicalDevice RenderDeviceVk::GetPhysicalDevice() const 
+	{
+		return m_physicalDevice;
+	}
+
+	void RenderDeviceVk::CreateVkInstance(bool enableValidation)
 	{
 		// Check that we support all requested validation layers
 		if (enableValidation && !CheckValidationLayerSupport())
@@ -186,16 +204,16 @@ namespace PHX
 		createInfo.ppEnabledExtensionNames = extensions.data();
 		createInfo.enabledLayerCount = 0;
 
-		if (vkCreateInstance(&createInfo, nullptr, &out_vkInstance) != VK_SUCCESS)
+		if (vkCreateInstance(&createInfo, nullptr, &m_vkInstance) != VK_SUCCESS)
 		{
 			ASSERT_ALWAYS("Failed to create Vulkan instance!");
 		}
 	}
 
-	static void CreatePhysicalDevice(VkInstance vkInstance, VkSurfaceKHR surface, VkPhysicalDevice& out_vkPhysicalDevice)
+	void RenderDeviceVk::CreatePhysicalDevice(VkSurfaceKHR surface)
 	{
-		uint32_t deviceCount = 0;
-		vkEnumeratePhysicalDevices(vkInstance, &deviceCount, nullptr);
+		u32 deviceCount = 0;
+		vkEnumeratePhysicalDevices(m_vkInstance, &deviceCount, nullptr);
 
 		if (deviceCount == 0)
 		{
@@ -203,7 +221,7 @@ namespace PHX
 		}
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(vkInstance, &deviceCount, devices.data());
+		vkEnumeratePhysicalDevices(m_vkInstance, &deviceCount, devices.data());
 
 		for (const auto& device : devices)
 		{
@@ -211,6 +229,7 @@ namespace PHX
 			{
 				//LogInfo("Using physical device: '%s'", DeviceCache::Get().GetPhysicalDeviceProperties().deviceName);
 				LogInfo("Found suitable physical device with Vulkan support!");
+				m_physicalDevice = device;
 				return;
 			}
 		}
@@ -218,44 +237,76 @@ namespace PHX
 		ASSERT_ALWAYS("Failed to find a suitable physical device!");
 	}
 
-	//-----------------------------------------------------------------------------------//
-
-	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_vkInstance(VK_NULL_HANDLE), m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE)
+	void RenderDeviceVk::CreateLogicalDevice(bool enableValidation, VkSurfaceKHR surface)
 	{
-		const bool enableValidation = ci.validationLayerCount > 0;
-		CreateVkInstance(enableValidation, m_vkInstance);
-		//CreatePhysicalDevice(m_vkInstance, m_surface, m_physicalDevice);
+		VkPhysicalDevice physicalDevice = GetPhysicalDevice();
 
-		LogInfo("Constructed Vk device!");
-	}
+		QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
+		if (!indices.IsComplete())
+		{
+			LogError("Failed to create logical device because the queue family indices are incomplete!");
+			return;
+		}
 
-	RenderDeviceVk::~RenderDeviceVk()
-	{
-		LogInfo("Destructed Vk device!");
-	}
+		LogInfo("Selected graphics queue from queue family at index %u", indices.GetIndex(QUEUE_TYPE::GRAPHICS));
+		LogInfo("Selected compute queue from queue family at index %u" , indices.GetIndex(QUEUE_TYPE::COMPUTE ));
+		LogInfo("Selected transfer queue from queue family at index %u", indices.GetIndex(QUEUE_TYPE::TRANSFER));
+		LogInfo("Selected present queue from queue family at index %u" , indices.GetIndex(QUEUE_TYPE::PRESENT ));
 
-	bool RenderDeviceVk::AllocateBuffer()
-	{
-		LogInfo("Allocated buffer!");
-		return true; 
-	}
+		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+		std::set<u32> uniqueQueueFamilies = {
+			indices.GetIndex(QUEUE_TYPE::GRAPHICS),
+			indices.GetIndex(QUEUE_TYPE::COMPUTE),
+			indices.GetIndex(QUEUE_TYPE::PRESENT),
+			indices.GetIndex(QUEUE_TYPE::TRANSFER)
+		};
 
-	bool RenderDeviceVk::AllocateCommandBuffer()
-	{
-		LogInfo("Allocated command buffer!"); 
-		return true; 
-	}
+		// TODO - Determine priority of the different queue types
+		float queuePriority = 1.0f;
+		for (u32 queueFamily : uniqueQueueFamilies)
+		{
+			VkDeviceQueueCreateInfo queueCreateInfo{};
+			queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+			queueCreateInfo.queueFamilyIndex = queueFamily;
+			queueCreateInfo.queueCount = 1;
+			queueCreateInfo.pQueuePriorities = &queuePriority;
+			queueCreateInfos.push_back(queueCreateInfo);
+		}
 
-	bool RenderDeviceVk::AllocateTexture()
-	{
-		LogInfo("Allocated texture!");
-		return true;
-	}
+		VkPhysicalDeviceFeatures deviceFeatures{};
+		deviceFeatures.samplerAnisotropy = VK_TRUE;
+		deviceFeatures.geometryShader = VK_TRUE;
 
-	bool RenderDeviceVk::AllocateShader()
-	{
-		LogInfo("Allocated shader!");
-		return true;
+		VkDeviceCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		createInfo.pQueueCreateInfos = queueCreateInfos.data();
+		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
+		createInfo.pEnabledFeatures = &deviceFeatures;
+		createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
+		createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+
+		if (enableValidation)
+		{
+			// We get a warning about using deprecated and ignored 'ppEnabledLayerNames', so I've commented these out.
+			// It looks like validation layers work regardless...somehow...
+			//createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
+			//createInfo.ppEnabledLayerNames = validationLayers.data();
+		}
+		else
+		{
+			createInfo.enabledLayerCount = 0;
+		}
+
+		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &m_logicalDevice) != VK_SUCCESS)
+		{
+			ASSERT_ALWAYS("Failed to create the logical device!");
+		}
+
+		// Get the queues from the logical device
+		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::GRAPHICS), 0, &m_queues[QUEUE_TYPE::GRAPHICS]);
+		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::COMPUTE ), 0, &m_queues[QUEUE_TYPE::COMPUTE ]);
+		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::TRANSFER), 0, &m_queues[QUEUE_TYPE::TRANSFER]);
+		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::PRESENT ), 0, &m_queues[QUEUE_TYPE::PRESENT ]);
 	}
 }
 

@@ -30,6 +30,7 @@ namespace PHX
 
 		virtual ~IWindow() {};
 
+		virtual void* GetHandle() = 0;
 		virtual u32 GetCurrentWidth() = 0;
 		virtual u32 GetCurrentHeight() = 0;
 		virtual const char* GetName() = 0;

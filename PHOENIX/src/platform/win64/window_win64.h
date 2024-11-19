@@ -1,8 +1,9 @@
 #pragma once
 
-struct GLFWwindow;
-
 #include "PHX/interface/window.h"
+
+// Forward declarations
+struct GLFWwindow;
 
 namespace PHX
 {
@@ -17,6 +18,7 @@ namespace PHX
 		bool InFocus() override;
 		bool ShouldClose() override;
 
+		void* GetHandle() override;
 		u32 GetCurrentWidth() override;
 		u32 GetCurrentHeight() override;
 		const char* GetName() override;
