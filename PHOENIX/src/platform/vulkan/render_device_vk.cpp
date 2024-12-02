@@ -1,23 +1,17 @@
 
 #include <set>
-//#include <string>
 #include <vector>
 
 #include "render_device_vk.h"
 
-#include "../utils/logger.h"
-#include "../utils/sanity.h"
+#include "../../utils/logger.h"
+#include "../../utils/sanity.h"
 #include "swap_chain_vk.h"
 #include "utils/queue_family_indices.h"
 #include "utils/swap_chain_helpers.h"
 
 namespace PHX
 {
-	static const std::vector<const char*> validationLayers =
-	{
-		"VK_LAYER_KHRONOS_validation"
-	};
-
 	static const std::vector<const char*> deviceExtensions =
 	{
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -38,36 +32,6 @@ namespace PHX
 
 	//	return extensions;
 	//}
-
-	static bool CheckValidationLayerSupport()
-	{
-		u32 layerCount;
-		vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-		std::vector<VkLayerProperties> availableLayers(layerCount);
-		vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-		for (const char* layerName : validationLayers)
-		{
-			bool layerFound = false;
-
-			for (const auto& layerProperties : availableLayers)
-			{
-				if (strcmp(layerName, layerProperties.layerName) == 0)
-				{
-					layerFound = true;
-					break;
-				}
-			}
-
-			if (!layerFound)
-			{
-				return false;
-			}
-		}
-
-		return true;
-	}
 
 	static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
 	{
@@ -110,7 +74,7 @@ namespace PHX
 		//const IWindow* window = dynamic_cast<SwapChainVk*>(ci.window);
 		//ASSERT_PTR(swapChainVk);
 		const bool enableValidation = ci.validationLayerCount > 0;
-		const VkSurfaceKHR surface = nullptr;// swapChainVk->GetSurface();
+		//const VkSurfaceKHR surface = nullptr;// swapChainVk->GetSurface();
 
 		CreateVkInstance(enableValidation);
 		CreatePhysicalDevice(surface);
@@ -148,11 +112,6 @@ namespace PHX
 		return true;
 	}
 
-	VkInstance RenderDeviceVk::GetInstance() const
-	{
-		return m_vkInstance;
-	}
-
 	VkDevice RenderDeviceVk::GetLogicalDevice() const
 	{
 		return m_logicalDevice;
@@ -161,53 +120,6 @@ namespace PHX
 	VkPhysicalDevice RenderDeviceVk::GetPhysicalDevice() const 
 	{
 		return m_physicalDevice;
-	}
-
-	void RenderDeviceVk::CreateVkInstance(bool enableValidation)
-	{
-		// Check that we support all requested validation layers
-		if (enableValidation && !CheckValidationLayerSupport())
-		{
-			LogError("Validation layers were requested, but one or more is not supported!");
-		}
-
-		VkApplicationInfo appInfo{};
-		appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-		appInfo.pApplicationName = "PHOENIX";
-		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.pEngineName = "No Engine";
-		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_0;
-
-		VkInstanceCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-		createInfo.pApplicationInfo = &appInfo;
-
-		VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo{};
-		if (enableValidation)
-		{
-			createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-			createInfo.ppEnabledLayerNames = validationLayers.data();
-
-			//PopulateDebugMessengerCreateInfo(debugCreateInfo);
-			createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
-		}
-		else
-		{
-			createInfo.enabledLayerCount = 0;
-			createInfo.pNext = nullptr;
-		}
-
-		std::vector<const char*> extensions; //= GetRequiredExtensions();
-
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
-		createInfo.ppEnabledExtensionNames = extensions.data();
-		createInfo.enabledLayerCount = 0;
-
-		if (vkCreateInstance(&createInfo, nullptr, &m_vkInstance) != VK_SUCCESS)
-		{
-			ASSERT_ALWAYS("Failed to create Vulkan instance!");
-		}
 	}
 
 	void RenderDeviceVk::CreatePhysicalDevice(VkSurfaceKHR surface)

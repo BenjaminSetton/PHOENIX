@@ -1,10 +1,15 @@
 
-#include "PHX/factory/object_factory.h"
+#include "object_factory.h"
 
+#include "../platform/vulkan/core/instance_vk.h"
+#include "../platform/vulkan/core/surface_vk.h"
 #include "../platform/vulkan/render_device_vk.h"
 #include "../platform/vulkan/swap_chain_vk.h"
 #include "../utils/logger.h"
 #include "../utils/sanity.h"
+#include "PHX/interface/render_device.h"
+#include "PHX/interface/swap_chain.h"
+#include "PHX/interface/window.h"
 
 #if defined(PHX_WINDOWS)
 #include "../platform/win64/window_win64.h"
@@ -14,25 +19,49 @@
 
 namespace PHX
 {
-	void ObjectFactory::SelectGraphicsAPI(GRAPHICS_API api)
+	namespace OBJ_FACTORY
 	{
-		m_selectedAPI = api;
-	}
-
-	std::shared_ptr<IWindow> ObjectFactory::CreateWindow(const WindowCreateInfo& createInfo)
-	{
-#if defined(PHX_WINDOWS)
-		return std::make_shared<WindowWin64>(createInfo);
-#else
-#    error Invalid platform!
-#endif
-	}
-
-	std::shared_ptr<IRenderDevice> ObjectFactory::CreateRenderDevice(const RenderDeviceCreateInfo& createInfo)
-	{
-		if (m_selectedAPI != GRAPHICS_API::INVALID)
+		std::shared_ptr<IWindow> CreateWindow(const WindowCreateInfo& createInfo)
 		{
-			switch (m_selectedAPI)
+	#if defined(PHX_WINDOWS)
+			return std::make_shared<WindowWin64>(createInfo);
+	#else
+	#    error Invalid platform!
+	#endif
+		}
+
+		static STATUS_CODE CreateCoreObjects(GRAPHICS_API api, IWindow* pWindow)
+		{
+			switch (api)
+			{
+			case GRAPHICS_API::VULKAN:
+			{
+				InstanceVk* instance = new InstanceVk(true);
+				SurfaceVk* surface = new SurfaceVk(instance->GetInstance(), pWindow);
+				TODO();
+				break;
+			}
+			case GRAPHICS_API::OPENGL:
+			{
+				TODO();
+				break;
+			}
+			case GRAPHICS_API::DX11:
+			{
+				TODO();
+				break;
+			}
+			case GRAPHICS_API::DX12:
+			{
+				TODO();
+				break;
+			}
+			}
+		}
+
+		std::shared_ptr<IRenderDevice> CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, GRAPHICS_API api)
+		{
+			switch (api)
 			{
 			case GRAPHICS_API::VULKAN:
 			{
@@ -43,26 +72,24 @@ namespace PHX
 				TODO();
 				break;
 			}
-			case GRAPHICS_API::DIRECTX:
+			case GRAPHICS_API::DX11:
+			{
+				TODO();
+				break;
+			}
+			case GRAPHICS_API::DX12:
 			{
 				TODO();
 				break;
 			}
 			}
-		}
-		else
-		{
-			LogError("Failed to create render device. A graphics API has not been selected!");
+
+			return nullptr;
 		}
 
-		return nullptr;
-	}
-
-	std::shared_ptr<ISwapChain> ObjectFactory::CreateSwapChain(const SwapChainCreateInfo& createInfo)
-	{
-		if (m_selectedAPI != GRAPHICS_API::INVALID)
+		std::shared_ptr<ISwapChain> CreateSwapChain(const SwapChainCreateInfo& createInfo, GRAPHICS_API api)
 		{
-			switch (m_selectedAPI)
+			switch (api)
 			{
 			case GRAPHICS_API::VULKAN:
 			{
@@ -73,22 +100,19 @@ namespace PHX
 				TODO();
 				break;
 			}
-			case GRAPHICS_API::DIRECTX:
+			case GRAPHICS_API::DX11:
+			{
+				TODO();
+				break;
+			}
+			case GRAPHICS_API::DX12:
 			{
 				TODO();
 				break;
 			}
 			}
-		}
-		else
-		{
-			LogError("Failed to create swap chain. A graphics API has not been selected!");
-		}
 
-		return nullptr;
-	}
-
-	ObjectFactory::ObjectFactory() : m_selectedAPI(GRAPHICS_API::INVALID)
-	{
+			return nullptr;
+		}
 	}
 }

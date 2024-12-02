@@ -10,10 +10,9 @@ namespace PHX
 	{
 	public:
 
-		SwapChainVk(const SwapChainCreateInfo& createInfo);
+		explicit SwapChainVk(const SwapChainCreateInfo& createInfo, VkSurfaceKHR surface);
 		~SwapChainVk();
 
-		VkSurfaceKHR GetSurface() const;
 		VkSwapchainKHR GetSwapChain() const;
 		VkFormat GetSwapChainFormat() const;
 		u32 GetCurrentWidth() const;
@@ -23,13 +22,11 @@ namespace PHX
 
 	private:
 
-		void CreateSurface(VkInstance vkInstance, IWindow* windowInterface);
-		void CreateSwapChain(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, u32 width, u32 height, bool enableVSync);
+		void CreateSwapChain(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, u32 width, u32 height, bool enableVSync);
 		void CreateSwapChainImageViews(VkDevice logicalDevice, u32 imageCount, VkFormat imageFormat);
 
 	private:
 
-		VkSurfaceKHR m_surface;
 		VkSwapchainKHR m_swapChain;
 		VkFormat m_format;
 		u32 m_width;

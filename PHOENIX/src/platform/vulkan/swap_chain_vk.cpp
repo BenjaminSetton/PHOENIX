@@ -11,14 +11,6 @@
 #include "utils/queue_family_indices.h"
 #include "utils/swap_chain_helpers.h"
 
-#if defined(PHX_WINDOWS)
-#include "../win64/window_win64.h"
-#include <windows.h>
-#include <vulkan/vulkan_win32.h>
-#else
-#error Platform is not supported!
-#endif
-
 namespace PHX
 {
 	static VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
@@ -97,7 +89,7 @@ namespace PHX
 		}
 	}
 
-	SwapChainVk::SwapChainVk(const SwapChainCreateInfo& createInfo)
+	SwapChainVk::SwapChainVk(const SwapChainCreateInfo& createInfo, VkSurfaceKHR surface)
 	{
 		if (createInfo.renderDevice != nullptr)
 		{
@@ -116,19 +108,12 @@ namespace PHX
 		VkDevice logicalDevice = renderDevice->GetLogicalDevice();
 		VkPhysicalDevice physicalDevice = renderDevice->GetPhysicalDevice();
 
-		CreateSurface(vkInstance, createInfo.window);
-		CreateSwapChain(logicalDevice, physicalDevice, createInfo.width, createInfo.height, createInfo.enableVSync);
-		
+		CreateSwapChain(logicalDevice, physicalDevice, surface, createInfo.width, createInfo.height, createInfo.enableVSync);
 	}
 
 	SwapChainVk::~SwapChainVk()
 	{
 		TODO();
-	}
-
-	VkSurfaceKHR SwapChainVk::GetSurface() const
-	{
-		return m_surface;
 	}
 
 	VkSwapchainKHR SwapChainVk::GetSwapChain() const
@@ -165,25 +150,9 @@ namespace PHX
 		return VK_NULL_HANDLE;
 	}
 
-	void SwapChainVk::CreateSurface(VkInstance vkInstance, IWindow* windowInterface)
+	void SwapChainVk::CreateSwapChain(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, u32 width, u32 height, bool enableVSync)
 	{
-#if defined(PHX_WINDOWS)
-		WindowWin64* windowWin64 = dynamic_cast<WindowWin64*>(windowInterface);
-		if (windowWin64 != nullptr)
-		{
-			VkWin32SurfaceCreateInfoKHR surfaceCreateInfo{};
-			surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-			surfaceCreateInfo.hinstance = GetModuleHandle(NULL);
-			surfaceCreateInfo.hwnd = reinterpret_cast<HWND>(windowWin64->GetHandle());
-
-			vkCreateWin32SurfaceKHR(vkInstance, &surfaceCreateInfo, nullptr, &m_surface);
-		}
-#endif
-	}
-
-	void SwapChainVk::CreateSwapChain(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, u32 width, u32 height, bool enableVSync)
-	{
-		SwapChainSupportDetails details = QuerySwapChainSupport(physicalDevice, m_surface);
+		SwapChainSupportDetails details = QuerySwapChainSupport(physicalDevice, surface);
 		VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(details.formats);
 		VkPresentModeKHR presentMode = ChooseSwapPresentMode(details.presentModes, enableVSync);
 		VkExtent2D extent = ChooseSwapChainExtent(details.capabilities, width, height);
@@ -196,7 +165,7 @@ namespace PHX
 
 		VkSwapchainCreateInfoKHR createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-		createInfo.surface = m_surface;
+		createInfo.surface = surface;
 		createInfo.minImageCount = imageCount;
 		createInfo.imageFormat = surfaceFormat.format;
 		createInfo.imageColorSpace = surfaceFormat.colorSpace;
@@ -204,7 +173,7 @@ namespace PHX
 		createInfo.imageArrayLayers = 1;
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-		QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, m_surface);
+		QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
 		uint32_t queueFamilyIndices[2] = { indices.GetIndex(QUEUE_TYPE::GRAPHICS), indices.GetIndex(QUEUE_TYPE::PRESENT) };
 
 		if (queueFamilyIndices[0] != queueFamilyIndices[1])

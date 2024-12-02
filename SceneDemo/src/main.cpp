@@ -9,18 +9,33 @@ int main(int argc, char** argv)
 	(void)argc;
 	(void)argv;
 
-	ObjectFactory& factory = ObjectFactory::Get();
-	factory.SelectGraphicsAPI(PHX::GRAPHICS_API::VULKAN);
-
 	// WINDOW
 	WindowCreateInfo windowCI{};
-	std::shared_ptr<IWindow> pWindow = factory.CreateWindow(windowCI);
+	if (CreateWindow(windowCI) != STATUS_CODE::SUCCESS)
+	{
+		// Failed to create window
+		return -1;
+	}
+
+	auto pWindow = GetWindow();
+
+	// CORE GRAPHICS
+	if (InitializeGraphics(GRAPHICS_API::VULKAN) != STATUS_CODE::SUCCESS)
+	{
+		// Failed to initialize graphics
+		return -1;
+	}
 
 	// RENDER DEVICE
 	RenderDeviceCreateInfo renderDeviceCI{};
-	renderDeviceCI.window = pWindow.get();
-	std::shared_ptr<IRenderDevice> pRenderDevice = factory.CreateRenderDevice(renderDeviceCI);
-	pRenderDevice->AllocateBuffer();
+	renderDeviceCI.window = GetWindow().get();
+	if (CreateRenderDevice(renderDeviceCI) != STATUS_CODE::SUCCESS)
+	{
+		// Failed to create render device
+		return -1;
+	}
+
+	auto pRenderDevice = GetRenderDevice();
 
 	// SWAP CHAIN
 	SwapChainCreateInfo swapChainCI{};
@@ -29,7 +44,13 @@ int main(int argc, char** argv)
 	swapChainCI.height = pWindow->GetCurrentHeight();
 	swapChainCI.renderDevice = pRenderDevice.get();
 	swapChainCI.window = pWindow.get();
-	std::shared_ptr<ISwapChain> pSwapChain = factory.CreateSwapChain(swapChainCI);
+	if (CreateSwapChain(swapChainCI) != STATUS_CODE::SUCCESS)
+	{
+		// Failed to create swap chain
+		return -1;
+	}
+
+	auto pSwapChain = GetSwapChain();
 
 	int i = 0;
 	while (!pWindow->ShouldClose())

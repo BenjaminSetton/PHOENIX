@@ -20,7 +20,6 @@ namespace PHX
 		bool AllocateTexture() override;
 		bool AllocateShader() override;
 
-		VkInstance GetInstance() const;
 		VkDevice GetLogicalDevice() const;
 		VkPhysicalDevice GetPhysicalDevice() const;
 
@@ -32,7 +31,6 @@ namespace PHX
 
 	private:
 
-		VkInstance m_vkInstance;
 		VkDevice m_logicalDevice;
 		VkPhysicalDevice m_physicalDevice;
 		std::unordered_map<QUEUE_TYPE, VkQueue> m_queues;
