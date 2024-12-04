@@ -1,7 +1,7 @@
 
 #include "swap_chain_helpers.h"
 
-#include "PHX/types/basic_types.h"
+#include "PHX/types/integral_types.h"
 
 namespace PHX
 {

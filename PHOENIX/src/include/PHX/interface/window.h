@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../types/basic_types.h"
+#include "../types/integral_types.h"
 
 namespace PHX
 {
@@ -30,14 +30,14 @@ namespace PHX
 
 		virtual ~IWindow() {};
 
-		virtual void* GetHandle() = 0;
-		virtual u32 GetCurrentWidth() = 0;
-		virtual u32 GetCurrentHeight() = 0;
-		virtual const char* GetName() = 0;
+		virtual void* GetNativeHandle() const = 0;
+		virtual u32 GetCurrentWidth() const = 0;
+		virtual u32 GetCurrentHeight() const = 0;
+		virtual const char* GetName() const = 0;
 
 		virtual void Update(float deltaTime) = 0;
-		virtual bool InFocus() = 0;
-		virtual bool ShouldClose() = 0;
+		virtual bool InFocus() const = 0;
+		virtual bool ShouldClose() const = 0;
 
 		virtual void SetWindowTitle(const char* format, ...) = 0;
 	};

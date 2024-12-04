@@ -6,6 +6,7 @@
 #include "../../utils/logger.h"
 #include "../../utils/math.h"
 #include "../../utils/sanity.h"
+#include "core_vk.h"
 #include "PHX/types/queue_type.h"
 #include "render_device_vk.h"
 #include "utils/queue_family_indices.h"
@@ -89,26 +90,25 @@ namespace PHX
 		}
 	}
 
-	SwapChainVk::SwapChainVk(const SwapChainCreateInfo& createInfo, VkSurfaceKHR surface)
+	SwapChainVk::SwapChainVk(const SwapChainCreateInfo& createInfo)
 	{
-		if (createInfo.renderDevice != nullptr)
+		if (createInfo.renderDevice == nullptr)
 		{
 			LogError("Render device pointer is null. Failed to create swap chain!");
 			return;
 		}
 
-		if (createInfo.window != nullptr)
+		if (createInfo.window == nullptr)
 		{
 			LogError("Window pointer is null. Failed to create swap chain!");
 			return;
 		}
 
 		RenderDeviceVk* renderDevice = dynamic_cast<RenderDeviceVk*>(createInfo.renderDevice);
-		VkInstance vkInstance = renderDevice->GetInstance();
 		VkDevice logicalDevice = renderDevice->GetLogicalDevice();
 		VkPhysicalDevice physicalDevice = renderDevice->GetPhysicalDevice();
 
-		CreateSwapChain(logicalDevice, physicalDevice, surface, createInfo.width, createInfo.height, createInfo.enableVSync);
+		CreateSwapChain(logicalDevice, physicalDevice, createInfo.width, createInfo.height, createInfo.enableVSync);
 	}
 
 	SwapChainVk::~SwapChainVk()
@@ -150,8 +150,10 @@ namespace PHX
 		return VK_NULL_HANDLE;
 	}
 
-	void SwapChainVk::CreateSwapChain(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, u32 width, u32 height, bool enableVSync)
+	STATUS_CODE SwapChainVk::CreateSwapChain(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, u32 width, u32 height, bool enableVSync)
 	{
+		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
+
 		SwapChainSupportDetails details = QuerySwapChainSupport(physicalDevice, surface);
 		VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(details.formats);
 		VkPresentModeKHR presentMode = ChooseSwapPresentMode(details.presentModes, enableVSync);
@@ -197,25 +199,30 @@ namespace PHX
 
 		if (vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &m_swapChain) != VK_SUCCESS)
 		{
-			ASSERT_ALWAYS("Failed to create swap chain!");
+			LogError("Failed to create swap chain!");
+			return STATUS_CODE::ERR;
 		}
 
 		// Get the number of images, then we use the count to create the image views below
-		vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, nullptr);
+		if (vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, nullptr) != VK_SUCCESS)
+		{
+			LogError("Failed to get swapchain images!");
+			return STATUS_CODE::ERR;
+		}
 
 		m_format = surfaceFormat.format;
 		m_width = extent.width;
 		m_height = extent.height;
 
-		CreateSwapChainImageViews(logicalDevice, imageCount, surfaceFormat.format);
+		return CreateSwapChainImageViews(logicalDevice, imageCount, surfaceFormat.format);
 	}
 
-	void SwapChainVk::CreateSwapChainImageViews(VkDevice logicalDevice, u32 imageCount, VkFormat imageFormat)
+	STATUS_CODE SwapChainVk::CreateSwapChainImageViews(VkDevice logicalDevice, u32 imageCount, VkFormat imageFormat)
 	{
 		std::vector<VkImage> swapChainImages(imageCount);
 		vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, swapChainImages.data());
 
-		m_imageViews.reserve(imageCount);
+		m_imageViews.resize(imageCount);
 
 		VkImageViewCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -232,9 +239,12 @@ namespace PHX
 			createInfo.image = swapChainImages[i];
 			if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &m_imageViews[i]) != VK_SUCCESS)
 			{
-				ASSERT_ALWAYS("Failed to create one or more swap chain image views!");
+				LogError("Failed to create one or more swap chain image views!");
+				return STATUS_CODE::ERR;
 			}
 		}
+
+		return STATUS_CODE::SUCCESS;
 	}
 
 }

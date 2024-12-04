@@ -1,6 +1,6 @@
 #pragma once
 
-#include "basic_types.h"
+#include "integral_types.h"
 
 namespace PHX
 {

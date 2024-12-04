@@ -3,7 +3,7 @@
 #include <vulkan/vulkan.h>
 #include <unordered_map>
 
-#include "PHX/types/basic_types.h"
+#include "PHX/types/integral_types.h"
 #include "PHX/types/queue_type.h"
 
 namespace PHX

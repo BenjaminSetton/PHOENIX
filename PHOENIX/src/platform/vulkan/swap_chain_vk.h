@@ -3,6 +3,7 @@
 #include <vulkan/vulkan.h>
 
 #include "PHX/interface/swap_chain.h"
+#include "PHX/types/status_code.h"
 
 namespace PHX
 {
@@ -10,7 +11,7 @@ namespace PHX
 	{
 	public:
 
-		explicit SwapChainVk(const SwapChainCreateInfo& createInfo, VkSurfaceKHR surface);
+		explicit SwapChainVk(const SwapChainCreateInfo& createInfo);
 		~SwapChainVk();
 
 		VkSwapchainKHR GetSwapChain() const;
@@ -22,8 +23,8 @@ namespace PHX
 
 	private:
 
-		void CreateSwapChain(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, u32 width, u32 height, bool enableVSync);
-		void CreateSwapChainImageViews(VkDevice logicalDevice, u32 imageCount, VkFormat imageFormat);
+		STATUS_CODE CreateSwapChain(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, u32 width, u32 height, bool enableVSync);
+		STATUS_CODE CreateSwapChainImageViews(VkDevice logicalDevice, u32 imageCount, VkFormat imageFormat);
 
 	private:
 

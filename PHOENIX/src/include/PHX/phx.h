@@ -1,6 +1,8 @@
 #pragma once
 
-#include "types/basic_types.h"
+#include <memory>
+
+#include "types/integral_types.h"
 #include "types/graphics_api.h"
 #include "types/status_code.h"
 

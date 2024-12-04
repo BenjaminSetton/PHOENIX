@@ -5,6 +5,7 @@
 
 #include "PHX/interface/render_device.h"
 #include "PHX/types/queue_type.h"
+#include "PHX/types/status_code.h"
 
 namespace PHX
 {
@@ -25,9 +26,8 @@ namespace PHX
 
 	private:
 
-		void CreateVkInstance(bool enableValidation);
-		void CreatePhysicalDevice(VkSurfaceKHR surface);
-		void CreateLogicalDevice(bool enableValidation, VkSurfaceKHR surface);
+		STATUS_CODE CreatePhysicalDevice(VkSurfaceKHR surface);
+		STATUS_CODE CreateLogicalDevice(VkSurfaceKHR surface);
 
 	private:
 
@@ -35,5 +35,9 @@ namespace PHX
 		VkPhysicalDevice m_physicalDevice;
 		std::unordered_map<QUEUE_TYPE, VkQueue> m_queues;
 
+		// Physical device cache
+		VkPhysicalDeviceProperties physicalDeviceProperties;
+		VkPhysicalDeviceFeatures physicalDeviceFeatures;
+		VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
 	};
 }

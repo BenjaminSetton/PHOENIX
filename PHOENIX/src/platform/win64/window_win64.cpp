@@ -2,14 +2,17 @@
 #include <stdio.h> // vsprintf_s
 #include <stdarg.h> // va_start, va_end
 
-// This include must come before the GLFW includes below because those define a "max" macro
-// which messes with how the max values of PHX types are calculated
-#include "window_win64.h"
-
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <glfw/glfw3.h> // GLFWwindow
 #include <glfw/glfw3native.h>
 #undef GLFW_EXPOSE_NATIVE_WIN32
+
+// These macros are defined from GLFW somewhere and they interfere
+// with std::numeric_limits<type>::min/max() from integral_types.h
+#undef min
+#undef max
+
+#include "window_win64.h"
 
 #include "../../utils/logger.h"
 #include "../../utils/sanity.h"
@@ -120,38 +123,38 @@ namespace PHX
 		m_handle = nullptr;
 	}
 
+	void* WindowWin64::GetNativeHandle() const
+	{
+		return glfwGetWin32Window(m_handle);
+	}
+
 	void WindowWin64::Update(float deltaTime)
 	{
 		UNUSED(deltaTime);
 		glfwPollEvents();
 	}
 
-	bool WindowWin64::InFocus()
+	bool WindowWin64::InFocus() const
 	{
 		return m_inFocus;
 	}
 
-	bool WindowWin64::ShouldClose()
+	bool WindowWin64::ShouldClose() const
 	{
 		return glfwWindowShouldClose(m_handle);
 	}
 
-	void* WindowWin64::GetHandle()
-	{
-		return reinterpret_cast<void*>(glfwGetWin32Window(m_handle));
-	}
-
-	u32 WindowWin64::GetCurrentWidth()
+	u32 WindowWin64::GetCurrentWidth() const
 	{
 		return m_width;
 	}
 
-	u32 WindowWin64::GetCurrentHeight()
+	u32 WindowWin64::GetCurrentHeight() const
 	{
 		return m_height;
 	}
 
-	const char* WindowWin64::GetName()
+	const char* WindowWin64::GetName() const
 	{
 		return m_title;
 	}

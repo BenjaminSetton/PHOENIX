@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../types/basic_types.h"
+#include "../types/integral_types.h"
 
 namespace PHX
 {
@@ -11,10 +11,6 @@ namespace PHX
 
 	struct RenderDeviceCreateInfo
 	{
-		const char* applicationName					= nullptr;
-		const char* engineName						= nullptr;
-		const char** validationLayerNames			= nullptr;
-		u32 validationLayerCount					= 0;
 		DebugMessageCallbackFn debugMessageCallback = nullptr;
 		IWindow* window								= nullptr;
 	};

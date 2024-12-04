@@ -14,14 +14,15 @@ namespace PHX
 		explicit WindowWin64(const WindowCreateInfo& createInfo);
 		~WindowWin64();
 
-		void Update(float deltaTime) override;
-		bool InFocus() override;
-		bool ShouldClose() override;
+		void* GetNativeHandle() const;
 
-		void* GetHandle() override;
-		u32 GetCurrentWidth() override;
-		u32 GetCurrentHeight() override;
-		const char* GetName() override;
+		void Update(float deltaTime) override;
+		bool InFocus() const override;
+		bool ShouldClose() const override;
+
+		u32 GetCurrentWidth() const override;
+		u32 GetCurrentHeight() const override;
+		const char* GetName() const override;
 		fp_onWindowResized GetWindowResizedCallback() const;
 		fp_onWindowFocusChanged GetWindowFocusChangedCallback() const;
 
@@ -38,6 +39,5 @@ namespace PHX
 		fp_onWindowFocusChanged m_windowFocusChangedCallback;
 
 		GLFWwindow* m_handle;
-
 	};
 }

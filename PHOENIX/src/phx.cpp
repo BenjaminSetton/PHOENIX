@@ -26,12 +26,22 @@ namespace PHX
 
 	STATUS_CODE InitializeGraphics(GRAPHICS_API api)
 	{
-		STATUS_CODE coreObjStatus = OBJ_FACTORY::CreateCoreObjects(api);
+		if (g_Data.m_pWindow.get() == nullptr)
+		{
+			LogError("Failed to initialize graphics. Window hasn't been initialized yet!");
+			return STATUS_CODE::ERR;
+		}
+
+		STATUS_CODE coreObjStatus = OBJ_FACTORY::CreateCoreObjects(api, g_Data.m_pWindow);
+		if (coreObjStatus != STATUS_CODE::SUCCESS)
+		{
+			return coreObjStatus;
+		}
 
 		g_Data.m_isInitialized = true;
 		g_Data.m_selectedAPI = api;
 
-		return coreObjStatus;
+		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo)
@@ -39,7 +49,7 @@ namespace PHX
 		if (!g_Data.m_isInitialized)
 		{
 			LogError("Failed to create render device. Graphics has not been initialized through InitializeGraphics()!");
-			return STATUS_CODE::ERROR;
+			return STATUS_CODE::ERR;
 		}
 
 		auto pRenderDevice = OBJ_FACTORY::CreateRenderDevice(createInfo, g_Data.m_selectedAPI);
@@ -54,7 +64,7 @@ namespace PHX
 		if (!g_Data.m_isInitialized)
 		{
 			LogError("Failed to create swap chain. Graphics has not been initialized through InitializeGraphics()!");
-			return STATUS_CODE::ERROR;
+			return STATUS_CODE::ERR;
 		}
 
 		auto pSwapChain = OBJ_FACTORY::CreateSwapChain(createInfo, g_Data.m_selectedAPI);

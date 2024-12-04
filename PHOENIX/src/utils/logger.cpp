@@ -5,7 +5,7 @@
 
 #include "logger.h"
 
-#include "PHX/types/basic_types.h"
+#include "PHX/types/integral_types.h"
 
 #define LOG_FORMAT_CODE(logType) \
 	char buffer[MAX_BUFFER_SIZE_BYTES]; \

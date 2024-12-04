@@ -1,20 +1,17 @@
 
 #include "object_factory.h"
 
-#include "../platform/vulkan/core/instance_vk.h"
-#include "../platform/vulkan/core/surface_vk.h"
+#include "../platform/vulkan/core_vk.h"
 #include "../platform/vulkan/render_device_vk.h"
 #include "../platform/vulkan/swap_chain_vk.h"
+
 #include "../utils/logger.h"
 #include "../utils/sanity.h"
-#include "PHX/interface/render_device.h"
-#include "PHX/interface/swap_chain.h"
-#include "PHX/interface/window.h"
 
 #if defined(PHX_WINDOWS)
 #include "../platform/win64/window_win64.h"
 #else
-#    error Invalid platform!
+#error Invalid platform!
 #endif
 
 namespace PHX
@@ -30,16 +27,20 @@ namespace PHX
 	#endif
 		}
 
-		static STATUS_CODE CreateCoreObjects(GRAPHICS_API api, IWindow* pWindow)
+		STATUS_CODE CreateCoreObjects(GRAPHICS_API api, std::shared_ptr<IWindow> pWindow)
 		{
 			switch (api)
 			{
 			case GRAPHICS_API::VULKAN:
 			{
-				InstanceVk* instance = new InstanceVk(true);
-				SurfaceVk* surface = new SurfaceVk(instance->GetInstance(), pWindow);
-				TODO();
-				break;
+				// Only enable validation in debug builds. Later on we'll want to
+				// expose this as an option to the user
+#if defined(PHX_DEBUG)
+				bool enableValidation = true;
+#else
+				bool enableValidation = false;
+#endif
+				return CoreVk::Get().Initialize(enableValidation, pWindow);
 			}
 			case GRAPHICS_API::OPENGL:
 			{
@@ -57,6 +58,9 @@ namespace PHX
 				break;
 			}
 			}
+
+			// Nothing was created
+			return STATUS_CODE::ERR;
 		}
 
 		std::shared_ptr<IRenderDevice> CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, GRAPHICS_API api)

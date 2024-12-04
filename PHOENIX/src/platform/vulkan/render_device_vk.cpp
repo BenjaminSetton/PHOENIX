@@ -1,11 +1,13 @@
 
 #include <set>
+#include <string>
 #include <vector>
 
 #include "render_device_vk.h"
 
 #include "../../utils/logger.h"
 #include "../../utils/sanity.h"
+#include "core_vk.h"
 #include "swap_chain_vk.h"
 #include "utils/queue_family_indices.h"
 #include "utils/swap_chain_helpers.h"
@@ -17,22 +19,6 @@ namespace PHX
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
 	};
 
-	//static std::vector<const char*> GetRequiredExtensions()
-	//{
-	//	u32 glfwExtensionCount = 0;
-	//	const char** glfwExtensions;
-	//	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-	//	std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-	//	if (enableValidationLayers)
-	//	{
-	//		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	//	}
-
-	//	return extensions;
-	//}
-
 	static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
 	{
 		u32 extensionCount;
@@ -41,7 +27,9 @@ namespace PHX
 		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-		std::set<const char*> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+		// Must be std::string so comparisons in erase() below work correctly
+		std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
 		for (const auto& extension : availableExtensions)
 		{
 			requiredExtensions.erase(extension.extensionName);
@@ -69,18 +57,20 @@ namespace PHX
 
 	//-----------------------------------------------------------------------------------//
 
-	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_vkInstance(VK_NULL_HANDLE), m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE)
+	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
+		physicalDeviceProperties(), physicalDeviceFeatures(), physicalDeviceMemoryProperties()
 	{
-		//const IWindow* window = dynamic_cast<SwapChainVk*>(ci.window);
-		//ASSERT_PTR(swapChainVk);
-		const bool enableValidation = ci.validationLayerCount > 0;
-		//const VkSurfaceKHR surface = nullptr;// swapChainVk->GetSurface();
+		UNUSED(ci);
 
-		CreateVkInstance(enableValidation);
-		CreatePhysicalDevice(surface);
-		CreateLogicalDevice(enableValidation, surface);
+		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
 
-		LogInfo("Constructed Vk device!");
+		STATUS_CODE physicalRes = CreatePhysicalDevice(surface);
+		STATUS_CODE logicalRes = CreateLogicalDevice(surface);
+
+		if (physicalRes == STATUS_CODE::SUCCESS && logicalRes == STATUS_CODE::SUCCESS)
+		{
+			LogInfo("Successfully constructed Vk device!");
+		}
 	}
 
 	RenderDeviceVk::~RenderDeviceVk()
@@ -122,10 +112,12 @@ namespace PHX
 		return m_physicalDevice;
 	}
 
-	void RenderDeviceVk::CreatePhysicalDevice(VkSurfaceKHR surface)
+	STATUS_CODE RenderDeviceVk::CreatePhysicalDevice(VkSurfaceKHR surface)
 	{
+		VkInstance instance = CoreVk::Get().GetInstance();
+
 		u32 deviceCount = 0;
-		vkEnumeratePhysicalDevices(m_vkInstance, &deviceCount, nullptr);
+		vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
 
 		if (deviceCount == 0)
 		{
@@ -133,23 +125,27 @@ namespace PHX
 		}
 
 		std::vector<VkPhysicalDevice> devices(deviceCount);
-		vkEnumeratePhysicalDevices(m_vkInstance, &deviceCount, devices.data());
+		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
 		for (const auto& device : devices)
 		{
 			if (IsDeviceSuitable(device, surface))
 			{
-				//LogInfo("Using physical device: '%s'", DeviceCache::Get().GetPhysicalDeviceProperties().deviceName);
-				LogInfo("Found suitable physical device with Vulkan support!");
+				vkGetPhysicalDeviceProperties(device, &physicalDeviceProperties);
+				vkGetPhysicalDeviceFeatures(device, &physicalDeviceFeatures);
+				vkGetPhysicalDeviceMemoryProperties(device, &physicalDeviceMemoryProperties);
+
+				LogInfo("Using physical device: '%s'", physicalDeviceProperties.deviceName);
 				m_physicalDevice = device;
-				return;
+				return STATUS_CODE::SUCCESS;
 			}
 		}
 
-		ASSERT_ALWAYS("Failed to find a suitable physical device!");
+		LogError("Failed to find a suitable physical device!");
+		return STATUS_CODE::ERR;
 	}
 
-	void RenderDeviceVk::CreateLogicalDevice(bool enableValidation, VkSurfaceKHR surface)
+	STATUS_CODE RenderDeviceVk::CreateLogicalDevice(VkSurfaceKHR surface)
 	{
 		VkPhysicalDevice physicalDevice = GetPhysicalDevice();
 
@@ -157,7 +153,7 @@ namespace PHX
 		if (!indices.IsComplete())
 		{
 			LogError("Failed to create logical device because the queue family indices are incomplete!");
-			return;
+			return STATUS_CODE::ERR;
 		}
 
 		LogInfo("Selected graphics queue from queue family at index %u", indices.GetIndex(QUEUE_TYPE::GRAPHICS));
@@ -196,22 +192,10 @@ namespace PHX
 		createInfo.pEnabledFeatures = &deviceFeatures;
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
 		createInfo.ppEnabledExtensionNames = deviceExtensions.data();
-
-		if (enableValidation)
-		{
-			// We get a warning about using deprecated and ignored 'ppEnabledLayerNames', so I've commented these out.
-			// It looks like validation layers work regardless...somehow...
-			//createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
-			//createInfo.ppEnabledLayerNames = validationLayers.data();
-		}
-		else
-		{
-			createInfo.enabledLayerCount = 0;
-		}
-
 		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &m_logicalDevice) != VK_SUCCESS)
 		{
-			ASSERT_ALWAYS("Failed to create the logical device!");
+			LogError("Failed to create the logical device!");
+			return STATUS_CODE::ERR;
 		}
 
 		// Get the queues from the logical device
@@ -219,6 +203,8 @@ namespace PHX
 		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::COMPUTE ), 0, &m_queues[QUEUE_TYPE::COMPUTE ]);
 		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::TRANSFER), 0, &m_queues[QUEUE_TYPE::TRANSFER]);
 		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::PRESENT ), 0, &m_queues[QUEUE_TYPE::PRESENT ]);
+
+		return STATUS_CODE::SUCCESS;
 	}
 }
 
