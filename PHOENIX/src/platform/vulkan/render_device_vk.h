@@ -14,12 +14,15 @@ namespace PHX
 	public:
 
 		explicit RenderDeviceVk(const RenderDeviceCreateInfo& ci);
-		~RenderDeviceVk();
+		~RenderDeviceVk() override;
 
-		bool AllocateBuffer() override;
-		bool AllocateCommandBuffer() override;
-		bool AllocateTexture() override;
-		bool AllocateShader() override;
+		const char* GetDeviceName() const;
+
+		STATUS_CODE AllocateBuffer() override;
+		STATUS_CODE AllocateFramebuffer() override;
+		STATUS_CODE AllocateCommandBuffer() override;
+		STATUS_CODE AllocateTexture() override;
+		STATUS_CODE AllocateShader() override;
 
 		VkDevice GetLogicalDevice() const;
 		VkPhysicalDevice GetPhysicalDevice() const;
@@ -29,6 +32,8 @@ namespace PHX
 		STATUS_CODE CreatePhysicalDevice(VkSurfaceKHR surface);
 		STATUS_CODE CreateLogicalDevice(VkSurfaceKHR surface);
 
+		STATUS_CODE AllocateDescriptorPool();
+
 	private:
 
 		VkDevice m_logicalDevice;
@@ -36,8 +41,11 @@ namespace PHX
 		std::unordered_map<QUEUE_TYPE, VkQueue> m_queues;
 
 		// Physical device cache
-		VkPhysicalDeviceProperties physicalDeviceProperties;
-		VkPhysicalDeviceFeatures physicalDeviceFeatures;
-		VkPhysicalDeviceMemoryProperties physicalDeviceMemoryProperties;
+		VkPhysicalDeviceProperties m_physicalDeviceProperties;
+		VkPhysicalDeviceFeatures m_physicalDeviceFeatures;
+		VkPhysicalDeviceMemoryProperties m_physicalDeviceMemoryProperties;
+
+		// Descriptor pool
+		VkDescriptorPool m_descriptorPool;
 	};
 }

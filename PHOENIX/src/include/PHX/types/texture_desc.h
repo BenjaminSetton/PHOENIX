@@ -2,6 +2,46 @@
 
 namespace PHX
 {
+	enum class VIEW_SCOPE
+	{
+		INVALID = 0,
+
+		ENTIRE, // Generates an image view for the entire image, including all mip levels and cubemap faces (in cases where image is a cubemap)
+		PER_MIP	// Generates an image view for every mip level
+	};
+
+	enum class FILTER_MODE
+	{
+		INVALID = 0,
+
+		NEAREST,
+		LINEAR
+	};
+
+	enum class SAMPLER_ADDRESS_MODE
+	{
+		INVALID = 0,
+
+		REPEAT,
+		MIRRORED_REPEAT,
+		CLAMP_TO_EDGE,
+		CLAMP_TO_BORDER,
+		MIRRORED_CLAMP_TO_EDGE
+	};
+
+	enum class VIEW_TYPE
+	{
+		INVALID = 0,
+
+		TYPE_1D,
+		TYPE_2D,
+		TYPE_3D,
+		TYPE_CUBE,
+		TYPE_1D_ARRAY,
+		TYPE_2D_ARRAY,
+		TYPE_CUBE_ARRAY
+	};
+
 	enum class TEXTURE_FORMAT
 	{
 		INVALID = 0,

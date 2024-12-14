@@ -1,0 +1,56 @@
+#pragma once
+
+#include "../types/integral_types.h"
+#include "../types/texture_desc.h"
+
+namespace PHX
+{
+	struct TextureBaseCreateInfo
+	{
+		u32 width             = 0;
+		u32 height            = 0;
+		TEXTURE_FORMAT format = TEXTURE_FORMAT::INVALID;
+		u32 arrayLayers       = 1;
+		u32 mipLevels         = 1;
+		bool generateMips     = false;
+	};
+
+	struct TextureViewCreateInfo
+	{
+		VIEW_TYPE type   = VIEW_TYPE::INVALID;
+		VIEW_SCOPE scope = VIEW_SCOPE::INVALID;
+	};
+
+	struct TextureSamplerCreateInfo
+	{
+		FILTER_MODE minificationFilter      = FILTER_MODE::INVALID;
+		FILTER_MODE magnificationFilter     = FILTER_MODE::INVALID;
+		SAMPLER_ADDRESS_MODE addressModeUVW = SAMPLER_ADDRESS_MODE::INVALID;
+		FILTER_MODE samplerMipMapFilter     = FILTER_MODE::INVALID;
+		bool enableAnisotropicFiltering     = true;
+		float maxAnisotropy                 = 1.0f;
+	};
+
+	class ITexture
+	{
+	public:
+
+		virtual ~ITexture() { }
+
+		virtual u32 GetWidth() const = 0;
+		virtual u32 GetHeight() const = 0;
+		virtual TEXTURE_FORMAT GetFormat() const = 0;
+		virtual u32 GetArrayLayers() const = 0;
+		virtual u32 GetMipLevels() const = 0;
+
+		virtual VIEW_TYPE GetViewType() const = 0;
+		virtual VIEW_SCOPE GetViewScope() const = 0;
+
+		virtual FILTER_MODE GetMinificationFilter() const = 0;
+		virtual FILTER_MODE GetMagnificationFilter() const = 0;
+		virtual SAMPLER_ADDRESS_MODE GetSamplerAddressMode() const = 0;
+		virtual FILTER_MODE GetSamplerFilter() const = 0;
+		virtual bool IsAnisotropicFilteringEnabled() const = 0;
+		virtual float GetAnisotropyLevel() const = 0;
+	};
+}

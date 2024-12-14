@@ -72,7 +72,11 @@ The main features of the library's interface aim to separate the API from it's p
 ```
 
 # Third-party
-The library must contain minimal dependencies to make it as easy as possible to pull and build. The windowing library will be GLFW, the build system will use Premake and the other dependencies will be entirely graphics-related, such as the Vulkan SDK. 
+The library must contain minimal dependencies to make it as easy as possible to pull and build. 
+- GLFW (window library)
+- Premake (build system)
+- Vulkan SDK
+- VMA (Vulkan Memory Allocator)
 
 # Coding conventions
 - **NAMESPACES**: Everything inside the PHOENIX library must be inside the PHX namespace, and all namespace declarations must follow the upper-case *snake_case* convention. E.g. `namespace OBJECT_FACTORY { ... }`

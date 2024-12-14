@@ -1,7 +1,21 @@
 
+#include <array>
 #include <set>
 #include <string>
 #include <vector>
+
+// SILENCE VMA WARNINGS:
+// C4100 - unreferenced formal parameter
+// C4127 - conditional expression is constant
+// C4189 - local variable is initialized but not referenced
+// C4267 - conversion from 'size_t' to 'uint32_t', possible loss of data
+// C4324 - structure was padded dueto alignment specifier
+// C4505 - unreferenced function with internal linkage has been removed
+#pragma warning(push)
+#pragma warning(disable : 4100 4127 4189 4267 4324 4505)
+#define VMA_IMPLEMENTATION
+#include <vma/vk_mem_alloc.h>
+#pragma warning(pop)
 
 #include "render_device_vk.h"
 
@@ -58,19 +72,33 @@ namespace PHX
 	//-----------------------------------------------------------------------------------//
 
 	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
-		physicalDeviceProperties(), physicalDeviceFeatures(), physicalDeviceMemoryProperties()
+		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_descriptorPool(VK_NULL_HANDLE)
 	{
 		UNUSED(ci);
+		LogWarning("Ignoring render device create info!");
 
+		STATUS_CODE res = STATUS_CODE::ERR;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
 
-		STATUS_CODE physicalRes = CreatePhysicalDevice(surface);
-		STATUS_CODE logicalRes = CreateLogicalDevice(surface);
-
-		if (physicalRes == STATUS_CODE::SUCCESS && logicalRes == STATUS_CODE::SUCCESS)
+		res = CreatePhysicalDevice(surface);
+		if (res == STATUS_CODE::ERR)
 		{
-			LogInfo("Successfully constructed Vk device!");
+			return;
 		}
+
+		res = CreateLogicalDevice(surface);
+		if (res == STATUS_CODE::ERR)
+		{
+			return;
+		}
+
+		res = AllocateDescriptorPool();
+		if (res == STATUS_CODE::ERR)
+		{
+			return;
+		}
+
+		LogInfo("Successfully constructed Vk device!");
 	}
 
 	RenderDeviceVk::~RenderDeviceVk()
@@ -78,28 +106,39 @@ namespace PHX
 		LogInfo("Destructed Vk device!");
 	}
 
-	bool RenderDeviceVk::AllocateBuffer()
+	const char* RenderDeviceVk::GetDeviceName() const 
+	{
+		return m_physicalDeviceProperties.deviceName;
+	}
+
+	STATUS_CODE RenderDeviceVk::AllocateBuffer()
 	{
 		LogInfo("Allocated buffer!");
-		return true; 
+		return STATUS_CODE::SUCCESS; 
 	}
 
-	bool RenderDeviceVk::AllocateCommandBuffer()
+	STATUS_CODE RenderDeviceVk::AllocateFramebuffer()
+	{
+		LogInfo("Allocate framebuffer!");
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE RenderDeviceVk::AllocateCommandBuffer()
 	{
 		LogInfo("Allocated command buffer!"); 
-		return true; 
+		return STATUS_CODE::SUCCESS;
 	}
 
-	bool RenderDeviceVk::AllocateTexture()
+	STATUS_CODE RenderDeviceVk::AllocateTexture()
 	{
 		LogInfo("Allocated texture!");
-		return true;
+		return STATUS_CODE::SUCCESS;
 	}
 
-	bool RenderDeviceVk::AllocateShader()
+	STATUS_CODE RenderDeviceVk::AllocateShader()
 	{
 		LogInfo("Allocated shader!");
-		return true;
+		return STATUS_CODE::SUCCESS;
 	}
 
 	VkDevice RenderDeviceVk::GetLogicalDevice() const
@@ -131,11 +170,11 @@ namespace PHX
 		{
 			if (IsDeviceSuitable(device, surface))
 			{
-				vkGetPhysicalDeviceProperties(device, &physicalDeviceProperties);
-				vkGetPhysicalDeviceFeatures(device, &physicalDeviceFeatures);
-				vkGetPhysicalDeviceMemoryProperties(device, &physicalDeviceMemoryProperties);
+				vkGetPhysicalDeviceProperties(device, &m_physicalDeviceProperties);
+				vkGetPhysicalDeviceFeatures(device, &m_physicalDeviceFeatures);
+				vkGetPhysicalDeviceMemoryProperties(device, &m_physicalDeviceMemoryProperties);
 
-				LogInfo("Using physical device: '%s'", physicalDeviceProperties.deviceName);
+				LogInfo("Using physical device: '%s'", m_physicalDeviceProperties.deviceName);
 				m_physicalDevice = device;
 				return STATUS_CODE::SUCCESS;
 			}
@@ -203,6 +242,34 @@ namespace PHX
 		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::COMPUTE ), 0, &m_queues[QUEUE_TYPE::COMPUTE ]);
 		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::TRANSFER), 0, &m_queues[QUEUE_TYPE::TRANSFER]);
 		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::PRESENT ), 0, &m_queues[QUEUE_TYPE::PRESENT ]);
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE RenderDeviceVk::AllocateDescriptorPool()
+	{
+		// These are temporary so we can get this working. Completely random numbers
+		const u32 numUniformBuffers = 50;
+		const u32 numImageSamplers = 50;
+		const u32 maxSets = 500;
+
+		std::array<VkDescriptorPoolSize, 2> poolSizes{};
+		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		poolSizes[0].descriptorCount = numUniformBuffers/* * CONFIG::MaxFramesInFlight*/;
+		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		poolSizes[1].descriptorCount = numImageSamplers/* * CONFIG::MaxFramesInFlight*/;
+
+		VkDescriptorPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		poolInfo.poolSizeCount = static_cast<u32>(poolSizes.size());
+		poolInfo.pPoolSizes = poolSizes.data();
+		poolInfo.maxSets = maxSets;
+		poolInfo.flags = 0;
+
+		if (vkCreateDescriptorPool(GetLogicalDevice(), &poolInfo, nullptr, &m_descriptorPool) != VK_SUCCESS) {
+			LogError("Failed to create descriptor pool!");
+			return STATUS_CODE::ERR;
+		}
 
 		return STATUS_CODE::SUCCESS;
 	}

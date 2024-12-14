@@ -56,6 +56,6 @@ int main(int argc, char** argv)
 	while (!pWindow->ShouldClose())
 	{
 		pWindow->Update(0.13f);
-		pWindow->SetWindowTitle("PHX - %u", i++);
+		pWindow->SetWindowTitle("PHX - %s - %u", pRenderDevice->GetDeviceName(), i++);
 	}
 }

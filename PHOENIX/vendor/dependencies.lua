@@ -4,6 +4,7 @@ VULKAN_SDK = os.getenv("VULKAN_SDK")
 PHX_IncludeDirs                      = {}
 PHX_IncludeDirs["dep_vulkan"]        = "%{wks.location}/PHOENIX/vendor/vulkan/include"
 PHX_IncludeDirs["dep_glfw"]          = "%{wks.location}/PHOENIX/vendor/glfw/include"
+PHX_IncludeDirs["dep_vma"]           = "%{wks.location}/PHOENIX/vendor/vma/include"
 PHX_IncludeDirs["lib_inc"]           = "%{wks.location}/PHOENIX/src/include"
 
 PHX_Libraries                       = {}

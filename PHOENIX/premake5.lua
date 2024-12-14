@@ -24,6 +24,7 @@ project "PHOENIX"
 	{
 		"%{PHX_IncludeDirs.dep_vulkan}",
 		"%{PHX_IncludeDirs.dep_glfw}",
+		"%{PHX_IncludeDirs.dep_vma}",
 		"%{PHX_IncludeDirs.lib_inc}"
 	}
 	

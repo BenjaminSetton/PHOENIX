@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../types/integral_types.h"
+#include "../types/status_code.h"
 
 namespace PHX
 {
@@ -22,11 +22,13 @@ namespace PHX
 		virtual ~IRenderDevice() { }
 
 		// Query device stats
+		virtual const char* GetDeviceName() const = 0;
 
 		// Allocations
-		virtual bool AllocateBuffer()        = 0;
-		virtual bool AllocateCommandBuffer() = 0;
-		virtual bool AllocateTexture()       = 0;
-		virtual bool AllocateShader()        = 0;
+		virtual STATUS_CODE AllocateBuffer()        = 0;
+		virtual STATUS_CODE AllocateFramebuffer()   = 0;
+		virtual STATUS_CODE AllocateCommandBuffer() = 0;
+		virtual STATUS_CODE AllocateTexture()       = 0;
+		virtual STATUS_CODE AllocateShader()        = 0;
 	};
 }
