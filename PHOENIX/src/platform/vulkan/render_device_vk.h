@@ -1,6 +1,7 @@
 #pragma once
 
 #include <unordered_map>
+#include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 #include "PHX/interface/render_device.h"
@@ -27,7 +28,11 @@ namespace PHX
 		VkDevice GetLogicalDevice() const;
 		VkPhysicalDevice GetPhysicalDevice() const;
 
+		VmaAllocator GetAllocator() const;
+
 	private:
+
+		STATUS_CODE CreateVMAAllocator();
 
 		STATUS_CODE CreatePhysicalDevice(VkSurfaceKHR surface);
 		STATUS_CODE CreateLogicalDevice(VkSurfaceKHR surface);
@@ -35,6 +40,8 @@ namespace PHX
 		STATUS_CODE AllocateDescriptorPool();
 
 	private:
+
+		VmaAllocator m_allocator;
 
 		VkDevice m_logicalDevice;
 		VkPhysicalDevice m_physicalDevice;

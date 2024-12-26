@@ -23,9 +23,13 @@ namespace PHX
 		VkInstance GetInstance() const;
 		VkSurfaceKHR GetSurface() const;
 
+		// Returns the API version, made through VK_MAKE_API_VERSION(X, Y, Z)
+		u32 GetAPIVersion() const;
+
 	private:
 
 		CoreVk();
+		~CoreVk();
 
 		STATUS_CODE CreateInstance(bool enableValidationLayers);
 		STATUS_CODE CreateSurface(std::shared_ptr<IWindow> pWindow);
@@ -34,5 +38,7 @@ namespace PHX
 
 		VkInstance m_instance;
 		VkSurfaceKHR m_surface;
+
+		u32 m_apiVersion;
 	};
 }

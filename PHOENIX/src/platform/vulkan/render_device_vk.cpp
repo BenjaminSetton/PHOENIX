@@ -103,6 +103,11 @@ namespace PHX
 
 	RenderDeviceVk::~RenderDeviceVk()
 	{
+		vkDeviceWaitIdle(m_logicalDevice);
+
+		vmaDestroyAllocator(m_allocator);
+		vkDestroyDevice(m_logicalDevice, nullptr);
+
 		LogInfo("Destructed Vk device!");
 	}
 
@@ -149,6 +154,30 @@ namespace PHX
 	VkPhysicalDevice RenderDeviceVk::GetPhysicalDevice() const 
 	{
 		return m_physicalDevice;
+	}
+
+	VmaAllocator RenderDeviceVk::GetAllocator() const
+	{
+		return m_allocator;
+	}
+
+	STATUS_CODE RenderDeviceVk::CreateVMAAllocator()
+	{
+		VmaAllocatorCreateInfo info{};
+		info.device = m_logicalDevice;
+		info.physicalDevice = m_physicalDevice;
+		info.instance = CoreVk::Get().GetInstance();
+		info.flags = 0; // TODO - can this be 0??
+		info.vulkanApiVersion = CoreVk::Get().GetAPIVersion();
+		info.pHeapSizeLimit = nullptr;
+		info.pTypeExternalMemoryHandleTypes = nullptr;
+		info.pVulkanFunctions = nullptr;
+		// [OPTIONAL] info.preferredLargeHeapBlockSize
+		// [OPTIONAL] info.pDeviceMemoryCallbacks
+
+		VkResult res = vmaCreateAllocator(&info, &m_allocator);
+
+		return (res == VK_SUCCESS) ? STATUS_CODE::SUCCESS : STATUS_CODE::ERR;
 	}
 
 	STATUS_CODE RenderDeviceVk::CreatePhysicalDevice(VkSurfaceKHR surface)

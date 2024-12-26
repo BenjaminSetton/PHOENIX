@@ -4,10 +4,10 @@
 #include "../../utils/logger.h"
 #include "../../utils/sanity.h"
 #include "render_device_vk.h"
+#include "texture_vk.h"
 
 namespace PHX
 {
-
 	FramebufferVk::FramebufferVk(const FramebufferCreateInfo& createInfo)
 	{
 		if (VerifyCreateInfo(createInfo) != STATUS_CODE::SUCCESS)
@@ -16,17 +16,23 @@ namespace PHX
 		}
 
 		std::vector<VkImageView> imageViews;
-		imageViews.resize(createInfo.attachmentCount);
-
-		for (uint32_t i = 0; i < createInfo.attachmentCount; i++)
+		for (u32 i = 0; i < createInfo.attachmentCount; i++)
 		{
-			uint32_t imageViewIndex = createInfo.imageViewIndices[i];
-			imageViews[i] = (createInfo.attachments[i]->GetImageView(imageViewIndex));
+			u32 mipTarget = createInfo.pMipTargets[i];
+			TextureVk* texVk = dynamic_cast<TextureVk*>(createInfo.pAttachments[i]);
+			VkImageView imageView = texVk->GetImageViewAt(mipTarget);
+			if (imageView == VK_NULL_HANDLE)
+			{
+				LogWarning("Mip target at index %u doesn't exist! Skipping target during framebuffer creation", i);
+				continue;
+			}
+
+			imageViews.push_back(imageView);
 		}
 
 		VkFramebufferCreateInfo framebufferInfo{};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = createInfo.renderPass->GetRenderPass();
+		framebufferInfo.renderPass = VK_NULL_HANDLE; // TODO - retrieve from render pass cache or create on-demand
 		framebufferInfo.attachmentCount = createInfo.attachmentCount;
 		framebufferInfo.pAttachments = imageViews.data();
 		framebufferInfo.width = createInfo.width;
@@ -102,9 +108,21 @@ namespace PHX
 			return STATUS_CODE::ERR;
 		}
 
-		if (createInfo.pAttachments == nullptr)
+		if (createInfo.pAttachments == nullptr || createInfo.attachmentCount == 0)
 		{
 			LogError("Attempting to create a framebuffer with no attachments!");
+			return STATUS_CODE::ERR;
+		}
+
+		if (createInfo.pMipTargets == nullptr || createInfo.mipTargetCount == 0)
+		{
+			LogError("Attempting to create a framebuffer with no mip targets!");
+			return STATUS_CODE::ERR;
+		}
+
+		if (createInfo.mipTargetCount != createInfo.attachmentCount)
+		{
+			LogError("Attempting to create a framebuffer where the mip target count and attachment count are not equal!");
 			return STATUS_CODE::ERR;
 		}
 

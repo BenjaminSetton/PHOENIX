@@ -15,6 +15,8 @@ namespace PHX
 		u32 layers                   = 0;
 		ITexture** pAttachments      = nullptr;
 		u32 attachmentCount          = 0;
+		u32* pMipTargets             = nullptr;
+		u32 mipTargetCount           = 0;
 		IRenderDevice* pRenderDevice = nullptr;
 	};
 

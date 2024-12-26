@@ -5,20 +5,26 @@
 
 namespace PHX
 {
+	// Forward declarations
+	class IRenderDevice;
+
 	struct TextureBaseCreateInfo
 	{
-		u32 width             = 0;
-		u32 height            = 0;
-		TEXTURE_FORMAT format = TEXTURE_FORMAT::INVALID;
-		u32 arrayLayers       = 1;
-		u32 mipLevels         = 1;
-		bool generateMips     = false;
+		u32 width                 = 0;
+		u32 height                = 0;
+		TEXTURE_FORMAT format     = TEXTURE_FORMAT::INVALID;
+		u32 arrayLayers           = 1;
+		u32 mipLevels             = 1;
+		UsageTypeFlags usageFlags = 0;
+		SAMPLE_COUNT sampleFlags  = SAMPLE_COUNT::COUNT_1;
+		bool generateMips         = false;
 	};
 
 	struct TextureViewCreateInfo
 	{
-		VIEW_TYPE type   = VIEW_TYPE::INVALID;
-		VIEW_SCOPE scope = VIEW_SCOPE::INVALID;
+		VIEW_TYPE type         = VIEW_TYPE::INVALID;
+		VIEW_SCOPE scope       = VIEW_SCOPE::INVALID;
+		AspectTypeFlags aspect = 0;
 	};
 
 	struct TextureSamplerCreateInfo
@@ -36,6 +42,10 @@ namespace PHX
 	public:
 
 		virtual ~ITexture() { }
+
+		// All texture copies must be explicitly made, since copy constructor and copy-assignment
+		// are deleted functions
+		virtual void CopyFrom(ITexture* other) = 0;
 
 		virtual u32 GetWidth() const = 0;
 		virtual u32 GetHeight() const = 0;

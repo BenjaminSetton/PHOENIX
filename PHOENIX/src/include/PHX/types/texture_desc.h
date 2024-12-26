@@ -1,5 +1,8 @@
 #pragma once
 
+#include "../../../utils/sanity.h"
+#include "PHX/types/integral_types.h"
+
 namespace PHX
 {
 	enum class VIEW_SCOPE
@@ -29,6 +32,39 @@ namespace PHX
 		MIRRORED_CLAMP_TO_EDGE
 	};
 
+	enum class USAGE_TYPE : u8
+	{
+		INVALID = 0,
+
+		TRANSFER_SRC             = BIT(0),
+		TRANSFER_DST             = BIT(1),
+		SAMPLED                  = BIT(2),
+		STORAGE                  = BIT(3),
+		COLOR_ATTACHMENT         = BIT(4),
+		DEPTH_STENCIL_ATTACHMENT = BIT(5),
+		TRANSIENT_ATTACHMENT     = BIT(6),
+		INPUT_ATTACHMENT         = BIT(7),
+
+		MAX                      = 8u
+	};
+	typedef u8 UsageTypeFlags;
+
+	enum class SAMPLE_COUNT : u8
+	{
+		INVALID = 0,
+
+		COUNT_1  = BIT(0),
+		COUNT_2  = BIT(1),
+		COUNT_4  = BIT(2),
+		COUNT_8  = BIT(3),
+		COUNT_16 = BIT(4),
+		COUNT_32 = BIT(5),
+		COUNT_64 = BIT(6),
+
+		MAX      = 7u
+	};
+	typedef u8 SampleCountFlags;
+
 	enum class VIEW_TYPE
 	{
 		INVALID = 0,
@@ -41,6 +77,18 @@ namespace PHX
 		TYPE_2D_ARRAY,
 		TYPE_CUBE_ARRAY
 	};
+
+	enum class ASPECT_TYPE : u8
+	{
+		INVALID = 0,
+
+		COLOR   = BIT(0),
+		DEPTH   = BIT(1),
+		STENCIL = BIT(2),
+
+		MAX     = 3u
+	};
+	typedef u8 AspectTypeFlags;
 
 	enum class TEXTURE_FORMAT
 	{

@@ -86,8 +86,21 @@ namespace PHX
 		return m_surface;
 	}
 
-	CoreVk::CoreVk() : m_instance(VK_NULL_HANDLE), m_surface(VK_NULL_HANDLE)
+	u32 CoreVk::GetAPIVersion() const
 	{
+		return m_apiVersion;
+	}
+
+	CoreVk::CoreVk() : m_instance(VK_NULL_HANDLE), m_surface(VK_NULL_HANDLE), m_apiVersion(0)
+	{
+		// 1.0.0
+		m_apiVersion = VK_API_VERSION_1_0;
+	}
+
+	CoreVk::~CoreVk()
+	{
+		vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
+		vkDestroyInstance(m_instance, nullptr);
 	}
 
 	STATUS_CODE CoreVk::CreateInstance(bool enableValidationLayers)
@@ -105,7 +118,7 @@ namespace PHX
 		appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
 		appInfo.pEngineName = "No Engine";
 		appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-		appInfo.apiVersion = VK_API_VERSION_1_0;
+		appInfo.apiVersion = m_apiVersion;
 
 		VkInstanceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
