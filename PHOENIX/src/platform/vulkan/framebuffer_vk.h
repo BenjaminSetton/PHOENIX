@@ -8,11 +8,14 @@
 
 namespace PHX
 {
+	// Forward declarations
+	class RenderDeviceVk;
+
 	class FramebufferVk : public IFramebuffer
 	{
 	public:
 
-		FramebufferVk(const FramebufferCreateInfo& createInfo);
+		explicit FramebufferVk(RenderDeviceVk* pRenderDevice, const FramebufferCreateInfo& createInfo);
 		~FramebufferVk() override;
 
 		u32 GetWidth() override;

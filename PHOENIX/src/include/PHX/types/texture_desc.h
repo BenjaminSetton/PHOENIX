@@ -43,10 +43,9 @@ namespace PHX
 		COLOR_ATTACHMENT         = BIT(4),
 		DEPTH_STENCIL_ATTACHMENT = BIT(5),
 		TRANSIENT_ATTACHMENT     = BIT(6),
-		INPUT_ATTACHMENT         = BIT(7),
-
-		MAX                      = 8u
+		INPUT_ATTACHMENT         = BIT(7)
 	};
+	static constexpr u8 USAGE_TYPE_MAX = 8u;
 	typedef u8 UsageTypeFlags;
 
 	enum class SAMPLE_COUNT : u8
@@ -59,10 +58,9 @@ namespace PHX
 		COUNT_8  = BIT(3),
 		COUNT_16 = BIT(4),
 		COUNT_32 = BIT(5),
-		COUNT_64 = BIT(6),
-
-		MAX      = 7u
+		COUNT_64 = BIT(6)
 	};
+	static constexpr u8 SAMPLE_COUNT_MAX = 7u;
 	typedef u8 SampleCountFlags;
 
 	enum class VIEW_TYPE
@@ -84,10 +82,9 @@ namespace PHX
 
 		COLOR   = BIT(0),
 		DEPTH   = BIT(1),
-		STENCIL = BIT(2),
-
-		MAX     = 3u
+		STENCIL = BIT(2)
 	};
+	static constexpr u8 ASPECT_TYPE_MAX = 3u;
 	typedef u8 AspectTypeFlags;
 
 	enum class TEXTURE_FORMAT

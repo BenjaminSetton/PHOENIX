@@ -5,8 +5,8 @@
 
 namespace PHX
 {
-	STATIC_ASSERT_MSG(static_cast<u8>(ASPECT_TYPE::MAX) == 3u, "New enum entries must be included in TexUtils::ConvertAspectFlags()");
-	STATIC_ASSERT_MSG(static_cast<u8>(USAGE_TYPE::MAX) == 8u, "New enum entries must be included in TexUtils::ConvertUsageFlags()");
+	STATIC_ASSERT_MSG(ASPECT_TYPE_MAX == 3u, "New enum entries must be included in TexUtils::ConvertAspectFlags()");
+	STATIC_ASSERT_MSG(USAGE_TYPE_MAX == 8u, "New enum entries must be included in TexUtils::ConvertUsageFlags()");
 
 	namespace TexUtils
 	{
@@ -150,7 +150,6 @@ namespace PHX
 			case SAMPLE_COUNT::COUNT_64: return VK_SAMPLE_COUNT_64_BIT;
 
 			case SAMPLE_COUNT::INVALID: break;
-			case SAMPLE_COUNT::MAX:     break;
 			}
 
 			return VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;

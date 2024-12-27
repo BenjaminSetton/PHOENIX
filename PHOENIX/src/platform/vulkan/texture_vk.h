@@ -15,7 +15,7 @@ namespace PHX
 	{
 	public:
 
-		explicit TextureVk(IRenderDevice* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo);
+		explicit TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo);
 		~TextureVk();
 		TextureVk(const TextureVk&& other);
 
@@ -30,6 +30,7 @@ namespace PHX
 		TEXTURE_FORMAT GetFormat() const override;
 		u32 GetArrayLayers() const override;
 		u32 GetMipLevels() const override;
+		SAMPLE_COUNT GetSampleCount() const override;
 
 		VIEW_TYPE GetViewType() const override;
 		VIEW_SCOPE GetViewScope() const override;
@@ -58,11 +59,13 @@ namespace PHX
 		std::vector<VkImageView> m_imageViews;
 		//VkSampler sampler;
 
+		// TODO - Convert the rest of these member variables from PHX types to Vk types
 		u32 m_width;
 		u32 m_height;
 		TEXTURE_FORMAT m_format;
 		u32 m_arrayLayers;
 		u32 m_mipLevels;
+		SAMPLE_COUNT m_sampleCount;
 
 		VIEW_TYPE m_viewType;
 		VIEW_SCOPE m_viewScope;

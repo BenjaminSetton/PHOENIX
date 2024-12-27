@@ -52,6 +52,7 @@ namespace PHX
 		virtual TEXTURE_FORMAT GetFormat() const = 0;
 		virtual u32 GetArrayLayers() const = 0;
 		virtual u32 GetMipLevels() const = 0;
+		virtual SAMPLE_COUNT GetSampleCount() const = 0;
 
 		virtual VIEW_TYPE GetViewType() const = 0;
 		virtual VIEW_SCOPE GetViewScope() const = 0;

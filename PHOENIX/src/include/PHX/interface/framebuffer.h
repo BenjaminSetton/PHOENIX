@@ -5,7 +5,6 @@
 namespace PHX
 {
 	// Forward declarations
-	class IRenderDevice;
 	class ITexture;
 
 	struct FramebufferCreateInfo
@@ -17,7 +16,6 @@ namespace PHX
 		u32 attachmentCount          = 0;
 		u32* pMipTargets             = nullptr;
 		u32 mipTargetCount           = 0;
-		IRenderDevice* pRenderDevice = nullptr;
 	};
 
 	class IFramebuffer

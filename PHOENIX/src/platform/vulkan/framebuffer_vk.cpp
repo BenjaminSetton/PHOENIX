@@ -5,10 +5,20 @@
 #include "../../utils/sanity.h"
 #include "render_device_vk.h"
 #include "texture_vk.h"
+#include "utils/render_pass_cache.h"
 
 namespace PHX
 {
-	FramebufferVk::FramebufferVk(const FramebufferCreateInfo& createInfo)
+	static RenderPassDescription BuildRenderPassDescription(const FramebufferCreateInfo& info)
+	{
+		RenderPassDescription rpDesc{};
+
+		TODO();
+
+		return rpDesc;
+	}
+
+	FramebufferVk::FramebufferVk(RenderDeviceVk* pRenderDevice, const FramebufferCreateInfo& createInfo)
 	{
 		if (VerifyCreateInfo(createInfo) != STATUS_CODE::SUCCESS)
 		{
@@ -30,16 +40,16 @@ namespace PHX
 			imageViews.push_back(imageView);
 		}
 
+
+
 		VkFramebufferCreateInfo framebufferInfo{};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		framebufferInfo.renderPass = VK_NULL_HANDLE; // TODO - retrieve from render pass cache or create on-demand
+		framebufferInfo.renderPass = RenderPassCache::Get().Insert(pRenderDevice, BuildRenderPassDescription(createInfo));
 		framebufferInfo.attachmentCount = createInfo.attachmentCount;
 		framebufferInfo.pAttachments = imageViews.data();
 		framebufferInfo.width = createInfo.width;
 		framebufferInfo.height = createInfo.height;
 		framebufferInfo.layers = createInfo.layers;
-
-		RenderDeviceVk* pRenderDevice = dynamic_cast<RenderDeviceVk*>(createInfo.pRenderDevice);
 		if (vkCreateFramebuffer(pRenderDevice->GetLogicalDevice(), &framebufferInfo, nullptr, &m_framebuffer) != VK_SUCCESS)
 		{
 			LogError("Failed to create framebuffer!");
@@ -99,12 +109,6 @@ namespace PHX
 		if (createInfo.width == 0 || createInfo.height == 0 || createInfo.layers == 0)
 		{
 			LogError("Attempting to create a framebuffer with no width, height or layer count!");
-			return STATUS_CODE::ERR;
-		}
-
-		if (createInfo.pRenderDevice == nullptr)
-		{
-			LogError("Attempting to create a framebuffer with a null render device!");
 			return STATUS_CODE::ERR;
 		}
 

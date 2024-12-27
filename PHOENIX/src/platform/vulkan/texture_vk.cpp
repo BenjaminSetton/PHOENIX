@@ -8,26 +8,17 @@
 
 namespace PHX
 {
-	TextureVk::TextureVk(IRenderDevice* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo) :
+	TextureVk::TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo) :
 		m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_width(0), m_height(0), m_format(TEXTURE_FORMAT::INVALID), m_arrayLayers(0), m_mipLevels(0),
 		m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID),
 		m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), m_anisotropyLevel(0.0f)
 	{
-		if (pRenderDevice == nullptr)
-		{
-			LogError("Attempted to create texture with null render device!");
-			return;
-		}
-
-		RenderDeviceVk* renderDeviceVk = dynamic_cast<RenderDeviceVk*>(pRenderDevice);
-		ASSERT_PTR(renderDeviceVk);
-
-		if (CreateBaseImage(renderDeviceVk, baseCreateInfo) != STATUS_CODE::SUCCESS)
+		if (CreateBaseImage(pRenderDevice, baseCreateInfo) != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
 
-		if (CreateImageViews(renderDeviceVk, viewCreateInfo) != STATUS_CODE::SUCCESS)
+		if (CreateImageViews(pRenderDevice, viewCreateInfo) != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
@@ -80,6 +71,11 @@ namespace PHX
 	u32 TextureVk::GetMipLevels() const
 	{
 		return m_mipLevels;
+	}
+
+	SAMPLE_COUNT TextureVk::GetSampleCount() const
+	{
+		return m_sampleCount;
 	}
 
 	VIEW_TYPE TextureVk::GetViewType() const
