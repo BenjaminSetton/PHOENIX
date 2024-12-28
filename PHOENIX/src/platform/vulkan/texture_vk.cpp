@@ -33,6 +33,16 @@ namespace PHX
 		m_anisotropyLevel = samplerCreateInfo.maxAnisotropy;
 	}
 
+	TextureVk::TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView)
+	{
+		if (CreateBaseImage(pRenderDevice, baseCreateInfo) != STATUS_CODE::SUCCESS)
+		{
+			return;
+		}
+
+		m_imageViews.push_back(imageView);
+	}
+
 	TextureVk::~TextureVk()
 	{
 		TODO();
@@ -155,12 +165,12 @@ namespace PHX
 		imageInfo.extent.depth = 1;
 		imageInfo.mipLevels = mipsToUse;
 		imageInfo.arrayLayers = createInfo.arrayLayers;
-		imageInfo.format = TexUtils::ConvertTextureFormat(createInfo.format);
+		imageInfo.format = TEX_UTILS::ConvertTextureFormat(createInfo.format);
 		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = TexUtils::ConvertUsageFlags(createInfo.usageFlags);
+		imageInfo.usage = TEX_UTILS::ConvertUsageFlags(createInfo.usageFlags);
 		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		imageInfo.samples = TexUtils::ConvertSampleCount(createInfo.sampleFlags);
+		imageInfo.samples = TEX_UTILS::ConvertSampleCount(createInfo.sampleFlags);
 		imageInfo.flags = 0; // TEMP - No use for these right now
 
 		VmaAllocationCreateInfo allocCreateInfo = {};
@@ -204,9 +214,9 @@ namespace PHX
 		VkImageViewCreateInfo createInfoVk{};
 		createInfoVk.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		createInfoVk.image = m_baseImage;
-		createInfoVk.viewType = TexUtils::ConvertViewType(createInfo.type);
-		createInfoVk.format = TexUtils::ConvertTextureFormat(m_format);
-		createInfoVk.subresourceRange.aspectMask = TexUtils::ConvertAspectFlags(createInfo.aspect);
+		createInfoVk.viewType = TEX_UTILS::ConvertViewType(createInfo.type);
+		createInfoVk.format = TEX_UTILS::ConvertTextureFormat(m_format);
+		createInfoVk.subresourceRange.aspectMask = TEX_UTILS::ConvertAspectFlags(createInfo.aspect);
 		createInfoVk.subresourceRange.baseMipLevel = 0;
 		createInfoVk.subresourceRange.levelCount = m_mipLevels;
 		createInfoVk.subresourceRange.baseArrayLayer = 0;

@@ -4,6 +4,7 @@
 
 #include "PHX/interface/swap_chain.h"
 #include "PHX/types/status_code.h"
+#include "texture_vk.h"
 
 namespace PHX
 {
@@ -14,17 +15,18 @@ namespace PHX
 		explicit SwapChainVk(const SwapChainCreateInfo& createInfo);
 		~SwapChainVk();
 
+		ITexture* GetImage(u32 imageIndex) const override;
+
 		VkSwapchainKHR GetSwapChain() const;
 		VkFormat GetSwapChainFormat() const;
 		u32 GetCurrentWidth() const;
 		u32 GetCurrentHeight() const;
 		u32 GetImageViewCount() const;
-		VkImageView GetImageViewAt(u32 index) const;
 
 	private:
 
-		STATUS_CODE CreateSwapChain(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, u32 width, u32 height, bool enableVSync);
-		STATUS_CODE CreateSwapChainImageViews(VkDevice logicalDevice, u32 imageCount, VkFormat imageFormat);
+		STATUS_CODE CreateSwapChain(RenderDeviceVk* pRenderDevice, u32 width, u32 height, bool enableVSync);
+		STATUS_CODE CreateSwapChainImageViews(RenderDeviceVk* pRenderDevice, u32 imageCount, VkFormat imageFormat);
 
 	private:
 
@@ -32,7 +34,7 @@ namespace PHX
 		VkFormat m_format;
 		u32 m_width;
 		u32 m_height;
-		std::vector<VkImageView> m_imageViews; // TODO - Replace with ITexture later on
+		std::vector<TextureVk*> m_images; // TODO - Replace with ITexture later on
 
 	};
 }

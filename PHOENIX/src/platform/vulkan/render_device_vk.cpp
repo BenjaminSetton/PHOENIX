@@ -22,6 +22,7 @@
 #include "../../utils/logger.h"
 #include "../../utils/sanity.h"
 #include "core_vk.h"
+#include "framebuffer_vk.h"
 #include "swap_chain_vk.h"
 #include "utils/queue_family_indices.h"
 #include "utils/swap_chain_helpers.h"
@@ -92,6 +93,12 @@ namespace PHX
 			return;
 		}
 
+		res = CreateVMAAllocator();
+		if (res == STATUS_CODE::ERR)
+		{
+			return;
+		}
+
 		res = AllocateDescriptorPool();
 		if (res == STATUS_CODE::ERR)
 		{
@@ -122,9 +129,12 @@ namespace PHX
 		return STATUS_CODE::SUCCESS; 
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateFramebuffer()
+	STATUS_CODE RenderDeviceVk::AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer* out_framebuffer)
 	{
-		LogInfo("Allocate framebuffer!");
+		LogInfo("Allocated framebuffer!");
+
+		out_framebuffer = new FramebufferVk(this, createInfo);
+
 		return STATUS_CODE::SUCCESS;
 	}
 

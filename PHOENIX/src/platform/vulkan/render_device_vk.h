@@ -20,7 +20,7 @@ namespace PHX
 		const char* GetDeviceName() const;
 
 		STATUS_CODE AllocateBuffer() override;
-		STATUS_CODE AllocateFramebuffer() override;
+		STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer* out_framebuffer) override;
 		STATUS_CODE AllocateCommandBuffer() override;
 		STATUS_CODE AllocateTexture() override;
 		STATUS_CODE AllocateShader() override;

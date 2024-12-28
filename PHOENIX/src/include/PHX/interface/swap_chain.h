@@ -7,6 +7,7 @@ namespace PHX
 	// Forward declarations
 	class IRenderDevice;
 	class IWindow;
+	class ITexture;
 
 	struct SwapChainCreateInfo
 	{
@@ -22,6 +23,8 @@ namespace PHX
 	public:
 
 		virtual ~ISwapChain() { }
+
+		virtual ITexture* GetImage(u32 imageIndex) const = 0;
 
 	};
 }

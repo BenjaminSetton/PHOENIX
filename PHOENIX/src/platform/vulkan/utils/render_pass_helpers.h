@@ -4,6 +4,8 @@
 
 #include <vulkan/vulkan.h>
 
+#include "PHX/types/integral_types.h"
+
 namespace PHX
 {
 	// Forward declarations
@@ -18,14 +20,15 @@ namespace PHX
 		VkAttachmentStoreOp stencilStoreOp;
 		VkImageLayout initialLayout;
 		VkImageLayout finalLayout;
+		VkImageLayout layout;
 	};
 
 	struct SubpassDescription
 	{
 		VkPipelineBindPoint bindPoint;
 		std::vector<u32> colorAttachmentIndices;
-		u32 depthStencilAttachmentIndex;
-		u32 resolveAttachmentIndex;
+		u32 depthStencilAttachmentIndex = U32_MAX;
+		u32 resolveAttachmentIndex = U32_MAX;
 		VkPipelineStageFlags srcStageMask;
 		VkPipelineStageFlags dstStageMask;
 		VkAccessFlags dstAccessMask;

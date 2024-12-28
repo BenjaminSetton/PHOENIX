@@ -8,7 +8,7 @@ namespace PHX
 	STATIC_ASSERT_MSG(ASPECT_TYPE_MAX == 3u, "New enum entries must be included in TexUtils::ConvertAspectFlags()");
 	STATIC_ASSERT_MSG(USAGE_TYPE_MAX == 8u, "New enum entries must be included in TexUtils::ConvertUsageFlags()");
 
-	namespace TexUtils
+	namespace TEX_UTILS
 	{
 		template<typename T, typename U> 
 		static bool IsFlagSet(const U& bits, T flag)

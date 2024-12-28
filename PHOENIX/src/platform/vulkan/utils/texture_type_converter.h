@@ -6,7 +6,7 @@
 
 namespace PHX
 {
-	namespace TexUtils
+	namespace TEX_UTILS
 	{
 		VkFormat ConvertTextureFormat(TEXTURE_FORMAT format);
 		VkImageUsageFlags ConvertUsageFlags(UsageTypeFlags flags);

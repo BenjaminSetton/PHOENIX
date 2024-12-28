@@ -16,6 +16,7 @@ namespace PHX
 	public:
 
 		explicit TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo);
+		explicit TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView); // Create texture from existing image views (e.g. swap chain image views)
 		~TextureVk();
 		TextureVk(const TextureVk&& other);
 
@@ -59,7 +60,6 @@ namespace PHX
 		std::vector<VkImageView> m_imageViews;
 		//VkSampler sampler;
 
-		// TODO - Convert the rest of these member variables from PHX types to Vk types
 		u32 m_width;
 		u32 m_height;
 		TEXTURE_FORMAT m_format;

@@ -58,8 +58,8 @@ namespace PHX
 			const AttachmentDescription& attachmentDesc = desc.attachments.at(i);
 
 			VkAttachmentDescription& attachmentDescVk = attachmentDescs.at(i);
-			attachmentDescVk.format = TexUtils::ConvertTextureFormat(attachmentDesc.pTexture->GetFormat());
-			attachmentDescVk.samples = TexUtils::ConvertSampleCount(attachmentDesc.pTexture->GetSampleCount());
+			attachmentDescVk.format = TEX_UTILS::ConvertTextureFormat(attachmentDesc.pTexture->GetFormat());
+			attachmentDescVk.samples = TEX_UTILS::ConvertSampleCount(attachmentDesc.pTexture->GetSampleCount());
 			attachmentDescVk.loadOp = attachmentDesc.loadOp;
 			attachmentDescVk.storeOp = attachmentDesc.storeOp;
 			attachmentDescVk.stencilLoadOp = attachmentDesc.stencilLoadOp;
@@ -69,7 +69,7 @@ namespace PHX
 
 			VkAttachmentReference& attachmentRef = attachmentRefs.at(i);
 			attachmentRef.attachment = i;
-			attachmentRef.layout = VK_IMAGE_LAYOUT_GENERAL; // How inefficient is this?
+			attachmentRef.layout = attachmentDesc.layout;
 		}
 
 		std::vector<VkSubpassDescription> subpassDescs;
@@ -83,10 +83,17 @@ namespace PHX
 
 			VkSubpassDescription& subpassDescVk = subpassDescs.at(i);
 			subpassDescVk.pipelineBindPoint = subpassInfo.bindPoint;
-			subpassDescVk.colorAttachmentCount = subpassInfo.colorAttachmentIndices.size();
-			subpassDescVk.pColorAttachments = subpassInfo.colorAttachmentIndices.data();
+			subpassDescVk.colorAttachmentCount = static_cast<u32>(subpassInfo.colorAttachmentIndices.size());
 			subpassDescVk.pDepthStencilAttachment = &(attachmentRefs.at(subpassInfo.depthStencilAttachmentIndex));
 			subpassDescVk.pResolveAttachments = &(attachmentRefs.at(subpassInfo.resolveAttachmentIndex));
+			
+			std::vector<VkAttachmentReference> colorAttachmentRefs;
+			colorAttachmentRefs.resize(subpassInfo.colorAttachmentIndices.size());
+			for (const auto& colorAttachmentIndex : subpassInfo.colorAttachmentIndices)
+			{
+				colorAttachmentRefs.push_back(attachmentRefs.at(colorAttachmentIndex));
+			}
+			subpassDescVk.pColorAttachments = colorAttachmentRefs.data();
 
 			VkSubpassDependency& subpassDepVk = subpassDeps.at(i);
 			subpassDepVk.srcSubpass = VK_SUBPASS_EXTERNAL;

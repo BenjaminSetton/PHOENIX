@@ -105,15 +105,22 @@ namespace PHX
 		}
 
 		RenderDeviceVk* renderDevice = dynamic_cast<RenderDeviceVk*>(createInfo.renderDevice);
-		VkDevice logicalDevice = renderDevice->GetLogicalDevice();
-		VkPhysicalDevice physicalDevice = renderDevice->GetPhysicalDevice();
-
-		CreateSwapChain(logicalDevice, physicalDevice, createInfo.width, createInfo.height, createInfo.enableVSync);
+		CreateSwapChain(renderDevice, createInfo.width, createInfo.height, createInfo.enableVSync);
 	}
 
 	SwapChainVk::~SwapChainVk()
 	{
 		TODO();
+	}
+
+	ITexture* SwapChainVk::GetImage(u32 imageIndex) const
+	{
+		if (imageIndex < m_images.size())
+		{
+			return m_images[imageIndex];
+		}
+
+		return nullptr;
 	}
 
 	VkSwapchainKHR SwapChainVk::GetSwapChain() const
@@ -138,20 +145,14 @@ namespace PHX
 
 	u32 SwapChainVk::GetImageViewCount() const
 	{
-		return static_cast<u32>(m_imageViews.size());
+		return static_cast<u32>(m_images.size());
 	}
 
-	VkImageView SwapChainVk::GetImageViewAt(u32 index) const
+	STATUS_CODE SwapChainVk::CreateSwapChain(RenderDeviceVk* pRenderDevice, u32 width, u32 height, bool enableVSync)
 	{
-		if (index < m_imageViews.size())
-		{
-			return m_imageViews.at(index);
-		}
-		return VK_NULL_HANDLE;
-	}
+		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
+		VkPhysicalDevice physicalDevice = pRenderDevice->GetPhysicalDevice();
 
-	STATUS_CODE SwapChainVk::CreateSwapChain(VkDevice logicalDevice, VkPhysicalDevice physicalDevice, u32 width, u32 height, bool enableVSync)
-	{
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
 
 		SwapChainSupportDetails details = QuerySwapChainSupport(physicalDevice, surface);
@@ -214,15 +215,20 @@ namespace PHX
 		m_width = extent.width;
 		m_height = extent.height;
 
-		return CreateSwapChainImageViews(logicalDevice, imageCount, surfaceFormat.format);
+		if (CreateSwapChainImageViews(pRenderDevice, imageCount, surfaceFormat.format) != STATUS_CODE::SUCCESS)
+		{
+			return STATUS_CODE::ERR;
+		}
+
+		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE SwapChainVk::CreateSwapChainImageViews(VkDevice logicalDevice, u32 imageCount, VkFormat imageFormat)
+	STATUS_CODE SwapChainVk::CreateSwapChainImageViews(RenderDeviceVk* pRenderDevice, u32 imageCount, VkFormat imageFormat)
 	{
+		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
+
 		std::vector<VkImage> swapChainImages(imageCount);
 		vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, swapChainImages.data());
-
-		m_imageViews.resize(imageCount);
 
 		VkImageViewCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -234,14 +240,31 @@ namespace PHX
 		createInfo.subresourceRange.baseArrayLayer = 0;
 		createInfo.subresourceRange.layerCount = 1;
 
+		std::vector<VkImageView> imageViews;
+		imageViews.resize(imageCount);
+
 		for (uint32_t i = 0; i < imageCount; i++)
 		{
 			createInfo.image = swapChainImages[i];
-			if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &m_imageViews[i]) != VK_SUCCESS)
+			if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &(imageViews.at(i))) != VK_SUCCESS)
 			{
 				LogError("Failed to create one or more swap chain image views!");
 				return STATUS_CODE::ERR;
 			}
+		}
+
+		// Once all image views are successfully created, create 
+		// internal texture objects from swap chain image views
+		TextureBaseCreateInfo texBaseCI{};
+		texBaseCI.width = m_width;
+		texBaseCI.height = m_height;
+		texBaseCI.mipLevels = 1;
+		texBaseCI.generateMips = false;
+
+		m_images.reserve(imageCount);
+		for (u32 i = 0; i < imageCount; i++)
+		{
+			m_images.push_back(new TextureVk(pRenderDevice, texBaseCI, imageViews.at(i)));
 		}
 
 		return STATUS_CODE::SUCCESS;

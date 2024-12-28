@@ -50,6 +50,20 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+	// FRAMEBUFFER
+	FramebufferCreateInfo framebufferCI{};
+	framebufferCI.width = 1920;
+	framebufferCI.height = 1080;
+	framebufferCI.layers = 1;
+	framebufferCI.pAttachments = nullptr;
+	framebufferCI.attachmentCount = 0;
+
+	IFramebuffer* pFramebuffer = nullptr;
+	if (pRenderDevice->AllocateFramebuffer(framebufferCI, pFramebuffer) != STATUS_CODE::SUCCESS)
+	{
+		return -1;
+	}
+
 	auto pSwapChain = GetSwapChain();
 
 	int i = 0;

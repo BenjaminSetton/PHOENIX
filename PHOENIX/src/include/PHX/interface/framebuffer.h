@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../types/attachment_desc.h"
 #include "../types/integral_types.h"
 
 namespace PHX
@@ -7,15 +8,22 @@ namespace PHX
 	// Forward declarations
 	class ITexture;
 
+	struct FramebufferAttachmentDesc
+	{
+		ITexture* pTexture          = nullptr;
+		u32 mipTarget               = 0;
+		ATTACHMENT_TYPE type        = ATTACHMENT_TYPE::INVALID;
+		ATTACHMENT_LOAD_OP loadOp   = ATTACHMENT_LOAD_OP::INVALID;
+		ATTACHMENT_STORE_OP storeOp = ATTACHMENT_STORE_OP::INVALID;
+	};
+
 	struct FramebufferCreateInfo
 	{
-		u32 width                    = 0;
-		u32 height                   = 0;
-		u32 layers                   = 0;
-		ITexture** pAttachments      = nullptr;
-		u32 attachmentCount          = 0;
-		u32* pMipTargets             = nullptr;
-		u32 mipTargetCount           = 0;
+		u32 width                               = 0;
+		u32 height                              = 0;
+		u32 layers                              = 0;
+		FramebufferAttachmentDesc* pAttachments = nullptr;
+		u32 attachmentCount                     = 0;
 	};
 
 	class IFramebuffer
