@@ -23,10 +23,11 @@ namespace PHX
 		STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer* out_framebuffer) override;
 		STATUS_CODE AllocateCommandBuffer() override;
 		STATUS_CODE AllocateTexture() override;
-		STATUS_CODE AllocateShader() override;
+		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader* out_shader) override;
 
 		void DeallocateFramebuffer(IFramebuffer* pFramebuffer) override;
 		void DeallocateTexture(ITexture* pTexture) override;
+		void DeallocateShader(IShader* pShader) override;
 
 		VkDevice GetLogicalDevice() const;
 		VkPhysicalDevice GetPhysicalDevice() const;

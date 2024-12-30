@@ -23,6 +23,7 @@
 #include "../../utils/sanity.h"
 #include "core_vk.h"
 #include "framebuffer_vk.h"
+#include "shader_vk.h"
 #include "swap_chain_vk.h"
 #include "utils/queue_family_indices.h"
 #include "utils/swap_chain_helpers.h"
@@ -147,9 +148,10 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateShader()
+	STATUS_CODE RenderDeviceVk::AllocateShader(const ShaderCreateInfo& createInfo, IShader* out_shader)
 	{
 		LogInfo("Allocated shader!");
+		out_shader = new ShaderVk(createInfo);
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -161,6 +163,11 @@ namespace PHX
 	void RenderDeviceVk::DeallocateTexture(ITexture* pTexture)
 	{
 		SAFE_DEL(pTexture);
+	}
+
+	void RenderDeviceVk::DeallocateShader(IShader* pShader)
+	{
+		SAFE_DEL(pShader);
 	}
 
 	VkDevice RenderDeviceVk::GetLogicalDevice() const
