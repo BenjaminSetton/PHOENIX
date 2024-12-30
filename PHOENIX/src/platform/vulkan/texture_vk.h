@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
 #include "PHX/interface/texture.h"
@@ -58,6 +59,7 @@ namespace PHX
 
 		VkImage m_baseImage;
 		std::vector<VkImageView> m_imageViews;
+		VmaAllocation m_alloc;
 		//VkSampler sampler;
 
 		u32 m_width;

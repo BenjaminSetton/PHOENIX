@@ -2,12 +2,10 @@
 
 #include "../types/attachment_desc.h"
 #include "../types/integral_types.h"
+#include "texture.h"
 
 namespace PHX
 {
-	// Forward declarations
-	class ITexture;
-
 	struct FramebufferAttachmentDesc
 	{
 		ITexture* pTexture          = nullptr;

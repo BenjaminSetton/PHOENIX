@@ -13,5 +13,7 @@ namespace PHX
 		VkSampleCountFlagBits ConvertSampleCount(SAMPLE_COUNT sampleCount);
 		VkImageViewType ConvertViewType(VIEW_TYPE type);
 		VkImageAspectFlags ConvertAspectFlags(AspectTypeFlags flags);
+
+		TEXTURE_FORMAT ConvertSurfaceFormat(VkFormat format);
 	}
 }

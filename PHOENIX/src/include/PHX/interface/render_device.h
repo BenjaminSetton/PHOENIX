@@ -31,5 +31,9 @@ namespace PHX
 		virtual STATUS_CODE AllocateCommandBuffer()                                      = 0;
 		virtual STATUS_CODE AllocateTexture()                                            = 0;
 		virtual STATUS_CODE AllocateShader()                                             = 0;
+
+		// Deallocations
+		virtual void DeallocateFramebuffer(IFramebuffer* pFramebuffer) = 0;
+		virtual void DeallocateTexture(ITexture* pTexture) = 0;
 	};
 }

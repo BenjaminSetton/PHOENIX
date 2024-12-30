@@ -11,6 +11,7 @@
 #include "render_device_vk.h"
 #include "utils/queue_family_indices.h"
 #include "utils/swap_chain_helpers.h"
+#include "utils/texture_type_converter.h"
 
 namespace PHX
 {
@@ -121,6 +122,11 @@ namespace PHX
 		}
 
 		return nullptr;
+	}
+
+	u32 SwapChainVk::GetImageCount() const
+	{
+		return static_cast<u32>(m_images.size());
 	}
 
 	VkSwapchainKHR SwapChainVk::GetSwapChain() const
@@ -260,6 +266,9 @@ namespace PHX
 		texBaseCI.height = m_height;
 		texBaseCI.mipLevels = 1;
 		texBaseCI.generateMips = false;
+		texBaseCI.usageFlags = static_cast<UsageTypeFlags>(USAGE_TYPE::COLOR_ATTACHMENT);
+		texBaseCI.sampleFlags = SAMPLE_COUNT::COUNT_1;
+		texBaseCI.format = TEX_UTILS::ConvertSurfaceFormat(m_format);
 
 		m_images.reserve(imageCount);
 		for (u32 i = 0; i < imageCount; i++)

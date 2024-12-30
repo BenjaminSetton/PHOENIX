@@ -131,10 +131,7 @@ namespace PHX
 
 	STATUS_CODE RenderDeviceVk::AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer* out_framebuffer)
 	{
-		LogInfo("Allocated framebuffer!");
-
 		out_framebuffer = new FramebufferVk(this, createInfo);
-
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -154,6 +151,16 @@ namespace PHX
 	{
 		LogInfo("Allocated shader!");
 		return STATUS_CODE::SUCCESS;
+	}
+
+	void RenderDeviceVk::DeallocateFramebuffer(IFramebuffer* pFramebuffer)
+	{
+		SAFE_DEL(pFramebuffer);
+	}
+
+	void RenderDeviceVk::DeallocateTexture(ITexture* pTexture)
+	{
+		SAFE_DEL(pTexture);
 	}
 
 	VkDevice RenderDeviceVk::GetLogicalDevice() const

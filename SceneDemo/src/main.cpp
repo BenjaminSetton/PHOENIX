@@ -1,5 +1,6 @@
 
 #include <iostream>
+#include <vector>
 
 #include <PHX/phx.h>
 
@@ -50,21 +51,30 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	// FRAMEBUFFER
-	FramebufferCreateInfo framebufferCI{};
-	framebufferCI.width = 1920;
-	framebufferCI.height = 1080;
-	framebufferCI.layers = 1;
-	framebufferCI.pAttachments = nullptr;
-	framebufferCI.attachmentCount = 0;
-
-	IFramebuffer* pFramebuffer = nullptr;
-	if (pRenderDevice->AllocateFramebuffer(framebufferCI, pFramebuffer) != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
-
 	auto pSwapChain = GetSwapChain();
+
+	// FRAMEBUFFER
+	std::vector<IFramebuffer*> framebuffers(pSwapChain->GetImageCount());
+	for (u32 i = 0; i < pSwapChain->GetImageCount(); i++)
+	{
+		FramebufferAttachmentDesc desc;
+		desc.pTexture = pSwapChain->GetImage(i);
+		desc.mipTarget = 0;
+		desc.type = PHX::ATTACHMENT_TYPE::COLOR;
+		desc.storeOp = PHX::ATTACHMENT_STORE_OP::STORE;
+		desc.loadOp = PHX::ATTACHMENT_LOAD_OP::IGNORE;
+
+		FramebufferCreateInfo framebufferCI{};
+		framebufferCI.width = desc.pTexture->GetWidth();
+		framebufferCI.height = desc.pTexture->GetHeight();
+		framebufferCI.layers = 1;
+		framebufferCI.pAttachments = &desc;
+		framebufferCI.attachmentCount = 1;
+		if (pRenderDevice->AllocateFramebuffer(framebufferCI, framebuffers.at(i)) != STATUS_CODE::SUCCESS)
+		{
+			return -1;
+		}
+	}
 
 	int i = 0;
 	while (!pWindow->ShouldClose())

@@ -86,6 +86,7 @@ namespace PHX
 			case TEXTURE_FORMAT::D16_UNORM_S8_UINT:			return VK_FORMAT_D16_UNORM_S8_UINT;
 			case TEXTURE_FORMAT::D24_UNORM_S8_UINT:			return VK_FORMAT_D24_UNORM_S8_UINT;
 			case TEXTURE_FORMAT::D32_FLOAT_S8_UINT:			return VK_FORMAT_D32_SFLOAT_S8_UINT;
+			case TEXTURE_FORMAT::B8G8R8A8_SRGB:				return VK_FORMAT_B8G8R8A8_SRGB;
 			}
 
 			return VK_FORMAT_UNDEFINED;
@@ -197,6 +198,17 @@ namespace PHX
 			}
 
 			return res;
+		}
+
+		TEXTURE_FORMAT ConvertSurfaceFormat(VkFormat format)
+		{
+			// TODO - Fill out more supported surface formats
+			switch (format)
+			{
+			case VK_FORMAT_B8G8R8A8_SRGB: return TEXTURE_FORMAT::B8G8R8A8_SRGB;
+			}
+
+			return TEXTURE_FORMAT::INVALID;
 		}
 	}
 }

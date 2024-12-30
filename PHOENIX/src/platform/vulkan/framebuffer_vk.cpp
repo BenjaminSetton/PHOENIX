@@ -213,12 +213,6 @@ namespace PHX
 
 	STATUS_CODE FramebufferVk::VerifyCreateInfo(const FramebufferCreateInfo& createInfo)
 	{
-		if (m_framebuffer != VK_NULL_HANDLE)
-		{
-			LogError("Attempting to create a framebuffer twice!");
-			return STATUS_CODE::ERR;
-		}
-
 		if (createInfo.attachmentCount == 0)
 		{
 			LogError("Attempting to create a framebuffer with no attachments!");
@@ -234,6 +228,23 @@ namespace PHX
 		if (createInfo.pAttachments == nullptr || createInfo.attachmentCount == 0)
 		{
 			LogError("Attempting to create a framebuffer with no attachments!");
+			return STATUS_CODE::ERR;
+		}
+
+		bool allSizesValid = true;
+		for (u32 i = 0; i < createInfo.attachmentCount; i++)
+		{
+			FramebufferAttachmentDesc& currAttachment = createInfo.pAttachments[i];
+			ITexture* attachmentTex = currAttachment.pTexture;
+			if (attachmentTex->GetWidth() != createInfo.width || attachmentTex->GetHeight() != createInfo.height)
+			{
+				allSizesValid = false;
+				LogWarning("Attempting to create framebuffer of size %ux%u, but attachment %u has size %ux%u", 
+					createInfo.width, createInfo.height, i, attachmentTex->GetWidth(), attachmentTex->GetHeight());
+			}
+		}
+		if (!allSizesValid)
+		{
 			return STATUS_CODE::ERR;
 		}
 

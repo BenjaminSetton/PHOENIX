@@ -72,75 +72,51 @@ namespace PHX
 			attachmentRef.layout = attachmentDesc.layout;
 		}
 
-		std::vector<VkSubpassDescription> subpassDescs;
-		std::vector<VkSubpassDependency> subpassDeps;
+		VkSubpassDescription subpassDescVk{};
+		VkSubpassDependency subpassDepVk{};
 
-		subpassDescs.resize(desc.subpasses.size());
-		subpassDeps.resize(desc.subpasses.size());
-		for (u32 i = 0; i < static_cast<u32>(subpassDescs.size()); i++)
+		if (desc.subpasses.size() > 1)
 		{
-			const SubpassDescription& subpassInfo = desc.subpasses.at(i);
+			LogWarning("Only one subpass is currently supported for render passes!");
+		}
+		const SubpassDescription& subpassInfo = desc.subpasses.at(0);
 
-			VkSubpassDescription& subpassDescVk = subpassDescs.at(i);
-			subpassDescVk.pipelineBindPoint = subpassInfo.bindPoint;
-			subpassDescVk.colorAttachmentCount = static_cast<u32>(subpassInfo.colorAttachmentIndices.size());
+		subpassDescVk.pipelineBindPoint = subpassInfo.bindPoint;
+		subpassDescVk.colorAttachmentCount = static_cast<u32>(subpassInfo.colorAttachmentIndices.size());
+
+		if (subpassInfo.depthStencilAttachmentIndex != U32_MAX)
+		{
 			subpassDescVk.pDepthStencilAttachment = &(attachmentRefs.at(subpassInfo.depthStencilAttachmentIndex));
-			subpassDescVk.pResolveAttachments = &(attachmentRefs.at(subpassInfo.resolveAttachmentIndex));
-			
-			std::vector<VkAttachmentReference> colorAttachmentRefs;
-			colorAttachmentRefs.resize(subpassInfo.colorAttachmentIndices.size());
-			for (const auto& colorAttachmentIndex : subpassInfo.colorAttachmentIndices)
-			{
-				colorAttachmentRefs.push_back(attachmentRefs.at(colorAttachmentIndex));
-			}
-			subpassDescVk.pColorAttachments = colorAttachmentRefs.data();
-
-			VkSubpassDependency& subpassDepVk = subpassDeps.at(i);
-			subpassDepVk.srcSubpass = VK_SUBPASS_EXTERNAL;
-			subpassDepVk.dstSubpass = 0;
-			subpassDepVk.srcStageMask = subpassInfo.srcStageMask;
-			subpassDepVk.dstStageMask = subpassInfo.dstStageMask;
-			subpassDepVk.dstAccessMask = subpassInfo.dstAccessMask;
 		}
 
-		/*VkAttachmentDescription colorAttachmentDesc{};
-		colorAttachmentDesc.format = colorAttachmentFormat;
-		colorAttachmentDesc.samples = VK_SAMPLE_COUNT_1_BIT;
-		colorAttachmentDesc.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		colorAttachmentDesc.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-		colorAttachmentDesc.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-		colorAttachmentDesc.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-		colorAttachmentDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		colorAttachmentDesc.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		if (subpassInfo.resolveAttachmentIndex != U32_MAX)
+		{
+			subpassDescVk.pResolveAttachments = &(attachmentRefs.at(subpassInfo.resolveAttachmentIndex));
+		}
+			
+		std::vector<VkAttachmentReference> colorAttachmentRefs;
+		colorAttachmentRefs.reserve(subpassInfo.colorAttachmentIndices.size());
+		for (const auto& colorAttachmentIndex : subpassInfo.colorAttachmentIndices)
+		{
+			colorAttachmentRefs.push_back(attachmentRefs.at(colorAttachmentIndex));
+		}
+		subpassDescVk.pColorAttachments = colorAttachmentRefs.data();
 
-		VkAttachmentReference& colorAttachmentRef = out_builder.GetNextAttachmentReference();
-		colorAttachmentRef.attachment = 0;
-		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-		VkSubpassDescription subpass{};
-		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		subpass.colorAttachmentCount = 1;
-		subpass.pColorAttachments = &colorAttachmentRef;
-		subpass.pDepthStencilAttachment = &depthAttachmentRef;
-		subpass.pResolveAttachments = nullptr;
-
-		VkSubpassDependency dependency{};
-		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		dependency.dstSubpass = 0;
-		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;*/
-
-		////////////////////////////////////////////////////////////////////////////
+		// Subpass dependencies
+		subpassDepVk.srcSubpass = VK_SUBPASS_EXTERNAL;
+		subpassDepVk.dstSubpass = 0;
+		subpassDepVk.srcStageMask = subpassInfo.srcStageMask;
+		subpassDepVk.dstStageMask = subpassInfo.dstStageMask;
+		subpassDepVk.dstAccessMask = subpassInfo.dstAccessMask;
 
 		VkRenderPassCreateInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 		renderPassInfo.attachmentCount = static_cast<u32>(attachmentDescs.size());
 		renderPassInfo.pAttachments = attachmentDescs.data();
-		renderPassInfo.subpassCount = static_cast<u32>(subpassDescs.size());
-		renderPassInfo.pSubpasses = subpassDescs.data();
-		renderPassInfo.dependencyCount = static_cast<u32>(subpassDeps.size());
-		renderPassInfo.pDependencies = subpassDeps.data();
+		renderPassInfo.subpassCount = 1;
+		renderPassInfo.pSubpasses = &subpassDescVk;
+		renderPassInfo.dependencyCount = 1;
+		renderPassInfo.pDependencies = &subpassDepVk;
 
 		VkRenderPass renderPass = VK_NULL_HANDLE;
 		if (vkCreateRenderPass(pRenderDevice->GetLogicalDevice(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)

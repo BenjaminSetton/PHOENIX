@@ -25,6 +25,7 @@ namespace PHX
 		virtual ~ISwapChain() { }
 
 		virtual ITexture* GetImage(u32 imageIndex) const = 0;
+		virtual u32 GetImageCount() const = 0;
 
 	};
 }

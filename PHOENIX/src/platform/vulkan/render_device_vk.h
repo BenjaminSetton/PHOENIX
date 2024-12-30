@@ -25,6 +25,9 @@ namespace PHX
 		STATUS_CODE AllocateTexture() override;
 		STATUS_CODE AllocateShader() override;
 
+		void DeallocateFramebuffer(IFramebuffer* pFramebuffer) override;
+		void DeallocateTexture(ITexture* pTexture) override;
+
 		VkDevice GetLogicalDevice() const;
 		VkPhysicalDevice GetPhysicalDevice() const;
 

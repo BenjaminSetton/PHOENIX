@@ -46,15 +46,19 @@ namespace PHX
 	TextureVk::~TextureVk()
 	{
 		TODO();
+		// Figure out how to get the allocator from the render device in here
+		//vmaDestroyImage(, m_baseImage, m_alloc);
 	}
 
 	TextureVk::TextureVk(const TextureVk&& other)
 	{
+		UNUSED(other);
 		TODO();
 	}
 
 	void TextureVk::CopyFrom(ITexture* other)
 	{
+		UNUSED(other);
 		TODO();
 	}
 
@@ -178,8 +182,7 @@ namespace PHX
 		allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 		allocCreateInfo.priority = 1.0f;
 
-		VmaAllocation alloc;
-		if (vmaCreateImage(pRenderDevice->GetAllocator(), &imageInfo, &allocCreateInfo, &m_baseImage, &alloc, nullptr) != VK_SUCCESS)
+		if (vmaCreateImage(pRenderDevice->GetAllocator(), &imageInfo, &allocCreateInfo, &m_baseImage, &m_alloc, nullptr) != VK_SUCCESS)
 		{
 			LogError("Failed to create texture!");
 			return STATUS_CODE::ERR;
@@ -202,6 +205,7 @@ namespace PHX
 		m_height = createInfo.height;
 		m_arrayLayers = createInfo.arrayLayers;
 		m_format = createInfo.format;
+		m_sampleCount = createInfo.sampleFlags;
 		m_mipLevels = mipsToUse;
 
 		return STATUS_CODE::SUCCESS;
@@ -330,6 +334,7 @@ namespace PHX
 		case TEXTURE_FORMAT::R32_FLOAT:
 		case TEXTURE_FORMAT::D32_FLOAT:
 		case TEXTURE_FORMAT::D24_UNORM_S8_UINT:
+		case TEXTURE_FORMAT::B8G8R8A8_SRGB:
 		{
 			return 4;
 		}

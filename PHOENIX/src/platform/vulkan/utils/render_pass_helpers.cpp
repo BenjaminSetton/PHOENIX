@@ -22,8 +22,13 @@ namespace PHX
 		bool isEqual = true;
 		for (u32 i = 0; i < attachments.size(); i++)
 		{
-			const AttachmentDescription& thisAttachment = attachments.at(i);
-			const AttachmentDescription& otherAttachment = other.attachments.at(i);
+			AttachmentDescription thisAttachment = attachments[i];
+			AttachmentDescription otherAttachment = other.attachments[i];
+
+			// Ignore texture pointers for description comparisons
+			thisAttachment.pTexture = nullptr;
+			otherAttachment.pTexture = nullptr;
+
 			if (memcmp(&thisAttachment, &otherAttachment, sizeof(AttachmentDescription)) != 0)
 			{
 				isEqual = false;
@@ -41,7 +46,10 @@ namespace PHX
 		hash_combine(seed, desc.attachments.size());
 		for (const auto& attachment : desc.attachments)
 		{
-			hash_combine(seed, attachment.pTexture);
+			// Exclude the texture pointer from the hash because two render pass
+			// descriptions can be identical even if their textures are different
+			//hash_combine(seed, attachment.pTexture);
+
 			hash_combine(seed, attachment.loadOp);
 			hash_combine(seed, attachment.storeOp);
 			hash_combine(seed, attachment.stencilLoadOp);

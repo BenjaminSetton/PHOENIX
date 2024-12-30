@@ -16,6 +16,7 @@ namespace PHX
 		~SwapChainVk();
 
 		ITexture* GetImage(u32 imageIndex) const override;
+		u32 GetImageCount() const override;
 
 		VkSwapchainKHR GetSwapChain() const;
 		VkFormat GetSwapChainFormat() const;
