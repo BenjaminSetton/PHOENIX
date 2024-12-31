@@ -2,8 +2,9 @@
 
 #include <memory>
 
-#include "types/integral_types.h"
 #include "types/graphics_api.h"
+#include "types/integral_types.h"
+#include "types/shader_desc.h"
 #include "types/status_code.h"
 
 #include "PHX/interface/render_device.h"
@@ -23,4 +24,7 @@ namespace PHX
 	[[nodiscard]] std::shared_ptr<IWindow> GetWindow();
 	[[nodiscard]] std::shared_ptr<IRenderDevice> GetRenderDevice();
 	[[nodiscard]] std::shared_ptr<ISwapChain> GetSwapChain();
+
+	// UTILS
+	STATUS_CODE CompileShader(const char* shaderSrc, u32 numBytes, SHADER_TYPE type);
 }

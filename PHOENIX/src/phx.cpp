@@ -89,4 +89,8 @@ namespace PHX
 		return g_Data.m_pSwapChain;
 	}
 
+	STATUS_CODE CompileShader(const char* shaderSrc, u32 numBytes, SHADER_TYPE type)
+	{
+		return STATUS_CODE::SUCCESS;
+	}
 }

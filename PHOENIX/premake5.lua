@@ -25,7 +25,8 @@ project "PHOENIX"
 		"%{PHX_IncludeDirs.dep_vulkan}",
 		"%{PHX_IncludeDirs.dep_glfw}",
 		"%{PHX_IncludeDirs.dep_vma}",
-		"%{PHX_IncludeDirs.lib_inc}"
+		"%{PHX_IncludeDirs.dep_shaderc}",
+		"%{PHX_IncludeDirs.lib_inc}",
 	}
 	
 	links
@@ -46,6 +47,7 @@ project "PHOENIX"
 		links
 		{
 			"%{PHX_Libraries.glfw_debug}",
+			"%{PHX_Libraries.shaderc_debug}",
 		}
 	
 	filter "configurations:Release"
@@ -55,4 +57,5 @@ project "PHOENIX"
 		links
 		{
 			"%{PHX_Libraries.glfw_release}",
+			"%{PHX_Libraries.shaderc_release}",
 		}

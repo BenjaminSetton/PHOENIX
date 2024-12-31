@@ -151,7 +151,7 @@ namespace PHX
 	STATUS_CODE RenderDeviceVk::AllocateShader(const ShaderCreateInfo& createInfo, IShader* out_shader)
 	{
 		LogInfo("Allocated shader!");
-		out_shader = new ShaderVk(createInfo);
+		out_shader = new ShaderVk(this, createInfo);
 		return STATUS_CODE::SUCCESS;
 	}
 
