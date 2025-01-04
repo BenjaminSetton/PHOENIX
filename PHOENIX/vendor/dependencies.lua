@@ -12,5 +12,5 @@ PHX_Libraries                       = {}
 PHX_Libraries["vulkan"]             = "%{VULKAN_SDK}/Lib/vulkan-1.lib"
 PHX_Libraries["glfw_debug"]         = "%{wks.location}/PHOENIX/vendor/glfw/bin/debug/glfw3.lib"
 PHX_Libraries["glfw_release"]       = "%{wks.location}/PHOENIX/vendor/glfw/bin/release/glfw3.lib"
-PHX_Libraries["shaderc_debug"]      = "%{wks.location}/PHOENIX/vendor/shaderc/bin/debug/shadercd.lib"
-PHX_Libraries["shaderc_release"]    = "%{wks.location}/PHOENIX/vendor/shaderc/bin/release/shaderc.lib"
+PHX_Libraries["shaderc_debug"]      = "%{wks.location}/PHOENIX/vendor/shaderc/bin/debug/shaderc_combinedd.lib"
+PHX_Libraries["shaderc_release"]    = "%{wks.location}/PHOENIX/vendor/shaderc/bin/release/shaderc_combined.lib"

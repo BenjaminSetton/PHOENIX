@@ -7,17 +7,18 @@
 
 #include "PHX/types/integral_types.h"
 
+
 #define LOG_FORMAT_CODE(logType) \
-	char buffer[MAX_BUFFER_SIZE_BYTES]; \
 	va_list va; \
 	va_start(va, format); \
-	vsprintf_s(buffer, format, va); \
-	Log_Internal(logType, buffer); \
+	vsprintf_s(s_printBuffer, MAX_BUFFER_SIZE_BYTES, format, va); \
+	Log_Internal(logType, s_printBuffer); \
 	va_end(va);
 
 namespace PHX
 {
-	static constexpr u32 MAX_BUFFER_SIZE_BYTES = 250;
+	static constexpr u32 MAX_BUFFER_SIZE_BYTES = 5000;
+	static char s_printBuffer[MAX_BUFFER_SIZE_BYTES];
 
 	// ANSI color codes
 	static const char* LogErrorColor   = "\x1B[31m";
@@ -80,7 +81,7 @@ namespace PHX
 			memcpy(AMorPM, "PM", 3);
 		}
 
-		fprintf_s(stderr, "[%02d:%02d:%02d %s] %s[%s] %s %s\n",
+		fprintf_s(stderr, "[PHOENIX][%02d:%02d:%02d %s]%s[%s] %s %s\n",
 			hour,
 			currentLocalTime.tm_min,
 			currentLocalTime.tm_sec,

@@ -14,10 +14,22 @@ namespace PHX
 			return;
 		}
 
+		if (createInfo.pBytecode == nullptr)
+		{
+			LogError("Attempting to create a shader of type %u with no bytecode!", static_cast<u32>(createInfo.type));
+			return;
+		}
+
+		if (createInfo.size == 0)
+		{
+			LogError("Attempting to create a shader of type %u with a size of 0!", static_cast<u32>(createInfo.type));
+			return;
+		}
+
 		VkShaderModuleCreateInfo createInfoVk{};
 		createInfoVk.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-		createInfoVk.codeSize = createInfo.byteCount;
-		createInfoVk.pCode = reinterpret_cast<u32*>(createInfo.pBytecode);
+		createInfoVk.codeSize = createInfo.size * sizeof(u32);
+		createInfoVk.pCode = createInfo.pBytecode;
 
 		if (vkCreateShaderModule(pRenderDevice->GetLogicalDevice(), &createInfoVk, nullptr, &m_shader) != VK_SUCCESS)
 		{
@@ -28,7 +40,7 @@ namespace PHX
 		m_type = createInfo.type;
 	}
 
-	SHADER_TYPE ShaderVk::GetType() const
+	SHADER_KIND ShaderVk::GetType() const
 	{
 		return m_type;
 	}

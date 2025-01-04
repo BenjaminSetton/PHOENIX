@@ -7,9 +7,9 @@ namespace PHX
 {
 	struct ShaderCreateInfo
 	{
-		void* pBytecode;
-		u32 byteCount;
-		SHADER_TYPE type;
+		const u32* pBytecode;
+		u32 size;
+		SHADER_KIND type;
 	};
 
 	class IShader
@@ -18,6 +18,6 @@ namespace PHX
 
 		virtual ~IShader() { }
 
-		virtual SHADER_TYPE GetType() const = 0;
+		virtual SHADER_KIND GetType() const = 0;
 	};
 }

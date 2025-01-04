@@ -1,9 +1,12 @@
 
+#include <shaderc/shaderc.hpp>
+
 #include "PHX/phx.h"
 
+#include "utils/logger.h"
 #include "utils/object_factory.h"
 #include "utils/sanity.h"
-#include "utils/logger.h"
+#include "utils/shader_type_converter.h"
 
 static struct GlobalGraphicsData
 {
@@ -89,8 +92,38 @@ namespace PHX
 		return g_Data.m_pSwapChain;
 	}
 
-	STATUS_CODE CompileShader(const char* shaderSrc, u32 numBytes, SHADER_TYPE type)
+	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result)
 	{
+		if (srcData.data == nullptr)
+		{
+			return STATUS_CODE::ERR;
+		}
+
+		shaderc::Compiler compiler;
+
+		shaderc::CompileOptions options;
+		options.SetOptimizationLevel(SHADER_UTILS::ConvertOptimizationLevel(srcData.optimizationLevel));
+		options.SetSourceLanguage(SHADER_UTILS::ConvertSourceLanguage(srcData.origin));
+		// TODO - options.AddMacroDefinition()
+
+		shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(
+			std::string(srcData.data), 
+			SHADER_UTILS::ConvertShaderKind(srcData.kind), 
+			srcData.name,
+			options);
+
+		if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
+			LogError("Failed to compile shader! Error: %s", module.GetErrorMessage().c_str());
+			return STATUS_CODE::ERR;
+		}
+
+		u32 size = static_cast<u32>(module.cend() - module.cbegin());
+		out_result.data = std::shared_ptr<u32[]>(new u32[size]);
+		out_result.size = size;
+
+		// Copy the memory into our own struct
+		memcpy(out_result.data.get(), module.cbegin(), size * sizeof(u32));
+
 		return STATUS_CODE::SUCCESS;
 	}
 }

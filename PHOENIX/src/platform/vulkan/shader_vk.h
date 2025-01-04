@@ -15,13 +15,13 @@ namespace PHX
 
 		explicit ShaderVk(RenderDeviceVk* pRenderDevice, const ShaderCreateInfo& createInfo);
 
-		SHADER_TYPE GetType() const override;
+		SHADER_KIND GetType() const override;
 
 	private:
 
 		VkShaderModule m_shader;
 
-		SHADER_TYPE m_type;
+		SHADER_KIND m_type;
 	};
 
 }

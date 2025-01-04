@@ -26,5 +26,5 @@ namespace PHX
 	[[nodiscard]] std::shared_ptr<ISwapChain> GetSwapChain();
 
 	// UTILS
-	STATUS_CODE CompileShader(const char* shaderSrc, u32 numBytes, SHADER_TYPE type);
+	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result);
 }

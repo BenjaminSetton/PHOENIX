@@ -47,7 +47,7 @@ project "PHOENIX"
 		links
 		{
 			"%{PHX_Libraries.glfw_debug}",
-			"%{PHX_Libraries.shaderc_debug}",
+			"%{PHX_Libraries.shaderc_debug}"
 		}
 	
 	filter "configurations:Release"

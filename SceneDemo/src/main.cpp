@@ -1,4 +1,6 @@
 
+#include <fstream>
+#include <sstream>
 #include <iostream>
 #include <vector>
 
@@ -76,6 +78,42 @@ int main(int argc, char** argv)
 		}
 	}
 
+	// SHADERS
+	std::ifstream shaderFile;
+	shaderFile.open("../src/shaders/vertex_sample.vert", std::ios::in);
+	if (!shaderFile.is_open())
+	{
+		return -1;
+	}
+	std::stringstream buffer;
+	buffer << shaderFile.rdbuf();
+	std::string shaderStr = buffer.str();
+
+	ShaderSourceData shaderSrc;
+	shaderSrc.data = shaderStr.c_str();
+	shaderSrc.name = "vertex_sample";
+	shaderSrc.kind = PHX::SHADER_KIND::VERTEX;
+	shaderSrc.origin = PHX::SHADER_ORIGIN::GLSL;
+	shaderSrc.optimizationLevel = PHX::SHADER_OPTIMIZATION_LEVEL::NONE;
+
+	CompiledShader shaderRes;
+	if (CompileShader(shaderSrc, shaderRes) != PHX::STATUS_CODE::SUCCESS)
+	{
+		return -1;
+	}
+
+	ShaderCreateInfo shaderCI{};
+	shaderCI.pBytecode = shaderRes.data.get();
+	shaderCI.size = shaderRes.size;
+	shaderCI.type = PHX::SHADER_KIND::VERTEX;
+
+	IShader* pShader = nullptr;
+	if (pRenderDevice->AllocateShader(shaderCI, pShader) != PHX::STATUS_CODE::SUCCESS)
+	{
+		return -1;
+	}
+
+	// CORE LOOP
 	int i = 0;
 	while (!pWindow->ShouldClose())
 	{
