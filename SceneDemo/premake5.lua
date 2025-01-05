@@ -1,8 +1,6 @@
 
 include "vendor/dependencies.lua"
 
-outputDir = "%{cfg.system}/%{cfg.buildcfg}/%{cfg.architecture}"
-
 project "SceneDemo"
 	location "out"
 	language "C++"

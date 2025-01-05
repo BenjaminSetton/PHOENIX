@@ -1,8 +1,6 @@
 
 include "vendor/dependencies.lua"
 
-outputDir = "%{cfg.system}/%{cfg.buildcfg}/%{cfg.architecture}"
-
 project "PHOENIX"
 	location "out"
 	language "C++"
@@ -10,6 +8,11 @@ project "PHOENIX"
 	
 	targetdir ("out/bin/" .. outputDir)
 	objdir ("out/obj/" .. outputDir)
+	
+	dependson
+	{
+		"GLFW"
+	}
 	
 	files
 	{
@@ -26,12 +29,14 @@ project "PHOENIX"
 		"%{PHX_IncludeDirs.dep_glfw}",
 		"%{PHX_IncludeDirs.dep_vma}",
 		"%{PHX_IncludeDirs.dep_shaderc}",
+		
 		"%{PHX_IncludeDirs.lib_inc}",
 	}
 	
 	links
 	{
-		"%{PHX_Libraries.vulkan}"
+		"%{PHX_Libraries.vulkan}",
+		"%{PHX_Libraries.glfw}"
 	}
 	
 	filter "system:windows"
@@ -44,18 +49,18 @@ project "PHOENIX"
 		defines "PHX_DEBUG"
 		symbols "On"
 		
-		links
-		{
-			"%{PHX_Libraries.glfw_debug}",
-			"%{PHX_Libraries.shaderc_debug}"
-		}
+		--links
+		--{
+		--	"%{PHX_Libraries.glfw_debug}",
+		--	"%{PHX_Libraries.shaderc_debug}"
+		--}
 	
 	filter "configurations:Release"
 		defines "PHX_RELEASE"
 		optimize "On"
 		
-		links
-		{
-			"%{PHX_Libraries.glfw_release}",
-			"%{PHX_Libraries.shaderc_release}",
-		}
+		--links
+		--{
+		--	"%{PHX_Libraries.glfw_release}",
+		--	"%{PHX_Libraries.shaderc_release}",
+		--}
