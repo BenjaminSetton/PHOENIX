@@ -14,7 +14,7 @@ outputDir = "%{cfg.system}/%{cfg.buildcfg}/%{cfg.architecture}"
 -- Projects dependencies
 group "Deps"
 include "PHOENIX/vendor/glfw/premake5.lua"
-include "PHOENIX/vendor/shaderc/premake5.lua"
+include "PHOENIX/vendor/shaderc-phx/premake5.lua"
 group ""
 
 -- Core lib
