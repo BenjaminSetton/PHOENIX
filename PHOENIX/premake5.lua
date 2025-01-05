@@ -11,7 +11,8 @@ project "PHOENIX"
 	
 	dependson
 	{
-		"GLFW"
+		"GLFW",
+		"ShaderC"
 	}
 	
 	files
@@ -36,7 +37,8 @@ project "PHOENIX"
 	links
 	{
 		"%{PHX_Libraries.vulkan}",
-		"%{PHX_Libraries.glfw}"
+		"%{PHX_Libraries.glfw}",
+		"%{PHX_Libraries.shaderc}"
 	}
 	
 	filter "system:windows"
@@ -48,19 +50,8 @@ project "PHOENIX"
 	filter "configurations:Debug"
 		defines "PHX_DEBUG"
 		symbols "On"
-		
-		--links
-		--{
-		--	"%{PHX_Libraries.glfw_debug}",
-		--	"%{PHX_Libraries.shaderc_debug}"
-		--}
 	
 	filter "configurations:Release"
 		defines "PHX_RELEASE"
 		optimize "On"
 		
-		--links
-		--{
-		--	"%{PHX_Libraries.glfw_release}",
-		--	"%{PHX_Libraries.shaderc_release}",
-		--}
