@@ -1,0 +1,3 @@
+[submodule "PHOENIX/vendor/glfw"]
+	path = PHOENIX/vendor/glfw
+	url = https://github.com/BenjaminSetton/glfw.git
