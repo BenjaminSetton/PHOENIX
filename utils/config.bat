@@ -1,0 +1,3 @@
+
+set WORKSPACE_DIR=%~dp0..\
+set OUT_DIR=%WORKSPACE_DIR%PHOENIX\out

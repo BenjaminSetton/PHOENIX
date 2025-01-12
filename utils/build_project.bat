@@ -6,10 +6,10 @@
 set GENERATOR="vs2022"
 set BUILD_DIR="build"
 
-echo Building project for %GENERATOR%...
+echo Building PHOENIX for %GENERATOR%...
 
-call "PHOENIX/vendor/premake/premake5.exe" %GENERATOR%
+call "../PHOENIX/vendor/premake/premake5.exe" %GENERATOR%
 
-echo Finished building project in %BUILD_DIR% folder!
+echo Finished building PHOENIX in %BUILD_DIR% folder!
 
 pause
