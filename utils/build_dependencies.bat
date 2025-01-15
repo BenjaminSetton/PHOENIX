@@ -26,22 +26,12 @@ echo [PHOENIX] Finished building GLFW release!
 
 echo [PHOENIX] Finished building GLFW!
 
-:: Build shaderc
-echo [PHOENIX] Building ShaderC dependency...
+:: Build glslc
+echo [PHOENIX] Building glslc dependency...
 
-cd %WORKSPACE_DIR%\PHOENIX\vendor\shaderc-phx
-cmake -S . -B build -DSHADERC_SKIP_EXAMPLES=ON -DSHADERC_SKIP_TESTS=ON
-cd build
+:: TODO
 
-echo [PHOENIX] Started building ShaderC debug...
-cmake --build . --config Debug
-echo [PHOENIX] Finished building ShaderC debug!
-
-echo [PHOENIX] Started building ShaderC release...
-cmake --build . --config Release
-echo [PHOENIX] Finished building ShaderC release!
-
-echo [PHOENIX] Finished building ShaderC!
+echo [PHOENIX] Finished building glslc dependency!
 
 echo [PHOENIX] Finished building dependencies!
 pause
