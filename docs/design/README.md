@@ -77,6 +77,8 @@ The library must contain minimal dependencies to make it as easy as possible to 
 - Premake (build system)
 - Vulkan SDK
 - VMA (Vulkan Memory Allocator)
+- glslc (shader compilation library)
+- Python
 
 # Coding conventions
 - **NAMESPACES**: Everything inside the PHOENIX library must be inside the PHX namespace, and all namespace declarations must follow the upper-case *snake_case* convention. E.g. `namespace OBJECT_FACTORY { ... }`

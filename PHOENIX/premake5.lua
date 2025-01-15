@@ -9,12 +9,6 @@ project "PHOENIX"
 	targetdir ("out/bin/" .. outputDir)
 	objdir ("out/obj/" .. outputDir)
 	
-	dependson
-	{
-		"GLFW",
-		"ShaderC"
-	}
-	
 	files
 	{
 		"src/**.h",
@@ -29,16 +23,14 @@ project "PHOENIX"
 		"%{PHX_IncludeDirs.dep_vulkan}",
 		"%{PHX_IncludeDirs.dep_glfw}",
 		"%{PHX_IncludeDirs.dep_vma}",
-		"%{PHX_IncludeDirs.dep_shaderc}",
+		"%{PHX_IncludeDirs.dep_glslang}",
 		
 		"%{PHX_IncludeDirs.lib_inc}",
 	}
 	
 	links
 	{
-		"%{PHX_Libraries.vulkan}",
-		"%{PHX_Libraries.glfw}",
-		"%{PHX_Libraries.shaderc}"
+		"%{PHX_Libraries.vulkan}"
 	}
 	
 	filter "system:windows"
@@ -50,8 +42,20 @@ project "PHOENIX"
 	filter "configurations:Debug"
 		defines "PHX_DEBUG"
 		symbols "On"
+		
+		links
+		{
+			"%{PHX_Libraries.glfw_debug}",
+			"%{PHX_Libraries.glslang_debug}"
+		}
 	
 	filter "configurations:Release"
 		defines "PHX_RELEASE"
 		optimize "On"
+		
+		links
+		{
+			"%{PHX_Libraries.glfw_release}",
+			"%{PHX_Libraries.glslang_release}"
+		}
 		

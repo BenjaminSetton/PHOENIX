@@ -1,3 +1,6 @@
 [submodule "PHOENIX/vendor/glfw"]
 	path = PHOENIX/vendor/glfw
 	url = https://github.com/BenjaminSetton/glfw.git
+[submodule "PHOENIX/vendor/glslang"]
+	path = PHOENIX/vendor/glslang
+	url = https://github.com/BenjaminSetton/glslang.git
