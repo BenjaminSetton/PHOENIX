@@ -1,5 +1,5 @@
 
-#include <shaderc/shaderc.hpp>
+#include <glslang/Public/ShaderLang.h>
 
 #include "PHX/phx.h"
 
@@ -99,30 +99,37 @@ namespace PHX
 			return STATUS_CODE::ERR;
 		}
 
-		shaderc::Compiler compiler;
+		// For a process with a vertex and fragment shader, do the following:
+		// 1. Create a TShader object for both the vertex and fragment shaders
+		// 2. Call shader.parse() on both of them
+		// 3. Once parse() succeeds for both, make an instance of TProgram
+		// 4. Add the two shader objects to the program through program.addShader()
+		// 5. Call program.link() to link all shaders together
 
-		shaderc::CompileOptions options;
-		options.SetOptimizationLevel(SHADER_UTILS::ConvertOptimizationLevel(srcData.optimizationLevel));
-		options.SetSourceLanguage(SHADER_UTILS::ConvertSourceLanguage(srcData.origin));
-		// TODO - options.AddMacroDefinition()
+		//shaderc::Compiler compiler;
 
-		shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(
-			std::string(srcData.data), 
-			SHADER_UTILS::ConvertShaderKind(srcData.kind), 
-			srcData.name,
-			options);
+		//shaderc::CompileOptions options;
+		//options.SetOptimizationLevel(SHADER_UTILS::ConvertOptimizationLevel(srcData.optimizationLevel));
+		//options.SetSourceLanguage(SHADER_UTILS::ConvertSourceLanguage(srcData.origin));
+		//// TODO - options.AddMacroDefinition()
 
-		if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
-			LogError("Failed to compile shader! Error: %s", module.GetErrorMessage().c_str());
-			return STATUS_CODE::ERR;
-		}
+		//shaderc::SpvCompilationResult module = compiler.CompileGlslToSpv(
+		//	std::string(srcData.data), 
+		//	SHADER_UTILS::ConvertShaderKind(srcData.kind), 
+		//	srcData.name,
+		//	options);
 
-		u32 size = static_cast<u32>(module.cend() - module.cbegin());
-		out_result.data = std::shared_ptr<u32[]>(new u32[size]);
-		out_result.size = size;
+		//if (module.GetCompilationStatus() != shaderc_compilation_status_success) {
+		//	LogError("Failed to compile shader! Error: %s", module.GetErrorMessage().c_str());
+		//	return STATUS_CODE::ERR;
+		//}
 
-		// Copy the memory into our own struct
-		memcpy(out_result.data.get(), module.cbegin(), size * sizeof(u32));
+		//u32 size = static_cast<u32>(module.cend() - module.cbegin());
+		//out_result.data = std::shared_ptr<u32[]>(new u32[size]);
+		//out_result.size = size;
+
+		//// Copy the memory into our own struct
+		//memcpy(out_result.data.get(), module.cbegin(), size * sizeof(u32));
 
 		return STATUS_CODE::SUCCESS;
 	}

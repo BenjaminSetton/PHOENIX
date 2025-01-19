@@ -2,12 +2,12 @@
 include "vendor/dependencies.lua"
 
 project "PHOENIX"
-	location "out"
+	location "out/PHX"
 	language "C++"
 	kind "StaticLib"
 	
-	targetdir ("out/bin/" .. outputDir)
-	objdir ("out/obj/" .. outputDir)
+	targetdir ("out/PHX/bin/" .. outputDir)
+	objdir ("out/PHX/obj/" .. outputDir)
 	
 	files
 	{
