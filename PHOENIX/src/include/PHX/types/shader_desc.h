@@ -18,9 +18,9 @@ namespace PHX
 
 	enum class SHADER_OPTIMIZATION_LEVEL
 	{
-		NONE = 0,
-		SIZE,
-		PERFORMANCE,
+		NONE = 0,   // No optimization
+		O1,         // Faster optimization. Yields less optimized shader bytecode
+		O2,         // Slower optimization. Yields more optimized shader bytecode
 
 		MAX
 	};

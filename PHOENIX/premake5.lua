@@ -38,7 +38,20 @@ project "PHOENIX"
 		systemversion "latest"
 		warnings "High"
 		defines "PHX_WINDOWS"
+		
+		filter "configurations:Debug"
+			links
+			{
+				"%{PHX_Libraries.glslang_os_dependent_win_debug}"
+			}
+			
+		filter "configurations:Release"
+			links
+			{
+				"%{PHX_Libraries.glslang_os_dependent_win_release}"
+			}
 	
+	-- Platform-independent configurations
 	filter "configurations:Debug"
 		defines "PHX_DEBUG"
 		symbols "On"
@@ -46,7 +59,12 @@ project "PHOENIX"
 		links
 		{
 			"%{PHX_Libraries.glfw_debug}",
-			"%{PHX_Libraries.glslang_debug}"
+			"%{PHX_Libraries.glslang_debug}",
+			"%{PHX_Libraries.SPV_debug}",
+			"%{PHX_Libraries.SPV_tools_debug}",
+			"%{PHX_Libraries.SPV_tools_opt_debug}",
+			"%{PHX_Libraries.glslang_code_gen_debug}",
+			"%{PHX_Libraries.glslang_machine_independent_debug}"
 		}
 	
 	filter "configurations:Release"
@@ -56,6 +74,11 @@ project "PHOENIX"
 		links
 		{
 			"%{PHX_Libraries.glfw_release}",
-			"%{PHX_Libraries.glslang_release}"
+			"%{PHX_Libraries.glslang_release}",
+			"%{PHX_Libraries.SPV_release}",
+			"%{PHX_Libraries.SPV_tools_release}",
+			"%{PHX_Libraries.SPV_tools_opt_release}",
+			"%{PHX_Libraries.glslang_code_gen_release}",
+			"%{PHX_Libraries.glslang_machine_independent_release}"
 		}
 		
