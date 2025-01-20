@@ -130,9 +130,9 @@ namespace PHX
 		return STATUS_CODE::SUCCESS; 
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer* out_framebuffer)
+	STATUS_CODE RenderDeviceVk::AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer)
 	{
-		out_framebuffer = new FramebufferVk(this, createInfo);
+		*out_framebuffer = new FramebufferVk(this, createInfo);
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -148,10 +148,10 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateShader(const ShaderCreateInfo& createInfo, IShader* out_shader)
+	STATUS_CODE RenderDeviceVk::AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)
 	{
 		LogInfo("Allocated shader!");
-		out_shader = new ShaderVk(this, createInfo);
+		*out_shader = new ShaderVk(this, createInfo);
 		return STATUS_CODE::SUCCESS;
 	}
 

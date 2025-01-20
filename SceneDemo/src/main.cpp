@@ -1,10 +1,51 @@
 
+#include <chrono>
 #include <fstream>
-#include <sstream>
 #include <iostream>
+#include <sstream>
+#include <string>
+#include <thread>
 #include <vector>
 
 #include <PHX/phx.h>
+
+[[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, std::shared_ptr<PHX::IRenderDevice> pRenderDevice)
+{
+	std::ifstream shaderFile;
+	shaderFile.open(shaderName, std::ios::in);
+	if (!shaderFile.is_open())
+	{
+		return nullptr;
+	}
+	std::stringstream buffer;
+	buffer << shaderFile.rdbuf();
+	std::string shaderStr = buffer.str();
+
+	PHX::ShaderSourceData shaderSrc;
+	shaderSrc.data = shaderStr.c_str();
+	shaderSrc.kind = PHX::SHADER_KIND::VERTEX;
+	shaderSrc.origin = PHX::SHADER_ORIGIN::GLSL;
+	shaderSrc.optimizationLevel = PHX::SHADER_OPTIMIZATION_LEVEL::NONE;
+
+	PHX::CompiledShader shaderRes;
+	if (CompileShader(shaderSrc, shaderRes) != PHX::STATUS_CODE::SUCCESS)
+	{
+		return nullptr;
+	}
+
+	PHX::ShaderCreateInfo shaderCI{};
+	shaderCI.pBytecode = shaderRes.data.get();
+	shaderCI.size = shaderRes.size;
+	shaderCI.type = PHX::SHADER_KIND::VERTEX;
+
+	PHX::IShader* pShader = nullptr;
+	if (pRenderDevice->AllocateShader(shaderCI, &pShader) != PHX::STATUS_CODE::SUCCESS)
+	{
+		return nullptr;
+	}
+
+	return pShader;
+}
 
 int main(int argc, char** argv)
 {
@@ -72,52 +113,47 @@ int main(int argc, char** argv)
 		framebufferCI.layers = 1;
 		framebufferCI.pAttachments = &desc;
 		framebufferCI.attachmentCount = 1;
-		if (pRenderDevice->AllocateFramebuffer(framebufferCI, framebuffers.at(i)) != STATUS_CODE::SUCCESS)
+		if (pRenderDevice->AllocateFramebuffer(framebufferCI, &(framebuffers.at(i))) != STATUS_CODE::SUCCESS)
 		{
 			return -1;
 		}
 	}
 
 	// SHADERS
-	std::ifstream shaderFile;
-	shaderFile.open("../src/shaders/vertex_sample.vert", std::ios::in);
-	if (!shaderFile.is_open())
-	{
-		return -1;
-	}
-	std::stringstream buffer;
-	buffer << shaderFile.rdbuf();
-	std::string shaderStr = buffer.str();
-
-	ShaderSourceData shaderSrc;
-	shaderSrc.data = shaderStr.c_str();
-	shaderSrc.name = "vertex_sample";
-	shaderSrc.kind = PHX::SHADER_KIND::VERTEX;
-	shaderSrc.origin = PHX::SHADER_ORIGIN::GLSL;
-	shaderSrc.optimizationLevel = PHX::SHADER_OPTIMIZATION_LEVEL::NONE;
-
-	CompiledShader shaderRes;
-	if (CompileShader(shaderSrc, shaderRes) != PHX::STATUS_CODE::SUCCESS)
+	std::string vertShaderName("../src/shaders/vertex_sample.vert");
+	IShader* pVertShader = AllocateShader(vertShaderName, pRenderDevice);
+	if (pVertShader == nullptr)
 	{
 		return -1;
 	}
 
-	ShaderCreateInfo shaderCI{};
-	shaderCI.pBytecode = shaderRes.data.get();
-	shaderCI.size = shaderRes.size;
-	shaderCI.type = PHX::SHADER_KIND::VERTEX;
-
-	IShader* pShader = nullptr;
-	if (pRenderDevice->AllocateShader(shaderCI, pShader) != PHX::STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
+	//std::string fragShaderName("../src/shaders/fragment_sample.frag");
+	//IShader* pFragShader = AllocateShader(fragShaderName, pRenderDevice);
+	//if (pFragShader == nullptr)
+	//{
+	//	return -1;
+	//}
 
 	// CORE LOOP
 	int i = 0;
+	std::chrono::duration<float, std::milli> frameBudget(1.0f / 60.0f * 1000.0f); // 60FPS in ms
 	while (!pWindow->ShouldClose())
 	{
+		const auto timeStart = std::chrono::high_resolution_clock::now();
+
 		pWindow->Update(0.13f);
-		pWindow->SetWindowTitle("PHX - %s - %u", pRenderDevice->GetDeviceName(), i++);
+
+		const auto timeEnd = std::chrono::high_resolution_clock::now();
+		const std::chrono::duration<float, std::milli> elapsed = timeEnd - timeStart;
+
+		pWindow->SetWindowTitle("PHX - %s | FRAME %u | FPS %2.2fms", pRenderDevice->GetDeviceName(), i++, elapsed.count());
+
+		// Sleep for the remainder of the frame, if under budget
+		if (elapsed < frameBudget)
+		{
+			const auto timeDiff = frameBudget - elapsed;
+			std::this_thread::sleep_for(timeDiff);
+			//std::cout << "Slept for " << timeDiff.count() << "ms  out of " << frameBudget.count() << "ms" << std::endl;
+		}
 	}
 }

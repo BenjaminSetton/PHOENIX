@@ -247,6 +247,8 @@ namespace PHX
 		std::vector<uint32_t> spirv;
 		glslang::SpvOptions options{};
 		options.validate = true;
+		options.disableOptimizer = (srcData.optimizationLevel == SHADER_OPTIMIZATION_LEVEL::NONE);
+		options.optimizeSize = (srcData.optimizationLevel == SHADER_OPTIMIZATION_LEVEL::SIZE);
 		glslang::GlslangToSpv(intermediateRef, spirv, &options); // NOTE - It's also possible to pass in a logger to this function. Maybe we'll want to do that in the future...
 
 		u32 size = static_cast<u32>(spirv.size());

@@ -26,10 +26,10 @@ namespace PHX
 
 		// Allocations
 		virtual STATUS_CODE AllocateBuffer()                                             = 0;
-		virtual STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer* out_framebuffer) = 0;
+		virtual STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer) = 0;
 		virtual STATUS_CODE AllocateCommandBuffer()                                      = 0;
 		virtual STATUS_CODE AllocateTexture()                                            = 0;
-		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader* out_shader)                     = 0;
+		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)                     = 0;
 
 		// Deallocations
 		virtual void DeallocateFramebuffer(IFramebuffer* pFramebuffer) = 0;

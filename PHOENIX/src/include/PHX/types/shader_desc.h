@@ -18,9 +18,10 @@ namespace PHX
 
 	enum class SHADER_OPTIMIZATION_LEVEL
 	{
-		NONE = 0,   // No optimization
-		O1,         // Faster optimization. Yields less optimized shader bytecode
-		O2,         // Slower optimization. Yields more optimized shader bytecode
+		NONE = 0,              // No optimization
+		PERFORMANCE_FAST,      // Perform _some_ optimization for performance. Faster compile time, but less optimized binary
+		PERFORMANCE_FULL,      // Perform as much optimization for performance as possible. Slowest compile time, but most optimized binary
+		SIZE,                  // Optimize for smallest binary size
 
 		MAX
 	};
@@ -36,7 +37,6 @@ namespace PHX
 	struct ShaderSourceData
 	{
 		const char* data;
-		const char* name;
 
 		SHADER_KIND kind;
 		SHADER_OPTIMIZATION_LEVEL optimizationLevel;

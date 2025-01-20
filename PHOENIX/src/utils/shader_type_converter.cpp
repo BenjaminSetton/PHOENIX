@@ -13,24 +13,25 @@ namespace PHX
 		{
 			switch (kind)
 			{
-			case SHADER_KIND::VERTEX: return EShLangVertex;
+			case SHADER_KIND::VERTEX:   return EShLangVertex;
 			case SHADER_KIND::GEOMETRY: return EShLangGeometry;
 			case SHADER_KIND::FRAGMENT: return EShLangFragment;
-			case SHADER_KIND::COMPUTE: return EShLangCompute;
+			case SHADER_KIND::COMPUTE:  return EShLangCompute;
 			}
 
 			LogError("Failed to convert shader kind. SHADER_KIND::MAX is not a valid value!");
 			return {};
 		}
 
-		STATIC_ASSERT(static_cast<u32>(SHADER_OPTIMIZATION_LEVEL::MAX) == 3);
+		STATIC_ASSERT(static_cast<u32>(SHADER_OPTIMIZATION_LEVEL::MAX) == 4);
 		EShOptimizationLevel ConvertOptimizationLevel(SHADER_OPTIMIZATION_LEVEL level)
 		{
 			switch (level)
 			{
-			case SHADER_OPTIMIZATION_LEVEL::NONE: return EShOptNone;
-			case SHADER_OPTIMIZATION_LEVEL::O1: return EShOptSimple;
-			case SHADER_OPTIMIZATION_LEVEL::O2: return EShOptFull;
+			case SHADER_OPTIMIZATION_LEVEL::NONE:             return EShOptNone;
+			case SHADER_OPTIMIZATION_LEVEL::PERFORMANCE_FAST: return EShOptSimple;
+			case SHADER_OPTIMIZATION_LEVEL::PERFORMANCE_FULL: return EShOptFull;
+			case SHADER_OPTIMIZATION_LEVEL::SIZE:             return EShOptNone; // This enum value is used separately
 			}
 
 			LogError("Failed to convert shader optimization level. SHADER_OPTIMIZATION_LEVEL::MAX is not a valid value!");
