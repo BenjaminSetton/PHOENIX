@@ -86,8 +86,8 @@ namespace PHX
 		// Core pipeline descriptions
 		VkPipelineVertexInputStateCreateInfo		vertexInputInfo      = PopulateVertexInputCreateInfo(inputBindingDesc, inputAttributeDescs);
 		VkPipelineInputAssemblyStateCreateInfo		inputAssembly        = PopulateInputAssemblyCreateInfo(PIPELINE_UTILS::ConvertPrimitiveTopology(createInfo.topology), createInfo.enableRestartPrimitives);
-		VkViewport									viewport             = PopulateViewportInfo(static_cast<u32>(createInfo.viewportWidth), static_cast<u32>(createInfo.viewportHeight));
-		VkRect2D									scissor              = PopulateScissorInfo(static_cast<u32>(createInfo.viewportWidth), static_cast<u32>(createInfo.viewportHeight));
+		VkViewport									viewport             = PopulateViewportInfo(static_cast<u32>(createInfo.viewportSize.GetX()), static_cast<u32>(createInfo.viewportSize.GetY()));
+		VkRect2D									scissor              = PopulateScissorInfo(static_cast<u32>(createInfo.viewportPos.GetX()), static_cast<u32>(createInfo.viewportPos.GetY()));
 		VkPipelineDynamicStateCreateInfo			dynamicState         = PopulateDynamicStateCreateInfo(nullptr, 0);
 		VkPipelineViewportStateCreateInfo			viewportState        = PopulateViewportStateCreateInfo(&viewport, 1, &scissor, 1);
 		VkPipelineRasterizationStateCreateInfo		rasterizer           = PopulateRasterizerStateCreateInfo(PIPELINE_UTILS::ConvertCullMode(createInfo.cullMode), PIPELINE_UTILS::ConvertFrontFaceWinding(createInfo.frontFaceWinding), PIPELINE_UTILS::ConvertPolygonMode(createInfo.polygonMode));

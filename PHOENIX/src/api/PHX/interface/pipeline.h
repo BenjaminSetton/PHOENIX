@@ -4,86 +4,76 @@
 #include "../types/shader_desc.h"
 #include "../types/texture_desc.h"
 #include "../types/input_attribute.h"
+#include "../types/vec_types.h"
 #include "shader.h"
 #include "uniform.h"
 #include "framebuffer.h"
 
 namespace PHX
 {
+	// TODO?
+	// - Dynamic state
+	// - Viewport state
+	// - Color blending state
 	struct PipelineCreateInfo
 	{
 		PIPELINE_TYPE type;
 
 		// Input assembler
-		PRIMITIVE_TOPOLOGY topology;
-		bool enableRestartPrimitives;
+		PRIMITIVE_TOPOLOGY topology				= PRIMITIVE_TOPOLOGY::TRIANGLE_STRIP;
+		bool enableRestartPrimitives			= false;
 
 		// Vertex input layout
-		InputAttribute* pInputAttributes;
-		u32 attributeCount;
-		u32 inputBinding;
-		VERTEX_INPUT_RATE inputRate;
+		InputAttribute* pInputAttributes		= nullptr;
+		u32 attributeCount						= 0;
+		u32 inputBinding						= 0;
+		VERTEX_INPUT_RATE inputRate				= VERTEX_INPUT_RATE::PER_VERTEX;
 
 		// Viewport info
-		float viewportX;
-		float viewportY;
-		float viewportWidth;
-		float viewportHeight;
-		float viewportMinDepth;
-		float viewportMaxDepth;
+		Vec2u viewportPos						= { 0, 0 };
+		Vec2u viewportSize						= { 0, 0 };
+		Vec2f viewportDepthRange				= { 0.0f, 0.0f };
 
 		// Scissor info
-		float scissorOffsetX;
-		float scissorOffsetY;
-		float scissorExtentX;
-		float scissorExtentY;
-
-		// Dynamic state
-		// ...
-
-		// Viewport state
-		// ...
+		Vec2u scissorOffset						= { 0, 0 };
+		Vec2u scissorExtent						= { 0, 0 };
 
 		// Rasterizer state
-		bool enableDepthClamp;
-		bool enableRasterizerDiscard;
-		POLYGON_MODE polygonMode;
-		CULL_MODE cullMode;
-		FRONT_FACE_WINDING frontFaceWinding;
-		bool enableDepthBias;
-		float depthBiasConstantFactor;
-		float depthBiasClamp;
-		float depthBiasSlopeFactor;
-		float lineWidth;
+		bool enableDepthClamp					= false;
+		bool enableRasterizerDiscard			= true;
+		POLYGON_MODE polygonMode				= POLYGON_MODE::FILL;
+		CULL_MODE cullMode						= CULL_MODE::BACK;
+		FRONT_FACE_WINDING frontFaceWinding		= FRONT_FACE_WINDING::COUNTER_CLOCKWISE;
+		bool enableDepthBias					= false;
+		float depthBiasConstantFactor			= 0.0f;
+		float depthBiasClamp					= 0.0f;
+		float depthBiasSlopeFactor				= 0.0f;
+		float lineWidth							= 1.0f;
 
 		// Multi-sampling state
-		SAMPLE_COUNT rasterizationSamples;
-		bool enableAlphaToCoverage;
-		bool enableAlphaToOne;
-
-		// Color blending state
-		// ...
+		SAMPLE_COUNT rasterizationSamples		= SAMPLE_COUNT::COUNT_1;
+		bool enableAlphaToCoverage				= false;
+		bool enableAlphaToOne					= false;
 
 		// Depth stencil state
-		bool enableDepthTest;
-		bool enableDepthWrite;
-		COMPARE_OP compareOp;
-		bool enableDepthBoundsTest;
-		bool enableStencilTest;
-		StencilOpState stencilFront;
-		StencilOpState stencilBack;
-		float minDepthBounds;
-		float maxDepthBounds;
+		bool enableDepthTest					= true;
+		bool enableDepthWrite					= true;
+		COMPARE_OP compareOp					= COMPARE_OP::LESS_OR_EQUAL;
+		bool enableDepthBoundsTest				= true;
+		bool enableStencilTest					= false;
+		StencilOpState stencilFront				= { };
+		StencilOpState stencilBack				= { };
+		Vec2f depthBoundsRange					= { 0.0f, 0.0f };
 
 		// Pipeline layout
-		IUniformCollection* pUniformCollection;
+		IUniformCollection* pUniformCollection	= nullptr;
 
 		// Shader create info
-		IShader** ppShaders;
-		u32 shaderCount;
+		IShader** ppShaders						= nullptr;
+		u32 shaderCount							= 0;
 
 		// Attachment info
-		IFramebuffer* pFramebuffer;
+		IFramebuffer* pFramebuffer				= nullptr;
 	};
 
 	class IPipeline
