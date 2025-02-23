@@ -1,6 +1,6 @@
 
 SceneDemo_IncludeDirs                        = {}
-SceneDemo_IncludeDirs["PHOENIX"]             = "%{wks.location}/PHOENIX/src/include"
+SceneDemo_IncludeDirs["PHOENIX"]             = "%{wks.location}/PHOENIX/src/api"
 
 SceneDemo_Libraries                          = {}
 SceneDemo_Libraries["PHOENIX_win64_debug"]   = "%{wks.location}/PHOENIX/out/PHX/bin/windows/Debug/x86_64/PHOENIX.lib"

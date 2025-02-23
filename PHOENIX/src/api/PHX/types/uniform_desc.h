@@ -1,0 +1,15 @@
+#pragma once
+
+namespace PHX
+{
+	enum class UNIFORM_TYPE
+	{
+		SAMPLER = 0,
+		COMBINED_IMAGE_SAMPLER,
+		SAMPLED_IMAGE,
+		STORAGE_IMAGE,
+		UNIFORM_BUFFER,
+		STORAGE_BUFFER,
+		INPUT_ATTACHMENT
+	};
+}

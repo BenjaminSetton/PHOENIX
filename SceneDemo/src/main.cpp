@@ -1,4 +1,5 @@
 
+#include <array>
 #include <chrono>
 #include <fstream>
 #include <iostream>
@@ -9,7 +10,7 @@
 
 #include <PHX/phx.h>
 
-[[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, std::shared_ptr<PHX::IRenderDevice> pRenderDevice)
+[[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, std::shared_ptr<PHX::IRenderDevice> pRenderDevice)
 {
 	std::ifstream shaderFile;
 	shaderFile.open(shaderName, std::ios::in);
@@ -23,7 +24,7 @@
 
 	PHX::ShaderSourceData shaderSrc;
 	shaderSrc.data = shaderStr.c_str();
-	shaderSrc.kind = PHX::SHADER_KIND::VERTEX;
+	shaderSrc.stage = stage;
 	shaderSrc.origin = PHX::SHADER_ORIGIN::GLSL;
 	shaderSrc.optimizationLevel = PHX::SHADER_OPTIMIZATION_LEVEL::NONE;
 
@@ -36,7 +37,7 @@
 	PHX::ShaderCreateInfo shaderCI{};
 	shaderCI.pBytecode = shaderRes.data.get();
 	shaderCI.size = shaderRes.size;
-	shaderCI.type = PHX::SHADER_KIND::VERTEX;
+	shaderCI.stage = stage;
 
 	PHX::IShader* pShader = nullptr;
 	if (pRenderDevice->AllocateShader(shaderCI, &pShader) != PHX::STATUS_CODE::SUCCESS)
@@ -121,18 +122,91 @@ int main(int argc, char** argv)
 
 	// SHADERS
 	std::string vertShaderName("../src/shaders/vertex_sample.vert");
-	IShader* pVertShader = AllocateShader(vertShaderName, pRenderDevice);
+	IShader* pVertShader = AllocateShader(vertShaderName, SHADER_STAGE::VERTEX, pRenderDevice);
 	if (pVertShader == nullptr)
 	{
 		return -1;
 	}
 
-	//std::string fragShaderName("../src/shaders/fragment_sample.frag");
-	//IShader* pFragShader = AllocateShader(fragShaderName, pRenderDevice);
-	//if (pFragShader == nullptr)
-	//{
-	//	return -1;
-	//}
+	std::string fragShaderName("../src/shaders/fragment_sample.frag");
+	IShader* pFragShader = AllocateShader(fragShaderName, SHADER_STAGE::FRAGMENT, pRenderDevice);
+	if (pFragShader == nullptr)
+	{
+		return -1;
+	}
+
+	// PIPELINE
+	std::vector<InputAttribute> inputAttributes =
+	{
+		// POSITION
+		{
+			0,								// location
+			0,								// binding
+			BASE_FORMAT::R32G32B32_FLOAT	// format
+		},
+		{
+			0,								// location
+			0,								// binding
+			BASE_FORMAT::R32G32B32_FLOAT	// format
+		},
+	};
+
+	std::array<IShader*, 2> shaders =
+	{
+		pVertShader,
+		pFragShader
+	};
+
+	PipelineCreateInfo pipelineCI{};
+	pipelineCI.type = PHX::PIPELINE_TYPE::GRAPHICS;
+	pipelineCI.topology = PHX::PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
+	pipelineCI.enableRestartPrimitives = false;
+	pipelineCI.pInputAttributes = inputAttributes.data();
+	pipelineCI.attributeCount = static_cast<u32>(inputAttributes.size());
+	pipelineCI.inputBinding = 0; // ?????
+	pipelineCI.inputRate = PHX::VERTEX_INPUT_RATE::PER_VERTEX;
+	pipelineCI.viewportX = 0.0f;
+	pipelineCI.viewportY = 0.0f;
+	pipelineCI.viewportWidth = static_cast<float>(pWindow->GetCurrentWidth());
+	pipelineCI.viewportHeight = static_cast<float>(pWindow->GetCurrentHeight());
+	pipelineCI.viewportMinDepth = 0.0f;
+	pipelineCI.viewportMaxDepth = FLT_MAX;
+	pipelineCI.scissorOffsetX = 0.0f;
+	pipelineCI.scissorOffsetY = 0.0f;
+	pipelineCI.scissorExtentX = 0.0f;
+	pipelineCI.scissorExtentY = 0.0f;
+	pipelineCI.enableDepthClamp = true;
+	pipelineCI.enableRasterizerDiscard = true;
+	pipelineCI.polygonMode = POLYGON_MODE::FILL;
+	pipelineCI.cullMode = CULL_MODE::BACK;
+	pipelineCI.frontFaceWinding = FRONT_FACE_WINDING::COUNTER_CLOCKWISE;
+	pipelineCI.enableDepthBias = false;
+	pipelineCI.depthBiasConstantFactor = 0.0f;
+	pipelineCI.depthBiasClamp = 0.0f;
+	pipelineCI.depthBiasSlopeFactor = 0.0f;
+	pipelineCI.lineWidth = 1.0f;
+	pipelineCI.rasterizationSamples = PHX::SAMPLE_COUNT::COUNT_1;
+	pipelineCI.enableAlphaToCoverage = false;
+	pipelineCI.enableAlphaToOne = false;
+	pipelineCI.enableDepthTest = true;
+	pipelineCI.enableDepthWrite = true;
+	pipelineCI.compareOp = PHX::COMPARE_OP::LESS_OR_EQUAL;
+	pipelineCI.enableDepthBoundsTest = true;
+	pipelineCI.enableStencilTest = false;
+	pipelineCI.stencilFront = {};
+	pipelineCI.stencilBack = {};
+	pipelineCI.minDepthBounds = 0.0f;
+	pipelineCI.maxDepthBounds = FLT_MAX;
+	pipelineCI.pUniformCollection = nullptr;
+	pipelineCI.ppShaders = shaders.data();
+	pipelineCI.shaderCount = static_cast<u32>(shaders.size());
+	pipelineCI.pFramebuffer = framebuffers.at(0);
+
+	IPipeline* pPipeline = nullptr;
+	if (pRenderDevice->AllocatePipeline(pipelineCI, &pPipeline) != STATUS_CODE::SUCCESS)
+	{
+		return -1;
+	}
 
 	// CORE LOOP
 	int i = 0;

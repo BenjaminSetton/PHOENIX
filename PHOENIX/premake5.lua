@@ -25,7 +25,8 @@ project "PHOENIX"
 		"%{PHX_IncludeDirs.dep_vma}",
 		"%{PHX_IncludeDirs.dep_glslang}",
 		
-		"%{PHX_IncludeDirs.lib_inc}",
+		"%{PHX_IncludeDirs.inc_api}",
+		"%{PHX_IncludeDirs.inc_lib}",
 	}
 	
 	links
