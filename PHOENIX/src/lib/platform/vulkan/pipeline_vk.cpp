@@ -16,26 +16,24 @@
 namespace PHX
 {
 
-	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, const PipelineCreateInfo& createInfo)
+	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& createInfo)
 	{
 		if (pRenderDevice == nullptr)
 		{
 			return;
 		}
 
-		switch (createInfo.type)
+		CreateGraphicsPipeline(pRenderDevice, createInfo);
+	}
+
+	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, const ComputePipelineCreateInfo& createInfo)
+	{
+		if (pRenderDevice == nullptr)
 		{
-		case PIPELINE_TYPE::GRAPHICS:
-		{
-			CreateGraphicsPipeline(pRenderDevice, createInfo);
-			break;
+			return;
 		}
-		case PIPELINE_TYPE::COMPUTE:
-		{
-			CreateComputePipeline(pRenderDevice, createInfo);
-			break;
-		}
-		}
+
+		CreateComputePipeline(pRenderDevice, createInfo);
 	}
 
 	PipelineVk::~PipelineVk()
@@ -43,7 +41,7 @@ namespace PHX
 
 	}
 
-	STATUS_CODE PipelineVk::CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, const PipelineCreateInfo& createInfo)
+	STATUS_CODE PipelineVk::CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& createInfo)
 	{
 		STATUS_CODE createInfoRes = VerifyCreateInfo(createInfo);
 		if (createInfoRes != STATUS_CODE::SUCCESS)
@@ -53,21 +51,9 @@ namespace PHX
 
 		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
 
-		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-		if (createInfo.pUniformCollection != nullptr)
+		m_layout = CreatePipelineLayout(logicalDevice, createInfo.pUniformCollection);
+		if (m_layout == VK_NULL_HANDLE)
 		{
-			// TODO - Add support for push constants
-			UniformCollectionVk* pUniformCollection = dynamic_cast<UniformCollectionVk*>(createInfo.pUniformCollection);
-			pipelineLayoutInfo = PopulatePipelineLayoutCreateInfo(pUniformCollection->GetDescriptorSetLayouts(), pUniformCollection->GetDescriptorSetLayoutCount(), nullptr, 0);
-		}
-		else
-		{
-			pipelineLayoutInfo = PopulatePipelineLayoutCreateInfo(nullptr, 0, nullptr, 0);
-		}
-
-		if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &m_layout) != VK_SUCCESS)
-		{
-			LogError("Failed to create pipeline layout!");
 			return STATUS_CODE::ERR;
 		}
 
@@ -123,7 +109,7 @@ namespace PHX
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 		pipelineInfo.basePipelineIndex = -1; // Optional
 
-		if (vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline))
+		if (vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != VK_SUCCESS)
 		{
 			LogError("Failed to create pipeline!");
 			return STATUS_CODE::ERR;
@@ -132,33 +118,89 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE PipelineVk::CreateComputePipeline(RenderDeviceVk* pRenderDevice, const PipelineCreateInfo& createInfo)
+	STATUS_CODE PipelineVk::CreateComputePipeline(RenderDeviceVk* pRenderDevice, const ComputePipelineCreateInfo& createInfo)
 	{
-		TODO();
-
-		UNUSED(pRenderDevice);
-		UNUSED(createInfo);
-		return STATUS_CODE::ERR;
-	}
-
-	STATUS_CODE PipelineVk::VerifyCreateInfo(const PipelineCreateInfo& createInfo)
-	{
-		if (createInfo.pInputAttributes == nullptr)
+		STATUS_CODE createInfoRes = VerifyCreateInfo(createInfo);
+		if (createInfoRes != STATUS_CODE::SUCCESS)
 		{
-			LogError("Failed to create pipeline! Input attributes are null");
+			return createInfoRes;
+		}
+
+		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
+
+		m_layout = CreatePipelineLayout(logicalDevice, createInfo.pUniformCollection);
+		if (m_layout == VK_NULL_HANDLE)
+		{
 			return STATUS_CODE::ERR;
 		}
-		if (createInfo.pFramebuffer == nullptr)
+
+		VkComputePipelineCreateInfo pipelineInfo{};
+		pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+		pipelineInfo.layout = m_layout;
+		pipelineInfo.stage = PopulateShaderCreateInfo(createInfo.pShader);
+
+		if (vkCreateComputePipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != VK_SUCCESS)
 		{
-			LogError("Failed to create pipeline! Framebuffer is null");
-			return STATUS_CODE::ERR;
-		}
-		if (createInfo.ppShaders == nullptr)
-		{
-			LogError("Failed to create pipeline! Shaders array is null");
+			LogError("Failed to create compute pipeline!");
 			return STATUS_CODE::ERR;
 		}
 
 		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE PipelineVk::VerifyCreateInfo(const GraphicsPipelineCreateInfo& createInfo)
+	{
+		if (createInfo.pInputAttributes == nullptr)
+		{
+			LogError("Failed to create graphics pipeline! Input attributes are null");
+			return STATUS_CODE::ERR;
+		}
+		if (createInfo.pFramebuffer == nullptr)
+		{
+			LogError("Failed to create graphics pipeline! Framebuffer is null");
+			return STATUS_CODE::ERR;
+		}
+		if (createInfo.ppShaders == nullptr)
+		{
+			LogError("Failed to create graphics pipeline! Shaders array is null");
+			return STATUS_CODE::ERR;
+		}
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE PipelineVk::VerifyCreateInfo(const ComputePipelineCreateInfo& createInfo)
+	{
+		if (createInfo.pShader == nullptr)
+		{
+			LogError("Failed to create compute pipeline! Shader is null");
+			return STATUS_CODE::ERR;
+		}
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	VkPipelineLayout PipelineVk::CreatePipelineLayout(VkDevice logicalDevice, IUniformCollection* pUniformCollection)
+	{
+		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+		if (pUniformCollection != nullptr)
+		{
+			// TODO - Add support for push constants
+			UniformCollectionVk* pUniformCollectionVk = dynamic_cast<UniformCollectionVk*>(pUniformCollection);
+			pipelineLayoutInfo = PopulatePipelineLayoutCreateInfo(pUniformCollectionVk->GetDescriptorSetLayouts(), pUniformCollectionVk->GetDescriptorSetLayoutCount(), nullptr, 0);
+		}
+		else
+		{
+			pipelineLayoutInfo = PopulatePipelineLayoutCreateInfo(nullptr, 0, nullptr, 0);
+		}
+
+		VkPipelineLayout layout;
+		if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &layout) != VK_SUCCESS)
+		{
+			LogError("Failed to create pipeline layout!");
+			return VK_NULL_HANDLE;
+		}
+
+		return layout;
 	}
 }

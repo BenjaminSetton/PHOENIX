@@ -156,9 +156,16 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocatePipeline(const PipelineCreateInfo& createInfo, IPipeline** out_pipeline)
+	STATUS_CODE RenderDeviceVk::AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline)
 	{
-		LogInfo("Allocated pipeline!");
+		LogInfo("Allocated graphics pipeline!");
+		*out_pipeline = new PipelineVk(this, createInfo);
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE RenderDeviceVk::AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline)
+	{
+		LogInfo("Allocated compute pipeline!");
 		*out_pipeline = new PipelineVk(this, createInfo);
 		return STATUS_CODE::SUCCESS;
 	}

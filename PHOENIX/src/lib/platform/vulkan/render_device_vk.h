@@ -24,7 +24,8 @@ namespace PHX
 		STATUS_CODE AllocateCommandBuffer() override;
 		STATUS_CODE AllocateTexture() override;
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader) override;
-		STATUS_CODE AllocatePipeline(const PipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
+		STATUS_CODE AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
+		STATUS_CODE AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
 
 		void DeallocateFramebuffer(IFramebuffer* pFramebuffer) override;
 		void DeallocateTexture(ITexture* pTexture) override;

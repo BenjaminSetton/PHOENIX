@@ -157,8 +157,7 @@ int main(int argc, char** argv)
 		pFragShader
 	};
 
-	PipelineCreateInfo pipelineCI{};
-	pipelineCI.type = PHX::PIPELINE_TYPE::GRAPHICS;
+	GraphicsPipelineCreateInfo pipelineCI{};
 	pipelineCI.topology = PHX::PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
 	pipelineCI.pInputAttributes = inputAttributes.data();
 	pipelineCI.attributeCount = static_cast<u32>(inputAttributes.size());
@@ -171,7 +170,7 @@ int main(int argc, char** argv)
 	pipelineCI.pFramebuffer = framebuffers.at(0);
 
 	IPipeline* pPipeline = nullptr;
-	if (pRenderDevice->AllocatePipeline(pipelineCI, &pPipeline) != STATUS_CODE::SUCCESS)
+	if (pRenderDevice->AllocateGraphicsPipeline(pipelineCI, &pPipeline) != STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}

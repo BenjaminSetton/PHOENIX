@@ -26,17 +26,18 @@ namespace PHX
 		virtual const char* GetDeviceName() const = 0;
 
 		// Allocations
-		virtual STATUS_CODE AllocateBuffer()                                             = 0;
-		virtual STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer) = 0;
-		virtual STATUS_CODE AllocateCommandBuffer()                                      = 0;
-		virtual STATUS_CODE AllocateTexture()                                            = 0;
-		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)                     = 0;
-		virtual STATUS_CODE AllocatePipeline(const PipelineCreateInfo& createInfo, IPipeline** out_pipeline)             = 0;
+		virtual STATUS_CODE AllocateBuffer()																					= 0;
+		virtual STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer)		= 0;
+		virtual STATUS_CODE AllocateCommandBuffer()																				= 0;
+		virtual STATUS_CODE AllocateTexture()																					= 0;
+		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)							= 0;
+		virtual STATUS_CODE AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline)	= 0;
+		virtual STATUS_CODE AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline)		= 0;
 
 		// Deallocations
-		virtual void DeallocateFramebuffer(IFramebuffer* pFramebuffer) = 0;
-		virtual void DeallocateTexture(ITexture* pTexture) = 0;
-		virtual void DeallocateShader(IShader* pShader) = 0;
-		virtual void DeallocatePipeline(IPipeline* pPipeline) = 0;
+		virtual void DeallocateFramebuffer(IFramebuffer* pFramebuffer)	= 0;
+		virtual void DeallocateTexture(ITexture* pTexture)				= 0;
+		virtual void DeallocateShader(IShader* pShader)					= 0;
+		virtual void DeallocatePipeline(IPipeline* pPipeline)			= 0;
 	};
 }

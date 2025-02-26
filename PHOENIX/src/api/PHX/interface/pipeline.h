@@ -11,14 +11,18 @@
 
 namespace PHX
 {
+	struct ComputePipelineCreateInfo
+	{
+		IShader* pShader						= nullptr;
+		IUniformCollection* pUniformCollection	= nullptr;
+	};
+
 	// TODO?
 	// - Dynamic state
 	// - Viewport state
 	// - Color blending state
-	struct PipelineCreateInfo
+	struct GraphicsPipelineCreateInfo
 	{
-		PIPELINE_TYPE type;
-
 		// Input assembler
 		PRIMITIVE_TOPOLOGY topology				= PRIMITIVE_TOPOLOGY::TRIANGLE_STRIP;
 		bool enableRestartPrimitives			= false;

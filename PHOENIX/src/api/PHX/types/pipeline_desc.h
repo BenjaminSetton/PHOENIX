@@ -4,14 +4,6 @@
 
 namespace PHX
 {
-	enum class PIPELINE_TYPE
-	{
-		GRAPHICS = 0,
-		COMPUTE,
-
-		MAX
-	};
-
 	enum class PRIMITIVE_TOPOLOGY
 	{
 		POINT_LIST = 0,

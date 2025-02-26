@@ -14,14 +14,19 @@ namespace PHX
 	{
 	public:
 
-		PipelineVk(RenderDeviceVk* pRenderDevice, const PipelineCreateInfo& createInfo);
+		PipelineVk(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& createInfo);
+		PipelineVk(RenderDeviceVk* pRenderDevice, const ComputePipelineCreateInfo& createInfo);
 		~PipelineVk();
 
 	private:
 
-		STATUS_CODE CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, const PipelineCreateInfo& createInfo);
-		STATUS_CODE CreateComputePipeline(RenderDeviceVk* pRenderDevice, const PipelineCreateInfo& createInfo);
-		STATUS_CODE VerifyCreateInfo(const PipelineCreateInfo& createInfo);
+		STATUS_CODE CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& createInfo);
+		STATUS_CODE CreateComputePipeline(RenderDeviceVk* pRenderDevice, const ComputePipelineCreateInfo& createInfo);
+
+		STATUS_CODE VerifyCreateInfo(const GraphicsPipelineCreateInfo& createInfo);
+		STATUS_CODE VerifyCreateInfo(const ComputePipelineCreateInfo& createInfo);
+
+		VkPipelineLayout CreatePipelineLayout(VkDevice logicalDevice, IUniformCollection* pUniformCollection);
 
 	private:
 

@@ -7,18 +7,6 @@ namespace PHX
 {
 	namespace PIPELINE_UTILS
 	{
-		VkPipelineBindPoint ConvertPipelineType(PIPELINE_TYPE pipelineType)
-		{
-			switch (pipelineType)
-			{
-			case PIPELINE_TYPE::GRAPHICS: return VK_PIPELINE_BIND_POINT_GRAPHICS;
-			case PIPELINE_TYPE::COMPUTE:  return VK_PIPELINE_BIND_POINT_COMPUTE;
-			}
-
-			LogError("Failed to convert pipeline type to VkPipelineBindPoint");
-			return VK_PIPELINE_BIND_POINT_MAX_ENUM;
-		}
-
 		VkPrimitiveTopology ConvertPrimitiveTopology(PRIMITIVE_TOPOLOGY topology)
 		{
 			switch (topology)

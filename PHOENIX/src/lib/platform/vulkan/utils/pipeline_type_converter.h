@@ -9,7 +9,6 @@ namespace PHX
 {
 	namespace PIPELINE_UTILS
 	{
-		VkPipelineBindPoint ConvertPipelineType(PIPELINE_TYPE pipelineType);
 		VkPrimitiveTopology ConvertPrimitiveTopology(PRIMITIVE_TOPOLOGY topology);
 		VkPolygonMode ConvertPolygonMode(POLYGON_MODE polygonMode);
 		VkCullModeFlagBits ConvertCullMode(CULL_MODE cullMode);
