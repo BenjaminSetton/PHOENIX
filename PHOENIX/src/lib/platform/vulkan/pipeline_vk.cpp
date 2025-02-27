@@ -72,15 +72,31 @@ namespace PHX
 		// Core pipeline descriptions
 		VkPipelineVertexInputStateCreateInfo		vertexInputInfo      = PopulateVertexInputCreateInfo(inputBindingDesc, inputAttributeDescs);
 		VkPipelineInputAssemblyStateCreateInfo		inputAssembly        = PopulateInputAssemblyCreateInfo(PIPELINE_UTILS::ConvertPrimitiveTopology(createInfo.topology), createInfo.enableRestartPrimitives);
-		VkViewport									viewport             = PopulateViewportInfo(static_cast<u32>(createInfo.viewportSize.GetX()), static_cast<u32>(createInfo.viewportSize.GetY()));
-		VkRect2D									scissor              = PopulateScissorInfo(static_cast<u32>(createInfo.viewportPos.GetX()), static_cast<u32>(createInfo.viewportPos.GetY()));
+		VkViewport									viewport             = PopulateViewportInfo(createInfo.viewportSize, createInfo.viewportDepthRange);
+		VkRect2D									scissor              = PopulateScissorInfo(createInfo.scissorOffset, createInfo.scissorExtent);
 		VkPipelineDynamicStateCreateInfo			dynamicState         = PopulateDynamicStateCreateInfo(nullptr, 0);
 		VkPipelineViewportStateCreateInfo			viewportState        = PopulateViewportStateCreateInfo(&viewport, 1, &scissor, 1);
-		VkPipelineRasterizationStateCreateInfo		rasterizer           = PopulateRasterizerStateCreateInfo(PIPELINE_UTILS::ConvertCullMode(createInfo.cullMode), PIPELINE_UTILS::ConvertFrontFaceWinding(createInfo.frontFaceWinding), PIPELINE_UTILS::ConvertPolygonMode(createInfo.polygonMode));
-		VkPipelineMultisampleStateCreateInfo		multisampling        = PopulateMultisamplingStateCreateInfo(TEX_UTILS::ConvertSampleCount(createInfo.rasterizationSamples));
+		VkPipelineMultisampleStateCreateInfo		multisampling        = PopulateMultisamplingStateCreateInfo(TEX_UTILS::ConvertSampleCount(createInfo.rasterizationSamples), createInfo.enableAlphaToCoverage, createInfo.enableAlphaToOne);
 		VkPipelineColorBlendAttachmentState			colorBlendAttachment = PopulateColorBlendAttachment();
 		VkPipelineColorBlendStateCreateInfo			colorBlending        = PopulateColorBlendStateCreateInfo(&colorBlendAttachment, 1);
-		VkPipelineDepthStencilStateCreateInfo		depthStencil         = PopulateDepthStencilStateCreateInfo(createInfo.enableDepthTest, createInfo.enableDepthWrite, PIPELINE_UTILS::ConvertCompareOp(createInfo.compareOp), createInfo.enableDepthBoundsTest, createInfo.enableStencilTest);
+		VkPipelineDepthStencilStateCreateInfo		depthStencil         = PopulateDepthStencilStateCreateInfo(createInfo.enableDepthTest, 
+			createInfo.enableDepthWrite, 
+			PIPELINE_UTILS::ConvertCompareOp(createInfo.compareOp), 
+			createInfo.enableDepthBoundsTest, 
+			createInfo.depthBoundsRange, 
+			createInfo.enableStencilTest, 
+			createInfo.stencilFront, 
+			createInfo.stencilBack);
+		VkPipelineRasterizationStateCreateInfo		rasterizer           = PopulateRasterizerStateCreateInfo(PIPELINE_UTILS::ConvertCullMode(createInfo.cullMode), 
+			PIPELINE_UTILS::ConvertFrontFaceWinding(createInfo.frontFaceWinding), 
+			PIPELINE_UTILS::ConvertPolygonMode(createInfo.polygonMode), 
+			createInfo.lineWidth, 
+			createInfo.enableDepthClamp, 
+			createInfo.enableRasterizerDiscard, 
+			createInfo.enableDepthBias, 
+			createInfo.depthBiasConstantFactor, 
+			createInfo.depthBiasClamp, 
+			createInfo.depthBiasSlopeFactor);
 
 		// Get the associated render pass from the framebuffer
 		FramebufferVk* pFramebuffer = dynamic_cast<FramebufferVk*>(createInfo.pFramebuffer);
@@ -93,7 +109,7 @@ namespace PHX
 
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		pipelineInfo.stageCount = static_cast<uint32_t>(shaderStages.size());
+		pipelineInfo.stageCount = static_cast<u32>(shaderStages.size());
 		pipelineInfo.pStages = shaderStages.data();
 		pipelineInfo.pVertexInputState = &vertexInputInfo;
 		pipelineInfo.pInputAssemblyState = &inputAssembly;

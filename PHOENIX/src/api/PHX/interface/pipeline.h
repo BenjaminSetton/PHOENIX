@@ -36,7 +36,7 @@ namespace PHX
 		// Viewport info
 		Vec2u viewportPos						= { 0, 0 };
 		Vec2u viewportSize						= { 0, 0 };
-		Vec2f viewportDepthRange				= { 0.0f, 0.0f };
+		Vec2f viewportDepthRange				= { 0.0f, 1.0f };
 
 		// Scissor info
 		Vec2u scissorOffset						= { 0, 0 };
@@ -44,7 +44,7 @@ namespace PHX
 
 		// Rasterizer state
 		bool enableDepthClamp					= false;
-		bool enableRasterizerDiscard			= true;
+		bool enableRasterizerDiscard			= false;
 		POLYGON_MODE polygonMode				= POLYGON_MODE::FILL;
 		CULL_MODE cullMode						= CULL_MODE::BACK;
 		FRONT_FACE_WINDING frontFaceWinding		= FRONT_FACE_WINDING::COUNTER_CLOCKWISE;
@@ -67,7 +67,7 @@ namespace PHX
 		bool enableStencilTest					= false;
 		StencilOpState stencilFront				= { };
 		StencilOpState stencilBack				= { };
-		Vec2f depthBoundsRange					= { 0.0f, 0.0f };
+		Vec2f depthBoundsRange					= { 0.0f, 1.0f };
 
 		// Pipeline layout
 		IUniformCollection* pUniformCollection	= nullptr;

@@ -104,34 +104,34 @@ namespace PHX
 		return viewportState;
 	}
 
-	VkPipelineRasterizationStateCreateInfo PopulateRasterizerStateCreateInfo(VkCullModeFlags cullMode, VkFrontFace windingOrder, VkPolygonMode polygonMode)
+	VkPipelineRasterizationStateCreateInfo PopulateRasterizerStateCreateInfo(VkCullModeFlags cullMode, VkFrontFace windingOrder, VkPolygonMode polygonMode, float lineWidth, bool enableDepthClamp, bool enableRasterizerDiscard, bool enableDepthBias, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor)
 	{
 		VkPipelineRasterizationStateCreateInfo rasterizer{};
 		rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-		rasterizer.depthClampEnable = VK_FALSE;
-		rasterizer.rasterizerDiscardEnable = VK_FALSE;
+		rasterizer.depthClampEnable = enableDepthClamp;
+		rasterizer.rasterizerDiscardEnable = enableRasterizerDiscard;
 		rasterizer.polygonMode = polygonMode;
-		rasterizer.lineWidth = 1.0f;
+		rasterizer.lineWidth = lineWidth;
 		rasterizer.cullMode = cullMode;
 		rasterizer.frontFace = windingOrder;
-		rasterizer.depthBiasEnable = VK_FALSE;
-		rasterizer.depthBiasConstantFactor = 0.0f;	// Optional
-		rasterizer.depthBiasClamp = 0.0f;			// Optional
-		rasterizer.depthBiasSlopeFactor = 0.0f;		// Optional
+		rasterizer.depthBiasEnable = enableDepthBias;
+		rasterizer.depthBiasConstantFactor = depthBiasConstantFactor;
+		rasterizer.depthBiasClamp = depthBiasClamp;
+		rasterizer.depthBiasSlopeFactor = depthBiasSlopeFactor;
 
 		return rasterizer;
 	}
 
-	VkPipelineMultisampleStateCreateInfo PopulateMultisamplingStateCreateInfo(VkSampleCountFlagBits sampleCount)
+	VkPipelineMultisampleStateCreateInfo PopulateMultisamplingStateCreateInfo(VkSampleCountFlagBits sampleCount, bool enableAlphaToCoverage, bool enableAlphaToOne)
 	{
 		VkPipelineMultisampleStateCreateInfo multisampling{};
 		multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 		multisampling.sampleShadingEnable = VK_FALSE;
 		multisampling.rasterizationSamples = sampleCount;
-		multisampling.minSampleShading = 1.0f;				// Optional
-		multisampling.pSampleMask = nullptr;				// Optional
-		multisampling.alphaToCoverageEnable = VK_FALSE;		// Optional
-		multisampling.alphaToOneEnable = VK_FALSE;			// Optional
+		multisampling.minSampleShading = 1.0f;							// Optional
+		multisampling.pSampleMask = nullptr;							// Optional
+		multisampling.alphaToCoverageEnable = enableAlphaToCoverage;	// Optional
+		multisampling.alphaToOneEnable = enableAlphaToOne;				// Optional
 
 		return multisampling;
 	}
@@ -171,19 +171,40 @@ namespace PHX
 		return colorBlending;
 	}
 
-	VkPipelineDepthStencilStateCreateInfo PopulateDepthStencilStateCreateInfo(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp, VkBool32 depthBoundsTestEnable, VkBool32 stencilTestEnable)
+	VkPipelineDepthStencilStateCreateInfo PopulateDepthStencilStateCreateInfo(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp, VkBool32 depthBoundsTestEnable, Vec2f depthBoundsRange, VkBool32 stencilTestEnable, StencilOpState stencilFront, StencilOpState stencilBack)
 	{
+		VkStencilOpState vkStencilFront{};
+		VkStencilOpState vkStencilBack{};
+		if (stencilTestEnable)
+		{
+			vkStencilFront.failOp      = PIPELINE_UTILS::ConvertStencilOp(stencilFront.failOp);
+			vkStencilFront.passOp      = PIPELINE_UTILS::ConvertStencilOp(stencilFront.passOp);
+			vkStencilFront.depthFailOp = PIPELINE_UTILS::ConvertStencilOp(stencilFront.depthFailOp);
+			vkStencilFront.compareOp   = PIPELINE_UTILS::ConvertCompareOp(stencilFront.compareOp);
+			vkStencilFront.compareMask = stencilFront.compareMask;
+			vkStencilFront.writeMask   = stencilFront.writeMask;
+			vkStencilFront.reference   = stencilFront.reference;
+
+			vkStencilBack.failOp      = PIPELINE_UTILS::ConvertStencilOp(stencilBack.failOp);
+			vkStencilBack.passOp      = PIPELINE_UTILS::ConvertStencilOp(stencilBack.passOp);
+			vkStencilBack.depthFailOp = PIPELINE_UTILS::ConvertStencilOp(stencilBack.depthFailOp);
+			vkStencilBack.compareOp   = PIPELINE_UTILS::ConvertCompareOp(stencilBack.compareOp);
+			vkStencilBack.compareMask = stencilBack.compareMask;
+			vkStencilBack.writeMask   = stencilBack.writeMask;
+			vkStencilBack.reference   = stencilBack.reference;
+		}
+
 		VkPipelineDepthStencilStateCreateInfo depthStencil{};
 		depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 		depthStencil.depthTestEnable = depthTestEnable;
 		depthStencil.depthWriteEnable = depthWriteEnable;
 		depthStencil.depthCompareOp = compareOp;
 		depthStencil.depthBoundsTestEnable = depthBoundsTestEnable;
-		depthStencil.minDepthBounds = 0.0f;				// Optional
-		depthStencil.maxDepthBounds = 1.0f;				// Optional
+		depthStencil.minDepthBounds = depthBoundsRange.GetX();
+		depthStencil.maxDepthBounds = depthBoundsRange.GetY();
 		depthStencil.stencilTestEnable = stencilTestEnable;
-		depthStencil.front = {};						// Optional
-		depthStencil.back = {};							// Optional
+		depthStencil.front = vkStencilFront;
+		depthStencil.back = vkStencilBack;
 
 		return depthStencil;
 	}
@@ -217,24 +238,24 @@ namespace PHX
 		return shaderStageInfo;
 	}
 
-	VkViewport PopulateViewportInfo(u32 width, u32 height)
+	VkViewport PopulateViewportInfo(Vec2u viewportSize, Vec2f depthRange)
 	{
 		VkViewport viewport{};
 		viewport.x = 0.0f;
 		viewport.y = 0.0f;
-		viewport.width = static_cast<float>(width);
-		viewport.height = static_cast<float>(height);
-		viewport.minDepth = 0.0f;
-		viewport.maxDepth = 1.0f;
+		viewport.width = static_cast<float>(viewportSize.GetX());
+		viewport.height = static_cast<float>(viewportSize.GetY());
+		viewport.minDepth = depthRange.GetX();
+		viewport.maxDepth = depthRange.GetY();
 
 		return viewport;
 	}
 
-	VkRect2D PopulateScissorInfo(u32 viewportWidth, u32 viewportHeight)
+	VkRect2D PopulateScissorInfo(Vec2u scissorOffset, Vec2u scissorExtent)
 	{
 		VkRect2D scissor{};
-		scissor.offset = { 0, 0 };
-		scissor.extent = { viewportWidth, viewportHeight };
+		scissor.offset = { static_cast<int>(scissorOffset.GetX()), static_cast<int>(scissorOffset.GetY()) };
+		scissor.extent = { scissorExtent.GetX(), scissorExtent.GetY() };
 
 		return scissor;
 	}

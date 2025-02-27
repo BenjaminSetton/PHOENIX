@@ -161,10 +161,7 @@ int main(int argc, char** argv)
 	pipelineCI.topology = PHX::PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
 	pipelineCI.pInputAttributes = inputAttributes.data();
 	pipelineCI.attributeCount = static_cast<u32>(inputAttributes.size());
-	pipelineCI.viewportPos = { 0, 0 };
 	pipelineCI.viewportSize = { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() };
-	pipelineCI.viewportDepthRange = { 0.0f, FLT_MAX };
-	pipelineCI.depthBoundsRange = { 0.0f, FLT_MAX };
 	pipelineCI.ppShaders = shaders.data();
 	pipelineCI.shaderCount = static_cast<u32>(shaders.size());
 	pipelineCI.pFramebuffer = framebuffers.at(0);
