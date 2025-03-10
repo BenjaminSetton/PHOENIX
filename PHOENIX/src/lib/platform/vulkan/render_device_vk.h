@@ -7,6 +7,7 @@
 #include "PHX/interface/render_device.h"
 #include "PHX/types/queue_type.h"
 #include "PHX/types/status_code.h"
+#include "utils/queue_family_indices.h"
 
 namespace PHX
 {
@@ -19,9 +20,9 @@ namespace PHX
 
 		const char* GetDeviceName() const;
 
+		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext) override;
 		STATUS_CODE AllocateBuffer() override;
 		STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer) override;
-		STATUS_CODE AllocateCommandBuffer() override;
 		STATUS_CODE AllocateTexture() override;
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader) override;
 		STATUS_CODE AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
@@ -36,6 +37,7 @@ namespace PHX
 		VkPhysicalDevice GetPhysicalDevice() const;
 		VmaAllocator GetAllocator() const;
 		VkDescriptorPool GetDescriptorPool() const;
+		VkCommandPool GetCommandPool(QUEUE_TYPE type) const;
 
 	private:
 
@@ -46,6 +48,9 @@ namespace PHX
 
 		STATUS_CODE AllocateDescriptorPool();
 
+		STATUS_CODE AllocateCommandPools();
+		STATUS_CODE AllocateCommandPool_Helper(QUEUE_TYPE type, VkCommandPoolCreateFlags flags);
+
 	private:
 
 		VmaAllocator m_allocator;
@@ -53,6 +58,7 @@ namespace PHX
 		VkDevice m_logicalDevice;
 		VkPhysicalDevice m_physicalDevice;
 		std::unordered_map<QUEUE_TYPE, VkQueue> m_queues;
+		QueueFamilyIndices m_queueFamilyIndices;
 
 		// Physical device cache
 		VkPhysicalDeviceProperties m_physicalDeviceProperties;
@@ -61,5 +67,8 @@ namespace PHX
 
 		// Descriptor pool
 		VkDescriptorPool m_descriptorPool;
+
+		// Command pools
+		std::unordered_map<QUEUE_TYPE, VkCommandPool> m_commandPools;
 	};
 }

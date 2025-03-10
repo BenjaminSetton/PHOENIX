@@ -21,8 +21,8 @@ namespace PHX
 		const UniformDataGroup& GetGroup(u32 groupIndex) const override;
 		UniformDataGroup& GetGroup(u32 groupIndex) override;
 
+		const VkDescriptorSet* GetDescriptorSets() const;
 		u32 GetDescriptorSetCount() const;
-		VkDescriptorSet GetDescriptorSet(u32 setIndex) const;
 
 		const VkDescriptorSetLayout* GetDescriptorSetLayouts() const;
 		u32 GetDescriptorSetLayoutCount() const;

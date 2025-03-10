@@ -110,20 +110,14 @@ namespace PHX
 		return temp;
 	}
 
+	const VkDescriptorSet* UniformCollectionVk::GetDescriptorSets() const
+	{
+		return m_descriptorSets.data();
+	}
+
 	u32 UniformCollectionVk::GetDescriptorSetCount() const
 	{
 		return static_cast<u32>(m_descriptorSets.size());
-	}
-
-	VkDescriptorSet UniformCollectionVk::GetDescriptorSet(u32 setIndex) const
-	{
-		if (setIndex >= GetDescriptorSetCount())
-		{
-			LogError("Attempting to retrieve descriptor set layout at invalid index %u", setIndex);
-			return VK_NULL_HANDLE;
-		}
-
-		return m_descriptorSets.at(setIndex);
 	}
 
 	const VkDescriptorSetLayout* UniformCollectionVk::GetDescriptorSetLayouts() const

@@ -18,6 +18,10 @@ namespace PHX
 		PipelineVk(RenderDeviceVk* pRenderDevice, const ComputePipelineCreateInfo& createInfo);
 		~PipelineVk();
 
+		VkPipeline GetPipeline() const;
+		VkPipelineLayout GetLayout() const;
+		VkPipelineBindPoint GetBindPoint() const;
+
 	private:
 
 		STATUS_CODE CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& createInfo);
@@ -32,5 +36,6 @@ namespace PHX
 
 		VkPipeline m_pipeline;
 		VkPipelineLayout m_layout;
+		VkPipelineBindPoint m_bindPoint;
 	};
 }

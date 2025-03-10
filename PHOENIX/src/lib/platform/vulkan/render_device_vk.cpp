@@ -3,6 +3,7 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <vulkan/vk_enum_string_helper.h>
 
 // SILENCE VMA WARNINGS:
 // C4100 - unreferenced formal parameter
@@ -20,6 +21,7 @@
 #include "render_device_vk.h"
 
 #include "core_vk.h"
+#include "device_context_vk.h"
 #include "framebuffer_vk.h"
 #include "pipeline_vk.h"
 #include "shader_vk.h"
@@ -107,12 +109,30 @@ namespace PHX
 			return;
 		}
 
+		res = AllocateCommandPools();
+		if (res == STATUS_CODE::ERR)
+		{
+			return;
+		}
+
 		LogInfo("Successfully constructed Vk device!");
 	}
 
 	RenderDeviceVk::~RenderDeviceVk()
 	{
 		vkDeviceWaitIdle(m_logicalDevice);
+
+		// Destroy command pools
+		for (auto& iter : m_commandPools)
+		{
+			VkCommandPool& pool = iter.second;
+			vkDestroyCommandPool(m_logicalDevice, pool, nullptr);
+		}
+		m_commandPools.clear();
+		
+		// Destroy descriptor pool
+		vkDestroyDescriptorPool(m_logicalDevice, m_descriptorPool, nullptr);
+
 
 		vmaDestroyAllocator(m_allocator);
 		vkDestroyDevice(m_logicalDevice, nullptr);
@@ -125,6 +145,12 @@ namespace PHX
 		return m_physicalDeviceProperties.deviceName;
 	}
 
+	STATUS_CODE RenderDeviceVk::AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext)
+	{
+		*out_deviceContext = new DeviceContextVk(this, createInfo);
+		return STATUS_CODE::SUCCESS;
+	}
+
 	STATUS_CODE RenderDeviceVk::AllocateBuffer()
 	{
 		LogInfo("Allocated buffer!");
@@ -134,12 +160,6 @@ namespace PHX
 	STATUS_CODE RenderDeviceVk::AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer)
 	{
 		*out_framebuffer = new FramebufferVk(this, createInfo);
-		return STATUS_CODE::SUCCESS;
-	}
-
-	STATUS_CODE RenderDeviceVk::AllocateCommandBuffer()
-	{
-		LogInfo("Allocated command buffer!"); 
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -210,6 +230,17 @@ namespace PHX
 		return m_descriptorPool;
 	}
 
+	VkCommandPool RenderDeviceVk::GetCommandPool(QUEUE_TYPE type) const
+	{
+		auto iter = m_commandPools.find(type);
+		if (iter == m_commandPools.end())
+		{
+			return VK_NULL_HANDLE;
+		}
+
+		return iter->second;
+	}
+
 	STATUS_CODE RenderDeviceVk::CreateVMAAllocator()
 	{
 		VmaAllocatorCreateInfo info{};
@@ -225,8 +256,13 @@ namespace PHX
 		// [OPTIONAL] info.pDeviceMemoryCallbacks
 
 		VkResult res = vmaCreateAllocator(&info, &m_allocator);
+		if (res != VK_SUCCESS)
+		{
+			LogError("Failed to create VMA allocator object. Got result: %s", string_VkResult(res));
+			return STATUS_CODE::ERR;
+		}
 
-		return (res == VK_SUCCESS) ? STATUS_CODE::SUCCESS : STATUS_CODE::ERR;
+		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE RenderDeviceVk::CreatePhysicalDevice(VkSurfaceKHR surface)
@@ -309,9 +345,11 @@ namespace PHX
 		createInfo.pEnabledFeatures = &deviceFeatures;
 		createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
 		createInfo.ppEnabledExtensionNames = deviceExtensions.data();
-		if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &m_logicalDevice) != VK_SUCCESS)
+
+		VkResult res = vkCreateDevice(physicalDevice, &createInfo, nullptr, &m_logicalDevice);
+		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to create the logical device!");
+			LogError("Failed to create the logical device! Got result: %s", string_VkResult(res));
 			return STATUS_CODE::ERR;
 		}
 
@@ -321,11 +359,14 @@ namespace PHX
 		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::TRANSFER), 0, &m_queues[QUEUE_TYPE::TRANSFER]);
 		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::PRESENT ), 0, &m_queues[QUEUE_TYPE::PRESENT ]);
 
+		m_queueFamilyIndices = indices;
+
 		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE RenderDeviceVk::AllocateDescriptorPool()
 	{
+		// TODO - Fix these!
 		// These are temporary so we can get this working. Completely random numbers
 		const u32 numUniformBuffers = 50;
 		const u32 numImageSamplers = 50;
@@ -344,8 +385,61 @@ namespace PHX
 		poolInfo.maxSets = maxSets;
 		poolInfo.flags = 0;
 
-		if (vkCreateDescriptorPool(GetLogicalDevice(), &poolInfo, nullptr, &m_descriptorPool) != VK_SUCCESS) {
-			LogError("Failed to create descriptor pool!");
+		VkResult res = vkCreateDescriptorPool(GetLogicalDevice(), &poolInfo, nullptr, &m_descriptorPool);
+		if (res != VK_SUCCESS) {
+			LogError("Failed to create descriptor pool! Got result: %s", string_VkResult(res));
+			return STATUS_CODE::ERR;
+		}
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE RenderDeviceVk::AllocateCommandPools()
+	{
+		STATUS_CODE res = STATUS_CODE::SUCCESS;
+
+		res = AllocateCommandPool_Helper(QUEUE_TYPE::GRAPHICS, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			return res;
+		}
+
+		res = AllocateCommandPool_Helper(QUEUE_TYPE::COMPUTE, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			return res;
+		}
+
+		res = AllocateCommandPool_Helper(QUEUE_TYPE::TRANSFER, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			return res;
+		}
+
+		return res;
+	}
+
+	STATUS_CODE RenderDeviceVk::AllocateCommandPool_Helper(QUEUE_TYPE type, VkCommandPoolCreateFlags flags)
+	{
+		u32 queueFamilyIndex = m_queueFamilyIndices.GetIndex(type);
+		if (!m_queueFamilyIndices.IsValid(queueFamilyIndex))
+		{
+			LogError("Failed to allocate command pool of type %u! Queue family index is not valid", static_cast<u32>(type));
+			return STATUS_CODE::ERR;
+		}
+
+		// Allocate the pool object in the map
+		m_commandPools.insert({type, VK_NULL_HANDLE});
+
+		VkCommandPoolCreateInfo poolInfo{};
+		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		poolInfo.flags = flags;
+		poolInfo.queueFamilyIndex = queueFamilyIndex;
+
+		VkResult res = vkCreateCommandPool(GetLogicalDevice(), &poolInfo, nullptr, &m_commandPools[type]);
+		if (res != VK_SUCCESS)
+		{
+			LogError("Failed to create command pool of type %u! Got result: %s", static_cast<u32>(type), string_VkResult(res));
 			return STATUS_CODE::ERR;
 		}
 

@@ -227,6 +227,11 @@ namespace PHX
 		return m_renderPassDesc;
 	}
 
+	VkFramebuffer FramebufferVk::GetFramebuffer() const
+	{
+		return m_framebuffer;
+	}
+
 	STATUS_CODE FramebufferVk::VerifyCreateInfo(const FramebufferCreateInfo& createInfo)
 	{
 		if (createInfo.attachmentCount == 0)

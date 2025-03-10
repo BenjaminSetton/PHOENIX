@@ -172,6 +172,13 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+	// DEVICE CONTEXT
+	IDeviceContext* pDeviceContext = nullptr;
+	if (pRenderDevice->AllocateDeviceContext({}, &pDeviceContext) != STATUS_CODE::SUCCESS)
+	{
+		return -1;
+	}
+
 	// CORE LOOP
 	int i = 0;
 	std::chrono::duration<float, std::milli> frameBudget(1.0f / 60.0f * 1000.0f); // 60FPS in ms
@@ -185,6 +192,21 @@ int main(int argc, char** argv)
 		const std::chrono::duration<float, std::milli> elapsed = timeEnd - timeStart;
 
 		pWindow->SetWindowTitle("PHX - %s | FRAME %u | FPS %2.2fms", pRenderDevice->GetDeviceName(), i++, elapsed.count());
+
+		// Draw operations
+		pDeviceContext->BeginFrame();
+
+		auto& currFramebuffer = framebuffers.at(i % pSwapChain->GetImageCount());
+		pDeviceContext->BeginRenderPass(currFramebuffer);
+		pDeviceContext->BindPipeline(pPipeline);
+		pDeviceContext->BindUniformCollection(nullptr, pPipeline); // Bound shaders don't use uniform data
+		//pDeviceContext->BindVertexBuffer(nullptr); // TODO
+		pDeviceContext->SetScissor({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
+		pDeviceContext->SetViewport({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
+		pDeviceContext->Draw(6);
+		pDeviceContext->EndRenderPass();
+
+		pDeviceContext->Flush();
 
 		// Sleep for the remainder of the frame, if under budget
 		if (elapsed < frameBudget)

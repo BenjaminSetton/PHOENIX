@@ -7,6 +7,7 @@
 #include "../../utils/logger.h"
 
 #if defined(PHX_WINDOWS)
+#undef APIENTRY // Fix for "APIENTRY macro redefinition" warning. Windows.h defines this unconditionally, and glfw3.h defines it too
 #include "../win64/window_win64.h"
 #include <windows.h>
 #include <vulkan/vulkan_win32.h>

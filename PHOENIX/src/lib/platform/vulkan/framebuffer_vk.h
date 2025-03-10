@@ -27,6 +27,8 @@ namespace PHX
 
 		const RenderPassDescription& GetRenderPassDescription() const;
 
+		VkFramebuffer GetFramebuffer() const;
+
 	private:
 
 		STATUS_CODE VerifyCreateInfo(const FramebufferCreateInfo& createInfo);

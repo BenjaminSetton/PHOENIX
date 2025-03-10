@@ -41,6 +41,21 @@ namespace PHX
 
 	}
 
+	VkPipeline PipelineVk::GetPipeline() const
+	{
+		return m_pipeline;
+	}
+
+	VkPipelineLayout PipelineVk::GetLayout() const
+	{
+		return m_layout;
+	}
+
+	VkPipelineBindPoint PipelineVk::GetBindPoint() const
+	{
+		return m_bindPoint;
+	}
+
 	STATUS_CODE PipelineVk::CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& createInfo)
 	{
 		STATUS_CODE createInfoRes = VerifyCreateInfo(createInfo);
@@ -131,6 +146,8 @@ namespace PHX
 			return STATUS_CODE::ERR;
 		}
 
+		m_bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -160,6 +177,8 @@ namespace PHX
 			LogError("Failed to create compute pipeline!");
 			return STATUS_CODE::ERR;
 		}
+
+		m_bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
 
 		return STATUS_CODE::SUCCESS;
 	}
