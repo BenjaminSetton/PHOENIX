@@ -7,6 +7,7 @@
 #include "pipeline.h"
 #include "shader.h"
 #include "window.h"
+#include "texture.h"
 
 namespace PHX
 {
@@ -28,13 +29,13 @@ namespace PHX
 		virtual const char* GetDeviceName() const = 0;
 
 		// Allocations
-		virtual STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext)	= 0;
-		virtual STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer)								= 0;
-		virtual STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer)			= 0;
-		virtual STATUS_CODE AllocateTexture()																						= 0;
-		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)								= 0;
-		virtual STATUS_CODE AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline)		= 0;
-		virtual STATUS_CODE AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline)			= 0;
+		virtual STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext)																					= 0;
+		virtual STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer)																												= 0;
+		virtual STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer)																							= 0;
+		virtual STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, ITexture** out_texture)	= 0;
+		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)																												= 0;
+		virtual STATUS_CODE AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline)																						= 0;
+		virtual STATUS_CODE AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline)																							= 0;
 
 		// Deallocations
 		virtual void DeallocateFramebuffer(IFramebuffer* pFramebuffer)	= 0;

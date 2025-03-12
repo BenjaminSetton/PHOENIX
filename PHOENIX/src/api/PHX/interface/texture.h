@@ -12,7 +12,7 @@ namespace PHX
 	{
 		u32 width                 = 0;
 		u32 height                = 0;
-		BASE_FORMAT format     = BASE_FORMAT::INVALID;
+		BASE_FORMAT format        = BASE_FORMAT::INVALID;
 		u32 arrayLayers           = 1;
 		u32 mipLevels             = 1;
 		UsageTypeFlags usageFlags = 0;

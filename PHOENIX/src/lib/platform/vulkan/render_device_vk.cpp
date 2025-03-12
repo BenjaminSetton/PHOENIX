@@ -27,6 +27,7 @@
 #include "pipeline_vk.h"
 #include "shader_vk.h"
 #include "swap_chain_vk.h"
+#include "texture_vk.h"
 #include "utils/logger.h"
 #include "utils/queue_family_indices.h"
 #include "utils/sanity.h"
@@ -163,9 +164,9 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateTexture()
+	STATUS_CODE RenderDeviceVk::AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, ITexture** out_texture)
 	{
-		LogInfo("Allocated texture!");
+		*out_texture = new TextureVk(this, baseCreateInfo, viewCreateInfo, samplerCreateInfo);
 		return STATUS_CODE::SUCCESS;
 	}
 
