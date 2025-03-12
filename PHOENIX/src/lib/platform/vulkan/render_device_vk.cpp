@@ -20,6 +20,7 @@
 
 #include "render_device_vk.h"
 
+#include "buffer_vk.h"
 #include "core_vk.h"
 #include "device_context_vk.h"
 #include "framebuffer_vk.h"
@@ -133,7 +134,6 @@ namespace PHX
 		// Destroy descriptor pool
 		vkDestroyDescriptorPool(m_logicalDevice, m_descriptorPool, nullptr);
 
-
 		vmaDestroyAllocator(m_allocator);
 		vkDestroyDevice(m_logicalDevice, nullptr);
 
@@ -151,9 +151,9 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateBuffer()
+	STATUS_CODE RenderDeviceVk::AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer)
 	{
-		LogInfo("Allocated buffer!");
+		*out_buffer = new BufferVk(this, createInfo);
 		return STATUS_CODE::SUCCESS; 
 	}
 
@@ -234,6 +234,17 @@ namespace PHX
 	{
 		auto iter = m_commandPools.find(type);
 		if (iter == m_commandPools.end())
+		{
+			return VK_NULL_HANDLE;
+		}
+
+		return iter->second;
+	}
+
+	VkQueue RenderDeviceVk::GetQueue(QUEUE_TYPE type) const
+	{
+		auto iter = m_queues.find(type);
+		if (iter == m_queues.end())
 		{
 			return VK_NULL_HANDLE;
 		}

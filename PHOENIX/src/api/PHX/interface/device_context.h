@@ -41,5 +41,7 @@ namespace PHX
 		virtual STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount) = 0;
 
 		virtual STATUS_CODE Dispatch(Vec3u dimensions) = 0;
+
+		virtual STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) = 0;
 	};
 }

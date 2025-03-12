@@ -10,6 +10,12 @@
 
 #include <PHX/phx.h>
 
+static constexpr PHX::u32 VERTEX_COUNT = 3;
+struct SimpleVertexType
+{
+	float color[4];
+};
+
 [[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, std::shared_ptr<PHX::IRenderDevice> pRenderDevice)
 {
 	std::ifstream shaderFile;
@@ -179,6 +185,17 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+	// VERTEX BUFFER
+	BufferCreateInfo bufferCI{};
+	bufferCI.bufferUsage = PHX::BUFFER_USAGE::VERTEX_BUFFER;
+	bufferCI.size = sizeof(SimpleVertexType) * VERTEX_COUNT; // Triangle!
+
+	IBuffer* vBuffer = nullptr;
+	if (pRenderDevice->AllocateBuffer(bufferCI, &vBuffer) != PHX::STATUS_CODE::SUCCESS)
+	{
+		return -1;
+	}
+
 	// CORE LOOP
 	int i = 0;
 	std::chrono::duration<float, std::milli> frameBudget(1.0f / 60.0f * 1000.0f); // 60FPS in ms
@@ -200,10 +217,10 @@ int main(int argc, char** argv)
 		pDeviceContext->BeginRenderPass(currFramebuffer);
 		pDeviceContext->BindPipeline(pPipeline);
 		pDeviceContext->BindUniformCollection(nullptr, pPipeline); // Bound shaders don't use uniform data
-		//pDeviceContext->BindVertexBuffer(nullptr); // TODO
+		pDeviceContext->BindVertexBuffer(vBuffer);
 		pDeviceContext->SetScissor({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
 		pDeviceContext->SetViewport({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
-		pDeviceContext->Draw(6);
+		pDeviceContext->Draw(VERTEX_COUNT);
 		pDeviceContext->EndRenderPass();
 
 		pDeviceContext->Flush();

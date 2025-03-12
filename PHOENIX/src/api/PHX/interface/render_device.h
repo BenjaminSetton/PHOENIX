@@ -1,5 +1,6 @@
 #pragma once
 
+#include "buffer.h"
 #include "device_context.h"
 #include "framebuffer.h"
 #include "PHX/types/status_code.h"
@@ -28,7 +29,7 @@ namespace PHX
 
 		// Allocations
 		virtual STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext)	= 0;
-		virtual STATUS_CODE AllocateBuffer()																						= 0;
+		virtual STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer)								= 0;
 		virtual STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer)			= 0;
 		virtual STATUS_CODE AllocateTexture()																						= 0;
 		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)								= 0;

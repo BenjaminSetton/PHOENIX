@@ -21,7 +21,7 @@ namespace PHX
 		const char* GetDeviceName() const;
 
 		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext) override;
-		STATUS_CODE AllocateBuffer() override;
+		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer) override;
 		STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer) override;
 		STATUS_CODE AllocateTexture() override;
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader) override;
@@ -38,6 +38,7 @@ namespace PHX
 		VmaAllocator GetAllocator() const;
 		VkDescriptorPool GetDescriptorPool() const;
 		VkCommandPool GetCommandPool(QUEUE_TYPE type) const;
+		VkQueue GetQueue(QUEUE_TYPE type) const;
 
 	private:
 

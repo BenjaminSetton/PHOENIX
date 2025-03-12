@@ -34,15 +34,21 @@ namespace PHX
 
 		STATUS_CODE Dispatch(Vec3u dimensions) override;
 
+		STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) override;
+
 	private:
 
-		STATUS_CODE CreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer);
-		VkCommandBuffer* GetLastCommandBuffer();
+		STATUS_CODE CreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer);
+		void DestroyCommandBuffer(VkCommandBuffer cmdBuffer);
+		void DestroyCachedCommandBuffers();
+
+		VkCommandBuffer GetLastCommandBuffer();
 
 	private:
 
 		RenderDeviceVk* m_pRenderDevice; // Not sure if this is a good idea or not :/
 
+		// Do we want to guarantee that all of these command buffers were allocated from the same pool?
 		std::vector<VkCommandBuffer> m_cmdBuffers;
 	};
 }
