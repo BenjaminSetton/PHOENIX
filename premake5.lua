@@ -1,7 +1,7 @@
 workspace "PHOENIX"
 
 	architecture "x64"
-	startproject "SceneDemo"
+	startproject "HelloTriangle"
 	
 	configurations
 	{
@@ -16,5 +16,5 @@ include "PHOENIX/premake5.lua"
 
 -- Samples
 group "Samples"
-include "SceneDemo/premake5.lua"
+include "samples/HelloTriangle/premake5.lua"
 group ""

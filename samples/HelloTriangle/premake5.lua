@@ -1,7 +1,7 @@
 
 include "vendor/dependencies.lua"
 
-project "SceneDemo"
+project "HelloTriangle"
 	location "out"
 	language "C++"
 	kind "ConsoleApp"
