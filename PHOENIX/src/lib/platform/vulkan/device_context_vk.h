@@ -5,6 +5,7 @@
 
 #include "PHX/interface/device_context.h"
 #include "render_device_vk.h"
+#include "texture_vk.h"
 
 namespace PHX
 {
@@ -15,7 +16,7 @@ namespace PHX
 		DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo);
 		~DeviceContextVk();
 
-		STATUS_CODE BeginFrame() override;
+		STATUS_CODE BeginFrame(ISwapChain* pSwapChain) override;
 		STATUS_CODE Flush() override;
 
 		STATUS_CODE BeginRenderPass(IFramebuffer* pFramebuffer) override;
@@ -36,6 +37,12 @@ namespace PHX
 
 		STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) override;
 
+		// NOTE - We need more abstraction so that the client doesn't have to manually change the 
+		// texture layouts because older APIs don't have a concept of that. I think this would belong 
+		// in a render-graph system but a temporary call will do for now
+		STATUS_CODE TEMP_TransitionTextureToGeneralLayout(ITexture* pTexture);
+		STATUS_CODE TEMP_TransitionTextureToPresentLayout(ITexture* pTexture);
+
 	private:
 
 		STATUS_CODE CreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer);
@@ -43,6 +50,12 @@ namespace PHX
 		void DestroyCachedCommandBuffers();
 
 		VkCommandBuffer GetLastCommandBuffer();
+		VkCommandBuffer GetPrimaryCommandBuffer();
+
+		// NOTE - We need more abstraction so that the client doesn't have to manually change the 
+		// texture layouts because older APIs don't have a concept of that. I think this would belong 
+		// in a render-graph system but a temporary call will do for now
+		STATUS_CODE TEMP_TransitionTexture(ITexture* pTexture, VkImageLayout layout);
 
 	private:
 

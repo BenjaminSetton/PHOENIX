@@ -63,5 +63,8 @@ namespace PHX
 		virtual FILTER_MODE GetSamplerFilter() const = 0;
 		virtual bool IsAnisotropicFilteringEnabled() const = 0;
 		virtual float GetAnisotropyLevel() const = 0;
+
+		virtual bool IsDepthTexture() const = 0;
+		virtual bool HasStencilComponent() const = 0;
 	};
 }

@@ -41,7 +41,7 @@ namespace PHX
 				attDesc.storeOp = storeOp;
 
 				// How inefficient is this?
-				attDesc.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
+				attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 				attDesc.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
 				attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
@@ -54,7 +54,7 @@ namespace PHX
 				attDesc.storeOp = storeOp;
 
 				// How inefficient is this?
-				attDesc.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
+				attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 				attDesc.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
 				attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
 
@@ -75,7 +75,7 @@ namespace PHX
 				attDesc.stencilStoreOp = storeOp;
 
 				// How inefficient is this?
-				attDesc.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
+				attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 				attDesc.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
 				attDesc.layout = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL;
 
@@ -96,7 +96,7 @@ namespace PHX
 				attDesc.stencilStoreOp = storeOp;
 
 				// How inefficient is this?
-				attDesc.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
+				attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 				attDesc.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
 				attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
@@ -116,7 +116,7 @@ namespace PHX
 				attDesc.loadOp = loadOp;
 				attDesc.storeOp = storeOp;
 
-				attDesc.initialLayout = VK_IMAGE_LAYOUT_GENERAL;
+				attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 				attDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // Assuming it'll be presented right after resolving
 				attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 

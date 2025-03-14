@@ -5,6 +5,7 @@
 #include <vulkan/vulkan.h>
 
 #include "PHX/interface/texture.h"
+#include "PHX/types/queue_type.h"
 #include "PHX/types/status_code.h"
 
 namespace PHX
@@ -44,20 +45,31 @@ namespace PHX
 		bool IsAnisotropicFilteringEnabled() const override;
 		float GetAnisotropyLevel() const override;
 
+		bool IsDepthTexture() const override;
+		bool HasStencilComponent() const override;
+
 		u32 GetNumImageViews() const;
 		VkImageView GetImageViewAt(u32 index) const;
+
+		VkImageLayout GetLayout() const;
+		void SetLayout(VkImageLayout layout); // Used when device context adds transition commands to command buffer
+		bool FillTransitionLayoutInfo(VkImageLayout destinationLayout, VkPipelineStageFlags& out_sourceStage, VkPipelineStageFlags& out_destinationStage, QUEUE_TYPE& out_queueType, VkImageMemoryBarrier& out_barrier);
 
 	private:
 
 		STATUS_CODE CreateBaseImage(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& createInfo);
 		STATUS_CODE CreateImageViews(RenderDeviceVk* pRenderDevice, const TextureViewCreateInfo& createInfo);
+		void DestroyImage();
 
 	private:
+
+		RenderDeviceVk* m_renderDevice;
 
 		VkImage m_baseImage;
 		std::vector<VkImageView> m_imageViews;
 		VmaAllocation m_alloc;
 		//VkSampler sampler;
+		VkImageLayout m_layout;
 
 		u32 m_width;
 		u32 m_height;

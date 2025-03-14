@@ -6,6 +6,7 @@
 #include "buffer_vk.h"
 #include "framebuffer_vk.h"
 #include "pipeline_vk.h"
+#include "swap_chain_vk.h"
 #include "uniform_vk.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
@@ -32,8 +33,29 @@ namespace PHX
 		TODO();
 	}
 
-	STATUS_CODE DeviceContextVk::BeginFrame()
+	STATUS_CODE DeviceContextVk::BeginFrame(ISwapChain* pSwapChain)
 	{
+		if (m_pRenderDevice == VK_NULL_HANDLE)
+		{
+			LogError("Failed to begin frame! Render device is null");
+			return STATUS_CODE::ERR;
+		}
+
+		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(pSwapChain);
+		if (swapChainVk == nullptr)
+		{
+			LogError("Failed to begin frame! Swap chain pointer is null");
+			return STATUS_CODE::ERR;
+		}
+
+		STATUS_CODE res;
+		res = swapChainVk->AcquireNextImage();
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to begin frame! Swap chain could not acquire next image");
+			return res;
+		}
+
 		for (auto& cmdBuffer : m_cmdBuffers)
 		{
 			vkResetCommandBuffer(cmdBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
@@ -42,26 +64,92 @@ namespace PHX
 
 		// Create the primary command buffer that will run all secondary commands
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-		STATUS_CODE res = CreateCommandBuffer(QUEUE_TYPE::GRAPHICS, true, cmdBuffer);
+		res = CreateCommandBuffer(QUEUE_TYPE::GRAPHICS, true, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to begin frame! Primary command buffer creation failed");
 			return STATUS_CODE::ERR;
 		}
-
 		m_cmdBuffers.push_back(cmdBuffer);
+
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Is this right?
+		beginInfo.pInheritanceInfo = nullptr;
+		VkResult resVk = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+		if (resVk != VK_SUCCESS)
+		{
+			LogError("Failed to begin frame. Primary command buffer failed to start recording. Got error: %s", string_VkResult(resVk));
+			return STATUS_CODE::ERR;
+		}
 
 		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE DeviceContextVk::Flush()
 	{
-		TODO();
-		return STATUS_CODE::ERR;
+		VkCommandBuffer primaryCmdBuffer = GetPrimaryCommandBuffer();
+		VkSubmitInfo vkSubmitInfo{};
+		vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		vkSubmitInfo.waitSemaphoreCount = 0; // TODO
+		vkSubmitInfo.pWaitSemaphores = nullptr; // TODO
+		vkSubmitInfo.pWaitDstStageMask = nullptr; // TODO
+		vkSubmitInfo.commandBufferCount = 1;
+		vkSubmitInfo.pCommandBuffers = &primaryCmdBuffer;
+		vkSubmitInfo.signalSemaphoreCount = 0; // TODO
+		vkSubmitInfo.pSignalSemaphores = nullptr; // TODO
+
+		VkQueue graphicsQueue = m_pRenderDevice->GetQueue(QUEUE_TYPE::GRAPHICS);
+		VkResult res = vkQueueSubmit(graphicsQueue, 1, &vkSubmitInfo, VK_NULL_HANDLE);
+		if (res != VK_SUCCESS)
+		{
+			LogError("Failed to flush command buffers! Submit call failed with error: %s", string_VkResult(res));
+			return STATUS_CODE::ERR;
+		}
+
+		res = vkQueueWaitIdle(graphicsQueue);
+		if (res != VK_SUCCESS)
+		{
+			LogError("Failed to wait until queue became idle after submitting! Got error: %s", string_VkResult(res));
+			return STATUS_CODE::ERR;
+		}
+
+		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE DeviceContextVk::BeginRenderPass(IFramebuffer* pFramebuffer)
 	{
+		// Framebuffer
+		FramebufferVk* framebufferVk = static_cast<FramebufferVk*>(pFramebuffer);
+		if (framebufferVk == nullptr)
+		{
+			LogError("Failed to begin render pass! Framebuffer is null");
+			return STATUS_CODE::ERR;
+		}
+
+		// Render pass from framebuffer
+		const auto& renderPassDesc = framebufferVk->GetRenderPassDescription();
+		VkRenderPass renderPass = RenderPassCache::Get().Find(renderPassDesc);
+		if (renderPass == VK_NULL_HANDLE)
+		{
+			LogError("Failed to begin render pass! Render pass bound to framebuffer does not exist");
+			return STATUS_CODE::ERR;
+		}
+
+		// Begin a new render pass on the primary command buffer
+		VkCommandBuffer primaryCmdBuffer = GetPrimaryCommandBuffer();
+
+		VkRenderPassBeginInfo renderPassInfo{};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+		renderPassInfo.renderPass = renderPass;
+		renderPassInfo.framebuffer = framebufferVk->GetFramebuffer();
+		renderPassInfo.renderArea.offset = { 0, 0 };
+		renderPassInfo.renderArea.extent = { framebufferVk->GetWidth(), framebufferVk->GetHeight() };
+		renderPassInfo.clearValueCount = 0;		// TODO - Fill out with clear colors
+		renderPassInfo.pClearValues = nullptr;	// TODO - Fill out with clear colors
+		vkCmdBeginRenderPass(primaryCmdBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+
+		// Create a new secondary command buffer to record draw call
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = CreateCommandBuffer(QUEUE_TYPE::GRAPHICS, false, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
@@ -70,19 +158,6 @@ namespace PHX
 			return STATUS_CODE::ERR;
 		}
 		m_cmdBuffers.push_back(cmdBuffer);
-
-		// Framebuffer
-		FramebufferVk* framebufferVk = static_cast<FramebufferVk*>(pFramebuffer);
-		ASSERT_PTR(framebufferVk);
-
-		// Render pass from framebuffer
-		const auto& renderPassDesc = framebufferVk->GetRenderPassDescription();
-		VkRenderPass renderPass = RenderPassCache::Get().Find(renderPassDesc);
-		if (renderPass == VK_NULL_HANDLE)
-		{
-			LogError("Failed to begin render pass! Render pass bound to framebuffer does not exist!");
-			return STATUS_CODE::ERR;
-		}
 
 		VkCommandBufferInheritanceInfo inheritanceInfo{};
 		inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
@@ -93,7 +168,7 @@ namespace PHX
 
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = 0; // TODO - Add flags
+		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT | VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT; // Is this correct?
 		beginInfo.pInheritanceInfo = &inheritanceInfo;
 		VkResult resVk = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
 		if (resVk != VK_SUCCESS)
@@ -108,13 +183,19 @@ namespace PHX
 	STATUS_CODE DeviceContextVk::EndRenderPass()
 	{
 		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
-		if (cmdBuffer == nullptr)
+		if (cmdBuffer == VK_NULL_HANDLE)
 		{
 			LogError("Failed to end render pass! No command buffers exist");
 			return STATUS_CODE::ERR;
 		}
-
 		vkEndCommandBuffer(cmdBuffer);
+
+		VkCommandBuffer primaryCmdBuffer = GetPrimaryCommandBuffer();
+		u32 cmdBufferCount = static_cast<u32>(m_cmdBuffers.size() - 1); // Skip the first command buffer, which is the primary one
+		vkCmdExecuteCommands(primaryCmdBuffer, cmdBufferCount, m_cmdBuffers.data() + 1);
+		vkCmdEndRenderPass(primaryCmdBuffer);
+		vkEndCommandBuffer(primaryCmdBuffer);
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -353,9 +434,21 @@ namespace PHX
 		}
 
 		vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+
+		LogWarning("Waiting for transfer queue to be idle when copying data to buffer");
 		vkQueueWaitIdle(transferQueue);
 
 		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE DeviceContextVk::TEMP_TransitionTextureToGeneralLayout(ITexture* pTexture)
+	{
+		return TEMP_TransitionTexture(pTexture, VK_IMAGE_LAYOUT_GENERAL);
+	}
+
+	STATUS_CODE DeviceContextVk::TEMP_TransitionTextureToPresentLayout(ITexture* pTexture)
+	{
+		return TEMP_TransitionTexture(pTexture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 	}
 
 	STATUS_CODE DeviceContextVk::CreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer)
@@ -404,5 +497,82 @@ namespace PHX
 		}
 
 		return m_cmdBuffers.at(m_cmdBuffers.size() - 1);
+	}
+
+	VkCommandBuffer DeviceContextVk::GetPrimaryCommandBuffer()
+	{
+		if (m_cmdBuffers.size() == 0)
+		{
+			return VK_NULL_HANDLE;
+		}
+
+		return m_cmdBuffers.at(0);
+	}
+
+	STATUS_CODE DeviceContextVk::TEMP_TransitionTexture(ITexture* pTexture, VkImageLayout layout)
+	{
+		TextureVk* textureVk = static_cast<TextureVk*>(pTexture);
+		if (textureVk == nullptr)
+		{
+			LogError("TEMP - Failed to transition texture! Texture is null");
+			return STATUS_CODE::ERR;
+		}
+
+		VkPipelineStageFlags sourceStage;
+		VkPipelineStageFlags destinationStage;
+		QUEUE_TYPE queueType;
+		VkImageMemoryBarrier imageBarrier;
+
+		// If false is returned, Current layout is the same as destination, nothing more to do
+		if (textureVk->FillTransitionLayoutInfo(layout, sourceStage, destinationStage, queueType, imageBarrier))
+		{
+			VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+			STATUS_CODE res = CreateCommandBuffer(QUEUE_TYPE::TRANSFER, true, cmdBuffer);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("TEMP - Failed to transition texture! Command buffer creation failed");
+				return res;
+			}
+
+			VkCommandBufferBeginInfo beginInfo{};
+			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+			vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+
+			vkCmdPipelineBarrier(
+				cmdBuffer, 
+				sourceStage, 
+				destinationStage, 
+				0,
+				0, nullptr, // No memory barriers
+				0, nullptr, // No buffer barriers
+				1, &imageBarrier
+			);
+
+			vkEndCommandBuffer(cmdBuffer);
+
+			VkSubmitInfo submitInfo{};
+			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+			submitInfo.commandBufferCount = 1;
+			submitInfo.pCommandBuffers = &cmdBuffer;
+
+			VkQueue transferQueue = m_pRenderDevice->GetQueue(QUEUE_TYPE::TRANSFER);
+			if (transferQueue == VK_NULL_HANDLE)
+			{
+				LogError("TEMP - Failed to transition texture! Transfer queue does not exist");
+				vkResetCommandBuffer(cmdBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+				return STATUS_CODE::ERR;
+			}
+
+			vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+
+			LogWarning("Waiting for transfer queue to be idle when copying data to buffer");
+			vkQueueWaitIdle(transferQueue);
+
+			textureVk->SetLayout(layout);
+		}
+
+		return STATUS_CODE::SUCCESS;
 	}
 }

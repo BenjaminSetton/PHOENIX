@@ -1,6 +1,7 @@
 #pragma once
 
-#include "../types/integral_types.h"
+#include "PHX/types/integral_types.h"
+#include "PHX/types/status_code.h"
 
 namespace PHX
 {
@@ -15,7 +16,6 @@ namespace PHX
 		u32 height                  = 1080;
 		bool enableVSync            = false;
 		IRenderDevice* renderDevice = nullptr;
-		IWindow* window             = nullptr;
 	};
 
 	class ISwapChain
@@ -26,6 +26,8 @@ namespace PHX
 
 		virtual ITexture* GetImage(u32 imageIndex) const = 0;
 		virtual u32 GetImageCount() const = 0;
+		virtual u32 GetCurrentImageIndex() const = 0;
+		virtual STATUS_CODE Present() const = 0;
 
 	};
 }

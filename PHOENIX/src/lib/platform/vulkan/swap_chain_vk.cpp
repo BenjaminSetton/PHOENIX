@@ -1,5 +1,6 @@
 
 #include <vector>
+#include <vulkan/vk_enum_string_helper.h>
 
 #include "swap_chain_vk.h"
 
@@ -8,7 +9,6 @@
 #include "../../utils/sanity.h"
 #include "core_vk.h"
 #include "PHX/types/queue_type.h"
-#include "render_device_vk.h"
 #include "utils/queue_family_indices.h"
 #include "utils/swap_chain_helpers.h"
 #include "utils/texture_type_converter.h"
@@ -93,25 +93,23 @@ namespace PHX
 
 	SwapChainVk::SwapChainVk(const SwapChainCreateInfo& createInfo)
 	{
+		RenderDeviceVk* renderDevice = static_cast<RenderDeviceVk*>(createInfo.renderDevice);
 		if (createInfo.renderDevice == nullptr)
 		{
 			LogError("Render device pointer is null. Failed to create swap chain!");
 			return;
 		}
 
-		if (createInfo.window == nullptr)
+		STATUS_CODE res = CreateSwapChain(renderDevice, createInfo.width, createInfo.height, createInfo.enableVSync);
+		if (res == STATUS_CODE::SUCCESS)
 		{
-			LogError("Window pointer is null. Failed to create swap chain!");
-			return;
+			m_renderDevice = renderDevice;
 		}
-
-		RenderDeviceVk* renderDevice = dynamic_cast<RenderDeviceVk*>(createInfo.renderDevice);
-		CreateSwapChain(renderDevice, createInfo.width, createInfo.height, createInfo.enableVSync);
 	}
 
 	SwapChainVk::~SwapChainVk()
 	{
-		TODO();
+		DestroySwapChain();
 	}
 
 	ITexture* SwapChainVk::GetImage(u32 imageIndex) const
@@ -127,6 +125,57 @@ namespace PHX
 	u32 SwapChainVk::GetImageCount() const
 	{
 		return static_cast<u32>(m_images.size());
+	}
+
+	u32 SwapChainVk::GetCurrentImageIndex() const
+	{
+		return m_currImageIndex;
+	}
+
+	STATUS_CODE SwapChainVk::Present() const
+	{
+		VkPresentInfoKHR presentInfo{};
+		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+		presentInfo.waitSemaphoreCount = 0; // TODO
+		presentInfo.pWaitSemaphores = nullptr;
+		presentInfo.swapchainCount = 1;
+		presentInfo.pSwapchains = &m_swapChain;
+		presentInfo.pImageIndices = &m_currImageIndex;
+		presentInfo.pResults = nullptr;
+
+		VkQueue presentQueue = m_renderDevice->GetQueue(QUEUE_TYPE::PRESENT);
+		VkResult res = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR)
+		{
+			// Add callback for swapchain resize instead, and let the client select the new dimensions
+			TODO();
+			//CreateSwapChain();
+		}
+		else if (res != VK_SUCCESS)
+		{
+			LogError("Failed to present swap chain image! Got error: %s", string_VkResult(res));
+			return STATUS_CODE::ERR;
+		}
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE SwapChainVk::AcquireNextImage()
+	{
+		VkResult resVk = vkAcquireNextImageKHR(m_renderDevice->GetLogicalDevice(), m_swapChain, UINT64_MAX, VK_NULL_HANDLE, VK_NULL_HANDLE, &m_currImageIndex);
+		if (resVk == VK_ERROR_OUT_OF_DATE_KHR || resVk == VK_SUBOPTIMAL_KHR)
+		{
+			// Use a callback for swapchain being out of date
+			TODO();
+		}
+		else if (resVk != VK_SUCCESS)
+		{
+			LogError("Failed to acquire swap chain image! Got error: %s", string_VkResult(resVk));
+			return STATUS_CODE::ERR;
+		}
+
+		return STATUS_CODE::SUCCESS;
 	}
 
 	VkSwapchainKHR SwapChainVk::GetSwapChain() const
@@ -156,6 +205,13 @@ namespace PHX
 
 	STATUS_CODE SwapChainVk::CreateSwapChain(RenderDeviceVk* pRenderDevice, u32 width, u32 height, bool enableVSync)
 	{
+		// Clean up old swap chain data if necessary. This can happen when swap chain has already been created but
+		// needs to be resized because the window dimensions changed
+		if (IsValid())
+		{
+			DestroySwapChain();
+		}
+
 		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
 		VkPhysicalDevice physicalDevice = pRenderDevice->GetPhysicalDevice();
 
@@ -204,16 +260,19 @@ namespace PHX
 		createInfo.clipped = VK_TRUE;
 		createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-		if (vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &m_swapChain) != VK_SUCCESS)
+		VkResult res = vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &m_swapChain);
+		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to create swap chain!");
+			LogError("Failed to create swap chain! Got error: %s", string_VkResult(res));
 			return STATUS_CODE::ERR;
 		}
 
 		// Get the number of images, then we use the count to create the image views below
-		if (vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, nullptr) != VK_SUCCESS)
+		res = vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, nullptr);
+		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to get swapchain images!");
+			LogError("Failed to get swapchain images! Got error: %s", string_VkResult(res));
+			DestroySwapChain();
 			return STATUS_CODE::ERR;
 		}
 
@@ -223,8 +282,11 @@ namespace PHX
 
 		if (CreateSwapChainImageViews(pRenderDevice, imageCount, surfaceFormat.format) != STATUS_CODE::SUCCESS)
 		{
+			DestroySwapChain();
 			return STATUS_CODE::ERR;
 		}
+
+		m_currImageIndex = 0;
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -278,5 +340,28 @@ namespace PHX
 
 		return STATUS_CODE::SUCCESS;
 	}
+	
+	void SwapChainVk::DestroySwapChain()
+	{
+		if (m_renderDevice == nullptr)
+		{
+			LogError("Failed to destroy swap chain.! Render device is null");
+			return;
+		}
 
+		if (m_swapChain != VK_NULL_HANDLE)
+		{
+			vkDestroySwapchainKHR(m_renderDevice->GetLogicalDevice(), m_swapChain, nullptr);
+		}
+
+		for (auto& image : m_images)
+		{
+			m_renderDevice->DeallocateTexture(image);
+		}
+	}
+
+	bool SwapChainVk::IsValid() const
+	{
+		return (m_swapChain != VK_NULL_HANDLE && m_images.size() > 0);
+	}
 }

@@ -2,6 +2,7 @@
 
 #include "PHX/interface/framebuffer.h"
 #include "PHX/interface/pipeline.h"
+#include "PHX/interface/swap_chain.h"
 #include "PHX/interface/uniform.h"
 #include "PHX/types/integral_types.h"
 #include "PHX/types/status_code.h"
@@ -23,7 +24,7 @@ namespace PHX
 
 		virtual ~IDeviceContext() { }
 
-		virtual STATUS_CODE BeginFrame() = 0;
+		virtual STATUS_CODE BeginFrame(ISwapChain* pSwapChain) = 0;
 		virtual STATUS_CODE Flush() = 0;
 
 		virtual STATUS_CODE BeginRenderPass(IFramebuffer* pFramebuffer) = 0;
@@ -43,5 +44,8 @@ namespace PHX
 		virtual STATUS_CODE Dispatch(Vec3u dimensions) = 0;
 
 		virtual STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) = 0;
+
+		virtual STATUS_CODE TEMP_TransitionTextureToGeneralLayout(ITexture* pTexture) = 0;
+		virtual STATUS_CODE TEMP_TransitionTextureToPresentLayout(ITexture* pTexture) = 0;
 	};
 }

@@ -15,8 +15,9 @@ namespace PHX
 		BufferData newBuffer{};
 
 		// Create buffer
-		VmaAllocationCreateFlags bufferCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-		newBuffer = CreateBuffer(createInfo.size, BUFFER_UTILS::ConvertBufferUsage(createInfo.bufferUsage), bufferCreateFlags, 0, 0);
+		const VmaAllocationCreateFlags bufferCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+		const VkBufferUsageFlags bufferUsageFlags = BUFFER_UTILS::ConvertBufferUsage(createInfo.bufferUsage) | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		newBuffer = CreateBuffer(createInfo.size, bufferUsageFlags, bufferCreateFlags, 0, 0);
 		if (!newBuffer.isValid)
 		{
 			LogError("Failed to create buffer!");
@@ -25,8 +26,9 @@ namespace PHX
 		m_buffer = newBuffer;
 
 		// Create staging buffer
-		VmaAllocationCreateFlags stagingBufferCreateFlags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-		newBuffer = CreateBuffer(createInfo.size, BUFFER_UTILS::ConvertBufferUsage(BUFFER_USAGE::TRANSFER_SRC), stagingBufferCreateFlags, 0, 0);
+		const VmaAllocationCreateFlags stagingBufferCreateFlags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+		const VkBufferUsageFlags stagingBufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		newBuffer = CreateBuffer(createInfo.size, stagingBufferUsageFlags, stagingBufferCreateFlags, 0, 0);
 		if (!newBuffer.isValid)
 		{
 			LogError("Failed to create staging buffer!");

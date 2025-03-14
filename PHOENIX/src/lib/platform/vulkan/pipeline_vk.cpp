@@ -84,12 +84,20 @@ namespace PHX
 		PopulateInputAttributeDescription(createInfo.pInputAttributes, createInfo.attributeCount, inputAttributeDescs);
 		VkVertexInputBindingDescription inputBindingDesc = PopulateInputBindingDescription(createInfo.pInputAttributes, createInfo.attributeCount, createInfo.inputBinding, createInfo.inputRate);
 
+		// TODO - Should we always have the viewport and scissor as dynamic states? Should it be adjustable?
+		const u32 NUM_DYNAMIC_STATES = 2;
+		const VkDynamicState dynamicStates[NUM_DYNAMIC_STATES] =
+		{
+			VK_DYNAMIC_STATE_VIEWPORT,
+			VK_DYNAMIC_STATE_SCISSOR,
+		};
+
 		// Core pipeline descriptions
 		VkPipelineVertexInputStateCreateInfo		vertexInputInfo      = PopulateVertexInputCreateInfo(inputBindingDesc, inputAttributeDescs);
 		VkPipelineInputAssemblyStateCreateInfo		inputAssembly        = PopulateInputAssemblyCreateInfo(PIPELINE_UTILS::ConvertPrimitiveTopology(createInfo.topology), createInfo.enableRestartPrimitives);
 		VkViewport									viewport             = PopulateViewportInfo(createInfo.viewportSize, createInfo.viewportDepthRange);
 		VkRect2D									scissor              = PopulateScissorInfo(createInfo.scissorOffset, createInfo.scissorExtent);
-		VkPipelineDynamicStateCreateInfo			dynamicState         = PopulateDynamicStateCreateInfo(nullptr, 0);
+		VkPipelineDynamicStateCreateInfo			dynamicState         = PopulateDynamicStateCreateInfo(&dynamicStates[0], NUM_DYNAMIC_STATES);
 		VkPipelineViewportStateCreateInfo			viewportState        = PopulateViewportStateCreateInfo(&viewport, 1, &scissor, 1);
 		VkPipelineMultisampleStateCreateInfo		multisampling        = PopulateMultisamplingStateCreateInfo(TEX_UTILS::ConvertSampleCount(createInfo.rasterizationSamples), createInfo.enableAlphaToCoverage, createInfo.enableAlphaToOne);
 		VkPipelineColorBlendAttachmentState			colorBlendAttachment = PopulateColorBlendAttachment();

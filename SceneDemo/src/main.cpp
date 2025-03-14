@@ -10,10 +10,18 @@
 
 #include <PHX/phx.h>
 
-static constexpr PHX::u32 VERTEX_COUNT = 3;
 struct SimpleVertexType
 {
+	float pos[4];
 	float color[4];
+};
+
+static constexpr PHX::u32 VERTEX_COUNT = 3;
+static constexpr SimpleVertexType triVerts[VERTEX_COUNT] =
+{
+	{{ -0.5f, 0.5f, 0.0f, 1.0f }, { 1.0f, 0.0f, 0.0f, 1.0f }},
+	{{ 0.0f, -0.5f, 0.0f, 1.0f }, { 0.0f, 1.0f, 0.0f, 1.0f }},
+	{{ 0.5f, 0.5f, 0.0f, 1.0f } , { 0.0f, 0.0f, 1.0f, 1.0f }}
 };
 
 [[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, std::shared_ptr<PHX::IRenderDevice> pRenderDevice)
@@ -94,7 +102,6 @@ int main(int argc, char** argv)
 	swapChainCI.width = pWindow->GetCurrentWidth();
 	swapChainCI.height = pWindow->GetCurrentHeight();
 	swapChainCI.renderDevice = pRenderDevice.get();
-	swapChainCI.window = pWindow.get();
 	if (CreateSwapChain(swapChainCI) != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create swap chain
@@ -148,12 +155,13 @@ int main(int argc, char** argv)
 		{
 			0,								// location
 			0,								// binding
-			BASE_FORMAT::R32G32B32_FLOAT	// format
+			BASE_FORMAT::R32G32B32A32_FLOAT	// format
 		},
+		// COLOR
 		{
-			0,								// location
+			1,								// location
 			0,								// binding
-			BASE_FORMAT::R32G32B32_FLOAT	// format
+			BASE_FORMAT::R32G32B32A32_FLOAT	// format
 		},
 	};
 
@@ -171,6 +179,7 @@ int main(int argc, char** argv)
 	pipelineCI.ppShaders = shaders.data();
 	pipelineCI.shaderCount = static_cast<u32>(shaders.size());
 	pipelineCI.pFramebuffer = framebuffers.at(0);
+	pipelineCI.cullMode = PHX::CULL_MODE::NONE;
 
 	IPipeline* pPipeline = nullptr;
 	if (pRenderDevice->AllocateGraphicsPipeline(pipelineCI, &pPipeline) != STATUS_CODE::SUCCESS)
@@ -191,9 +200,23 @@ int main(int argc, char** argv)
 	bufferCI.size = sizeof(SimpleVertexType) * VERTEX_COUNT; // Triangle!
 
 	IBuffer* vBuffer = nullptr;
-	if (pRenderDevice->AllocateBuffer(bufferCI, &vBuffer) != PHX::STATUS_CODE::SUCCESS)
+	if (pRenderDevice->AllocateBuffer(bufferCI, &vBuffer) != STATUS_CODE::SUCCESS)
 	{
 		return -1;
+	}
+
+	// Copy over the vertex data to the vertex buffer
+	if (pDeviceContext->CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * VERTEX_COUNT) != STATUS_CODE::SUCCESS)
+	{
+		return -1;
+	}
+
+	for (u32 i = 0; i < pSwapChain->GetImageCount(); i++)
+	{
+		if (pDeviceContext->TEMP_TransitionTextureToGeneralLayout(pSwapChain->GetImage(i)) != PHX::STATUS_CODE::SUCCESS)
+		{
+			return -1;
+		}
 	}
 
 	// CORE LOOP
@@ -211,19 +234,30 @@ int main(int argc, char** argv)
 		pWindow->SetWindowTitle("PHX - %s | FRAME %u | FPS %2.2fms", pRenderDevice->GetDeviceName(), i++, elapsed.count());
 
 		// Draw operations
-		pDeviceContext->BeginFrame();
+		pDeviceContext->BeginFrame(pSwapChain.get());
 
-		auto& currFramebuffer = framebuffers.at(i % pSwapChain->GetImageCount());
+		u32 currSwapChainImageIndex = i % pSwapChain->GetImageCount();
+
+		auto& currFramebuffer = framebuffers.at(currSwapChainImageIndex);
 		pDeviceContext->BeginRenderPass(currFramebuffer);
-		pDeviceContext->BindPipeline(pPipeline);
-		pDeviceContext->BindUniformCollection(nullptr, pPipeline); // Bound shaders don't use uniform data
-		pDeviceContext->BindVertexBuffer(vBuffer);
-		pDeviceContext->SetScissor({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
-		pDeviceContext->SetViewport({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
-		pDeviceContext->Draw(VERTEX_COUNT);
+
+		// Represents recording one secondary command buffer
+		{
+			pDeviceContext->BindPipeline(pPipeline);
+			//pDeviceContext->BindUniformCollection(nullptr, pPipeline); // Bound shaders don't use uniform data
+			pDeviceContext->BindVertexBuffer(vBuffer);
+			pDeviceContext->SetScissor({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
+			pDeviceContext->SetViewport({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
+			pDeviceContext->Draw(VERTEX_COUNT);
+		}
+
 		pDeviceContext->EndRenderPass();
 
 		pDeviceContext->Flush();
+
+		//pDeviceContext->TEMP_TransitionTextureToPresentLayout(pSwapChain->GetImage(currSwapChainImageIndex));
+
+		pSwapChain->Present();
 
 		// Sleep for the remainder of the frame, if under budget
 		if (elapsed < frameBudget)

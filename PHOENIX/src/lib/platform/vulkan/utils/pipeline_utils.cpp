@@ -48,13 +48,14 @@ namespace PHX
 		{
 			InputAttribute& attrib = pAttributes[i];
 
-			accumulatedOffset += GetBaseFormatSize(attrib.format);
-
 			VkVertexInputAttributeDescription attributeDesc{};
-			attributeDesc.location = i;
-			attributeDesc.binding = 0; // TODO - Figure out what to do with this
+			attributeDesc.location = attrib.location;
+			attributeDesc.binding = attrib.binding;
 			attributeDesc.format = TEX_UTILS::ConvertBaseFormat(attrib.format);
 			attributeDesc.offset = accumulatedOffset;
+
+			// Move on to next member in the input attribute
+			accumulatedOffset += GetBaseFormatSize(attrib.format);
 
 			out_inputAttributeDescriptions.push_back(attributeDesc);
 		}
