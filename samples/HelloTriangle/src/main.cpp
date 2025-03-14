@@ -194,10 +194,6 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	// TEMP
-	pRenderDevice->DeallocatePipeline(&pPipeline);
-	// TEMP
-
 	// VERTEX BUFFER
 	BufferCreateInfo bufferCI{};
 	bufferCI.bufferUsage = PHX::BUFFER_USAGE::VERTEX_BUFFER;
