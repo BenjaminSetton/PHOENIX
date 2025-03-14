@@ -163,7 +163,8 @@ namespace PHX
 
 	STATUS_CODE SwapChainVk::AcquireNextImage()
 	{
-		VkResult resVk = vkAcquireNextImageKHR(m_renderDevice->GetLogicalDevice(), m_swapChain, UINT64_MAX, VK_NULL_HANDLE, VK_NULL_HANDLE, &m_currImageIndex);
+		VkSemaphore imageAvailableSemaphore = m_imageAvailableSemaphores[m_currImageIndex];
+		VkResult resVk = vkAcquireNextImageKHR(m_renderDevice->GetLogicalDevice(), m_swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &m_currImageIndex);
 		if (resVk == VK_ERROR_OUT_OF_DATE_KHR || resVk == VK_SUBOPTIMAL_KHR)
 		{
 			// Use a callback for swapchain being out of date
@@ -260,18 +261,19 @@ namespace PHX
 		createInfo.clipped = VK_TRUE;
 		createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-		VkResult res = vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &m_swapChain);
-		if (res != VK_SUCCESS)
+		// Swap chain
+		VkResult resVk = vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &m_swapChain);
+		if (resVk != VK_SUCCESS)
 		{
-			LogError("Failed to create swap chain! Got error: %s", string_VkResult(res));
+			LogError("Failed to create swap chain! Got error: %s", string_VkResult(resVk));
 			return STATUS_CODE::ERR;
 		}
 
 		// Get the number of images, then we use the count to create the image views below
-		res = vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, nullptr);
-		if (res != VK_SUCCESS)
+		resVk = vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, nullptr);
+		if (resVk != VK_SUCCESS)
 		{
-			LogError("Failed to get swapchain images! Got error: %s", string_VkResult(res));
+			LogError("Failed to get swapchain images! Got error: %s", string_VkResult(resVk));
 			DestroySwapChain();
 			return STATUS_CODE::ERR;
 		}
@@ -280,13 +282,23 @@ namespace PHX
 		m_width = extent.width;
 		m_height = extent.height;
 
-		if (CreateSwapChainImageViews(pRenderDevice, imageCount, surfaceFormat.format) != STATUS_CODE::SUCCESS)
+		// Image views
+		STATUS_CODE res = CreateSwapChainImageViews(pRenderDevice, imageCount, surfaceFormat.format);
+		if (res != STATUS_CODE::SUCCESS)
 		{
 			DestroySwapChain();
-			return STATUS_CODE::ERR;
+			return res;
 		}
 
 		m_currImageIndex = 0;
+
+		// Image available semaphores
+		res = CreateImageAvailableSemaphore(pRenderDevice, imageCount);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			DestroySwapChain();
+			return res;
+		}
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -354,14 +366,34 @@ namespace PHX
 			vkDestroySwapchainKHR(m_renderDevice->GetLogicalDevice(), m_swapChain, nullptr);
 		}
 
-		for (auto& image : m_images)
+		for (u32 i = 0; i < m_images.size(); i++)
 		{
-			m_renderDevice->DeallocateTexture(image);
+			ITexture* image = m_images[i];
+			m_renderDevice->DeallocateTexture(&image);
 		}
 	}
 
 	bool SwapChainVk::IsValid() const
 	{
 		return (m_swapChain != VK_NULL_HANDLE && m_images.size() > 0);
+	}
+
+	STATUS_CODE SwapChainVk::CreateImageAvailableSemaphore(RenderDeviceVk* pRenderDevice, u32 imageCount)
+	{
+		VkSemaphoreCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+		m_imageAvailableSemaphores.resize(imageCount);
+		for (uint32_t i = 0; i < imageCount; i++)
+		{
+			VkResult res = vkCreateSemaphore(pRenderDevice->GetLogicalDevice(), &createInfo, nullptr, &(m_imageAvailableSemaphores[i]));
+			if (res != VK_SUCCESS)
+			{
+				LogError("Failed to create image available semaphore for image #%u! Got error: %s", i, string_VkResult(res));
+				return STATUS_CODE::ERR;
+			}
+		}
+
+		return STATUS_CODE::SUCCESS;
 	}
 }

@@ -34,6 +34,7 @@ namespace PHX
 		STATUS_CODE CreateSwapChainImageViews(RenderDeviceVk* pRenderDevice, u32 imageCount, VkFormat imageFormat);
 		void DestroySwapChain();
 		bool IsValid() const;
+		STATUS_CODE CreateImageAvailableSemaphore(RenderDeviceVk* pRenderDevice, u32 imageCount);
 
 	private:
 
@@ -43,8 +44,10 @@ namespace PHX
 		VkFormat m_format;
 		u32 m_width;
 		u32 m_height;
-		std::vector<TextureVk*> m_images; // TODO - Replace with ITexture later on
+		std::vector<TextureVk*> m_images;
 		u32 m_currImageIndex;
+
+		std::vector<VkSemaphore> m_imageAvailableSemaphores;
 
 	};
 }

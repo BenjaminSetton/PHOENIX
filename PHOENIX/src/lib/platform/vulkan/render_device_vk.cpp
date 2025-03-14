@@ -28,6 +28,7 @@
 #include "shader_vk.h"
 #include "swap_chain_vk.h"
 #include "texture_vk.h"
+#include "uniform_vk.h"
 #include "utils/logger.h"
 #include "utils/queue_family_indices.h"
 #include "utils/sanity.h"
@@ -172,43 +173,61 @@ namespace PHX
 
 	STATUS_CODE RenderDeviceVk::AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)
 	{
-		LogInfo("Allocated shader!");
 		*out_shader = new ShaderVk(this, createInfo);
 		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE RenderDeviceVk::AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline)
 	{
-		LogInfo("Allocated graphics pipeline!");
 		*out_pipeline = new PipelineVk(this, createInfo);
 		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE RenderDeviceVk::AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline)
 	{
-		LogInfo("Allocated compute pipeline!");
 		*out_pipeline = new PipelineVk(this, createInfo);
 		return STATUS_CODE::SUCCESS;
 	}
 
-	void RenderDeviceVk::DeallocateFramebuffer(IFramebuffer* pFramebuffer)
+	STATUS_CODE RenderDeviceVk::AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, IUniformCollection** out_uniformCollection)
 	{
-		SAFE_DEL(pFramebuffer);
+		*out_uniformCollection = new UniformCollectionVk(this, createInfo);
+		return STATUS_CODE::SUCCESS;
 	}
 
-	void RenderDeviceVk::DeallocateTexture(ITexture* pTexture)
+	void RenderDeviceVk::DeallocateDeviceContext(IDeviceContext** pDeviceContext)
 	{
-		SAFE_DEL(pTexture);
+		SAFE_DEL(*pDeviceContext);
 	}
 
-	void RenderDeviceVk::DeallocateShader(IShader* pShader)
+	void RenderDeviceVk::DeallocateBuffer(IBuffer** pBuffer)
 	{
-		SAFE_DEL(pShader);
+		SAFE_DEL(*pBuffer);
 	}
 
-	void RenderDeviceVk::DeallocatePipeline(IPipeline* pPipeline)
+	void RenderDeviceVk::DeallocateFramebuffer(IFramebuffer** pFramebuffer)
 	{
-		SAFE_DEL(pPipeline);
+		SAFE_DEL(*pFramebuffer);
+	}
+
+	void RenderDeviceVk::DeallocateTexture(ITexture** pTexture)
+	{
+		SAFE_DEL(*pTexture);
+	}
+
+	void RenderDeviceVk::DeallocateShader(IShader** pShader)
+	{
+		SAFE_DEL(*pShader);
+	}
+
+	void RenderDeviceVk::DeallocatePipeline(IPipeline** pPipeline)
+	{
+		SAFE_DEL(*pPipeline);
+	}
+
+	void RenderDeviceVk::DeallocateUniformCollection(IUniformCollection** pUniformCollection)
+	{
+		SAFE_DEL(*pUniformCollection);
 	}
 
 	VkDevice RenderDeviceVk::GetLogicalDevice() const

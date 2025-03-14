@@ -441,15 +441,15 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::TEMP_TransitionTextureToGeneralLayout(ITexture* pTexture)
-	{
-		return TEMP_TransitionTexture(pTexture, VK_IMAGE_LAYOUT_GENERAL);
-	}
+	//STATUS_CODE DeviceContextVk::TEMP_TransitionTextureToGeneralLayout(ITexture* pTexture)
+	//{
+	//	return TEMP_TransitionTexture(pTexture, VK_IMAGE_LAYOUT_GENERAL);
+	//}
 
-	STATUS_CODE DeviceContextVk::TEMP_TransitionTextureToPresentLayout(ITexture* pTexture)
-	{
-		return TEMP_TransitionTexture(pTexture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
-	}
+	//STATUS_CODE DeviceContextVk::TEMP_TransitionTextureToPresentLayout(ITexture* pTexture)
+	//{
+	//	return TEMP_TransitionTexture(pTexture, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+	//}
 
 	STATUS_CODE DeviceContextVk::CreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer)
 	{
@@ -509,70 +509,70 @@ namespace PHX
 		return m_cmdBuffers.at(0);
 	}
 
-	STATUS_CODE DeviceContextVk::TEMP_TransitionTexture(ITexture* pTexture, VkImageLayout layout)
-	{
-		TextureVk* textureVk = static_cast<TextureVk*>(pTexture);
-		if (textureVk == nullptr)
-		{
-			LogError("TEMP - Failed to transition texture! Texture is null");
-			return STATUS_CODE::ERR;
-		}
+	//STATUS_CODE DeviceContextVk::TEMP_TransitionTexture(ITexture* pTexture, VkImageLayout layout)
+	//{
+	//	TextureVk* textureVk = static_cast<TextureVk*>(pTexture);
+	//	if (textureVk == nullptr)
+	//	{
+	//		LogError("TEMP - Failed to transition texture! Texture is null");
+	//		return STATUS_CODE::ERR;
+	//	}
 
-		VkPipelineStageFlags sourceStage;
-		VkPipelineStageFlags destinationStage;
-		QUEUE_TYPE queueType;
-		VkImageMemoryBarrier imageBarrier;
+	//	VkPipelineStageFlags sourceStage;
+	//	VkPipelineStageFlags destinationStage;
+	//	QUEUE_TYPE queueType;
+	//	VkImageMemoryBarrier imageBarrier;
 
-		// If false is returned, Current layout is the same as destination, nothing more to do
-		if (textureVk->FillTransitionLayoutInfo(layout, sourceStage, destinationStage, queueType, imageBarrier))
-		{
-			VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-			STATUS_CODE res = CreateCommandBuffer(QUEUE_TYPE::TRANSFER, true, cmdBuffer);
-			if (res != STATUS_CODE::SUCCESS)
-			{
-				LogError("TEMP - Failed to transition texture! Command buffer creation failed");
-				return res;
-			}
+	//	// If false is returned, Current layout is the same as destination, nothing more to do
+	//	if (textureVk->FillTransitionLayoutInfo(layout, sourceStage, destinationStage, queueType, imageBarrier))
+	//	{
+	//		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+	//		STATUS_CODE res = CreateCommandBuffer(QUEUE_TYPE::TRANSFER, true, cmdBuffer);
+	//		if (res != STATUS_CODE::SUCCESS)
+	//		{
+	//			LogError("TEMP - Failed to transition texture! Command buffer creation failed");
+	//			return res;
+	//		}
 
-			VkCommandBufferBeginInfo beginInfo{};
-			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	//		VkCommandBufferBeginInfo beginInfo{};
+	//		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	//		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-			vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+	//		vkBeginCommandBuffer(cmdBuffer, &beginInfo);
 
-			vkCmdPipelineBarrier(
-				cmdBuffer, 
-				sourceStage, 
-				destinationStage, 
-				0,
-				0, nullptr, // No memory barriers
-				0, nullptr, // No buffer barriers
-				1, &imageBarrier
-			);
+	//		vkCmdPipelineBarrier(
+	//			cmdBuffer, 
+	//			sourceStage, 
+	//			destinationStage, 
+	//			0,
+	//			0, nullptr, // No memory barriers
+	//			0, nullptr, // No buffer barriers
+	//			1, &imageBarrier
+	//		);
 
-			vkEndCommandBuffer(cmdBuffer);
+	//		vkEndCommandBuffer(cmdBuffer);
 
-			VkSubmitInfo submitInfo{};
-			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-			submitInfo.commandBufferCount = 1;
-			submitInfo.pCommandBuffers = &cmdBuffer;
+	//		VkSubmitInfo submitInfo{};
+	//		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	//		submitInfo.commandBufferCount = 1;
+	//		submitInfo.pCommandBuffers = &cmdBuffer;
 
-			VkQueue transferQueue = m_pRenderDevice->GetQueue(QUEUE_TYPE::TRANSFER);
-			if (transferQueue == VK_NULL_HANDLE)
-			{
-				LogError("TEMP - Failed to transition texture! Transfer queue does not exist");
-				vkResetCommandBuffer(cmdBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
-				return STATUS_CODE::ERR;
-			}
+	//		VkQueue transferQueue = m_pRenderDevice->GetQueue(QUEUE_TYPE::TRANSFER);
+	//		if (transferQueue == VK_NULL_HANDLE)
+	//		{
+	//			LogError("TEMP - Failed to transition texture! Transfer queue does not exist");
+	//			vkResetCommandBuffer(cmdBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
+	//			return STATUS_CODE::ERR;
+	//		}
 
-			vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	//		vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
 
-			LogWarning("Waiting for transfer queue to be idle when copying data to buffer");
-			vkQueueWaitIdle(transferQueue);
+	//		LogWarning("Waiting for transfer queue to be idle when copying data to buffer");
+	//		vkQueueWaitIdle(transferQueue);
 
-			textureVk->SetLayout(layout);
-		}
+	//		textureVk->SetLayout(layout);
+	//	}
 
-		return STATUS_CODE::SUCCESS;
-	}
+	//	return STATUS_CODE::SUCCESS;
+	//}
 }

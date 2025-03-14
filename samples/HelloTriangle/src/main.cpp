@@ -194,6 +194,10 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+	// TEMP
+	pRenderDevice->DeallocatePipeline(&pPipeline);
+	// TEMP
+
 	// VERTEX BUFFER
 	BufferCreateInfo bufferCI{};
 	bufferCI.bufferUsage = PHX::BUFFER_USAGE::VERTEX_BUFFER;
@@ -211,27 +215,31 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	for (u32 i = 0; i < pSwapChain->GetImageCount(); i++)
-	{
-		if (pDeviceContext->TEMP_TransitionTextureToGeneralLayout(pSwapChain->GetImage(i)) != PHX::STATUS_CODE::SUCCESS)
-		{
-			return -1;
-		}
-	}
+	// UNIFORM BUFFERS
+
+	//for (u32 i = 0; i < pSwapChain->GetImageCount(); i++)
+	//{
+	//	if (pDeviceContext->TEMP_TransitionTextureToGeneralLayout(pSwapChain->GetImage(i)) != PHX::STATUS_CODE::SUCCESS)
+	//	{
+	//		return -1;
+	//	}
+	//}
 
 	// CORE LOOP
 	int i = 0;
-	std::chrono::duration<float, std::milli> frameBudget(1.0f / 60.0f * 1000.0f); // 60FPS in ms
+	std::chrono::duration<float> frameBudgetMs(1.0f / 60.0f); // 60FPS
+	auto timeStart = std::chrono::high_resolution_clock::now();
+	auto timeEnd = std::chrono::high_resolution_clock::now();
 	while (!pWindow->ShouldClose())
 	{
-		const auto timeStart = std::chrono::high_resolution_clock::now();
+		const std::chrono::duration<float, std::milli> elapsedMs = timeEnd - timeStart;
+		const std::chrono::duration<float> elapsedSeconds = timeEnd - timeStart;
+
+		timeStart = std::chrono::high_resolution_clock::now();
 
 		pWindow->Update(0.13f);
 
-		const auto timeEnd = std::chrono::high_resolution_clock::now();
-		const std::chrono::duration<float, std::milli> elapsed = timeEnd - timeStart;
-
-		pWindow->SetWindowTitle("PHX - %s | FRAME %u | FPS %2.2fms", pRenderDevice->GetDeviceName(), i++, elapsed.count());
+		pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", pRenderDevice->GetDeviceName(), i++, elapsedMs.count(), 1.0f / elapsedSeconds.count());
 
 		// Draw operations
 		pDeviceContext->BeginFrame(pSwapChain.get());
@@ -244,7 +252,7 @@ int main(int argc, char** argv)
 		// Represents recording one secondary command buffer
 		{
 			pDeviceContext->BindPipeline(pPipeline);
-			//pDeviceContext->BindUniformCollection(nullptr, pPipeline); // Bound shaders don't use uniform data
+			pDeviceContext->BindUniformCollection(nullptr, pPipeline); // Bound shaders don't use uniform data
 			pDeviceContext->BindVertexBuffer(vBuffer);
 			pDeviceContext->SetScissor({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
 			pDeviceContext->SetViewport({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
@@ -260,11 +268,12 @@ int main(int argc, char** argv)
 		pSwapChain->Present();
 
 		// Sleep for the remainder of the frame, if under budget
-		if (elapsed < frameBudget)
+		if (elapsedMs < frameBudgetMs)
 		{
-			const auto timeDiff = frameBudget - elapsed;
+			const auto timeDiff = frameBudgetMs - elapsedMs;
 			std::this_thread::sleep_for(timeDiff);
-			//std::cout << "Slept for " << timeDiff.count() << "ms  out of " << frameBudget.count() << "ms" << std::endl;
 		}
+
+		timeEnd = std::chrono::high_resolution_clock::now();
 	}
 }

@@ -27,11 +27,15 @@ namespace PHX
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader) override;
 		STATUS_CODE AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
 		STATUS_CODE AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
+		STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, IUniformCollection** out_uniformCollection) override;
 
-		void DeallocateFramebuffer(IFramebuffer* pFramebuffer) override;
-		void DeallocateTexture(ITexture* pTexture) override;
-		void DeallocateShader(IShader* pShader) override;
-		void DeallocatePipeline(IPipeline* pPipeline) override;
+		void DeallocateDeviceContext(IDeviceContext** pDeviceContext) override;
+		void DeallocateBuffer(IBuffer** pBuffer) override;
+		void DeallocateFramebuffer(IFramebuffer** pFramebuffer) override;
+		void DeallocateTexture(ITexture** pTexture) override;
+		void DeallocateShader(IShader** pShader) override;
+		void DeallocatePipeline(IPipeline** pPipeline) override;
+		void DeallocateUniformCollection(IUniformCollection** pUniformCollection) override;
 
 		VkDevice GetLogicalDevice() const;
 		VkPhysicalDevice GetPhysicalDevice() const;

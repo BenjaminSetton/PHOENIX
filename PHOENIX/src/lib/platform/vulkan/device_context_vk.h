@@ -40,8 +40,8 @@ namespace PHX
 		// NOTE - We need more abstraction so that the client doesn't have to manually change the 
 		// texture layouts because older APIs don't have a concept of that. I think this would belong 
 		// in a render-graph system but a temporary call will do for now
-		STATUS_CODE TEMP_TransitionTextureToGeneralLayout(ITexture* pTexture);
-		STATUS_CODE TEMP_TransitionTextureToPresentLayout(ITexture* pTexture);
+		//STATUS_CODE TEMP_TransitionTextureToGeneralLayout(ITexture* pTexture);
+		//STATUS_CODE TEMP_TransitionTextureToPresentLayout(ITexture* pTexture);
 
 	private:
 
@@ -55,7 +55,7 @@ namespace PHX
 		// NOTE - We need more abstraction so that the client doesn't have to manually change the 
 		// texture layouts because older APIs don't have a concept of that. I think this would belong 
 		// in a render-graph system but a temporary call will do for now
-		STATUS_CODE TEMP_TransitionTexture(ITexture* pTexture, VkImageLayout layout);
+		//STATUS_CODE TEMP_TransitionTexture(ITexture* pTexture, VkImageLayout layout);
 
 	private:
 
