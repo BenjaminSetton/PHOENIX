@@ -4,6 +4,7 @@
 #include "PHX/interface/pipeline.h"
 #include "PHX/interface/swap_chain.h"
 #include "PHX/interface/uniform.h"
+#include "PHX/types/clear_color.h"
 #include "PHX/types/integral_types.h"
 #include "PHX/types/status_code.h"
 #include "PHX/types/vec_types.h"
@@ -27,7 +28,7 @@ namespace PHX
 		virtual STATUS_CODE BeginFrame(ISwapChain* pSwapChain) = 0;
 		virtual STATUS_CODE Flush() = 0;
 
-		virtual STATUS_CODE BeginRenderPass(IFramebuffer* pFramebuffer) = 0;
+		virtual STATUS_CODE BeginRenderPass(IFramebuffer* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount) = 0;
 		virtual STATUS_CODE EndRenderPass() = 0;
 
 		virtual STATUS_CODE BindVertexBuffer(IBuffer* pVertexBuffer) = 0;

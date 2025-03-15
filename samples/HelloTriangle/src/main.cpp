@@ -119,7 +119,7 @@ int main(int argc, char** argv)
 		desc.mipTarget = 0;
 		desc.type = PHX::ATTACHMENT_TYPE::COLOR;
 		desc.storeOp = PHX::ATTACHMENT_STORE_OP::STORE;
-		desc.loadOp = PHX::ATTACHMENT_LOAD_OP::IGNORE;
+		desc.loadOp = PHX::ATTACHMENT_LOAD_OP::CLEAR;
 
 		FramebufferCreateInfo framebufferCI{};
 		framebufferCI.width = desc.pTexture->GetWidth();
@@ -221,6 +221,11 @@ int main(int argc, char** argv)
 	//	}
 	//}
 
+	// Just clear the color attachment, no depth/stencil
+	ClearValues clearCol{};
+	clearCol.color.color = { 0.1f, 0.1f, 0.1f, 0.0f };
+	clearCol.isClearColor = true;
+
 	// CORE LOOP
 	int i = 0;
 	std::chrono::duration<float> frameBudgetMs(1.0f / 60.0f); // 60FPS
@@ -243,12 +248,12 @@ int main(int argc, char** argv)
 		u32 currSwapChainImageIndex = i % pSwapChain->GetImageCount();
 
 		auto& currFramebuffer = framebuffers.at(currSwapChainImageIndex);
-		pDeviceContext->BeginRenderPass(currFramebuffer);
+		pDeviceContext->BeginRenderPass(currFramebuffer, &clearCol, 1);
 
 		// Represents recording one secondary command buffer
 		{
 			pDeviceContext->BindPipeline(pPipeline);
-			pDeviceContext->BindUniformCollection(nullptr, pPipeline); // Bound shaders don't use uniform data
+			//pDeviceContext->BindUniformCollection(nullptr, pPipeline); // Bound shaders don't use uniform data
 			pDeviceContext->BindVertexBuffer(vBuffer);
 			pDeviceContext->SetScissor({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
 			pDeviceContext->SetViewport({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });

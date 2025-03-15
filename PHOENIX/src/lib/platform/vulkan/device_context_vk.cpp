@@ -117,7 +117,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::BeginRenderPass(IFramebuffer* pFramebuffer)
+	STATUS_CODE DeviceContextVk::BeginRenderPass(IFramebuffer* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount)
 	{
 		// Framebuffer
 		FramebufferVk* framebufferVk = static_cast<FramebufferVk*>(pFramebuffer);
@@ -136,6 +136,24 @@ namespace PHX
 			return STATUS_CODE::ERR;
 		}
 
+		// Process clear values
+		std::vector<VkClearValue> vkClearValues(clearColorCount);
+		for (u32 i = 0; i < clearColorCount; i++)
+		{
+			VkClearValue clearValues{};
+			if (pClearColors[i].isClearColor)
+			{
+				memcpy(&clearValues.color.float32, &pClearColors[i].color.color, sizeof(float) * 4);
+			}
+			else
+			{
+				clearValues.depthStencil.depth = pClearColors[i].depthStencil.depthClear;
+				clearValues.depthStencil.stencil = pClearColors[i].depthStencil.stencilClear;
+			}
+
+			vkClearValues[i] = clearValues;
+		}
+
 		// Begin a new render pass on the primary command buffer
 		VkCommandBuffer primaryCmdBuffer = GetPrimaryCommandBuffer();
 
@@ -145,8 +163,8 @@ namespace PHX
 		renderPassInfo.framebuffer = framebufferVk->GetFramebuffer();
 		renderPassInfo.renderArea.offset = { 0, 0 };
 		renderPassInfo.renderArea.extent = { framebufferVk->GetWidth(), framebufferVk->GetHeight() };
-		renderPassInfo.clearValueCount = 0;		// TODO - Fill out with clear colors
-		renderPassInfo.pClearValues = nullptr;	// TODO - Fill out with clear colors
+		renderPassInfo.clearValueCount = clearColorCount;
+		renderPassInfo.pClearValues = (pClearColors == nullptr) ? nullptr : vkClearValues.data();
 		vkCmdBeginRenderPass(primaryCmdBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 
 		// Create a new secondary command buffer to record draw call

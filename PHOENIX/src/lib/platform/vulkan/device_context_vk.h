@@ -19,7 +19,7 @@ namespace PHX
 		STATUS_CODE BeginFrame(ISwapChain* pSwapChain) override;
 		STATUS_CODE Flush() override;
 
-		STATUS_CODE BeginRenderPass(IFramebuffer* pFramebuffer) override;
+		STATUS_CODE BeginRenderPass(IFramebuffer* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount) override;
 		STATUS_CODE EndRenderPass() override;
 
 		STATUS_CODE BindVertexBuffer(IBuffer* pVertexBuffer) override;
