@@ -4,12 +4,13 @@
 
 #include "swap_chain_vk.h"
 
-#include "../../utils/logger.h"
-#include "../../utils/math.h"
-#include "../../utils/sanity.h"
 #include "core_vk.h"
 #include "PHX/types/queue_type.h"
+#include "utils/global_settings.h"
+#include "utils/logger.h"
+#include "utils/math.h"
 #include "utils/queue_family_indices.h"
+#include "utils/sanity.h"
 #include "utils/swap_chain_helpers.h"
 #include "utils/texture_type_converter.h"
 
@@ -56,7 +57,7 @@ namespace PHX
 		{
 			if (fifoValid)
 			{
-				LogInfo("Selected FIFO present mode");
+				LogInfo("Selected swap chain FIFO present mode");
 				return VK_PRESENT_MODE_FIFO_KHR;
 			}
 		}
@@ -64,13 +65,13 @@ namespace PHX
 		{
 			if (mailboxValid)
 			{
-				LogInfo("Selected mailbox present mode");
+				LogInfo("Selected swap chain mailbox present mode");
 				return VK_PRESENT_MODE_MAILBOX_KHR;
 			}
 		}
 
 		// Default to immediate presentation (is this guaranteed to be available?)
-		LogInfo("Defaulted to immediate mode presentation");
+		LogInfo("Defaulted to swap chain immediate mode presentation");
 		return VK_PRESENT_MODE_IMMEDIATE_KHR;
 	}
 
@@ -101,10 +102,13 @@ namespace PHX
 		}
 
 		STATUS_CODE res = CreateSwapChain(renderDevice, createInfo.width, createInfo.height, createInfo.enableVSync);
-		if (res == STATUS_CODE::SUCCESS)
+		if (res != STATUS_CODE::SUCCESS)
 		{
-			m_renderDevice = renderDevice;
+			return;
 		}
+
+		m_renderDevice = renderDevice;
+		m_isVSyncEnabled = createInfo.enableVSync;
 	}
 
 	SwapChainVk::~SwapChainVk()
@@ -132,7 +136,7 @@ namespace PHX
 		return m_currImageIndex;
 	}
 
-	STATUS_CODE SwapChainVk::Present() const
+	STATUS_CODE SwapChainVk::Present()
 	{
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -148,9 +152,10 @@ namespace PHX
 
 		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR)
 		{
-			// Add callback for swapchain resize instead, and let the client select the new dimensions
-			TODO();
-			//CreateSwapChain();
+			// Call callback for swapchain resize and let the client select the new dimensions
+			auto& settings = GetSettings();
+			ASSERT_PTR(settings.swapChainResizedCallback); // This should always be set!
+			settings.swapChainResizedCallback(this);
 		}
 		else if (res != VK_SUCCESS)
 		{
@@ -161,14 +166,26 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	void SwapChainVk::Resize(u32 newWidth, u32 newHeight)
+	{
+		STATUS_CODE res = CreateSwapChain(m_renderDevice, newWidth, newHeight, m_isVSyncEnabled);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to resize swap chain!");
+			return;
+		}
+	}
+
 	STATUS_CODE SwapChainVk::AcquireNextImage()
 	{
 		VkSemaphore imageAvailableSemaphore = m_imageAvailableSemaphores[m_currImageIndex];
 		VkResult resVk = vkAcquireNextImageKHR(m_renderDevice->GetLogicalDevice(), m_swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &m_currImageIndex);
 		if (resVk == VK_ERROR_OUT_OF_DATE_KHR || resVk == VK_SUBOPTIMAL_KHR)
 		{
-			// Use a callback for swapchain being out of date
-			TODO();
+			// Call callback for swapchain resize and let the client select the new dimensions
+			auto& settings = GetSettings();
+			ASSERT_PTR(settings.swapChainResizedCallback); // This should always be set!
+			settings.swapChainResizedCallback(this);
 		}
 		else if (resVk != VK_SUCCESS)
 		{
@@ -300,6 +317,8 @@ namespace PHX
 			return res;
 		}
 
+		LogInfo("Successfully created swap chain with dimensions %ux%u!", m_width, m_height);
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -371,6 +390,7 @@ namespace PHX
 			ITexture* image = m_images[i];
 			m_renderDevice->DeallocateTexture(&image);
 		}
+		m_images.clear();
 	}
 
 	bool SwapChainVk::IsValid() const

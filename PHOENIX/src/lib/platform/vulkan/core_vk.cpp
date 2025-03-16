@@ -4,7 +4,8 @@
 
 #include "core_vk.h"
 
-#include "../../utils/logger.h"
+#include "utils/global_settings.h"
+#include "utils/logger.h"
 
 #if defined(PHX_WINDOWS)
 #undef APIENTRY // Fix for "APIENTRY macro redefinition" warning. Windows.h defines this unconditionally, and glfw3.h defines it too
@@ -62,9 +63,10 @@ namespace PHX
 		return true;
 	}
 
-	STATUS_CODE CoreVk::Initialize(bool enableValidationLayers, std::shared_ptr<IWindow> pWindow)
+	STATUS_CODE CoreVk::Initialize(std::shared_ptr<IWindow> pWindow)
 	{
-		if (CreateInstance(enableValidationLayers) != STATUS_CODE::SUCCESS)
+		auto& settings = GetSettings();
+		if (CreateInstance(settings.enableValidation) != STATUS_CODE::SUCCESS)
 		{
 			return STATUS_CODE::ERR;
 		}

@@ -7,7 +7,6 @@
 
 #include "PHX/types/integral_types.h"
 
-
 #define LOG_FORMAT_CODE(logType) \
 	va_list va; \
 	va_start(va, format); \
@@ -36,60 +35,68 @@ namespace PHX
 	// Define simple logging functions
 	static void Log_Internal(LOG_TYPE type, const char* message)
 	{
-		const char* logTypeColor = nullptr;
-		const char* logTypeBuffer = nullptr;
+		auto& settings = GetSettings();
+		if (settings.logCallback != nullptr)
+		{
+			settings.logCallback(message, type);
+		}
+		else
+		{
+			const char* logTypeColor = nullptr;
+			const char* logTypeBuffer = nullptr;
 
-		switch (type)
-		{
-		case LOG_TYPE::DEBUG:
-		{
-			logTypeColor = LogDebugColor;
-			logTypeBuffer = LogDebugBuffer;
-			break;
-		}
-		case LOG_TYPE::INFO:
-		{
-			logTypeColor = LogInfoColor;
-			logTypeBuffer = LogInfoBuffer;
-			break;
-		}
-		case LOG_TYPE::WARNING:
-		{
-			logTypeColor = LogWarningColor;
-			logTypeBuffer = LogWarningBuffer;
-			break;
-		}
-		case LOG_TYPE::ERR:
-		{
-			logTypeColor = LogErrorColor;
-			logTypeBuffer = LogErrorBuffer;
-			break;
-		}
-		}
+			switch (type)
+			{
+			case LOG_TYPE::DBG:
+			{
+				logTypeColor = LogDebugColor;
+				logTypeBuffer = LogDebugBuffer;
+				break;
+			}
+			case LOG_TYPE::INFO:
+			{
+				logTypeColor = LogInfoColor;
+				logTypeBuffer = LogInfoBuffer;
+				break;
+			}
+			case LOG_TYPE::WARNING:
+			{
+				logTypeColor = LogWarningColor;
+				logTypeBuffer = LogWarningBuffer;
+				break;
+			}
+			case LOG_TYPE::ERR:
+			{
+				logTypeColor = LogErrorColor;
+				logTypeBuffer = LogErrorBuffer;
+				break;
+			}
+			}
 
-		// Get the timestamp
-		std::time_t currentTime = std::time(nullptr);
-		std::tm currentLocalTime{};
-		localtime_s(&currentLocalTime, &currentTime);
+			// Get the timestamp
+			std::time_t currentTime = std::time(nullptr);
+			std::tm currentLocalTime{};
+			localtime_s(&currentLocalTime, &currentTime);
 
-		int hour = currentLocalTime.tm_hour;
-		char AMorPM[3] = "AM"; // Contains "AM" or "PM" including null terminator
+			int hour = currentLocalTime.tm_hour;
+			char AMorPM[3] = "AM"; // Contains "AM" or "PM" including null terminator
 
-		if (hour > 12)
-		{
-			hour -= 12;
-			memcpy(AMorPM, "PM", 3);
+			if (hour > 12)
+			{
+				hour -= 12;
+				memcpy(AMorPM, "PM", 3);
+			}
+
+			fprintf_s(stderr, "[PHOENIX][%02d:%02d:%02d %s]%s[%s] %s %s\n",
+				hour,
+				currentLocalTime.tm_min,
+				currentLocalTime.tm_sec,
+				AMorPM,
+				logTypeColor,
+				logTypeBuffer,
+				message,
+				LogClearColor);
 		}
-
-		fprintf_s(stderr, "[PHOENIX][%02d:%02d:%02d %s]%s[%s] %s %s\n",
-			hour,
-			currentLocalTime.tm_min,
-			currentLocalTime.tm_sec,
-			AMorPM,
-			logTypeColor,
-			logTypeBuffer,
-			message,
-			LogClearColor);
 	}
 
 	void LogError(const char* format, ...)

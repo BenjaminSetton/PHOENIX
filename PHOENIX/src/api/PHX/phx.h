@@ -2,10 +2,10 @@
 
 #include <memory>
 
-#include "types/graphics_api.h"
-#include "types/integral_types.h"
-#include "types/shader_desc.h"
-#include "types/status_code.h"
+#include "PHX/types/integral_types.h"
+#include "PHX/types/settings.h"
+#include "PHX/types/shader_desc.h"
+#include "PHX/types/status_code.h"
 
 #include "PHX/interface/render_device.h"
 #include "PHX/interface/swap_chain.h"
@@ -13,11 +13,10 @@
 
 namespace PHX
 {
-
 	// INIT
 	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo);
 
-	STATUS_CODE InitializeGraphics(GRAPHICS_API api);
+	STATUS_CODE InitializeGraphics(const Settings& initSettings);
 	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo);
 	STATUS_CODE CreateSwapChain(const SwapChainCreateInfo& createInfo);
 

@@ -11,8 +11,7 @@ layout(set = 0, binding = 0) uniform Test
 
 void main()
 {
-	float normSin = sin(testUBO.time) * 0.5 + 0.5;
 	vec4 col = inColor;
-	col.g = normSin;
+	col += sin(testUBO.time) * 0.5 + cos(testUBO.time) + 0.1;
 	outColor = col;
 }

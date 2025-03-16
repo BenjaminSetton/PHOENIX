@@ -10,9 +10,9 @@
 namespace PHX
 {
 	TextureVk::TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo) :
-		m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_width(0), m_height(0), m_format(BASE_FORMAT::INVALID), m_arrayLayers(0), m_mipLevels(0),
-		m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID),
-		m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), m_anisotropyLevel(0.0f)
+		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_width(0), m_height(0), m_format(BASE_FORMAT::INVALID), m_arrayLayers(0), m_mipLevels(0),
+		m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID),
+		m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), m_anisotropyLevel(0.0f), m_bytesPerTexel(0)
 	{
 		RenderDeviceVk* renderDeviceVk = static_cast<RenderDeviceVk*>(pRenderDevice);
 		if (renderDeviceVk == nullptr)
@@ -44,7 +44,10 @@ namespace PHX
 		m_anisotropyLevel = samplerCreateInfo.maxAnisotropy;
 	}
 
-	TextureVk::TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView)
+	TextureVk::TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView) :
+		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_width(0), m_height(0), m_format(BASE_FORMAT::INVALID), m_arrayLayers(0), m_mipLevels(0),
+		m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID),
+		m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), m_anisotropyLevel(0.0f), m_bytesPerTexel(0)
 	{
 		RenderDeviceVk* renderDeviceVk = static_cast<RenderDeviceVk*>(pRenderDevice);
 		if (renderDeviceVk == nullptr)
@@ -53,7 +56,10 @@ namespace PHX
 			return;
 		}
 
-		if (CreateBaseImage(pRenderDevice, baseCreateInfo) != STATUS_CODE::SUCCESS)
+		// NOTE - Special constructor which is only called by the swap chain. In this case, we must not make new VkImage objects, since
+		//        the swap chain owns those. Simply populate image information and leave the VkImage object as VK_NULL_HANDLE
+		//
+		if (CreateBaseImage(pRenderDevice, baseCreateInfo, false) != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
@@ -466,7 +472,7 @@ namespace PHX
 		return true;
 	}
 
-	STATUS_CODE TextureVk::CreateBaseImage(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& createInfo)
+	STATUS_CODE TextureVk::CreateBaseImage(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& createInfo, bool createVkImageHandle)
 	{
 		// Re-calculate mip count, if necessary. Vulkan disallows 0 mip levels
 		u32 mipsToUse = 1;
@@ -480,35 +486,37 @@ namespace PHX
 			mipsToUse = createInfo.mipLevels;
 		}
 
-		VkImageCreateInfo imageInfo{};
-		imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-		imageInfo.imageType = VK_IMAGE_TYPE_2D;
-		imageInfo.extent.width = createInfo.width;
-		imageInfo.extent.height = createInfo.height;
-		imageInfo.extent.depth = 1;
-		imageInfo.mipLevels = mipsToUse;
-		imageInfo.arrayLayers = createInfo.arrayLayers;
-		imageInfo.format = TEX_UTILS::ConvertBaseFormat(createInfo.format);
-		imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-		imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-		imageInfo.usage = TEX_UTILS::ConvertUsageFlags(createInfo.usageFlags);
-		imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-		imageInfo.samples = TEX_UTILS::ConvertSampleCount(createInfo.sampleFlags);
-		imageInfo.flags = 0; // TEMP - No use for these right now
+		const VkImageLayout initialImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-		VmaAllocationCreateInfo allocCreateInfo = {};
-		allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-		allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-		allocCreateInfo.priority = 1.0f;
-
-		if (vmaCreateImage(pRenderDevice->GetAllocator(), &imageInfo, &allocCreateInfo, &m_baseImage, &m_alloc, nullptr) != VK_SUCCESS)
+		if (createVkImageHandle)
 		{
-			LogError("Failed to create texture!");
-			return STATUS_CODE::ERR;
-		}
+			VkImageCreateInfo imageInfo{};
+			imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+			imageInfo.imageType = VK_IMAGE_TYPE_2D;
+			imageInfo.extent.width = createInfo.width;
+			imageInfo.extent.height = createInfo.height;
+			imageInfo.extent.depth = 1;
+			imageInfo.mipLevels = mipsToUse;
+			imageInfo.arrayLayers = createInfo.arrayLayers;
+			imageInfo.format = TEX_UTILS::ConvertBaseFormat(createInfo.format);
+			imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+			imageInfo.initialLayout = initialImageLayout;
+			imageInfo.usage = TEX_UTILS::ConvertUsageFlags(createInfo.usageFlags);
+			imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+			imageInfo.samples = TEX_UTILS::ConvertSampleCount(createInfo.sampleFlags);
+			imageInfo.flags = 0; // TEMP - No use for these right now
 
-		// Cache some of the image data
-		m_bytesPerTexel = GetBaseFormatSize(createInfo.format);
+			VmaAllocationCreateInfo allocCreateInfo = {};
+			allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+			allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+			allocCreateInfo.priority = 1.0f;
+
+			if (vmaCreateImage(pRenderDevice->GetAllocator(), &imageInfo, &allocCreateInfo, &m_baseImage, &m_alloc, nullptr) != VK_SUCCESS)
+			{
+				LogError("Failed to create texture!");
+				return STATUS_CODE::ERR;
+			}
+		}
 
 		// Calculate mip levels
 		if (createInfo.generateMips && mipsToUse > 1)
@@ -520,7 +528,9 @@ namespace PHX
 			//GenerateMipmaps_Immediate(_baseImageInfo->mipLevels);
 		}
 
-		m_layout = imageInfo.initialLayout;
+		// Cache some of the image data
+		m_bytesPerTexel = GetBaseFormatSize(createInfo.format);
+		m_layout = initialImageLayout;
 		m_width = createInfo.width;
 		m_height = createInfo.height;
 		m_arrayLayers = createInfo.arrayLayers;

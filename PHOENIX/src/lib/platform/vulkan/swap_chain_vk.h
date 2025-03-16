@@ -19,7 +19,9 @@ namespace PHX
 		ITexture* GetImage(u32 imageIndex) const override;
 		u32 GetImageCount() const override;
 		u32 GetCurrentImageIndex() const override;
-		STATUS_CODE Present() const override;
+		STATUS_CODE Present() override;
+		void Resize(u32 newWidth, u32 newHeight) override;
+
 		STATUS_CODE AcquireNextImage(); // TODO - Expose to API?
 
 		VkSwapchainKHR GetSwapChain() const;
@@ -46,6 +48,7 @@ namespace PHX
 		u32 m_height;
 		std::vector<TextureVk*> m_images;
 		u32 m_currImageIndex;
+		bool m_isVSyncEnabled;
 
 		std::vector<VkSemaphore> m_imageAvailableSemaphores;
 

@@ -7,11 +7,11 @@
 #include "utils/object_factory.h"
 #include "utils/sanity.h"
 #include "utils/shader_type_converter.h"
+#include "utils/global_settings.h"
 
 static struct GlobalGraphicsData
 {
 	bool m_isInitialized = false;
-	PHX::GRAPHICS_API m_selectedAPI;
 	std::shared_ptr<PHX::IWindow> m_pWindow;
 	std::shared_ptr<PHX::IRenderDevice> m_pRenderDevice;
 	std::shared_ptr<PHX::ISwapChain> m_pSwapChain;
@@ -124,7 +124,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE InitializeGraphics(GRAPHICS_API api)
+	STATUS_CODE InitializeGraphics(const Settings& initSettings)
 	{
 		if (g_Data.m_pWindow.get() == nullptr)
 		{
@@ -132,14 +132,16 @@ namespace PHX
 			return STATUS_CODE::ERR;
 		}
 
-		STATUS_CODE coreObjStatus = OBJ_FACTORY::CreateCoreObjects(api, g_Data.m_pWindow);
+		// Only this function should ever set the settings!
+		GlobalSettings::Get().SetSettings(initSettings);
+
+		STATUS_CODE coreObjStatus = OBJ_FACTORY::CreateCoreObjects(g_Data.m_pWindow);
 		if (coreObjStatus != STATUS_CODE::SUCCESS)
 		{
 			return coreObjStatus;
 		}
 
 		g_Data.m_isInitialized = true;
-		g_Data.m_selectedAPI = api;
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -152,7 +154,7 @@ namespace PHX
 			return STATUS_CODE::ERR;
 		}
 
-		auto pRenderDevice = OBJ_FACTORY::CreateRenderDevice(createInfo, g_Data.m_selectedAPI);
+		auto pRenderDevice = OBJ_FACTORY::CreateRenderDevice(createInfo);
 		g_Data.m_pRenderDevice = pRenderDevice;
 
 		// TODO - Figure out a way to capture errors. Catch exceptions or change OBJ_FACTORY return type?
@@ -167,7 +169,7 @@ namespace PHX
 			return STATUS_CODE::ERR;
 		}
 
-		auto pSwapChain = OBJ_FACTORY::CreateSwapChain(createInfo, g_Data.m_selectedAPI);
+		auto pSwapChain = OBJ_FACTORY::CreateSwapChain(createInfo);
 		g_Data.m_pSwapChain = pSwapChain;
 
 		// TODO - Figure out a way to capture errors. Catch exceptions or change OBJ_FACTORY return type?

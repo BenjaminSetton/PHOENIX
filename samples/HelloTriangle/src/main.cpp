@@ -29,6 +29,96 @@ struct TestUBO
 	float time;
 };
 
+// Ugly, but easier for demo's sake
+static std::vector<PHX::IFramebuffer*> s_framebuffers;
+
+void LogCallback(const char* msg, PHX::LOG_TYPE severity)
+{
+	std::cout << "[APP]";
+	switch (severity)
+	{
+	case PHX::LOG_TYPE::ERR:
+	{
+		std::cout << "[ERROR] ";
+		break;
+	}
+	case PHX::LOG_TYPE::WARNING:
+	{
+		std::cout << "[WARNING] ";
+		break;
+	}
+	case PHX::LOG_TYPE::INFO:
+	{
+		std::cout << "[INFO] ";
+		break;
+	}
+	case PHX::LOG_TYPE::DBG:
+	{
+		std::cout << "[DEBUG] ";
+		break;
+	}
+	default:
+	{
+		break;
+	}
+	}
+
+	std::cout << msg << std::endl;
+}
+
+void DeleteSwapChainFramebuffer(PHX::IRenderDevice* pRenderDevice)
+{
+	// Clean up existing framebuffers, if applicable
+	for (PHX::u32 i = 0; i < s_framebuffers.size(); i++)
+	{
+		pRenderDevice->DeallocateFramebuffer(&(s_framebuffers.at(i)));
+	}
+	s_framebuffers.clear();
+}
+
+bool AllocateSwapChainFramebuffer(PHX::ISwapChain* pSwapChain, PHX::IRenderDevice* pRenderDevice)
+{
+	// Allocate new framebuffers
+	s_framebuffers.resize(pSwapChain->GetImageCount());
+	for (PHX::u32 i = 0; i < pSwapChain->GetImageCount(); i++)
+	{
+		PHX::FramebufferAttachmentDesc desc;
+		desc.pTexture = pSwapChain->GetImage(i);
+		desc.mipTarget = 0;
+		desc.type = PHX::ATTACHMENT_TYPE::COLOR;
+		desc.storeOp = PHX::ATTACHMENT_STORE_OP::STORE;
+		desc.loadOp = PHX::ATTACHMENT_LOAD_OP::CLEAR;
+
+		PHX::FramebufferCreateInfo framebufferCI{};
+		framebufferCI.width = desc.pTexture->GetWidth();
+		framebufferCI.height = desc.pTexture->GetHeight();
+		framebufferCI.layers = 1;
+		framebufferCI.pAttachments = &desc;
+		framebufferCI.attachmentCount = 1;
+		if (pRenderDevice->AllocateFramebuffer(framebufferCI, &(s_framebuffers.at(i))) != PHX::STATUS_CODE::SUCCESS)
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+void OnSwapChainResized(PHX::ISwapChain* pSwapChain)
+{
+	std::shared_ptr<PHX::IRenderDevice> pRenderDevice = PHX::GetRenderDevice();
+	DeleteSwapChainFramebuffer(pRenderDevice.get());
+
+	// Get the new dimensions from the main window, and also re-create the main framebuffer that's linked to the swap chain's images
+	std::shared_ptr<PHX::IWindow> mainWindow = PHX::GetWindow();
+	pSwapChain->Resize(mainWindow->GetCurrentWidth(), mainWindow->GetCurrentHeight());
+
+	if (AllocateSwapChainFramebuffer(pSwapChain, pRenderDevice.get()))
+	{
+		// Failed to allocate new framebuffer
+	}
+}
+
 [[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, std::shared_ptr<PHX::IRenderDevice> pRenderDevice)
 {
 	std::ifstream shaderFile;
@@ -84,7 +174,12 @@ int main(int argc, char** argv)
 	auto pWindow = GetWindow();
 
 	// CORE GRAPHICS
-	if (InitializeGraphics(GRAPHICS_API::VULKAN) != STATUS_CODE::SUCCESS)
+	Settings initSettings{};
+	initSettings.backendAPI = PHX::GRAPHICS_API::VULKAN;
+	initSettings.enableValidation = true;
+	initSettings.logCallback = nullptr; // LogCallback;
+	initSettings.swapChainResizedCallback = OnSwapChainResized;
+	if (InitializeGraphics(initSettings) != STATUS_CODE::SUCCESS)
 	{
 		// Failed to initialize graphics
 		return -1;
@@ -116,26 +211,9 @@ int main(int argc, char** argv)
 	auto pSwapChain = GetSwapChain();
 
 	// FRAMEBUFFER
-	std::vector<IFramebuffer*> framebuffers(pSwapChain->GetImageCount());
-	for (u32 i = 0; i < pSwapChain->GetImageCount(); i++)
+	if (!AllocateSwapChainFramebuffer(pSwapChain.get(), pRenderDevice.get()))
 	{
-		FramebufferAttachmentDesc desc;
-		desc.pTexture = pSwapChain->GetImage(i);
-		desc.mipTarget = 0;
-		desc.type = PHX::ATTACHMENT_TYPE::COLOR;
-		desc.storeOp = PHX::ATTACHMENT_STORE_OP::STORE;
-		desc.loadOp = PHX::ATTACHMENT_LOAD_OP::CLEAR;
-
-		FramebufferCreateInfo framebufferCI{};
-		framebufferCI.width = desc.pTexture->GetWidth();
-		framebufferCI.height = desc.pTexture->GetHeight();
-		framebufferCI.layers = 1;
-		framebufferCI.pAttachments = &desc;
-		framebufferCI.attachmentCount = 1;
-		if (pRenderDevice->AllocateFramebuffer(framebufferCI, &(framebuffers.at(i))) != STATUS_CODE::SUCCESS)
-		{
-			return -1;
-		}
+		return -1;
 	}
 
 	// SHADERS
@@ -204,7 +282,7 @@ int main(int argc, char** argv)
 	pipelineCI.viewportSize = { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() };
 	pipelineCI.ppShaders = shaders.data();
 	pipelineCI.shaderCount = static_cast<u32>(shaders.size());
-	pipelineCI.pFramebuffer = framebuffers.at(0);
+	pipelineCI.pFramebuffer = s_framebuffers.at(0);
 	pipelineCI.cullMode = PHX::CULL_MODE::NONE;
 	pipelineCI.pUniformCollection = pUniforms;
 
@@ -286,7 +364,7 @@ int main(int argc, char** argv)
 
 		u32 currSwapChainImageIndex = i % pSwapChain->GetImageCount();
 
-		auto& currFramebuffer = framebuffers.at(currSwapChainImageIndex);
+		auto& currFramebuffer = s_framebuffers.at(currSwapChainImageIndex);
 		pDeviceContext->BeginRenderPass(currFramebuffer, &clearCol, 1);
 
 		// Update test UBO

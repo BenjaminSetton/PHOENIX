@@ -1,12 +1,13 @@
 
 #include "object_factory.h"
 
-#include "../platform/vulkan/core_vk.h"
-#include "../platform/vulkan/render_device_vk.h"
-#include "../platform/vulkan/swap_chain_vk.h"
+#include "platform/vulkan/core_vk.h"
+#include "platform/vulkan/render_device_vk.h"
+#include "platform/vulkan/swap_chain_vk.h"
 
-#include "../utils/logger.h"
-#include "../utils/sanity.h"
+#include "utils/global_settings.h"
+#include "utils/logger.h"
+#include "utils/sanity.h"
 
 #if defined(PHX_WINDOWS)
 #include "../platform/win64/window_win64.h"
@@ -27,20 +28,14 @@ namespace PHX
 	#endif
 		}
 
-		STATUS_CODE CreateCoreObjects(GRAPHICS_API api, std::shared_ptr<IWindow> pWindow)
+		STATUS_CODE CreateCoreObjects(std::shared_ptr<IWindow> pWindow)
 		{
-			switch (api)
+			auto& settings = GetSettings();
+			switch (settings.backendAPI)
 			{
 			case GRAPHICS_API::VULKAN:
 			{
-				// Only enable validation in debug builds. Later on we'll want to
-				// expose this as an option to the user
-#if defined(PHX_DEBUG)
-				bool enableValidation = true;
-#else
-				bool enableValidation = false;
-#endif
-				return CoreVk::Get().Initialize(enableValidation, pWindow);
+				return CoreVk::Get().Initialize(pWindow);
 			}
 			case GRAPHICS_API::OPENGL:
 			{
@@ -63,9 +58,10 @@ namespace PHX
 			return STATUS_CODE::ERR;
 		}
 
-		std::shared_ptr<IRenderDevice> CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, GRAPHICS_API api)
+		std::shared_ptr<IRenderDevice> CreateRenderDevice(const RenderDeviceCreateInfo& createInfo)
 		{
-			switch (api)
+			auto& settings = GetSettings();
+			switch (settings.backendAPI)
 			{
 			case GRAPHICS_API::VULKAN:
 			{
@@ -91,9 +87,10 @@ namespace PHX
 			return nullptr;
 		}
 
-		std::shared_ptr<ISwapChain> CreateSwapChain(const SwapChainCreateInfo& createInfo, GRAPHICS_API api)
+		std::shared_ptr<ISwapChain> CreateSwapChain(const SwapChainCreateInfo& createInfo)
 		{
-			switch (api)
+			auto& settings = GetSettings();
+			switch (settings.backendAPI)
 			{
 			case GRAPHICS_API::VULKAN:
 			{

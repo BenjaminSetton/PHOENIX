@@ -57,7 +57,7 @@ namespace PHX
 
 	private:
 
-		STATUS_CODE CreateBaseImage(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& createInfo);
+		STATUS_CODE CreateBaseImage(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& createInfo, bool createVkImageHandle = true);
 		STATUS_CODE CreateImageViews(RenderDeviceVk* pRenderDevice, const TextureViewCreateInfo& createInfo);
 		void DestroyImage();
 

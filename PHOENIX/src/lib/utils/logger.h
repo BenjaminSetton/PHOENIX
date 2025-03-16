@@ -1,15 +1,9 @@
 #pragma once
 
+#include "utils/global_settings.h" // LOG_TYPE, GlobalSettings
+
 namespace PHX
 {
-	enum class LOG_TYPE
-	{
-		DEBUG = -1,
-		INFO,
-		WARNING,
-		ERR,
-	};
-
 	void LogError(const char* format, ...);
 	void LogWarning(const char* format, ...);
 	void LogInfo(const char* format, ...);

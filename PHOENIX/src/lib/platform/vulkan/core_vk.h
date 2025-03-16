@@ -18,7 +18,7 @@ namespace PHX
 			return instance;
 		}
 
-		STATUS_CODE Initialize(bool enableValidationLayers, std::shared_ptr<IWindow> pWindow);
+		STATUS_CODE Initialize(std::shared_ptr<IWindow> pWindow);
 
 		VkInstance GetInstance() const;
 		VkSurfaceKHR GetSurface() const;
