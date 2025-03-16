@@ -8,6 +8,8 @@
 
 namespace PHX
 {
+	static constexpr u32 MIN_SIZE_FOR_DEDICATED_MEMORY = 128; // in bytes
+
 	BufferVk::BufferVk(RenderDeviceVk* pRenderDevice, const BufferCreateInfo& createInfo)
 	{
 		m_renderDevice = pRenderDevice;
@@ -15,7 +17,18 @@ namespace PHX
 		BufferData newBuffer{};
 
 		// Create buffer
-		const VmaAllocationCreateFlags bufferCreateFlags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+		VmaAllocationCreateFlags bufferCreateFlags = 0;
+		if (createInfo.size >= MIN_SIZE_FOR_DEDICATED_MEMORY)
+		{
+			// Create dedicated memory for "large" allocations, such as larger buffers or images
+			bufferCreateFlags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+		}
+		if (createInfo.bufferUsage == BUFFER_USAGE::UNIFORM_BUFFER)
+		{
+			// Use create mapped flag for uniform buffers, plus other required flags
+			bufferCreateFlags |= (VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
+		}
+
 		const VkBufferUsageFlags bufferUsageFlags = BUFFER_UTILS::ConvertBufferUsage(createInfo.bufferUsage) | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		newBuffer = CreateBuffer(createInfo.size, bufferUsageFlags, bufferCreateFlags, 0, 0);
 		if (!newBuffer.isValid)
@@ -25,17 +38,22 @@ namespace PHX
 		}
 		m_buffer = newBuffer;
 
-		// Create staging buffer
-		const VmaAllocationCreateFlags stagingBufferCreateFlags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-		const VkBufferUsageFlags stagingBufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		newBuffer = CreateBuffer(createInfo.size, stagingBufferUsageFlags, stagingBufferCreateFlags, 0, 0);
-		if (!newBuffer.isValid)
+		// Create staging buffer, if applicable
+		if (createInfo.bufferUsage != BUFFER_USAGE::UNIFORM_BUFFER)
 		{
-			LogError("Failed to create staging buffer!");
-			DestroyBuffer(m_buffer); // Clean up the buffer object which previously succeeded
-			return;
+			const VmaAllocationCreateFlags stagingBufferCreateFlags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+			const VkBufferUsageFlags stagingBufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+			newBuffer = CreateBuffer(createInfo.size, stagingBufferUsageFlags, stagingBufferCreateFlags, 0, 0);
+			if (!newBuffer.isValid)
+			{
+				LogError("Failed to create staging buffer!");
+				DestroyBuffer(m_buffer); // Clean up the buffer object which previously succeeded
+				return;
+			}
+			m_stagingBuffer = newBuffer;
 		}
-		m_stagingBuffer = newBuffer;
+
+		m_usage = createInfo.bufferUsage;
 	}
 
 	BufferVk::~BufferVk()
@@ -44,26 +62,32 @@ namespace PHX
 		DestroyBuffer(m_buffer);
 	}
 
-	STATUS_CODE BufferVk::CopyDataToStagingBuffer(const void* data, u64 size)
+	STATUS_CODE BufferVk::CopyData(const void* data, u64 size)
 	{
-		if (!m_stagingBuffer.isValid || !m_buffer.isValid)
+		if (!m_stagingBuffer.isValid && !m_buffer.isValid)
 		{
-			LogError("Failed to copy data to staging buffer! Either the buffer, staging buffer, or both are invalid");
+			LogError("Failed to copy data to staging buffer! Both the buffer and staging buffer are invalid");
 			return STATUS_CODE::ERR;
 		}
 
-		VkResult res = vmaCopyMemoryToAllocation(m_renderDevice->GetAllocator(), data, m_stagingBuffer.alloc, 0, size);
+		VmaAllocation destAllocation = VK_NULL_HANDLE;
+		if (m_usage == BUFFER_USAGE::UNIFORM_BUFFER)
+		{
+			destAllocation = m_buffer.alloc;
+		}
+		else
+		{
+			destAllocation = m_stagingBuffer.alloc;
+		}
+
+		VkResult res = vmaCopyMemoryToAllocation(m_renderDevice->GetAllocator(), data, destAllocation, 0, size);
 		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to copy data to staging buffer! Got result: %s", string_VkResult(res));
+			LogError("Failed to copy data to buffer! Got result: %s", string_VkResult(res));
 			return STATUS_CODE::ERR;
 		}
 
 		return STATUS_CODE::SUCCESS;
-
-		//vmaMapMemory(_allocator, stagingAllocation, &data);
-		//memcpy(data, bufferData, bufferSize);
-		//vmaUnmapMemory(_allocator, stagingAllocation);
 	}
 
 	VkBuffer BufferVk::GetBuffer() const
@@ -82,6 +106,11 @@ namespace PHX
 	}
 
 	VkDeviceSize BufferVk::GetSize() const
+	{
+		return m_buffer.size;
+	}
+
+	VkDeviceSize BufferVk::GetAllocatedSize() const
 	{
 		return m_buffer.allocInfo.size;
 	}
@@ -106,6 +135,7 @@ namespace PHX
 
 		BufferData newData{};
 		newData.isValid = true;
+		newData.size = size;
 
 		VkResult res = vmaCreateBuffer(m_renderDevice->GetAllocator(), &vkBufferInfo, &vmaAllocInfo, &newData.buffer, &newData.alloc, &newData.allocInfo);
 		if (res != VK_SUCCESS)

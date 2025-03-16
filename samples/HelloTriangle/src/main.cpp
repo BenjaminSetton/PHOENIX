@@ -24,6 +24,11 @@ static constexpr SimpleVertexType triVerts[VERTEX_COUNT] =
 	{{ 0.5f, 0.5f, 0.0f, 1.0f } , { 0.0f, 0.0f, 1.0f, 1.0f }}
 };
 
+struct TestUBO
+{
+	float time;
+};
+
 [[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, std::shared_ptr<PHX::IRenderDevice> pRenderDevice)
 {
 	std::ifstream shaderFile;
@@ -148,6 +153,27 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+	// UNIFORM BUFFERS
+	UniformData uniform{};
+	uniform.binding = 0;
+	uniform.shaderStage = PHX::SHADER_STAGE::FRAGMENT;
+	uniform.type = PHX::UNIFORM_TYPE::UNIFORM_BUFFER;
+
+	UniformDataGroup uniformDataGroup{};
+	uniformDataGroup.set = 0;
+	uniformDataGroup.uniformArray = &uniform;
+	uniformDataGroup.uniformArrayCount = 1;
+
+	UniformCollectionCreateInfo uniformCollectionCI{};
+	uniformCollectionCI.dataGroups = &uniformDataGroup;
+	uniformCollectionCI.groupCount = 1;
+
+	IUniformCollection* pUniforms = nullptr;
+	if (pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &pUniforms) != PHX::STATUS_CODE::SUCCESS)
+	{
+		return -1;
+	}
+
 	// PIPELINE
 	std::vector<InputAttribute> inputAttributes =
 	{
@@ -180,6 +206,7 @@ int main(int argc, char** argv)
 	pipelineCI.shaderCount = static_cast<u32>(shaders.size());
 	pipelineCI.pFramebuffer = framebuffers.at(0);
 	pipelineCI.cullMode = PHX::CULL_MODE::NONE;
+	pipelineCI.pUniformCollection = pUniforms;
 
 	IPipeline* pPipeline = nullptr;
 	if (pRenderDevice->AllocateGraphicsPipeline(pipelineCI, &pPipeline) != STATUS_CODE::SUCCESS)
@@ -211,8 +238,6 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	// UNIFORM BUFFERS
-
 	//for (u32 i = 0; i < pSwapChain->GetImageCount(); i++)
 	//{
 	//	if (pDeviceContext->TEMP_TransitionTextureToGeneralLayout(pSwapChain->GetImage(i)) != PHX::STATUS_CODE::SUCCESS)
@@ -225,6 +250,20 @@ int main(int argc, char** argv)
 	ClearValues clearCol{};
 	clearCol.color.color = { 0.1f, 0.1f, 0.1f, 0.0f };
 	clearCol.isClearColor = true;
+
+	// UNIFORM BUFFER
+	TestUBO test{};
+	test.time = 0.0f;
+
+	BufferCreateInfo uniformBufferCI{};
+	uniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	uniformBufferCI.size = sizeof(TestUBO);
+
+	IBuffer* uniformBuffer = nullptr;
+	if (pRenderDevice->AllocateBuffer(uniformBufferCI, &uniformBuffer) != STATUS_CODE::SUCCESS)
+	{
+		return -1;
+	}
 
 	// CORE LOOP
 	int i = 0;
@@ -250,10 +289,17 @@ int main(int argc, char** argv)
 		auto& currFramebuffer = framebuffers.at(currSwapChainImageIndex);
 		pDeviceContext->BeginRenderPass(currFramebuffer, &clearCol, 1);
 
+		// Update test UBO
+		test.time += elapsedSeconds.count();
+		uniformBuffer->CopyData(&test, sizeof(TestUBO));
+
+		pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
+		pUniforms->FlushUpdateQueue();
+
 		// Represents recording one secondary command buffer
 		{
 			pDeviceContext->BindPipeline(pPipeline);
-			//pDeviceContext->BindUniformCollection(nullptr, pPipeline); // Bound shaders don't use uniform data
+			pDeviceContext->BindUniformCollection(pUniforms, pPipeline);
 			pDeviceContext->BindVertexBuffer(vBuffer);
 			pDeviceContext->SetScissor({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
 			pDeviceContext->SetViewport({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });

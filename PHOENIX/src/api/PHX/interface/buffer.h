@@ -2,6 +2,7 @@
 
 #include "PHX/types/buffer_desc.h"
 #include "PHX/types/integral_types.h"
+#include "PHX/types/status_code.h"
 
 namespace PHX
 {
@@ -16,5 +17,7 @@ namespace PHX
 	public:
 
 		virtual ~IBuffer() { }
+
+		virtual STATUS_CODE CopyData(const void* data, u64 size) = 0;
 	};
 }

@@ -9,6 +9,7 @@ namespace PHX
 	struct BufferData
 	{
 		bool isValid                = false;
+		u64 size                    = 0;
 		VkBuffer buffer             = VK_NULL_HANDLE;
 		VmaAllocation alloc         = VK_NULL_HANDLE;
 		VmaAllocationInfo allocInfo = {};
@@ -21,12 +22,13 @@ namespace PHX
 		BufferVk(RenderDeviceVk* pRenderDevice, const BufferCreateInfo& createInfo);
 		~BufferVk();
 
-		STATUS_CODE CopyDataToStagingBuffer(const void* data, u64 size);
+		STATUS_CODE CopyData(const void* data, u64 size) override;
 
 		VkBuffer GetBuffer() const;
 		VkBuffer GetStagingBuffer() const;
 		VkDeviceSize GetOffset() const;
-		VkDeviceSize GetSize() const;
+		u64 GetSize() const;
+		u64 GetAllocatedSize() const; // May differ from GetSize() because of alignment
 
 	private:
 
@@ -39,6 +41,7 @@ namespace PHX
 
 		BufferData m_buffer;
 		BufferData m_stagingBuffer;
+		BUFFER_USAGE m_usage;
 
 	};
 }

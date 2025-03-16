@@ -21,6 +21,10 @@ namespace PHX
 		const UniformDataGroup& GetGroup(u32 groupIndex) const override;
 		UniformDataGroup& GetGroup(u32 groupIndex) override;
 
+		STATUS_CODE QueueBufferUpdate(u32 set, u32 binding, u32 offset, IBuffer* pBuffer) override;
+		STATUS_CODE QueueImageUpdate(u32 set, u32 binding, u32 imageViewIndex, ITexture* pTexture) override;
+		STATUS_CODE FlushUpdateQueue() override;
+
 		const VkDescriptorSet* GetDescriptorSets() const;
 		u32 GetDescriptorSetCount() const;
 
@@ -29,7 +33,14 @@ namespace PHX
 
 	private:
 
+		RenderDeviceVk* m_renderDevice;
+
 		std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
 		std::vector<VkDescriptorSet> m_descriptorSets;
+
+		// Descriptor writes
+		std::vector<VkWriteDescriptorSet> m_descriptorWrites;
+		std::vector<VkDescriptorBufferInfo> m_writeBufferInfo;
+		std::vector<VkDescriptorImageInfo> m_writeImageInfo;
 	};
 }

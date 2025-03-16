@@ -416,7 +416,7 @@ namespace PHX
 			return res;
 		}
 
-		res = bufferVk->CopyDataToStagingBuffer(data, sizeBytes);
+		res = bufferVk->CopyData(data, sizeBytes);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to copy data to buffer! Copy to staging buffer ran into an error");

@@ -1,7 +1,10 @@
 #pragma once
 
+#include "PHX/interface/buffer.h"
+#include "PHX/interface/texture.h"
 #include "PHX/types/integral_types.h"
 #include "PHX/types/shader_desc.h"
+#include "PHX/types/status_code.h"
 #include "PHX/types/uniform_desc.h"
 
 namespace PHX
@@ -40,5 +43,10 @@ namespace PHX
 		virtual u32 GetGroupCount() const = 0;
 		virtual const UniformDataGroup& GetGroup(u32 groupIndex) const = 0;
 		virtual UniformDataGroup& GetGroup(u32 groupIndex) = 0;
+
+		// Updating uniform functions
+		virtual STATUS_CODE QueueBufferUpdate(u32 set, u32 binding, u32 offset, IBuffer* pBuffer) = 0;
+		virtual STATUS_CODE QueueImageUpdate(u32 set, u32 binding, u32 imageViewIndex, ITexture* pTexture) = 0;
+		virtual STATUS_CODE FlushUpdateQueue() = 0;
 	};
 }
