@@ -7,8 +7,8 @@
 *.vcxproj
 
 [SearchableFiles.ignore]
-out/
-src/data/
+PHOENIX/out/
+samples/HelloTriangle/out
 *.png
 *.tga
 *.jpg

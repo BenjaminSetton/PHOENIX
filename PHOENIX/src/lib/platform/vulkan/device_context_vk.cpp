@@ -11,7 +11,7 @@
 #include "utils/logger.h"
 #include "utils/sanity.h"
 
-#define VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, msg) if(cmdBuffer == VK_NULL_HANDLE) { LogError(msg); return STATUS_CODE::ERR; }
+#define VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, msg) if(cmdBuffer == VK_NULL_HANDLE) { LogError(msg); return STATUS_CODE::ERR_INTERNAL; }
 
 namespace PHX
 {
@@ -38,14 +38,14 @@ namespace PHX
 		if (m_pRenderDevice == VK_NULL_HANDLE)
 		{
 			LogError("Failed to begin frame! Render device is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(pSwapChain);
 		if (swapChainVk == nullptr)
 		{
 			LogError("Failed to begin frame! Swap chain pointer is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		STATUS_CODE res;
@@ -68,7 +68,7 @@ namespace PHX
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to begin frame! Primary command buffer creation failed");
-			return STATUS_CODE::ERR;
+			return res;
 		}
 		m_cmdBuffers.push_back(cmdBuffer);
 
@@ -80,7 +80,7 @@ namespace PHX
 		if (resVk != VK_SUCCESS)
 		{
 			LogError("Failed to begin frame. Primary command buffer failed to start recording. Got error: %s", string_VkResult(resVk));
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -104,14 +104,14 @@ namespace PHX
 		if (res != VK_SUCCESS)
 		{
 			LogError("Failed to flush command buffers! Submit call failed with error: %s", string_VkResult(res));
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		res = vkQueueWaitIdle(graphicsQueue);
 		if (res != VK_SUCCESS)
 		{
 			LogError("Failed to wait until queue became idle after submitting! Got error: %s", string_VkResult(res));
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -124,7 +124,7 @@ namespace PHX
 		if (framebufferVk == nullptr)
 		{
 			LogError("Failed to begin render pass! Framebuffer is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		// Render pass from framebuffer
@@ -133,7 +133,7 @@ namespace PHX
 		if (renderPass == VK_NULL_HANDLE)
 		{
 			LogError("Failed to begin render pass! Render pass bound to framebuffer does not exist");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		// Process clear values
@@ -173,7 +173,7 @@ namespace PHX
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to create new command buffer to start render pass!");
-			return STATUS_CODE::ERR;
+			return res;
 		}
 		m_cmdBuffers.push_back(cmdBuffer);
 
@@ -192,7 +192,7 @@ namespace PHX
 		if (resVk != VK_SUCCESS)
 		{
 			LogError("Failed to start recording command buffer! Got error code: %s", string_VkResult(resVk));
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -204,7 +204,7 @@ namespace PHX
 		if (cmdBuffer == VK_NULL_HANDLE)
 		{
 			LogError("Failed to end render pass! No command buffers exist");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 		vkEndCommandBuffer(cmdBuffer);
 
@@ -223,14 +223,14 @@ namespace PHX
 		if (vBufferVk == nullptr)
 		{
 			LogError("Failed to bind vertex buffer! Vertex buffer is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
 		if (cmdBuffer == nullptr)
 		{
 			LogError("Failed to bind vertex buffer! No command buffers exist");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		VkBuffer vertexBuffer = vBufferVk->GetBuffer();
@@ -246,21 +246,21 @@ namespace PHX
 		if (vBufferVk == nullptr)
 		{
 			LogError("Failed to bind mesh! Vertex buffer is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		BufferVk* iBufferVk = static_cast<BufferVk*>(pIndexBuffer);
 		if (iBufferVk == nullptr)
 		{
 			LogError("Failed to bind mesh! Index buffer is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
 		if (cmdBuffer == VK_NULL_HANDLE)
 		{
 			LogError("Failed to bind mesh! No command buffers exist");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		VkBuffer vertexBuffer = vBufferVk->GetBuffer();
@@ -283,7 +283,7 @@ namespace PHX
 		{
 			// Pipeline object is required to bind uniform collection if the latter is not null
 			LogError("Failed to bind uniform collection! Pipeline is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
@@ -405,7 +405,7 @@ namespace PHX
 		if (bufferVk == nullptr)
 		{
 			LogError("Failed to copy data to buffer! Buffer is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
@@ -448,7 +448,7 @@ namespace PHX
 		{
 			LogError("Failed to copy data to buffer! Transfer queue does not exist");
 			vkResetCommandBuffer(cmdBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
@@ -474,7 +474,7 @@ namespace PHX
 		if (m_pRenderDevice == nullptr)
 		{
 			LogError("Failed to create command buffer. Render device is null!");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		VkCommandBufferAllocateInfo allocInfo = {};
@@ -486,8 +486,8 @@ namespace PHX
 		VkResult res = vkAllocateCommandBuffers(m_pRenderDevice->GetLogicalDevice(), &allocInfo, &out_cmdBuffer);
 		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to allocate primary command buffer! Got result: %s", string_VkResult(res));
-			return STATUS_CODE::ERR;
+			LogError("Failed to allocate primary command buffer! Got result: \"%s\"", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		return STATUS_CODE::SUCCESS;

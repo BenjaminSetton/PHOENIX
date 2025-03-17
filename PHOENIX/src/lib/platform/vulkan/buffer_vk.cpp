@@ -67,7 +67,7 @@ namespace PHX
 		if (!m_stagingBuffer.isValid && !m_buffer.isValid)
 		{
 			LogError("Failed to copy data to staging buffer! Both the buffer and staging buffer are invalid");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		VmaAllocation destAllocation = VK_NULL_HANDLE;
@@ -83,8 +83,8 @@ namespace PHX
 		VkResult res = vmaCopyMemoryToAllocation(m_renderDevice->GetAllocator(), data, destAllocation, 0, size);
 		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to copy data to buffer! Got result: %s", string_VkResult(res));
-			return STATUS_CODE::ERR;
+			LogError("Failed to copy data to buffer! Got result: \"%s\"", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		return STATUS_CODE::SUCCESS;

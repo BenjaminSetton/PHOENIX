@@ -1,6 +1,7 @@
 
 #include <glfw/glfw3.h> // glfwVulkanSupported, glfwGetRequiredInstanceExtensions
 #include <vector>
+#include <vulkan/vk_enum_string_helper.h> // string_VkResult
 
 #include "core_vk.h"
 
@@ -66,17 +67,22 @@ namespace PHX
 	STATUS_CODE CoreVk::Initialize(std::shared_ptr<IWindow> pWindow)
 	{
 		auto& settings = GetSettings();
-		if (CreateInstance(settings.enableValidation) != STATUS_CODE::SUCCESS)
+
+		STATUS_CODE res = STATUS_CODE::SUCCESS;
+
+		res = CreateInstance(settings.enableValidation);
+		if (res != STATUS_CODE::SUCCESS)
 		{
-			return STATUS_CODE::ERR;
+			return res;
 		}
 
-		if (CreateSurface(pWindow) != STATUS_CODE::SUCCESS)
+		res = CreateSurface(pWindow);
+		if (res != STATUS_CODE::SUCCESS)
 		{
-			return STATUS_CODE::ERR;
+			return res;
 		}
 
-		return STATUS_CODE::SUCCESS;
+		return res;
 	}
 
 	VkInstance CoreVk::GetInstance() const
@@ -111,8 +117,8 @@ namespace PHX
 		// Check that we support all requested validation layers
 		if (enableValidationLayers && !CheckValidationLayerSupport())
 		{
-			LogError("Validation layers were requested, but one or more is not supported!");
-			return STATUS_CODE::ERR;
+			LogError("Validation layers were requested, but one or more are not supported!");
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		VkApplicationInfo appInfo{};
@@ -159,10 +165,11 @@ namespace PHX
 		createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 		createInfo.enabledLayerCount = 0;
 
-		if (vkCreateInstance(&createInfo, nullptr, &m_instance) != VK_SUCCESS)
+		VkResult res = vkCreateInstance(&createInfo, nullptr, &m_instance);
+		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to create Vulkan instance!");
-			return STATUS_CODE::ERR;
+			LogError("Failed to create Vulkan instance! Got error: \"%s\"", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -172,8 +179,8 @@ namespace PHX
 	{
 		if (pWindow.get() == nullptr)
 		{
-			LogError("Failed to create surface. Window is null!");
-			return STATUS_CODE::ERR;
+			LogError("Failed to create surface! Window is null");
+			return STATUS_CODE::ERR_API;
 		}
 
 #if defined(PHX_WINDOWS)
@@ -185,10 +192,11 @@ namespace PHX
 			surfaceCreateInfo.hinstance = GetModuleHandle(NULL);
 			surfaceCreateInfo.hwnd = reinterpret_cast<HWND>(windowWin64->GetNativeHandle());
 
-			if (vkCreateWin32SurfaceKHR(m_instance, &surfaceCreateInfo, nullptr, &m_surface) != VK_SUCCESS)
+			VkResult res = vkCreateWin32SurfaceKHR(m_instance, &surfaceCreateInfo, nullptr, &m_surface);
+			if (res != VK_SUCCESS)
 			{
-				LogError("Failed to create win32 surface!");
-				return STATUS_CODE::ERR;
+				LogError("Failed to create win32 surface! Got error: \"%s\"", string_VkResult(res));
+				return STATUS_CODE::ERR_INTERNAL;
 			}
 		}
 #endif

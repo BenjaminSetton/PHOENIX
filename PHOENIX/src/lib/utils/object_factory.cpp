@@ -55,7 +55,7 @@ namespace PHX
 			}
 
 			// Nothing was created
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		std::shared_ptr<IRenderDevice> CreateRenderDevice(const RenderDeviceCreateInfo& createInfo)

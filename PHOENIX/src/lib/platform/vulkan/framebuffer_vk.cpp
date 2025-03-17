@@ -237,19 +237,19 @@ namespace PHX
 		if (createInfo.attachmentCount == 0)
 		{
 			LogError("Attempting to create a framebuffer with no attachments!");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		if (createInfo.width == 0 || createInfo.height == 0 || createInfo.layers == 0)
 		{
 			LogError("Attempting to create a framebuffer with no width, height or layer count!");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		if (createInfo.pAttachments == nullptr || createInfo.attachmentCount == 0)
 		{
 			LogError("Attempting to create a framebuffer with no attachments!");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		bool allSizesValid = true;
@@ -266,7 +266,7 @@ namespace PHX
 		}
 		if (!allSizesValid)
 		{
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		//if (createInfo.renderPass == nullptr)

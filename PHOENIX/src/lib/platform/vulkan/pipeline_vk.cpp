@@ -2,6 +2,7 @@
 #include "pipeline_vk.h"
 
 #include <vector>
+#include <vulkan/vk_enum_string_helper.h>
 
 #include "framebuffer_vk.h"
 #include "render_device_vk.h"
@@ -69,7 +70,7 @@ namespace PHX
 		m_layout = CreatePipelineLayout(logicalDevice, createInfo.pUniformCollection);
 		if (m_layout == VK_NULL_HANDLE)
 		{
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		// Shaders
@@ -127,7 +128,7 @@ namespace PHX
 		if (vkRenderPass == VK_NULL_HANDLE)
 		{
 			LogError("Failed to create pipeline! Render pass associated with framebuffer object is invalid!");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
@@ -148,10 +149,11 @@ namespace PHX
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 		pipelineInfo.basePipelineIndex = -1; // Optional
 
-		if (vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != VK_SUCCESS)
+		VkResult res = vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline);
+		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to create pipeline!");
-			return STATUS_CODE::ERR;
+			LogError("Failed to create pipeline! Got error: \"%s\"", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		m_bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -172,7 +174,7 @@ namespace PHX
 		m_layout = CreatePipelineLayout(logicalDevice, createInfo.pUniformCollection);
 		if (m_layout == VK_NULL_HANDLE)
 		{
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		VkComputePipelineCreateInfo pipelineInfo{};
@@ -180,10 +182,11 @@ namespace PHX
 		pipelineInfo.layout = m_layout;
 		pipelineInfo.stage = PopulateShaderCreateInfo(createInfo.pShader);
 
-		if (vkCreateComputePipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline) != VK_SUCCESS)
+		VkResult res = vkCreateComputePipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline);
+		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to create compute pipeline!");
-			return STATUS_CODE::ERR;
+			LogError("Failed to create compute pipeline! Got error: \"%s\"", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		m_bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
@@ -196,17 +199,17 @@ namespace PHX
 		if (createInfo.pInputAttributes == nullptr)
 		{
 			LogError("Failed to create graphics pipeline! Input attributes are null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 		if (createInfo.pFramebuffer == nullptr)
 		{
 			LogError("Failed to create graphics pipeline! Framebuffer is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 		if (createInfo.ppShaders == nullptr)
 		{
 			LogError("Failed to create graphics pipeline! Shaders array is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -217,7 +220,7 @@ namespace PHX
 		if (createInfo.pShader == nullptr)
 		{
 			LogError("Failed to create compute pipeline! Shader is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -238,9 +241,10 @@ namespace PHX
 		}
 
 		VkPipelineLayout layout;
-		if (vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &layout) != VK_SUCCESS)
+		VkResult res = vkCreatePipelineLayout(logicalDevice, &pipelineLayoutInfo, nullptr, &layout);
+		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to create pipeline layout!");
+			LogError("Failed to create pipeline layout! Got error: \"%s\"", string_VkResult(res));
 			return VK_NULL_HANDLE;
 		}
 

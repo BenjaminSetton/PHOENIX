@@ -1,4 +1,6 @@
 
+#include <vulkan/vk_enum_string_helper.h>
+
 #include "texture_vk.h"
 
 #include "render_device_vk.h"
@@ -511,10 +513,11 @@ namespace PHX
 			allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 			allocCreateInfo.priority = 1.0f;
 
-			if (vmaCreateImage(pRenderDevice->GetAllocator(), &imageInfo, &allocCreateInfo, &m_baseImage, &m_alloc, nullptr) != VK_SUCCESS)
+			VkResult res = vmaCreateImage(pRenderDevice->GetAllocator(), &imageInfo, &allocCreateInfo, &m_baseImage, &m_alloc, nullptr);
+			if (res != VK_SUCCESS)
 			{
-				LogError("Failed to create texture!");
-				return STATUS_CODE::ERR;
+				LogError("Failed to create texture! Got error: \"%s\"", string_VkResult(res));
+				return STATUS_CODE::ERR_INTERNAL;
 			}
 		}
 
@@ -562,6 +565,8 @@ namespace PHX
 			createInfoVk.subresourceRange.layerCount = 6;
 		}
 
+		VkResult res = VK_SUCCESS;
+
 		// Consider view scope
 		switch (createInfo.scope)
 		{
@@ -569,10 +574,11 @@ namespace PHX
 		{
 			m_imageViews.resize(1);
 			VkImageView& imageView = m_imageViews.at(0);
-			if (vkCreateImageView(logicalDevice, &createInfoVk, nullptr, &imageView) != VK_SUCCESS)
+			res = vkCreateImageView(logicalDevice, &createInfoVk, nullptr, &imageView);
+			if (res != VK_SUCCESS)
 			{
-				LogError("Failed to create texture image view!");
-				return STATUS_CODE::ERR;
+				LogError("Failed to create texture image view! Got error: \"%s\"");
+				return STATUS_CODE::ERR_INTERNAL;
 			}
 
 			break;
@@ -588,10 +594,11 @@ namespace PHX
 				createInfoVk.subresourceRange.baseMipLevel = i;
 
 				VkImageView& imageView = m_imageViews.at(i);
-				if (vkCreateImageView(logicalDevice, &createInfoVk, nullptr, &imageView) != VK_SUCCESS)
+				res = vkCreateImageView(logicalDevice, &createInfoVk, nullptr, &imageView);
+				if (res != VK_SUCCESS)
 				{
-					LogError("Failed to create texture image view!");
-					return STATUS_CODE::ERR;
+					LogError("Failed to create texture image view! Got error: \"%s\"", string_VkResult(res));
+					return STATUS_CODE::ERR_INTERNAL;
 				}
 			}
 

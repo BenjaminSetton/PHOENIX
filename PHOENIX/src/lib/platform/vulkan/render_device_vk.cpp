@@ -85,35 +85,35 @@ namespace PHX
 		UNUSED(ci);
 		LogWarning("Ignoring render device create info!");
 
-		STATUS_CODE res = STATUS_CODE::ERR;
+		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
 
 		res = CreatePhysicalDevice(surface);
-		if (res == STATUS_CODE::ERR)
+		if (res != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
 
 		res = CreateLogicalDevice(surface);
-		if (res == STATUS_CODE::ERR)
+		if (res != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
 
 		res = CreateVMAAllocator();
-		if (res == STATUS_CODE::ERR)
+		if (res != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
 
 		res = AllocateDescriptorPool();
-		if (res == STATUS_CODE::ERR)
+		if (res != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
 
 		res = AllocateCommandPools();
-		if (res == STATUS_CODE::ERR)
+		if (res != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
@@ -289,8 +289,8 @@ namespace PHX
 		VkResult res = vmaCreateAllocator(&info, &m_allocator);
 		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to create VMA allocator object. Got result: %s", string_VkResult(res));
-			return STATUS_CODE::ERR;
+			LogError("Failed to create VMA allocator object. Got error: \"%s\"", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -319,14 +319,14 @@ namespace PHX
 				vkGetPhysicalDeviceFeatures(device, &m_physicalDeviceFeatures);
 				vkGetPhysicalDeviceMemoryProperties(device, &m_physicalDeviceMemoryProperties);
 
-				LogInfo("Using physical device: '%s'", m_physicalDeviceProperties.deviceName);
+				LogInfo("Using physical device: \"%s\"", m_physicalDeviceProperties.deviceName);
 				m_physicalDevice = device;
 				return STATUS_CODE::SUCCESS;
 			}
 		}
 
 		LogError("Failed to find a suitable physical device!");
-		return STATUS_CODE::ERR;
+		return STATUS_CODE::ERR_INTERNAL;
 	}
 
 	STATUS_CODE RenderDeviceVk::CreateLogicalDevice(VkSurfaceKHR surface)
@@ -337,7 +337,7 @@ namespace PHX
 		if (!indices.IsComplete())
 		{
 			LogError("Failed to create logical device because the queue family indices are incomplete!");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		LogInfo("Selected graphics queue from queue family at index %u", indices.GetIndex(QUEUE_TYPE::GRAPHICS));
@@ -380,8 +380,8 @@ namespace PHX
 		VkResult res = vkCreateDevice(physicalDevice, &createInfo, nullptr, &m_logicalDevice);
 		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to create the logical device! Got result: %s", string_VkResult(res));
-			return STATUS_CODE::ERR;
+			LogError("Failed to create the logical device! Got error: \"%s\"", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		// Get the queues from the logical device
@@ -418,8 +418,8 @@ namespace PHX
 
 		VkResult res = vkCreateDescriptorPool(GetLogicalDevice(), &poolInfo, nullptr, &m_descriptorPool);
 		if (res != VK_SUCCESS) {
-			LogError("Failed to create descriptor pool! Got result: %s", string_VkResult(res));
-			return STATUS_CODE::ERR;
+			LogError("Failed to create descriptor pool! Got error: \"%s\"", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -456,7 +456,7 @@ namespace PHX
 		if (!m_queueFamilyIndices.IsValid(queueFamilyIndex))
 		{
 			LogError("Failed to allocate command pool of type %u! Queue family index is not valid", static_cast<u32>(type));
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		// Allocate the pool object in the map
@@ -470,8 +470,8 @@ namespace PHX
 		VkResult res = vkCreateCommandPool(GetLogicalDevice(), &poolInfo, nullptr, &m_commandPools[type]);
 		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to create command pool of type %u! Got result: %s", static_cast<u32>(type), string_VkResult(res));
-			return STATUS_CODE::ERR;
+			LogError("Failed to create command pool of type %u! Got error: \"%s\"", static_cast<u32>(type), string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		return STATUS_CODE::SUCCESS;

@@ -159,8 +159,8 @@ namespace PHX
 		}
 		else if (res != VK_SUCCESS)
 		{
-			LogError("Failed to present swap chain image! Got error: %s", string_VkResult(res));
-			return STATUS_CODE::ERR;
+			LogError("Failed to present swap chain image! Got error: \"%s\"", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -189,8 +189,8 @@ namespace PHX
 		}
 		else if (resVk != VK_SUCCESS)
 		{
-			LogError("Failed to acquire swap chain image! Got error: %s", string_VkResult(resVk));
-			return STATUS_CODE::ERR;
+			LogError("Failed to acquire swap chain image! Got error: \"%s\"", string_VkResult(resVk));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -282,17 +282,17 @@ namespace PHX
 		VkResult resVk = vkCreateSwapchainKHR(logicalDevice, &createInfo, nullptr, &m_swapChain);
 		if (resVk != VK_SUCCESS)
 		{
-			LogError("Failed to create swap chain! Got error: %s", string_VkResult(resVk));
-			return STATUS_CODE::ERR;
+			LogError("Failed to create swap chain! Got error: \"%s\"", string_VkResult(resVk));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		// Get the number of images, then we use the count to create the image views below
 		resVk = vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, nullptr);
 		if (resVk != VK_SUCCESS)
 		{
-			LogError("Failed to get swapchain images! Got error: %s", string_VkResult(resVk));
+			LogError("Failed to get swapchain images! Got error: \"%s\"", string_VkResult(resVk));
 			DestroySwapChain();
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		m_format = surfaceFormat.format;
@@ -348,7 +348,7 @@ namespace PHX
 			if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &(imageViews.at(i))) != VK_SUCCESS)
 			{
 				LogError("Failed to create one or more swap chain image views!");
-				return STATUS_CODE::ERR;
+				return STATUS_CODE::ERR_INTERNAL;
 			}
 		}
 
@@ -376,7 +376,7 @@ namespace PHX
 	{
 		if (m_renderDevice == nullptr)
 		{
-			LogError("Failed to destroy swap chain.! Render device is null");
+			LogError("Failed to destroy swap chain! Render device is null");
 			return;
 		}
 
@@ -409,8 +409,8 @@ namespace PHX
 			VkResult res = vkCreateSemaphore(pRenderDevice->GetLogicalDevice(), &createInfo, nullptr, &(m_imageAvailableSemaphores[i]));
 			if (res != VK_SUCCESS)
 			{
-				LogError("Failed to create image available semaphore for image #%u! Got error: %s", i, string_VkResult(res));
-				return STATUS_CODE::ERR;
+				LogError("Failed to create image available semaphore for image #%u! Got error: \"%s\"", i, string_VkResult(res));
+				return STATUS_CODE::ERR_INTERNAL;
 			}
 		}
 

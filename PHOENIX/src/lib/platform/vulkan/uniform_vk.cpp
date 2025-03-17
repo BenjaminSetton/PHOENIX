@@ -135,13 +135,13 @@ namespace PHX
 		if (bufferVk == nullptr)
 		{
 			LogError("Failed to queue buffer update! Buffer is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		if (set >= m_descriptorSets.size())
 		{
 			LogError("Failed to queue buffer update! Set number is invalid (expected 0 to %u)", static_cast<u32>(m_descriptorSets.size()));
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		VkDescriptorSet vkDescSet = m_descriptorSets.at(set);
@@ -171,20 +171,20 @@ namespace PHX
 		if (textureVk == nullptr)
 		{
 			LogError("Failed to queue image update! Texture is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		VkImageView imageView = textureVk->GetImageViewAt(imageViewIndex);
 		if (imageView == VK_NULL_HANDLE)
 		{
 			LogError("Failed to queue image update! Image view at index %u is null", imageViewIndex);
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_API;
 		}
 
 		if (set >= m_descriptorSets.size())
 		{
 			LogError("Failed to queue image update! Set number is invalid (expected 0 to %u)", static_cast<u32>(m_descriptorSets.size()));
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		VkImageLayout texLayout = textureVk->GetLayout();
@@ -224,7 +224,7 @@ namespace PHX
 		if (m_renderDevice == nullptr)
 		{
 			LogError("Failed to flush update queue! Render device is null");
-			return STATUS_CODE::ERR;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		if (m_descriptorWrites.size() == 0)
