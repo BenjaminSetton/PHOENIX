@@ -64,7 +64,7 @@ namespace PHX
 		return true;
 	}
 
-	STATUS_CODE CoreVk::Initialize(std::shared_ptr<IWindow> pWindow)
+	STATUS_CODE CoreVk::Initialize(IWindow* pWindow)
 	{
 		auto& settings = GetSettings();
 
@@ -175,16 +175,16 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE CoreVk::CreateSurface(std::shared_ptr<IWindow> pWindow)
+	STATUS_CODE CoreVk::CreateSurface(IWindow* pWindow)
 	{
-		if (pWindow.get() == nullptr)
+		if (pWindow == nullptr)
 		{
 			LogError("Failed to create surface! Window is null");
 			return STATUS_CODE::ERR_API;
 		}
 
 #if defined(PHX_WINDOWS)
-		WindowWin64* windowWin64 = dynamic_cast<WindowWin64*>(pWindow.get());
+		WindowWin64* windowWin64 = static_cast<WindowWin64*>(pWindow);
 		if (windowWin64 != nullptr)
 		{
 			VkWin32SurfaceCreateInfoKHR surfaceCreateInfo{};

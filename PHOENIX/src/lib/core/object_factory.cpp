@@ -19,16 +19,7 @@ namespace PHX
 {
 	namespace OBJ_FACTORY
 	{
-		std::shared_ptr<IWindow> CreateWindow(const WindowCreateInfo& createInfo)
-		{
-	#if defined(PHX_WINDOWS)
-			return std::make_shared<WindowWin64>(createInfo);
-	#else
-	#    error Invalid platform!
-	#endif
-		}
-
-		STATUS_CODE CreateCoreObjects(std::shared_ptr<IWindow> pWindow)
+		STATUS_CODE CreateCoreObjects(IWindow* pWindow)
 		{
 			auto& settings = GetSettings();
 			switch (settings.backendAPI)
@@ -58,14 +49,23 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		std::shared_ptr<IRenderDevice> CreateRenderDevice(const RenderDeviceCreateInfo& createInfo)
+		IWindow* CreateWindow(const WindowCreateInfo& createInfo)
+		{
+#if defined(PHX_WINDOWS)
+			return new WindowWin64(createInfo);
+#else
+#    error Invalid platform!
+#endif
+		}
+
+		IRenderDevice* CreateRenderDevice(const RenderDeviceCreateInfo& createInfo)
 		{
 			auto& settings = GetSettings();
 			switch (settings.backendAPI)
 			{
 			case GRAPHICS_API::VULKAN:
 			{
-				return std::make_shared<RenderDeviceVk>(createInfo);
+				return new RenderDeviceVk(createInfo);
 			}
 			case GRAPHICS_API::OPENGL:
 			{
@@ -87,14 +87,14 @@ namespace PHX
 			return nullptr;
 		}
 
-		std::shared_ptr<ISwapChain> CreateSwapChain(const SwapChainCreateInfo& createInfo)
+		ISwapChain* CreateSwapChain(const SwapChainCreateInfo& createInfo)
 		{
 			auto& settings = GetSettings();
 			switch (settings.backendAPI)
 			{
 			case GRAPHICS_API::VULKAN:
 			{
-				return std::make_shared<SwapChainVk>(createInfo);
+				return new SwapChainVk(createInfo);
 			}
 			case GRAPHICS_API::OPENGL:
 			{

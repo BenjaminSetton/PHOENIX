@@ -12,10 +12,10 @@ namespace PHX
 {
 	namespace OBJ_FACTORY
 	{
-		std::shared_ptr<IWindow> CreateWindow(const WindowCreateInfo& createInfo);
+		STATUS_CODE CreateCoreObjects(IWindow* pWindow);
 
-		STATUS_CODE CreateCoreObjects(std::shared_ptr<IWindow> pWindow);
-		std::shared_ptr<IRenderDevice> CreateRenderDevice(const RenderDeviceCreateInfo& createInfo);
-		std::shared_ptr<ISwapChain> CreateSwapChain(const SwapChainCreateInfo& createInfo);
+		IWindow* CreateWindow(const WindowCreateInfo& createInfo);
+		IRenderDevice* CreateRenderDevice(const RenderDeviceCreateInfo& createInfo);
+		ISwapChain* CreateSwapChain(const SwapChainCreateInfo& createInfo);
 	}
 }

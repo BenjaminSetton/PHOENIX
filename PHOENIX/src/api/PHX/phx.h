@@ -1,7 +1,5 @@
 #pragma once
 
-#include <memory>
-
 #include "PHX/types/integral_types.h"
 #include "PHX/types/settings.h"
 #include "PHX/types/shader_desc.h"
@@ -14,16 +12,15 @@
 namespace PHX
 {
 	// INIT
-	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo);
+	STATUS_CODE InitializeGraphics(const Settings& initSettings, IWindow* pWindow);
 
-	STATUS_CODE InitializeGraphics(const Settings& initSettings);
-	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo);
-	STATUS_CODE CreateSwapChain(const SwapChainCreateInfo& createInfo);
+	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, IWindow** out_window);
+	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, IRenderDevice** out_renderDevice);
+	STATUS_CODE CreateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain);
 
-	// GETTERS
-	[[nodiscard]] std::shared_ptr<IWindow> GetWindow();
-	[[nodiscard]] std::shared_ptr<IRenderDevice> GetRenderDevice();
-	[[nodiscard]] std::shared_ptr<ISwapChain> GetSwapChain();
+	void DestroyWindow(IWindow** pWindow);
+	void DestroyRenderDevice(IRenderDevice** pRenderDevice);
+	void DestroySwapChain(ISwapChain** pSwapChain);
 
 	// UTILS
 	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result);

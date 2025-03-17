@@ -9,14 +9,6 @@
 #include "utils/logger.h"
 #include "utils/sanity.h"
 
-static struct GlobalGraphicsData
-{
-	bool m_isInitialized = false;
-	std::shared_ptr<PHX::IWindow> m_pWindow;
-	std::shared_ptr<PHX::IRenderDevice> m_pRenderDevice;
-	std::shared_ptr<PHX::ISwapChain> m_pSwapChain;
-} g_Data;
-
 // TODO - Move into own shader_compiler.h or something...
 static void GetDefaultShaderResources(TBuiltInResource& resources)
 {
@@ -116,79 +108,81 @@ static void GetDefaultShaderResources(TBuiltInResource& resources)
 
 namespace PHX
 {
-	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo)
+	STATUS_CODE InitializeGraphics(const Settings& initSettings, IWindow* pWindow)
 	{
-		g_Data.m_pWindow = OBJ_FACTORY::CreateWindow(createInfo);
-
-		// TODO - Figure out a way to capture errors. Catch exceptions or change OBJ_FACTORY return type?
-		return STATUS_CODE::SUCCESS;
-	}
-
-	STATUS_CODE InitializeGraphics(const Settings& initSettings)
-	{
-		if (g_Data.m_pWindow.get() == nullptr)
+		if (pWindow == nullptr)
 		{
-			LogError("Failed to initialize graphics. Window hasn't been initialized yet!");
+			LogError("Failed to initialize graphics.! Window is null");
 			return STATUS_CODE::ERR_API;
 		}
 
 		// Only this function should ever set the settings!
 		GlobalSettings::Get().SetSettings(initSettings);
 
-		STATUS_CODE coreObjStatus = OBJ_FACTORY::CreateCoreObjects(g_Data.m_pWindow);
+		STATUS_CODE coreObjStatus = OBJ_FACTORY::CreateCoreObjects(pWindow);
 		if (coreObjStatus != STATUS_CODE::SUCCESS)
 		{
 			return coreObjStatus;
 		}
 
-		g_Data.m_isInitialized = true;
-
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo)
+	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, IWindow** out_window)
 	{
-		if (!g_Data.m_isInitialized)
+		if (out_window == nullptr)
 		{
-			LogError("Failed to create render device. Graphics has not been initialized through InitializeGraphics()!");
+			LogError("Failed to create window! out_window is null");
 			return STATUS_CODE::ERR_API;
 		}
 
-		auto pRenderDevice = OBJ_FACTORY::CreateRenderDevice(createInfo);
-		g_Data.m_pRenderDevice = pRenderDevice;
+		*out_window = OBJ_FACTORY::CreateWindow(createInfo);
 
 		// TODO - Figure out a way to capture errors. Catch exceptions or change OBJ_FACTORY return type?
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE CreateSwapChain(const SwapChainCreateInfo& createInfo)
+	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, IRenderDevice** out_renderDevice)
 	{
-		if (!g_Data.m_isInitialized)
+		if (out_renderDevice == nullptr)
 		{
-			LogError("Failed to create swap chain. Graphics has not been initialized through InitializeGraphics()!");
+			LogError("Failed to create render device! out_renderDevice is null");
 			return STATUS_CODE::ERR_API;
 		}
 
-		auto pSwapChain = OBJ_FACTORY::CreateSwapChain(createInfo);
-		g_Data.m_pSwapChain = pSwapChain;
+		*out_renderDevice = OBJ_FACTORY::CreateRenderDevice(createInfo);
 
 		// TODO - Figure out a way to capture errors. Catch exceptions or change OBJ_FACTORY return type?
 		return STATUS_CODE::SUCCESS;
 	}
 
-	std::shared_ptr<IWindow> GetWindow()
+	STATUS_CODE CreateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain)
 	{
-		return g_Data.m_pWindow;
+		if (out_swapChain == nullptr)
+		{
+			LogError("Failed to create swap chain! out_swapChain is null");
+			return STATUS_CODE::ERR_API;
+		}
+
+		*out_swapChain = OBJ_FACTORY::CreateSwapChain(createInfo);
+
+		// TODO - Figure out a way to capture errors. Catch exceptions or change OBJ_FACTORY return type?
+		return STATUS_CODE::SUCCESS;
 	}
 
-	std::shared_ptr<IRenderDevice> GetRenderDevice()
+	void DestroyWindow(IWindow** pWindow)
 	{
-		return g_Data.m_pRenderDevice;
+		SAFE_DEL(*pWindow);
 	}
 
-	std::shared_ptr<ISwapChain> GetSwapChain()
+	void DestroyRenderDevice(IRenderDevice** pRenderDevice)
 	{
-		return g_Data.m_pSwapChain;
+		SAFE_DEL(*pRenderDevice);
+	}
+
+	void DestroySwapChain(ISwapChain** pSwapChain)
+	{
+		SAFE_DEL(*pSwapChain);
 	}
 
 	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result)

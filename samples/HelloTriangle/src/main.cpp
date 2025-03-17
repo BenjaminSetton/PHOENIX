@@ -31,6 +31,8 @@ struct TestUBO
 
 // Ugly, but easier for demo's sake
 static std::vector<PHX::IFramebuffer*> s_framebuffers;
+static PHX::IWindow* s_pWindow = nullptr;
+static PHX::IRenderDevice* s_pRenderDevice = nullptr;
 
 void LogCallback(const char* msg, PHX::LOG_TYPE severity)
 {
@@ -106,20 +108,18 @@ bool AllocateSwapChainFramebuffer(PHX::ISwapChain* pSwapChain, PHX::IRenderDevic
 
 void OnSwapChainResized(PHX::ISwapChain* pSwapChain)
 {
-	std::shared_ptr<PHX::IRenderDevice> pRenderDevice = PHX::GetRenderDevice();
-	DeleteSwapChainFramebuffer(pRenderDevice.get());
+	DeleteSwapChainFramebuffer(s_pRenderDevice);
 
 	// Get the new dimensions from the main window, and also re-create the main framebuffer that's linked to the swap chain's images
-	std::shared_ptr<PHX::IWindow> mainWindow = PHX::GetWindow();
-	pSwapChain->Resize(mainWindow->GetCurrentWidth(), mainWindow->GetCurrentHeight());
+	pSwapChain->Resize(s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight());
 
-	if (AllocateSwapChainFramebuffer(pSwapChain, pRenderDevice.get()))
+	if (AllocateSwapChainFramebuffer(pSwapChain, s_pRenderDevice))
 	{
 		// Failed to allocate new framebuffer
 	}
 }
 
-[[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, std::shared_ptr<PHX::IRenderDevice> pRenderDevice)
+[[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::IRenderDevice* pRenderDevice)
 {
 	std::ifstream shaderFile;
 	shaderFile.open(shaderName, std::ios::in);
@@ -165,13 +165,11 @@ int main(int argc, char** argv)
 
 	// WINDOW
 	WindowCreateInfo windowCI{};
-	if (CreateWindow(windowCI) != STATUS_CODE::SUCCESS)
+	if (CreateWindow(windowCI, &s_pWindow) != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create window
 		return -1;
 	}
-
-	auto pWindow = GetWindow();
 
 	// CORE GRAPHICS
 	Settings initSettings{};
@@ -179,7 +177,7 @@ int main(int argc, char** argv)
 	initSettings.enableValidation = true;
 	initSettings.logCallback = nullptr; // LogCallback;
 	initSettings.swapChainResizedCallback = OnSwapChainResized;
-	if (InitializeGraphics(initSettings) != STATUS_CODE::SUCCESS)
+	if (InitializeGraphics(initSettings, s_pWindow) != STATUS_CODE::SUCCESS)
 	{
 		// Failed to initialize graphics
 		return -1;
@@ -187,45 +185,43 @@ int main(int argc, char** argv)
 
 	// RENDER DEVICE
 	RenderDeviceCreateInfo renderDeviceCI{};
-	renderDeviceCI.window = GetWindow().get();
-	if (CreateRenderDevice(renderDeviceCI) != STATUS_CODE::SUCCESS)
+	renderDeviceCI.window = s_pWindow;
+	if (CreateRenderDevice(renderDeviceCI, &s_pRenderDevice) != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create render device
 		return -1;
 	}
 
-	auto pRenderDevice = GetRenderDevice();
-
 	// SWAP CHAIN
 	SwapChainCreateInfo swapChainCI{};
 	swapChainCI.enableVSync = true;
-	swapChainCI.width = pWindow->GetCurrentWidth();
-	swapChainCI.height = pWindow->GetCurrentHeight();
-	swapChainCI.renderDevice = pRenderDevice.get();
-	if (CreateSwapChain(swapChainCI) != STATUS_CODE::SUCCESS)
+	swapChainCI.width = s_pWindow->GetCurrentWidth();
+	swapChainCI.height = s_pWindow->GetCurrentHeight();
+	swapChainCI.renderDevice = s_pRenderDevice;
+
+	ISwapChain* pSwapChain = nullptr;
+	if (CreateSwapChain(swapChainCI, &pSwapChain) != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create swap chain
 		return -1;
 	}
 
-	auto pSwapChain = GetSwapChain();
-
 	// FRAMEBUFFER
-	if (!AllocateSwapChainFramebuffer(pSwapChain.get(), pRenderDevice.get()))
+	if (!AllocateSwapChainFramebuffer(pSwapChain, s_pRenderDevice))
 	{
 		return -1;
 	}
 
 	// SHADERS
 	std::string vertShaderName("../src/shaders/vertex_sample.vert");
-	IShader* pVertShader = AllocateShader(vertShaderName, SHADER_STAGE::VERTEX, pRenderDevice);
+	IShader* pVertShader = AllocateShader(vertShaderName, SHADER_STAGE::VERTEX, s_pRenderDevice);
 	if (pVertShader == nullptr)
 	{
 		return -1;
 	}
 
 	std::string fragShaderName("../src/shaders/fragment_sample.frag");
-	IShader* pFragShader = AllocateShader(fragShaderName, SHADER_STAGE::FRAGMENT, pRenderDevice);
+	IShader* pFragShader = AllocateShader(fragShaderName, SHADER_STAGE::FRAGMENT, s_pRenderDevice);
 	if (pFragShader == nullptr)
 	{
 		return -1;
@@ -247,7 +243,7 @@ int main(int argc, char** argv)
 	uniformCollectionCI.groupCount = 1;
 
 	IUniformCollection* pUniforms = nullptr;
-	if (pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &pUniforms) != PHX::STATUS_CODE::SUCCESS)
+	if (s_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &pUniforms) != PHX::STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
@@ -279,7 +275,7 @@ int main(int argc, char** argv)
 	pipelineCI.topology = PHX::PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
 	pipelineCI.pInputAttributes = inputAttributes.data();
 	pipelineCI.attributeCount = static_cast<u32>(inputAttributes.size());
-	pipelineCI.viewportSize = { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() };
+	pipelineCI.viewportSize = { s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() };
 	pipelineCI.ppShaders = shaders.data();
 	pipelineCI.shaderCount = static_cast<u32>(shaders.size());
 	pipelineCI.pFramebuffer = s_framebuffers.at(0);
@@ -287,14 +283,14 @@ int main(int argc, char** argv)
 	pipelineCI.pUniformCollection = pUniforms;
 
 	IPipeline* pPipeline = nullptr;
-	if (pRenderDevice->AllocateGraphicsPipeline(pipelineCI, &pPipeline) != STATUS_CODE::SUCCESS)
+	if (s_pRenderDevice->AllocateGraphicsPipeline(pipelineCI, &pPipeline) != STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
 
 	// DEVICE CONTEXT
 	IDeviceContext* pDeviceContext = nullptr;
-	if (pRenderDevice->AllocateDeviceContext({}, &pDeviceContext) != STATUS_CODE::SUCCESS)
+	if (s_pRenderDevice->AllocateDeviceContext({}, &pDeviceContext) != STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
@@ -305,7 +301,7 @@ int main(int argc, char** argv)
 	bufferCI.size = sizeof(SimpleVertexType) * VERTEX_COUNT; // Triangle!
 
 	IBuffer* vBuffer = nullptr;
-	if (pRenderDevice->AllocateBuffer(bufferCI, &vBuffer) != STATUS_CODE::SUCCESS)
+	if (s_pRenderDevice->AllocateBuffer(bufferCI, &vBuffer) != STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
@@ -338,7 +334,7 @@ int main(int argc, char** argv)
 	uniformBufferCI.size = sizeof(TestUBO);
 
 	IBuffer* uniformBuffer = nullptr;
-	if (pRenderDevice->AllocateBuffer(uniformBufferCI, &uniformBuffer) != STATUS_CODE::SUCCESS)
+	if (s_pRenderDevice->AllocateBuffer(uniformBufferCI, &uniformBuffer) != STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
@@ -348,19 +344,19 @@ int main(int argc, char** argv)
 	std::chrono::duration<float> frameBudgetMs(1.0f / 60.0f); // 60FPS
 	auto timeStart = std::chrono::high_resolution_clock::now();
 	auto timeEnd = std::chrono::high_resolution_clock::now();
-	while (!pWindow->ShouldClose())
+	while (!s_pWindow->ShouldClose())
 	{
 		const std::chrono::duration<float, std::milli> elapsedMs = timeEnd - timeStart;
 		const std::chrono::duration<float> elapsedSeconds = timeEnd - timeStart;
 
 		timeStart = std::chrono::high_resolution_clock::now();
 
-		pWindow->Update(0.13f);
+		s_pWindow->Update(0.13f);
 
-		pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", pRenderDevice->GetDeviceName(), i++, elapsedMs.count(), 1.0f / elapsedSeconds.count());
+		s_pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_pRenderDevice->GetDeviceName(), i++, elapsedMs.count(), 1.0f / elapsedSeconds.count());
 
 		// Draw operations
-		pDeviceContext->BeginFrame(pSwapChain.get());
+		pDeviceContext->BeginFrame(pSwapChain);
 
 		u32 currSwapChainImageIndex = i % pSwapChain->GetImageCount();
 
@@ -379,8 +375,8 @@ int main(int argc, char** argv)
 			pDeviceContext->BindPipeline(pPipeline);
 			pDeviceContext->BindUniformCollection(pUniforms, pPipeline);
 			pDeviceContext->BindVertexBuffer(vBuffer);
-			pDeviceContext->SetScissor({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
-			pDeviceContext->SetViewport({ pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 });
+			pDeviceContext->SetScissor({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
+			pDeviceContext->SetViewport({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
 			pDeviceContext->Draw(VERTEX_COUNT);
 		}
 
@@ -401,4 +397,13 @@ int main(int argc, char** argv)
 
 		timeEnd = std::chrono::high_resolution_clock::now();
 	}
+
+	// Clean up
+	s_pRenderDevice->DeallocateBuffer(&uniformBuffer);
+	s_pRenderDevice->DeallocateBuffer(&vBuffer);
+
+	// Clean up core objects
+	DestroySwapChain(&pSwapChain);
+	DestroyRenderDevice(&s_pRenderDevice);
+	DestroyWindow(&s_pWindow);
 }
