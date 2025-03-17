@@ -1,12 +1,12 @@
 
-#include "shader_type_converter.h"
+#include "glslang_type_converter.h"
 
 #include "sanity.h"
 #include "logger.h"
 
 namespace PHX
 {
-	namespace SHADER_GLSLANG_UTILS
+	namespace GLSLANG_UTILS
 	{
 		STATIC_ASSERT(static_cast<u32>(SHADER_STAGE::MAX) == 4);
 		EShLanguage ConvertShaderStage(SHADER_STAGE kind)

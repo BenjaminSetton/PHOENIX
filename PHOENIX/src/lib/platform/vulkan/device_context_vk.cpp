@@ -70,13 +70,13 @@ namespace PHX
 			LogError("Failed to begin frame! Primary command buffer creation failed");
 			return res;
 		}
-		m_cmdBuffers.push_back(cmdBuffer);
+		m_primaryCmdBuffer = cmdBuffer;
 
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Is this right?
 		beginInfo.pInheritanceInfo = nullptr;
-		VkResult resVk = vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+		VkResult resVk = vkBeginCommandBuffer(m_primaryCmdBuffer, &beginInfo);
 		if (resVk != VK_SUCCESS)
 		{
 			LogError("Failed to begin frame. Primary command buffer failed to start recording. Got error: %s", string_VkResult(resVk));
@@ -88,14 +88,13 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::Flush()
 	{
-		VkCommandBuffer primaryCmdBuffer = GetPrimaryCommandBuffer();
 		VkSubmitInfo vkSubmitInfo{};
 		vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 		vkSubmitInfo.waitSemaphoreCount = 0; // TODO
 		vkSubmitInfo.pWaitSemaphores = nullptr; // TODO
 		vkSubmitInfo.pWaitDstStageMask = nullptr; // TODO
 		vkSubmitInfo.commandBufferCount = 1;
-		vkSubmitInfo.pCommandBuffers = &primaryCmdBuffer;
+		vkSubmitInfo.pCommandBuffers = &m_primaryCmdBuffer;
 		vkSubmitInfo.signalSemaphoreCount = 0; // TODO
 		vkSubmitInfo.pSignalSemaphores = nullptr; // TODO
 
@@ -155,8 +154,6 @@ namespace PHX
 		}
 
 		// Begin a new render pass on the primary command buffer
-		VkCommandBuffer primaryCmdBuffer = GetPrimaryCommandBuffer();
-
 		VkRenderPassBeginInfo renderPassInfo{};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		renderPassInfo.renderPass = renderPass;
@@ -165,7 +162,7 @@ namespace PHX
 		renderPassInfo.renderArea.extent = { framebufferVk->GetWidth(), framebufferVk->GetHeight() };
 		renderPassInfo.clearValueCount = clearColorCount;
 		renderPassInfo.pClearValues = (pClearColors == nullptr) ? nullptr : vkClearValues.data();
-		vkCmdBeginRenderPass(primaryCmdBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
+		vkCmdBeginRenderPass(m_primaryCmdBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS);
 
 		// Create a new secondary command buffer to record draw call
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
@@ -208,11 +205,9 @@ namespace PHX
 		}
 		vkEndCommandBuffer(cmdBuffer);
 
-		VkCommandBuffer primaryCmdBuffer = GetPrimaryCommandBuffer();
-		u32 cmdBufferCount = static_cast<u32>(m_cmdBuffers.size() - 1); // Skip the first command buffer, which is the primary one
-		vkCmdExecuteCommands(primaryCmdBuffer, cmdBufferCount, m_cmdBuffers.data() + 1);
-		vkCmdEndRenderPass(primaryCmdBuffer);
-		vkEndCommandBuffer(primaryCmdBuffer);
+		vkCmdExecuteCommands(m_primaryCmdBuffer, static_cast<u32>(m_cmdBuffers.size()), m_cmdBuffers.data());
+		vkCmdEndRenderPass(m_primaryCmdBuffer);
+		vkEndCommandBuffer(m_primaryCmdBuffer);
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -515,16 +510,6 @@ namespace PHX
 		}
 
 		return m_cmdBuffers.at(m_cmdBuffers.size() - 1);
-	}
-
-	VkCommandBuffer DeviceContextVk::GetPrimaryCommandBuffer()
-	{
-		if (m_cmdBuffers.size() == 0)
-		{
-			return VK_NULL_HANDLE;
-		}
-
-		return m_cmdBuffers.at(0);
 	}
 
 	//STATUS_CODE DeviceContextVk::TEMP_TransitionTexture(ITexture* pTexture, VkImageLayout layout)

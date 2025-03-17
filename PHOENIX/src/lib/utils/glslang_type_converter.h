@@ -7,7 +7,7 @@
 namespace PHX
 {
 	// Conversion utils from PHX types to glslang types
-	namespace SHADER_GLSLANG_UTILS
+	namespace GLSLANG_UTILS
 	{
 		EShLanguage ConvertShaderStage(SHADER_STAGE kind);
 		EShOptimizationLevel ConvertOptimizationLevel(SHADER_OPTIMIZATION_LEVEL level);

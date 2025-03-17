@@ -50,7 +50,6 @@ namespace PHX
 		void DestroyCachedCommandBuffers();
 
 		VkCommandBuffer GetLastCommandBuffer();
-		VkCommandBuffer GetPrimaryCommandBuffer();
 
 		// NOTE - We need more abstraction so that the client doesn't have to manually change the 
 		// texture layouts because older APIs don't have a concept of that. I think this would belong 
@@ -62,6 +61,7 @@ namespace PHX
 		RenderDeviceVk* m_pRenderDevice; // Not sure if this is a good idea or not :/
 
 		// Do we want to guarantee that all of these command buffers were allocated from the same pool?
-		std::vector<VkCommandBuffer> m_cmdBuffers;
+		VkCommandBuffer m_primaryCmdBuffer;
+		std::vector<VkCommandBuffer> m_cmdBuffers; // all secondary command buffers
 	};
 }

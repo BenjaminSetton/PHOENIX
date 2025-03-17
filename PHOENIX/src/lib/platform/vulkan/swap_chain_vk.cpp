@@ -4,9 +4,9 @@
 
 #include "swap_chain_vk.h"
 
+#include "core/global_settings.h"
 #include "core_vk.h"
 #include "PHX/types/queue_type.h"
-#include "utils/global_settings.h"
 #include "utils/logger.h"
 #include "utils/math.h"
 #include "utils/queue_family_indices.h"

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "utils/global_settings.h" // LOG_TYPE, GlobalSettings
+#include "core/global_settings.h" // LOG_TYPE, GlobalSettings
 
 namespace PHX
 {

@@ -5,7 +5,7 @@
 #include "platform/vulkan/render_device_vk.h"
 #include "platform/vulkan/swap_chain_vk.h"
 
-#include "utils/global_settings.h"
+#include "core/global_settings.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
 

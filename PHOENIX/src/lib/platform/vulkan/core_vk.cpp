@@ -5,7 +5,7 @@
 
 #include "core_vk.h"
 
-#include "utils/global_settings.h"
+#include "core/global_settings.h"
 #include "utils/logger.h"
 
 #if defined(PHX_WINDOWS)
