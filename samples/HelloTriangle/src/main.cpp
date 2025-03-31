@@ -370,6 +370,24 @@ int main(int argc, char** argv)
 		pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
 		pUniforms->FlushUpdateQueue();
 
+		// auto& newPass = graph.AddPass("HelloTriangle");
+		// newPass.setColorTarget(backbufferTex);
+		// newPass.setExecutionCallback([this](DeviceContext& pDeviceContext)
+		//{
+		//	test.time += elapsedSeconds.count();
+		//	uniformBuffer->CopyData(&test, sizeof(TestUBO));
+		// 
+		//	pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
+		//	pUniforms->FlushUpdateQueue();
+		// 
+		//	pDeviceContext->BindPipeline(pPipeline);
+		//	pDeviceContext->BindUniformCollection(pUniforms, pPipeline);
+		//	pDeviceContext->BindVertexBuffer(vBuffer);
+		//	pDeviceContext->SetScissor({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
+		//	pDeviceContext->SetViewport({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
+		//	pDeviceContext->Draw(VERTEX_COUNT);
+		//}
+
 		// Represents recording one secondary command buffer
 		{
 			pDeviceContext->BindPipeline(pPipeline);

@@ -1,7 +1,9 @@
 
+#include <vulkan/vk_enum_string_helper.h>
+
 #include "render_pass_cache.h"
 
-#include "../../../utils/logger.h"
+#include "utils/logger.h"
 #include "../render_device_vk.h"
 #include "../texture_vk.h"
 #include "texture_type_converter.h"
@@ -119,9 +121,10 @@ namespace PHX
 		renderPassInfo.pDependencies = &subpassDepVk;
 
 		VkRenderPass renderPass = VK_NULL_HANDLE;
-		if (vkCreateRenderPass(pRenderDevice->GetLogicalDevice(), &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
+		VkResult res = vkCreateRenderPass(pRenderDevice->GetLogicalDevice(), &renderPassInfo, nullptr, &renderPass);
+		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to create render pass from description!");
+			LogError("Failed to create render pass from description! Got error: \"%s\"", string_VkResult(res));
 		}
 
 		// If the above fails, is renderPass still VK_NULL_HANDLE?

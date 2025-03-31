@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PHX/interface/buffer.h"
 #include "PHX/interface/framebuffer.h"
 #include "PHX/interface/pipeline.h"
 #include "PHX/interface/swap_chain.h"
@@ -11,9 +12,6 @@
 
 namespace PHX
 {
-	// Forward declarations
-	class IBuffer; // TODO - Remove once IBuffer class is created
-
 	struct DeviceContextCreateInfo
 	{
 		// command pool
