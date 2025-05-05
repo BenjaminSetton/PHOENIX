@@ -2,12 +2,19 @@
 
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
+#include "PHX/interface/swap_chain.h"
 #include "PHX/interface/texture.h"
 #include "PHX/interface/uniform.h"
 
 namespace PHX
 {
-	typedef void(*BuildRenderPassCallbackFn)(IDeviceContext* pContext);
+	typedef void(*ExecuteRenderPassCallbackFn)(IDeviceContext* pContext);
+
+	enum class BIND_POINT : u8
+	{
+		GRAPHICS = 0,
+		COMPUTE
+	};
 
 	class IRenderPass
 	{
@@ -21,12 +28,13 @@ namespace PHX
 		virtual void SetUniformInput(IUniformCollection* pUniformCollection) = 0;	// Not sure if I want to keep this
 			 
 		// Outputs
-		virtual void SetColorTarget(ITexture* pTexture) = 0;
-		virtual void SetDepthStencilTarget(ITexture* pTexture) = 0;
-		virtual void SetResolveTarget(ITexture* pTexture) = 0;
+		virtual void SetColorOutput(ITexture* pTexture) = 0;
+		virtual void SetDepthStencilOutput(ITexture* pTexture) = 0;
+		virtual void SetResolveOutput(ITexture* pTexture) = 0;
+		virtual void SetBackbufferOutput(ITexture* pTexture) = 0;
 
 		// Callbacks
-		virtual void Build(BuildRenderPassCallbackFn callback) = 0;
+		virtual void SetExecuteCallback(ExecuteRenderPassCallbackFn callback) = 0;
 	};
 
 	class IRenderGraph
@@ -35,7 +43,8 @@ namespace PHX
 
 		virtual ~IRenderGraph() { }
 
-		virtual IRenderPass* AddPass(const char* passName/*, u32 flags_TODO*/) = 0;
-		virtual void Bake() = 0;
+		virtual void Reset() = 0;
+		virtual IRenderPass* RegisterPass(const char* passName, BIND_POINT bindPoint) = 0;
+		virtual STATUS_CODE Bake(ISwapChain* pSwapChain, ClearValues* pClearColors, u32 clearColorCount) = 0;
 	};
 }

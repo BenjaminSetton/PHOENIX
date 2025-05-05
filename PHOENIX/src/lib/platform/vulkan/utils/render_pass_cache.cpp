@@ -10,10 +10,6 @@
 
 namespace PHX
 {
-	RenderPassCache::RenderPassCache() : m_cache()
-	{
-	}
-
 	VkRenderPass RenderPassCache::Find(const RenderPassDescription& desc) const
 	{
 		auto it = m_cache.find(desc);
@@ -25,18 +21,23 @@ namespace PHX
 		return VK_NULL_HANDLE;
 	}
 
-	VkRenderPass RenderPassCache::Insert(RenderDeviceVk* pRenderDevice, const RenderPassDescription& desc)
+	VkRenderPass RenderPassCache::FindOrCreate(RenderDeviceVk* pRenderDevice, const RenderPassDescription& desc) const
 	{
-		auto it = m_cache.find(desc);
-		if (it != m_cache.end())
+		VkRenderPass res = VK_NULL_HANDLE;
+
+		auto iter = m_cache.find(desc);
+		if (iter == m_cache.end())
 		{
-			return it->second;
+			VkRenderPass pass = CreateFromDescription(pRenderDevice, desc);
+			m_cache.insert({ desc, pass });
+			res = pass;
+		}
+		else
+		{
+			res = iter->second;
 		}
 
-		VkRenderPass pass = CreateFromDescription(pRenderDevice, desc);
-		m_cache.insert({desc, pass});
-
-		return pass;
+		return res;
 	}
 
 	void RenderPassCache::Delete(const RenderPassDescription& desc)

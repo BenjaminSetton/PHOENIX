@@ -17,24 +17,24 @@
 namespace PHX
 {
 
-	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& createInfo)
+	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const GraphicsPipelineCreateInfo& createInfo)
 	{
 		if (pRenderDevice == nullptr)
 		{
 			return;
 		}
 
-		CreateGraphicsPipeline(pRenderDevice, createInfo);
+		CreateGraphicsPipeline(pRenderDevice, cache, createInfo);
 	}
 
-	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, const ComputePipelineCreateInfo& createInfo)
+	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineCreateInfo& createInfo)
 	{
 		if (pRenderDevice == nullptr)
 		{
 			return;
 		}
 
-		CreateComputePipeline(pRenderDevice, createInfo);
+		CreateComputePipeline(pRenderDevice, cache, createInfo);
 	}
 
 	PipelineVk::~PipelineVk()
@@ -57,7 +57,7 @@ namespace PHX
 		return m_bindPoint;
 	}
 
-	STATUS_CODE PipelineVk::CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& createInfo)
+	STATUS_CODE PipelineVk::CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const GraphicsPipelineCreateInfo& createInfo)
 	{
 		STATUS_CODE createInfoRes = VerifyCreateInfo(createInfo);
 		if (createInfoRes != STATUS_CODE::SUCCESS)
@@ -122,14 +122,22 @@ namespace PHX
 			createInfo.depthBiasClamp, 
 			createInfo.depthBiasSlopeFactor);
 
-		// Get the associated render pass from the framebuffer
-		FramebufferVk* pFramebuffer = dynamic_cast<FramebufferVk*>(createInfo.pFramebuffer);
-		VkRenderPass vkRenderPass = RenderPassCache::Get().Find(pFramebuffer->GetRenderPassDescription());
-		if (vkRenderPass == VK_NULL_HANDLE)
-		{
-			LogError("Failed to create pipeline! Render pass associated with framebuffer object is invalid!");
-			return STATUS_CODE::ERR_INTERNAL;
-		}
+		// TODO
+		// 
+		//FramebufferVk* pFramebuffer = dynamic_cast<FramebufferVk*>(createInfo.pFramebuffer);
+		//VkRenderPass vkRenderPass = RenderPassCache::Get().Find(pFramebuffer->GetRenderPassDescription());
+		//if (vkRenderPass == VK_NULL_HANDLE)
+		//{
+		//	LogError("Failed to create pipeline! Render pass associated with framebuffer object is invalid!");
+		//	return STATUS_CODE::ERR_INTERNAL;
+		//}
+
+		//  ----- Build a render pass description and request it from the render device.
+		// Actually I don't even think we can do that because pipelines are created before
+		// the render graph has a chance to create new render passes :/
+		RenderPassDescription renderPassDesc{};
+		//
+		// TODO
 
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -149,7 +157,7 @@ namespace PHX
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 		pipelineInfo.basePipelineIndex = -1; // Optional
 
-		VkResult res = vkCreateGraphicsPipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline);
+		VkResult res = vkCreateGraphicsPipelines(logicalDevice, cache, 1, &pipelineInfo, nullptr, &m_pipeline);
 		if (res != VK_SUCCESS)
 		{
 			LogError("Failed to create pipeline! Got error: \"%s\"", string_VkResult(res));
@@ -161,7 +169,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE PipelineVk::CreateComputePipeline(RenderDeviceVk* pRenderDevice, const ComputePipelineCreateInfo& createInfo)
+	STATUS_CODE PipelineVk::CreateComputePipeline(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineCreateInfo& createInfo)
 	{
 		STATUS_CODE createInfoRes = VerifyCreateInfo(createInfo);
 		if (createInfoRes != STATUS_CODE::SUCCESS)
@@ -182,7 +190,7 @@ namespace PHX
 		pipelineInfo.layout = m_layout;
 		pipelineInfo.stage = PopulateShaderCreateInfo(createInfo.pShader);
 
-		VkResult res = vkCreateComputePipelines(logicalDevice, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_pipeline);
+		VkResult res = vkCreateComputePipelines(logicalDevice, cache, 1, &pipelineInfo, nullptr, &m_pipeline);
 		if (res != VK_SUCCESS)
 		{
 			LogError("Failed to create compute pipeline! Got error: \"%s\"", string_VkResult(res));
@@ -199,11 +207,6 @@ namespace PHX
 		if (createInfo.pInputAttributes == nullptr)
 		{
 			LogError("Failed to create graphics pipeline! Input attributes are null");
-			return STATUS_CODE::ERR_API;
-		}
-		if (createInfo.pFramebuffer == nullptr)
-		{
-			LogError("Failed to create graphics pipeline! Framebuffer is null");
 			return STATUS_CODE::ERR_API;
 		}
 		if (createInfo.ppShaders == nullptr)

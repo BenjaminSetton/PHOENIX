@@ -5,6 +5,7 @@
 
 #include "core/global_settings.h"
 #include "core/object_factory.h"
+#include "utils/crc32.h"
 #include "utils/glslang_type_converter.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
@@ -108,7 +109,7 @@ static void GetDefaultShaderResources(TBuiltInResource& resources)
 
 namespace PHX
 {
-	STATUS_CODE InitializeGraphics(const Settings& initSettings, IWindow* pWindow)
+	STATUS_CODE Initialize(const Settings& initSettings, IWindow* pWindow)
 	{
 		if (pWindow == nullptr)
 		{
@@ -119,6 +120,10 @@ namespace PHX
 		// Only this function should ever set the settings!
 		GlobalSettings::Get().SetSettings(initSettings);
 
+		// Initialize CRC32 table
+		InitCRC32();
+
+		// Initialize core graphics objects
 		STATUS_CODE coreObjStatus = OBJ_FACTORY::CreateCoreObjects(pWindow);
 		if (coreObjStatus != STATUS_CODE::SUCCESS)
 		{

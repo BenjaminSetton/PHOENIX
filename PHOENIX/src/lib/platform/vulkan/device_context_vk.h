@@ -16,12 +16,6 @@ namespace PHX
 		DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo);
 		~DeviceContextVk();
 
-		STATUS_CODE BeginFrame(ISwapChain* pSwapChain) override;
-		STATUS_CODE Flush() override;
-
-		STATUS_CODE BeginRenderPass(IFramebuffer* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount) override;
-		STATUS_CODE EndRenderPass() override;
-
 		STATUS_CODE BindVertexBuffer(IBuffer* pVertexBuffer) override;
 		STATUS_CODE BindMesh(IBuffer* pVertexBuffer, IBuffer* pIndexBuffer) override;
 		STATUS_CODE BindUniformCollection(IUniformCollection* pUniformCollection, IPipeline* pPipeline) override;
@@ -37,11 +31,15 @@ namespace PHX
 
 		STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) override;
 
-		// NOTE - We need more abstraction so that the client doesn't have to manually change the 
-		// texture layouts because older APIs don't have a concept of that. I think this would belong 
-		// in a render-graph system but a temporary call will do for now
-		//STATUS_CODE TEMP_TransitionTextureToGeneralLayout(ITexture* pTexture);
-		//STATUS_CODE TEMP_TransitionTextureToPresentLayout(ITexture* pTexture);
+		STATUS_CODE BeginFrame(ISwapChain* pSwapChain);
+		STATUS_CODE Flush();
+
+		STATUS_CODE BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount);
+		STATUS_CODE EndRenderPass();
+
+		// TODO - Perform layout transition without creating a new command buffer in transfer queue and blocking.
+		//        Also, have the transition details exposed as function parameters rather than assuming src/dst stages and access masks
+		STATUS_CODE TransitionImageLayout(ITexture* pTexture, VkImageLayout destinationLayout);
 
 	private:
 
@@ -50,11 +48,6 @@ namespace PHX
 		void DestroyCachedCommandBuffers();
 
 		VkCommandBuffer GetLastCommandBuffer();
-
-		// NOTE - We need more abstraction so that the client doesn't have to manually change the 
-		// texture layouts because older APIs don't have a concept of that. I think this would belong 
-		// in a render-graph system but a temporary call will do for now
-		//STATUS_CODE TEMP_TransitionTexture(ITexture* pTexture, VkImageLayout layout);
 
 	private:
 

@@ -23,12 +23,6 @@ namespace PHX
 
 		virtual ~IDeviceContext() { }
 
-		virtual STATUS_CODE BeginFrame(ISwapChain* pSwapChain) = 0;
-		virtual STATUS_CODE Flush() = 0;
-
-		virtual STATUS_CODE BeginRenderPass(IFramebuffer* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount) = 0;
-		virtual STATUS_CODE EndRenderPass() = 0;
-
 		virtual STATUS_CODE BindVertexBuffer(IBuffer* pVertexBuffer) = 0;
 		virtual STATUS_CODE BindMesh(IBuffer* pVertexBuffer, IBuffer* pIndexBuffer) = 0;
 		virtual STATUS_CODE BindUniformCollection(IUniformCollection* pUniformCollection, IPipeline* pPipeline) = 0;

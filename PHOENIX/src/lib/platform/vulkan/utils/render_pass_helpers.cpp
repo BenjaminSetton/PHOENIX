@@ -2,16 +2,10 @@
 #include "render_pass_helpers.h"
 
 #include "PHX/types/integral_types.h"
+#include "utils/cache_utils.h"
 
 namespace PHX
 {
-	// Thanks ChatGPT :)
-	template <typename T>
-	inline void hash_combine(size_t& seed, const T& value) 
-	{
-		seed ^= std::hash<T>{}(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-	}
-
 	bool RenderPassDescription::operator==(const RenderPassDescription& other) const
 	{
 		if (attachments.size() != other.attachments.size())
@@ -41,33 +35,35 @@ namespace PHX
 
 	size_t RenderPassDescriptionHasher::operator()(const RenderPassDescription& desc) const
 	{
+		//STATIC_ASSERT_MSG(sizeof(desc) == SOME_SIZE, "If description changed, make sure to change this hashing function!");
+
 		size_t seed = 0;
 
-		hash_combine(seed, desc.attachments.size());
+		HashCombine(seed, desc.attachments.size());
 		for (const auto& attachment : desc.attachments)
 		{
 			// Exclude the texture pointer from the hash because two render pass
 			// descriptions can be identical even if their textures are different
-			//hash_combine(seed, attachment.pTexture);
+			//HashCombine(seed, attachment.pTexture);
 
-			hash_combine(seed, attachment.loadOp);
-			hash_combine(seed, attachment.storeOp);
-			hash_combine(seed, attachment.stencilLoadOp);
-			hash_combine(seed, attachment.stencilStoreOp);
-			hash_combine(seed, attachment.initialLayout);
-			hash_combine(seed, attachment.finalLayout);
+			HashCombine(seed, attachment.loadOp);
+			HashCombine(seed, attachment.storeOp);
+			HashCombine(seed, attachment.stencilLoadOp);
+			HashCombine(seed, attachment.stencilStoreOp);
+			HashCombine(seed, attachment.initialLayout);
+			HashCombine(seed, attachment.finalLayout);
 		}
 
-		hash_combine(seed, desc.subpasses.size());
+		HashCombine(seed, desc.subpasses.size());
 		for (const auto& subpass : desc.subpasses)
 		{
-			hash_combine(seed, subpass.bindPoint);
-			hash_combine(seed, subpass.colorAttachmentIndices.size());
-			hash_combine(seed, subpass.depthStencilAttachmentIndex);
-			hash_combine(seed, subpass.resolveAttachmentIndex);
-			hash_combine(seed, subpass.srcStageMask);
-			hash_combine(seed, subpass.dstStageMask);
-			hash_combine(seed, subpass.dstAccessMask);
+			HashCombine(seed, subpass.bindPoint);
+			HashCombine(seed, subpass.colorAttachmentIndices.size());
+			HashCombine(seed, subpass.depthStencilAttachmentIndex);
+			HashCombine(seed, subpass.resolveAttachmentIndex);
+			HashCombine(seed, subpass.srcStageMask);
+			HashCombine(seed, subpass.dstStageMask);
+			HashCombine(seed, subpass.dstAccessMask);
 		}
 
 		return seed;

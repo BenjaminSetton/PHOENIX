@@ -14,8 +14,8 @@ namespace PHX
 	{
 	public:
 
-		PipelineVk(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& createInfo);
-		PipelineVk(RenderDeviceVk* pRenderDevice, const ComputePipelineCreateInfo& createInfo);
+		PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const GraphicsPipelineCreateInfo& createInfo);
+		PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineCreateInfo& createInfo);
 		~PipelineVk();
 
 		VkPipeline GetPipeline() const;
@@ -24,8 +24,8 @@ namespace PHX
 
 	private:
 
-		STATUS_CODE CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& createInfo);
-		STATUS_CODE CreateComputePipeline(RenderDeviceVk* pRenderDevice, const ComputePipelineCreateInfo& createInfo);
+		STATUS_CODE CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const GraphicsPipelineCreateInfo& createInfo);
+		STATUS_CODE CreateComputePipeline(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineCreateInfo& createInfo);
 
 		STATUS_CODE VerifyCreateInfo(const GraphicsPipelineCreateInfo& createInfo);
 		STATUS_CODE VerifyCreateInfo(const ComputePipelineCreateInfo& createInfo);

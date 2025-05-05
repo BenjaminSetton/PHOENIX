@@ -75,9 +75,6 @@ namespace PHX
 		// Shader create info
 		IShader** ppShaders						= nullptr;
 		u32 shaderCount							= 0;
-
-		// Attachment info
-		IFramebuffer* pFramebuffer				= nullptr;
 	};
 
 	class IPipeline

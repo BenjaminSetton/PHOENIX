@@ -23,8 +23,8 @@
 #include "buffer_vk.h"
 #include "core_vk.h"
 #include "device_context_vk.h"
-#include "framebuffer_vk.h"
 #include "pipeline_vk.h"
+#include "render_graph_vk.h"
 #include "shader_vk.h"
 #include "swap_chain_vk.h"
 #include "texture_vk.h"
@@ -153,16 +153,16 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	STATUS_CODE RenderDeviceVk::AllocateRenderGraph(IRenderGraph** out_renderGraph)
+	{
+		*out_renderGraph = new RenderGraphVk(this);
+		return STATUS_CODE::SUCCESS;
+	}
+
 	STATUS_CODE RenderDeviceVk::AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer)
 	{
 		*out_buffer = new BufferVk(this, createInfo);
 		return STATUS_CODE::SUCCESS; 
-	}
-
-	STATUS_CODE RenderDeviceVk::AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer)
-	{
-		*out_framebuffer = new FramebufferVk(this, createInfo);
-		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE RenderDeviceVk::AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, ITexture** out_texture)
@@ -177,17 +177,17 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline)
-	{
-		*out_pipeline = new PipelineVk(this, createInfo);
-		return STATUS_CODE::SUCCESS;
-	}
+	//STATUS_CODE RenderDeviceVk::AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline)
+	//{
+	//	*out_pipeline = new PipelineVk(this, createInfo);
+	//	return STATUS_CODE::SUCCESS;
+	//}
 
-	STATUS_CODE RenderDeviceVk::AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline)
-	{
-		*out_pipeline = new PipelineVk(this, createInfo);
-		return STATUS_CODE::SUCCESS;
-	}
+	//STATUS_CODE RenderDeviceVk::AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline)
+	//{
+	//	*out_pipeline = new PipelineVk(this, createInfo);
+	//	return STATUS_CODE::SUCCESS;
+	//}
 
 	STATUS_CODE RenderDeviceVk::AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, IUniformCollection** out_uniformCollection)
 	{
@@ -205,11 +205,6 @@ namespace PHX
 		SAFE_DEL(*pBuffer);
 	}
 
-	void RenderDeviceVk::DeallocateFramebuffer(IFramebuffer** pFramebuffer)
-	{
-		SAFE_DEL(*pFramebuffer);
-	}
-
 	void RenderDeviceVk::DeallocateTexture(ITexture** pTexture)
 	{
 		SAFE_DEL(*pTexture);
@@ -220,14 +215,95 @@ namespace PHX
 		SAFE_DEL(*pShader);
 	}
 
-	void RenderDeviceVk::DeallocatePipeline(IPipeline** pPipeline)
-	{
-		SAFE_DEL(*pPipeline);
-	}
-
 	void RenderDeviceVk::DeallocateUniformCollection(IUniformCollection** pUniformCollection)
 	{
 		SAFE_DEL(*pUniformCollection);
+	}
+
+	FramebufferVk* RenderDeviceVk::CreateFramebuffer(const FramebufferDescription& desc)
+	{
+		return m_framebufferCache.FindOrCreate(this, desc);
+	}
+
+	void RenderDeviceVk::DestroyFramebuffer(const FramebufferDescription& desc)
+	{
+		m_framebufferCache.Delete(desc);
+	}
+
+	FramebufferVk* RenderDeviceVk::GetFramebuffer(const FramebufferDescription& desc) const
+	{
+		return m_framebufferCache.Find(desc);
+	}
+
+	VkRenderPass RenderDeviceVk::CreateRenderPass(const RenderPassDescription& desc)
+	{
+		return m_renderPassCache.FindOrCreate(this, desc);
+	}
+
+	void RenderDeviceVk::DestroyRenderPass(const RenderPassDescription& desc)
+	{
+		m_renderPassCache.Delete(desc);
+	}
+
+	VkRenderPass RenderDeviceVk::GetRenderPass(const RenderPassDescription& desc) const
+	{
+		return m_renderPassCache.Find(desc);
+	}
+
+	VkPipeline RenderDeviceVk::CreateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo)
+	{
+		PipelineVk* pipeline = m_pipelineCache.FindOrCreate(this, createInfo);
+		if (pipeline != nullptr)
+		{
+			return pipeline->GetPipeline();
+		}
+
+		ASSERT_ALWAYS("Failed to create graphics pipeline!");
+		return VK_NULL_HANDLE;
+	}
+
+	void RenderDeviceVk::DestroyGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo)
+	{
+		m_pipelineCache.Delete(createInfo);
+	}
+
+	VkPipeline RenderDeviceVk::GetGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo)
+	{
+		PipelineVk* pipeline = m_pipelineCache.Find(createInfo);
+		if (pipeline != nullptr)
+		{
+			return pipeline->GetPipeline();
+		}
+
+		return VK_NULL_HANDLE;
+	}
+
+	VkPipeline RenderDeviceVk::CreateComputePipeline(const ComputePipelineCreateInfo& createInfo)
+	{
+		PipelineVk* pipeline = m_pipelineCache.FindOrCreate(this, createInfo);
+		if (pipeline != nullptr)
+		{
+			return pipeline->GetPipeline();
+		}
+
+		ASSERT_ALWAYS("Failed to create compute pipeline!");
+		return VK_NULL_HANDLE;
+	}
+
+	void RenderDeviceVk::DestroyComputePipeline(const ComputePipelineCreateInfo& createInfo)
+	{
+		m_pipelineCache.Delete(createInfo);
+	}
+
+	VkPipeline RenderDeviceVk::GetComputePipeline(const ComputePipelineCreateInfo& createInfo)
+	{
+		PipelineVk* pipeline = m_pipelineCache.Find(createInfo);
+		if (pipeline != nullptr)
+		{
+			return pipeline->GetPipeline();
+		}
+
+		return VK_NULL_HANDLE;
 	}
 
 	VkDevice RenderDeviceVk::GetLogicalDevice() const

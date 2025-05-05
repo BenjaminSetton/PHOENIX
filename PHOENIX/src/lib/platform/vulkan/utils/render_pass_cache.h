@@ -11,29 +11,19 @@ namespace PHX
 	// Forward declarations
 	class RenderDeviceVk;
 
+	// TODO - Step away from singleton pattern, and instead have this cache as a private member variable that the render device owns!
 	class RenderPassCache
 	{
 	public:
 
-		static RenderPassCache& Get()
-		{
-			static RenderPassCache instance;
-			return instance;
-		}
+		RenderPassCache() = default;
+		~RenderPassCache() = default;
 
-		// Finds the VkRenderPass associated with the RenderPassDescription object and returns it.
-		// If no render pass is found, return VK_NULL_HANDLE instead
 		VkRenderPass Find(const RenderPassDescription& desc) const;
-
-		// Internally creates the VkRenderPass using the provided description.
-		VkRenderPass Insert(RenderDeviceVk* pRenderPass, const RenderPassDescription& desc);
-
-		// Deletes the VkRenderPass associated with the provided description, if any
+		VkRenderPass FindOrCreate(RenderDeviceVk* pRenderDevice, const RenderPassDescription& desc) const;
 		void Delete(const RenderPassDescription& desc);
 
 	private:
-
-		RenderPassCache();
 
 		VkRenderPass CreateFromDescription(RenderDeviceVk* pRenderDevice, const RenderPassDescription& desc) const;
 

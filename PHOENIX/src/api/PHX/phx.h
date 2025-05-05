@@ -12,7 +12,7 @@
 namespace PHX
 {
 	// INIT
-	STATUS_CODE InitializeGraphics(const Settings& initSettings, IWindow* pWindow);
+	STATUS_CODE Initialize(const Settings& initSettings, IWindow* pWindow);
 
 	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, IWindow** out_window);
 	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, IRenderDevice** out_renderDevice);

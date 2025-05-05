@@ -4,10 +4,14 @@
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
+#include "framebuffer_vk.h"
 #include "PHX/interface/render_device.h"
 #include "PHX/types/queue_type.h"
 #include "PHX/types/status_code.h"
+#include "utils/framebuffer_cache.h"
+#include "utils/pipeline_cache.h"
 #include "utils/queue_family_indices.h"
+#include "utils/render_pass_cache.h"
 
 namespace PHX
 {
@@ -20,23 +24,39 @@ namespace PHX
 
 		const char* GetDeviceName() const;
 
-		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext) override;
+		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext) override; // TODO - REMOVE
+		STATUS_CODE AllocateRenderGraph(IRenderGraph** out_renderGraph) override;
 		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer) override;
-		STATUS_CODE AllocateFramebuffer(const FramebufferCreateInfo& createInfo, IFramebuffer** out_framebuffer) override;
 		STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, ITexture** out_texture) override;
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader) override;
-		STATUS_CODE AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
-		STATUS_CODE AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
+		//STATUS_CODE AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
+		//STATUS_CODE AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
 		STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, IUniformCollection** out_uniformCollection) override;
 
 		void DeallocateDeviceContext(IDeviceContext** pDeviceContext) override;
 		void DeallocateBuffer(IBuffer** pBuffer) override;
-		void DeallocateFramebuffer(IFramebuffer** pFramebuffer) override;
 		void DeallocateTexture(ITexture** pTexture) override;
 		void DeallocateShader(IShader** pShader) override;
-		void DeallocatePipeline(IPipeline** pPipeline) override;
 		void DeallocateUniformCollection(IUniformCollection** pUniformCollection) override;
 
+		// Cached creation calls - vulkan only
+		FramebufferVk* CreateFramebuffer(const FramebufferDescription& desc);
+		void DestroyFramebuffer(const FramebufferDescription& desc);
+		FramebufferVk* GetFramebuffer(const FramebufferDescription& desc) const;
+		
+		VkRenderPass CreateRenderPass(const RenderPassDescription& desc);
+		void DestroyRenderPass(const RenderPassDescription& desc);
+		VkRenderPass GetRenderPass(const RenderPassDescription& desc) const;
+
+		VkPipeline CreateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo);
+		void DestroyGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo);
+		VkPipeline GetGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo);
+
+		VkPipeline CreateComputePipeline(const ComputePipelineCreateInfo& createInfo);
+		void DestroyComputePipeline(const ComputePipelineCreateInfo& createInfo);
+		VkPipeline GetComputePipeline(const ComputePipelineCreateInfo& createInfo);
+
+		// Getters
 		VkDevice GetLogicalDevice() const;
 		VkPhysicalDevice GetPhysicalDevice() const;
 		VmaAllocator GetAllocator() const;
@@ -75,5 +95,10 @@ namespace PHX
 
 		// Command pools
 		std::unordered_map<QUEUE_TYPE, VkCommandPool> m_commandPools;
+
+		// Object caches
+		FramebufferCache m_framebufferCache;
+		RenderPassCache m_renderPassCache;
+		PipelineCache m_pipelineCache;
 	};
 }

@@ -30,7 +30,7 @@ struct TestUBO
 };
 
 // Ugly, but easier for demo's sake
-static std::vector<PHX::IFramebuffer*> s_framebuffers;
+//static std::vector<PHX::IFramebuffer*> s_framebuffers;
 static PHX::IWindow* s_pWindow = nullptr;
 static PHX::IRenderDevice* s_pRenderDevice = nullptr;
 
@@ -70,38 +70,38 @@ void LogCallback(const char* msg, PHX::LOG_TYPE severity)
 
 void DeleteSwapChainFramebuffer(PHX::IRenderDevice* pRenderDevice)
 {
-	// Clean up existing framebuffers, if applicable
-	for (PHX::u32 i = 0; i < s_framebuffers.size(); i++)
-	{
-		pRenderDevice->DeallocateFramebuffer(&(s_framebuffers.at(i)));
-	}
-	s_framebuffers.clear();
+	//// Clean up existing framebuffers, if applicable
+	//for (PHX::u32 i = 0; i < s_framebuffers.size(); i++)
+	//{
+	//	pRenderDevice->DeallocateFramebuffer(&(s_framebuffers.at(i)));
+	//}
+	//s_framebuffers.clear();
 }
 
 bool AllocateSwapChainFramebuffer(PHX::ISwapChain* pSwapChain, PHX::IRenderDevice* pRenderDevice)
 {
-	// Allocate new framebuffers
-	s_framebuffers.resize(pSwapChain->GetImageCount());
-	for (PHX::u32 i = 0; i < pSwapChain->GetImageCount(); i++)
-	{
-		PHX::FramebufferAttachmentDesc desc;
-		desc.pTexture = pSwapChain->GetImage(i);
-		desc.mipTarget = 0;
-		desc.type = PHX::ATTACHMENT_TYPE::COLOR;
-		desc.storeOp = PHX::ATTACHMENT_STORE_OP::STORE;
-		desc.loadOp = PHX::ATTACHMENT_LOAD_OP::CLEAR;
+	//// Allocate new framebuffers
+	//s_framebuffers.resize(pSwapChain->GetImageCount());
+	//for (PHX::u32 i = 0; i < pSwapChain->GetImageCount(); i++)
+	//{
+	//	PHX::FramebufferAttachmentDesc desc;
+	//	desc.pTexture = pSwapChain->GetImage(i);
+	//	desc.mipTarget = 0;
+	//	desc.type = PHX::ATTACHMENT_TYPE::COLOR;
+	//	desc.storeOp = PHX::ATTACHMENT_STORE_OP::STORE;
+	//	desc.loadOp = PHX::ATTACHMENT_LOAD_OP::CLEAR;
 
-		PHX::FramebufferCreateInfo framebufferCI{};
-		framebufferCI.width = desc.pTexture->GetWidth();
-		framebufferCI.height = desc.pTexture->GetHeight();
-		framebufferCI.layers = 1;
-		framebufferCI.pAttachments = &desc;
-		framebufferCI.attachmentCount = 1;
-		if (pRenderDevice->AllocateFramebuffer(framebufferCI, &(s_framebuffers.at(i))) != PHX::STATUS_CODE::SUCCESS)
-		{
-			return false;
-		}
-	}
+	//	PHX::FramebufferDescription framebufferCI{};
+	//	framebufferCI.width = desc.pTexture->GetWidth();
+	//	framebufferCI.height = desc.pTexture->GetHeight();
+	//	framebufferCI.layers = 1;
+	//	framebufferCI.pAttachments = &desc;
+	//	framebufferCI.attachmentCount = 1;
+	//	if (pRenderDevice->AllocateFramebuffer(framebufferCI, &(s_framebuffers.at(i))) != PHX::STATUS_CODE::SUCCESS)
+	//	{
+	//		return false;
+	//	}
+	//}
 
 	return true;
 }
@@ -177,7 +177,7 @@ int main(int argc, char** argv)
 	initSettings.enableValidation = true;
 	initSettings.logCallback = nullptr; // LogCallback;
 	initSettings.swapChainResizedCallback = OnSwapChainResized;
-	if (InitializeGraphics(initSettings, s_pWindow) != STATUS_CODE::SUCCESS)
+	if (Initialize(initSettings, s_pWindow) != STATUS_CODE::SUCCESS)
 	{
 		// Failed to initialize graphics
 		return -1;
@@ -278,19 +278,12 @@ int main(int argc, char** argv)
 	pipelineCI.viewportSize = { s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() };
 	pipelineCI.ppShaders = shaders.data();
 	pipelineCI.shaderCount = static_cast<u32>(shaders.size());
-	pipelineCI.pFramebuffer = s_framebuffers.at(0);
+	//pipelineCI.pFramebuffer = s_framebuffers.at(0);
 	pipelineCI.cullMode = PHX::CULL_MODE::NONE;
 	pipelineCI.pUniformCollection = pUniforms;
 
 	IPipeline* pPipeline = nullptr;
 	if (s_pRenderDevice->AllocateGraphicsPipeline(pipelineCI, &pPipeline) != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
-
-	// DEVICE CONTEXT
-	IDeviceContext* pDeviceContext = nullptr;
-	if (s_pRenderDevice->AllocateDeviceContext({}, &pDeviceContext) != STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
@@ -302,12 +295,6 @@ int main(int argc, char** argv)
 
 	IBuffer* vBuffer = nullptr;
 	if (s_pRenderDevice->AllocateBuffer(bufferCI, &vBuffer) != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
-
-	// Copy over the vertex data to the vertex buffer
-	if (pDeviceContext->CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * VERTEX_COUNT) != STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
@@ -339,6 +326,13 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+	// RENDER GRAPH
+	IRenderGraph* pRenderGraph = nullptr;
+	if (s_pRenderDevice->AllocateRenderGraph(&pRenderGraph) != PHX::STATUS_CODE::SUCCESS)
+	{
+		return -1;
+	}
+
 	// CORE LOOP
 	int i = 0;
 	std::chrono::duration<float> frameBudgetMs(1.0f / 60.0f); // 60FPS
@@ -355,13 +349,10 @@ int main(int argc, char** argv)
 
 		s_pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_pRenderDevice->GetDeviceName(), i++, elapsedMs.count(), 1.0f / elapsedSeconds.count());
 
-		// Draw operations
-		pDeviceContext->BeginFrame(pSwapChain);
+		//pDeviceContext->BeginFrame(pSwapChain);
 
-		u32 currSwapChainImageIndex = i % pSwapChain->GetImageCount();
-
-		auto& currFramebuffer = s_framebuffers.at(currSwapChainImageIndex);
-		pDeviceContext->BeginRenderPass(currFramebuffer, &clearCol, 1);
+		//IFramebuffer* currFramebuffer = s_framebuffers.at(currSwapChainImageIndex);
+		//pDeviceContext->BeginRenderPass(currFramebuffer, &clearCol, 1);
 
 		// Update test UBO
 		test.time += elapsedSeconds.count();
@@ -370,16 +361,36 @@ int main(int argc, char** argv)
 		pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
 		pUniforms->FlushUpdateQueue();
 
-		// auto& newPass = graph.AddPass("HelloTriangle");
-		// newPass.setColorTarget(backbufferTex);
-		// newPass.setExecutionCallback([this](DeviceContext& pDeviceContext)
+		// Draw operations
+		pRenderGraph->Reset();
+
+		u32 currSwapChainImageIndex = i % pSwapChain->GetImageCount();
+		ITexture* backbufferTex = pSwapChain->GetImage(currSwapChainImageIndex);
+
+		IRenderPass* newPass = pRenderGraph->RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS);
+		newPass->SetBackbufferOutput(backbufferTex);
+		newPass->SetExecuteCallback([&](IDeviceContext* pDeviceContext)
+		{
+			test.time += elapsedSeconds.count();
+			uniformBuffer->CopyData(&test, sizeof(TestUBO));
+		 
+			pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
+			pUniforms->FlushUpdateQueue();
+			
+			pDeviceContext->CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * VERTEX_COUNT);
+			pDeviceContext->BindPipeline(pPipeline);
+			pDeviceContext->BindUniformCollection(pUniforms, pPipeline);
+			pDeviceContext->BindVertexBuffer(vBuffer);
+			pDeviceContext->SetScissor({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
+			pDeviceContext->SetViewport({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
+			pDeviceContext->Draw(VERTEX_COUNT);
+		});
+
+		pRenderGraph->Bake(pSwapChain, &clearCol, 1);
+
+		// Represents recording one secondary command buffer
 		//{
-		//	test.time += elapsedSeconds.count();
-		//	uniformBuffer->CopyData(&test, sizeof(TestUBO));
-		// 
-		//	pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
-		//	pUniforms->FlushUpdateQueue();
-		// 
+		//	pDeviceContext->CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * VERTEX_COUNT);
 		//	pDeviceContext->BindPipeline(pPipeline);
 		//	pDeviceContext->BindUniformCollection(pUniforms, pPipeline);
 		//	pDeviceContext->BindVertexBuffer(vBuffer);
@@ -388,21 +399,8 @@ int main(int argc, char** argv)
 		//	pDeviceContext->Draw(VERTEX_COUNT);
 		//}
 
-		// Represents recording one secondary command buffer
-		{
-			pDeviceContext->BindPipeline(pPipeline);
-			pDeviceContext->BindUniformCollection(pUniforms, pPipeline);
-			pDeviceContext->BindVertexBuffer(vBuffer);
-			pDeviceContext->SetScissor({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
-			pDeviceContext->SetViewport({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
-			pDeviceContext->Draw(VERTEX_COUNT);
-		}
-
-		pDeviceContext->EndRenderPass();
-
-		pDeviceContext->Flush();
-
-		//pDeviceContext->TEMP_TransitionTextureToPresentLayout(pSwapChain->GetImage(currSwapChainImageIndex));
+		//pDeviceContext->EndRenderPass();
+		//pDeviceContext->Flush();
 
 		pSwapChain->Present();
 
