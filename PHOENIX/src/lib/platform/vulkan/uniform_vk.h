@@ -14,12 +14,12 @@ namespace PHX
 	{
 	public:
 
-		UniformCollectionVk(RenderDeviceVk* pRenderDevice, const UniformCollectionCreateInfo& createInfo);
+		explicit UniformCollectionVk(RenderDeviceVk* pRenderDevice, const UniformCollectionCreateInfo& createInfo);
 		~UniformCollectionVk();
 
 		u32 GetGroupCount() const override;
-		const UniformDataGroup& GetGroup(u32 groupIndex) const override;
-		UniformDataGroup& GetGroup(u32 groupIndex) override;
+		const UniformDataGroup* GetGroup(u32 groupIndex) const override;
+		UniformDataGroup* GetGroup(u32 groupIndex) override;
 
 		STATUS_CODE QueueBufferUpdate(u32 set, u32 binding, u32 offset, IBuffer* pBuffer) override;
 		STATUS_CODE QueueImageUpdate(u32 set, u32 binding, u32 imageViewIndex, ITexture* pTexture) override;
@@ -33,7 +33,14 @@ namespace PHX
 
 	private:
 
+		void CacheUniformGroupData(const UniformDataGroup* pDataGroups, u32 groupCount);
+
+	private:
+
 		RenderDeviceVk* m_renderDevice;
+
+		std::vector<UniformDataGroup> m_uniformGroups;
+		std::vector<UniformData> m_uniforms;
 
 		std::vector<VkDescriptorSetLayout> m_descriptorSetLayouts;
 		std::vector<VkDescriptorSet> m_descriptorSets;

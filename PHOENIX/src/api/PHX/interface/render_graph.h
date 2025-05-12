@@ -1,5 +1,7 @@
 #pragma once
 
+#include <functional>
+
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
 #include "PHX/interface/swap_chain.h"
@@ -8,7 +10,7 @@
 
 namespace PHX
 {
-	typedef void(*ExecuteRenderPassCallbackFn)(IDeviceContext* pContext);
+	typedef std::function<void(IDeviceContext* pContext, IPipeline* pPipeline)> ExecuteRenderPassCallbackFn;
 
 	enum class BIND_POINT : u8
 	{
@@ -32,6 +34,10 @@ namespace PHX
 		virtual void SetDepthStencilOutput(ITexture* pTexture) = 0;
 		virtual void SetResolveOutput(ITexture* pTexture) = 0;
 		virtual void SetBackbufferOutput(ITexture* pTexture) = 0;
+
+		// Pipeline data
+		virtual void SetPipeline(const GraphicsPipelineDesc& graphicsPipelineDesc) = 0;
+		virtual void SetPipeline(const ComputePipelineDesc& computePipelineDesc) = 0;
 
 		// Callbacks
 		virtual void SetExecuteCallback(ExecuteRenderPassCallbackFn callback) = 0;

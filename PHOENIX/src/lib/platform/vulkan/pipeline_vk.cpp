@@ -17,17 +17,17 @@
 namespace PHX
 {
 
-	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const GraphicsPipelineCreateInfo& createInfo)
+	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, VkRenderPass renderPass, const GraphicsPipelineDesc& createInfo)
 	{
 		if (pRenderDevice == nullptr)
 		{
 			return;
 		}
 
-		CreateGraphicsPipeline(pRenderDevice, cache, createInfo);
+		CreateGraphicsPipeline(pRenderDevice, cache, renderPass, createInfo);
 	}
 
-	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineCreateInfo& createInfo)
+	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineDesc& createInfo)
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -57,7 +57,7 @@ namespace PHX
 		return m_bindPoint;
 	}
 
-	STATUS_CODE PipelineVk::CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const GraphicsPipelineCreateInfo& createInfo)
+	STATUS_CODE PipelineVk::CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, VkRenderPass renderPass, const GraphicsPipelineDesc& createInfo)
 	{
 		STATUS_CODE createInfoRes = VerifyCreateInfo(createInfo);
 		if (createInfoRes != STATUS_CODE::SUCCESS)
@@ -152,7 +152,7 @@ namespace PHX
 		pipelineInfo.pColorBlendState = &colorBlending;
 		pipelineInfo.pDynamicState = &dynamicState;
 		pipelineInfo.layout = m_layout;
-		pipelineInfo.renderPass = vkRenderPass;
+		pipelineInfo.renderPass = renderPass;
 		pipelineInfo.subpass = 0;
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
 		pipelineInfo.basePipelineIndex = -1; // Optional
@@ -169,7 +169,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE PipelineVk::CreateComputePipeline(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineCreateInfo& createInfo)
+	STATUS_CODE PipelineVk::CreateComputePipeline(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineDesc& createInfo)
 	{
 		STATUS_CODE createInfoRes = VerifyCreateInfo(createInfo);
 		if (createInfoRes != STATUS_CODE::SUCCESS)
@@ -202,7 +202,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE PipelineVk::VerifyCreateInfo(const GraphicsPipelineCreateInfo& createInfo)
+	STATUS_CODE PipelineVk::VerifyCreateInfo(const GraphicsPipelineDesc& createInfo)
 	{
 		if (createInfo.pInputAttributes == nullptr)
 		{
@@ -218,7 +218,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE PipelineVk::VerifyCreateInfo(const ComputePipelineCreateInfo& createInfo)
+	STATUS_CODE PipelineVk::VerifyCreateInfo(const ComputePipelineDesc& createInfo)
 	{
 		if (createInfo.pShader == nullptr)
 		{

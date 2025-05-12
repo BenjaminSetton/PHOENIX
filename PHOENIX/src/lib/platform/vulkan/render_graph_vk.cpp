@@ -11,7 +11,7 @@
 
 namespace PHX
 {
-	static const CRC32 s_pReservedBackbufferName = HashCRC32("INTERNAL_backbuffer");
+	static const char* s_pReservedBackbufferName = "INTERNAL_backbuffer";
 
 	//static RenderPassDescription BuildRenderPassDescription(const FramebufferDescription& info)
 	//{
@@ -152,7 +152,8 @@ namespace PHX
 
 	RenderPassVk::~RenderPassVk()
 	{
-		TODO();
+		m_inputResources.clear();
+		m_outputResources.clear();
 	}
 
 	void RenderPassVk::SetTextureInput(ITexture* pTexture)
@@ -161,8 +162,8 @@ namespace PHX
 		ResourceDesc desc{};
 		desc.name = nullptr; // TODO
 		desc.data = pTexture;
-		desc.resourceType = RESOURCE_TYPE::TEXTURE;
 		desc.io = RESOURCE_IO::INPUT;
+		desc.resourceType = RESOURCE_TYPE::TEXTURE;
 		desc.attachmentType = ATTACHMENT_TYPE::COLOR;
 		desc.storeOp = ATTACHMENT_STORE_OP::IGNORE;
 		desc.loadOp = ATTACHMENT_LOAD_OP::LOAD;
@@ -175,8 +176,8 @@ namespace PHX
 		ResourceDesc desc{};
 		desc.name = nullptr; // TODO
 		desc.data = pBuffer;
-		desc.resourceType = RESOURCE_TYPE::BUFFER;
 		desc.io = RESOURCE_IO::INPUT;
+		desc.resourceType = RESOURCE_TYPE::BUFFER;
 
 		// Not a texture resource
 		desc.attachmentType = ATTACHMENT_TYPE::INVALID;
@@ -191,8 +192,8 @@ namespace PHX
 		ResourceDesc desc{};
 		desc.name = nullptr; // TODO
 		desc.data = pUniformCollection;
-		desc.resourceType = RESOURCE_TYPE::UNIFORM;
 		desc.io = RESOURCE_IO::INPUT;
+		desc.resourceType = RESOURCE_TYPE::UNIFORM;
 
 		// Not a texture resource
 		desc.attachmentType = ATTACHMENT_TYPE::INVALID;
@@ -207,8 +208,8 @@ namespace PHX
 		ResourceDesc desc{};
 		desc.name = nullptr; // TODO
 		desc.data = pTexture;
-		desc.resourceType = RESOURCE_TYPE::TEXTURE;
 		desc.io = RESOURCE_IO::OUTPUT;
+		desc.resourceType = RESOURCE_TYPE::TEXTURE;
 		desc.attachmentType = ATTACHMENT_TYPE::COLOR;
 		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
 		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
@@ -221,6 +222,7 @@ namespace PHX
 		ResourceDesc desc{};
 		desc.name = nullptr; // TODO
 		desc.data = pTexture;
+		desc.io = RESOURCE_IO::OUTPUT;
 		desc.resourceType = RESOURCE_TYPE::TEXTURE;
 		desc.attachmentType = ATTACHMENT_TYPE::DEPTH_STENCIL;
 		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
@@ -234,6 +236,7 @@ namespace PHX
 		ResourceDesc desc{};
 		desc.name = nullptr; // TODO
 		desc.data = pTexture;
+		desc.io = RESOURCE_IO::OUTPUT;
 		desc.resourceType = RESOURCE_TYPE::TEXTURE;
 		desc.attachmentType = ATTACHMENT_TYPE::RESOLVE;
 		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
@@ -243,27 +246,42 @@ namespace PHX
 
 	void RenderPassVk::SetBackbufferOutput(ITexture* pTexture)
 	{
-		TODO();
 		ResourceDesc desc{};
 		desc.name = s_pReservedBackbufferName;
 		desc.data = pTexture;
+		desc.io = RESOURCE_IO::OUTPUT;
 		desc.resourceType = RESOURCE_TYPE::TEXTURE;
 		desc.attachmentType = ATTACHMENT_TYPE::COLOR;
 		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
 		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
+
 		m_outputResources.push_back(desc);
+	}
+
+	void RenderPassVk::SetPipeline(const GraphicsPipelineDesc& graphicsPipelineDesc)
+	{
+		graphicsDesc = graphicsPipelineDesc;
+	}
+
+	void RenderPassVk::SetPipeline(const ComputePipelineDesc& computePipelineDesc)
+	{
+		computeDesc = computePipelineDesc;
 	}
 
 	void RenderPassVk::SetExecuteCallback(ExecuteRenderPassCallbackFn callback)
 	{
-		TODO(); // Validate the render pass
-		// If valid, store the callback that the render graph will reference later
+		if (!callback)
+		{
+			LogError("Failed to set execute callback. Callback parameter is null!");
+			return;
+		}
+
 		m_execCallback = callback;
 	}
 
 	//--------------------------------------------------------------------------------------------
 
-	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice)
+	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pReservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName))
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -288,23 +306,36 @@ namespace PHX
 
 	IRenderPass* RenderGraphVk::RegisterPass(const char* passName, BIND_POINT bindPoint)
 	{
-		m_registeredRenderPasses.emplace_back(passName);
+		m_registeredRenderPasses.emplace_back(passName, bindPoint);
 		return &m_registeredRenderPasses.back();
 	}
 
 	STATUS_CODE RenderGraphVk::Bake(ISwapChain* pSwapChain, ClearValues* pClearColors, u32 clearColorCount)
 	{
+		STATUS_CODE res = STATUS_CODE::SUCCESS;
+
 		// Create the render graph tree using the following steps:
 		// 1. Find the render pass that writes to the back-buffer
 
-		CRC32 backBufferCRC = HashCRC32(s_pReservedBackbufferName);
 		int backbufferRPIndex = -1;
 		for (int i = 0; i < m_registeredRenderPasses.size(); i++)
 		{
 			auto& renderPass = m_registeredRenderPasses.at(i);
-			if (renderPass.m_name == backBufferCRC)
+			// Check if any of the render pass's output resources are the backbuffer
+			for (const auto& outputResource : renderPass.m_outputResources)
 			{
-				backbufferRPIndex = i;
+				// TODO - Optimize. We probably want to store the CRC rather than the raw string
+				const CRC32 outputResourceCRC = HashCRC32(outputResource.name);
+				if (outputResourceCRC == m_pReservedBackbufferNameCRC)
+				{
+					backbufferRPIndex = i;
+					break;
+				}
+			}
+
+			if (backbufferRPIndex != -1)
+			{
+				// Found backbuffer render pass index!
 				break;
 			}
 		}
@@ -344,14 +375,19 @@ namespace PHX
 		// TODO - Simply dealing with the backbuffer pass for now
 		// Transition the backbuffer resource to PRESENT layout
 		ASSERT_MSG(backbufferRP.m_outputResources.size() == 1, "Backbuffer render pass doesn't have exactly 1 output resource!"); // TEMP
-		ResourceDesc& backbufferResourceDesc = backbufferRP.m_outputResources.at(0);
-		if (backbufferResourceDesc.resourceType == RESOURCE_TYPE::TEXTURE)
-		{
-			ITexture* backbufferResource = static_cast<ITexture*>(backbufferResourceDesc.data);
-		}
+		//ResourceDesc& backbufferResourceDesc = backbufferRP.m_outputResources.at(0);
+		//if (backbufferResourceDesc.resourceType == RESOURCE_TYPE::TEXTURE)
+		//{
+		//	ITexture* backbufferResource = static_cast<ITexture*>(backbufferResourceDesc.data);
+		//}
 
 		// Use the device context to start/end the frame and all the render passes
-		pDeviceContextVk->BeginFrame(pSwapChain);
+		res = pDeviceContextVk->BeginFrame(pSwapChain);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to bake render graph. Device context could not begin frame!");
+			return res;
+		}
 
 		// for(auto& rp : validRenderPasses)
 
@@ -360,13 +396,34 @@ namespace PHX
 		
 		//		Get or create framebuffer from render device (should refer to internal cache)
 		FramebufferVk* pFramebuffer = CreateFramebuffer(backbufferRP, renderPassVk);
+
+		//		Get or create pipeline from render device (should refer to internal cache)
+		PipelineVk* pPipeline = CreatePipeline(backbufferRP, renderPassVk);
 		
-		pDeviceContextVk->BeginRenderPass(renderPassVk, pFramebuffer, pClearColors, clearColorCount);
+		res = pDeviceContextVk->BeginRenderPass(renderPassVk, pFramebuffer, pClearColors, clearColorCount);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to bake render pass. Device context could not begin render pass!");
+			return res;
+		}
 
-		backbufferRP.m_execCallback(pDeviceContextVk);
+		backbufferRP.m_execCallback(pDeviceContextVk, pPipeline);
 
-		pDeviceContextVk->EndRenderPass();
-		pDeviceContextVk->Flush();
+		res = pDeviceContextVk->EndRenderPass();
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to bake render graph. Device context could not end render pass!");
+			return res;
+		}
+
+		res = pDeviceContextVk->Flush();
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to bake render graph. Device context could not flush!");
+			return res;
+		}
+
+		return res;
 	}
 
 	VkRenderPass RenderGraphVk::CreateRenderPass(const RenderPassVk& renderPass)
@@ -443,7 +500,11 @@ namespace PHX
 				break;
 			}
 			}
+
+			renderPassDesc.attachments.push_back(attDesc);
 		}
+
+		renderPassDesc.subpasses.push_back(subpassDesc); // TODO - Support multiple subpasses
 
 		VkRenderPass renderPassVk = m_renderDevice->CreateRenderPass(renderPassDesc);
 		return renderPassVk;
@@ -454,7 +515,8 @@ namespace PHX
 		std::vector<FramebufferAttachmentDesc> attachments;
 		attachments.reserve(renderPass.m_outputResources.size());
 
-		u32 maxWidth, maxHeight;
+		u32 maxWidth = 0;
+		u32 maxHeight = 0;
 		for (auto& outputResource : renderPass.m_outputResources)
 		{
 			if (outputResource.resourceType != RESOURCE_TYPE::TEXTURE)
@@ -467,7 +529,7 @@ namespace PHX
 			{
 #if defined(PHX_DEBUG)
 				LogError("Failed to create framebuffer for render pass \"%s\"! Output texture resource does not have a valid texture pointer", renderPass.m_debugName);
-#elif
+#else
 				// TODO - Maybe create crc database and convert crc to string for log message?
 				LogError("Failed to create framebuffer for render pass \"%X\"! Output texture resource does not have a valid texture pointer", renderPass.m_name);
 #endif
@@ -480,6 +542,8 @@ namespace PHX
 			desc.type = outputResource.attachmentType;
 			desc.storeOp = outputResource.storeOp;
 			desc.loadOp = outputResource.loadOp;
+
+			attachments.push_back(desc);
 
 			maxWidth = Max(maxWidth, pAttachmentTex->GetWidth());
 			maxHeight = Max(maxHeight, pAttachmentTex->GetHeight());
@@ -494,5 +558,32 @@ namespace PHX
 		framebufferCI.renderPass = renderPassVk;
 		FramebufferVk* pFramebuffer = m_renderDevice->CreateFramebuffer(framebufferCI);
 		return pFramebuffer;
+	}
+
+	PipelineVk* RenderGraphVk::CreatePipeline(const RenderPassVk& renderPass, VkRenderPass renderPassVk)
+	{
+		PipelineVk* pipeline = nullptr;
+
+		BIND_POINT renderPassBindPoint = renderPass.m_bindPoint;
+		switch (renderPassBindPoint)
+		{
+		case BIND_POINT::GRAPHICS:
+		{
+			pipeline = m_renderDevice->CreateGraphicsPipeline(renderPass.graphicsDesc, renderPassVk);
+			break;
+		}
+		case BIND_POINT::COMPUTE:
+		{
+			pipeline = m_renderDevice->CreateComputePipeline(renderPass.computeDesc);
+			break;
+		}
+		default:
+		{
+			ASSERT_ALWAYS("Unknown bind point!");
+			break;
+		}
+		}
+
+		return pipeline;
 	}
 }

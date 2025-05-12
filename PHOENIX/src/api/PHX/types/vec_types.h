@@ -8,7 +8,7 @@ namespace PHX
 {
 	// Only valid for integral types and for vectors holding 2-4 elements
 	template<typename T, unsigned N, class = typename std::enable_if<std::is_integral<T>::value && (N > 1 && N <= 4)>>
-	class VecT
+		class VecT
 	{
 	public:
 		VecT()
@@ -81,6 +81,11 @@ namespace PHX
 		template<class = typename std::enable_if<N == 4>>
 		T GetW() const { return values[3]; }
 
+		constexpr u32 GetSize() const
+		{
+			return N;
+		}
+
 	private:
 
 		T values[N];
@@ -93,14 +98,57 @@ namespace PHX
 
 	// Template type aliases
 	using Vec2f = VecT<float, 2>;
-	using Vec2i = VecT<i32  , 2>;
-	using Vec2u = VecT<u32  , 2>;
+	using Vec2i = VecT<i32, 2>;
+	using Vec2u = VecT<u32, 2>;
 
 	using Vec3f = VecT<float, 3>;
-	using Vec3i = VecT<i32  , 3>;
-	using Vec3u = VecT<u32  , 3>;
+	using Vec3i = VecT<i32, 3>;
+	using Vec3u = VecT<u32, 3>;
 
 	using Vec4f = VecT<float, 4>;
-	using Vec4i = VecT<i32  , 4>;
-	using Vec4u = VecT<u32  , 4>;
+	using Vec4i = VecT<i32, 4>;
+	using Vec4u = VecT<u32, 4>;
+}
+
+#define DEFINE_HASH_2D_VEC(vecType, T)                        \
+template<> struct hash<vecType> {                             \
+	size_t operator()(const vecType& vec) const {             \
+		size_t finalHash =  std::hash<T>()(vec.GetX());       \
+		finalHash       ^= (std::hash<T>()(vec.GetY()) << 1); \
+		return finalHash;                                     \
+	}                                                         \
+};
+
+#define DEFINE_HASH_3D_VEC(vecType, T)                        \
+template<> struct hash<vecType> {                             \
+	size_t operator()(const vecType& vec) const {             \
+		size_t finalHash =  std::hash<T>()(vec.GetX());       \
+		finalHash       ^= (std::hash<T>()(vec.GetY()) << 1); \
+		finalHash       ^= (std::hash<T>()(vec.GetZ()) << 2); \
+		return finalHash;                                     \
+	}                                                         \
+};
+
+#define DEFINE_HASH_4D_VEC(vecType, T)                        \
+template<> struct hash<vecType> {                             \
+	size_t operator()(const vecType& vec) const {             \
+		size_t finalHash =  std::hash<T>()(vec.GetX());       \
+		finalHash       ^= (std::hash<T>()(vec.GetY()) << 1); \
+		finalHash       ^= (std::hash<T>()(vec.GetZ()) << 2); \
+		finalHash       ^= (std::hash<T>()(vec.GetW()) << 3); \
+		return finalHash;                                     \
+	}                                                         \
+};
+// Template specialization to allow vector types to be used in std containers thru std::hash
+namespace std
+{
+	DEFINE_HASH_2D_VEC(PHX::Vec2f, float);
+	DEFINE_HASH_2D_VEC(PHX::Vec2i, PHX::i32);
+	DEFINE_HASH_2D_VEC(PHX::Vec2u, PHX::u32);
+	DEFINE_HASH_3D_VEC(PHX::Vec3f, float);
+	DEFINE_HASH_3D_VEC(PHX::Vec3i, PHX::i32);
+	DEFINE_HASH_3D_VEC(PHX::Vec3u, PHX::u32);
+	DEFINE_HASH_4D_VEC(PHX::Vec4f, float);
+	DEFINE_HASH_4D_VEC(PHX::Vec4i, PHX::i32);
+	DEFINE_HASH_4D_VEC(PHX::Vec4u, PHX::u32);
 }

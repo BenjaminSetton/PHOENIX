@@ -68,18 +68,18 @@ void LogCallback(const char* msg, PHX::LOG_TYPE severity)
 	std::cout << msg << std::endl;
 }
 
-void DeleteSwapChainFramebuffer(PHX::IRenderDevice* pRenderDevice)
-{
+//void DeleteSwapChainFramebuffer(PHX::IRenderDevice* pRenderDevice)
+//{
 	//// Clean up existing framebuffers, if applicable
 	//for (PHX::u32 i = 0; i < s_framebuffers.size(); i++)
 	//{
 	//	pRenderDevice->DeallocateFramebuffer(&(s_framebuffers.at(i)));
 	//}
 	//s_framebuffers.clear();
-}
+//}
 
-bool AllocateSwapChainFramebuffer(PHX::ISwapChain* pSwapChain, PHX::IRenderDevice* pRenderDevice)
-{
+//bool AllocateSwapChainFramebuffer(PHX::ISwapChain* pSwapChain, PHX::IRenderDevice* pRenderDevice)
+//{
 	//// Allocate new framebuffers
 	//s_framebuffers.resize(pSwapChain->GetImageCount());
 	//for (PHX::u32 i = 0; i < pSwapChain->GetImageCount(); i++)
@@ -103,20 +103,20 @@ bool AllocateSwapChainFramebuffer(PHX::ISwapChain* pSwapChain, PHX::IRenderDevic
 	//	}
 	//}
 
-	return true;
-}
+	//return true;
+//}
 
 void OnSwapChainResized(PHX::ISwapChain* pSwapChain)
 {
-	DeleteSwapChainFramebuffer(s_pRenderDevice);
+	//DeleteSwapChainFramebuffer(s_pRenderDevice);
 
 	// Get the new dimensions from the main window, and also re-create the main framebuffer that's linked to the swap chain's images
 	pSwapChain->Resize(s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight());
 
-	if (AllocateSwapChainFramebuffer(pSwapChain, s_pRenderDevice))
-	{
-		// Failed to allocate new framebuffer
-	}
+	//if (AllocateSwapChainFramebuffer(pSwapChain, s_pRenderDevice))
+	//{
+	//	// Failed to allocate new framebuffer
+	//}
 }
 
 [[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::IRenderDevice* pRenderDevice)
@@ -207,10 +207,10 @@ int main(int argc, char** argv)
 	}
 
 	// FRAMEBUFFER
-	if (!AllocateSwapChainFramebuffer(pSwapChain, s_pRenderDevice))
-	{
-		return -1;
-	}
+	//if (!AllocateSwapChainFramebuffer(pSwapChain, s_pRenderDevice))
+	//{
+	//	return -1;
+	//}
 
 	// SHADERS
 	std::string vertShaderName("../src/shaders/vertex_sample.vert");
@@ -244,46 +244,6 @@ int main(int argc, char** argv)
 
 	IUniformCollection* pUniforms = nullptr;
 	if (s_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &pUniforms) != PHX::STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
-
-	// PIPELINE
-	std::vector<InputAttribute> inputAttributes =
-	{
-		// POSITION
-		{
-			0,								// location
-			0,								// binding
-			BASE_FORMAT::R32G32B32A32_FLOAT	// format
-		},
-		// COLOR
-		{
-			1,								// location
-			0,								// binding
-			BASE_FORMAT::R32G32B32A32_FLOAT	// format
-		},
-	};
-
-	std::array<IShader*, 2> shaders =
-	{
-		pVertShader,
-		pFragShader
-	};
-
-	GraphicsPipelineCreateInfo pipelineCI{};
-	pipelineCI.topology = PHX::PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
-	pipelineCI.pInputAttributes = inputAttributes.data();
-	pipelineCI.attributeCount = static_cast<u32>(inputAttributes.size());
-	pipelineCI.viewportSize = { s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() };
-	pipelineCI.ppShaders = shaders.data();
-	pipelineCI.shaderCount = static_cast<u32>(shaders.size());
-	//pipelineCI.pFramebuffer = s_framebuffers.at(0);
-	pipelineCI.cullMode = PHX::CULL_MODE::NONE;
-	pipelineCI.pUniformCollection = pUniforms;
-
-	IPipeline* pPipeline = nullptr;
-	if (s_pRenderDevice->AllocateGraphicsPipeline(pipelineCI, &pPipeline) != STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
@@ -333,6 +293,39 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+	// PIPELINE
+	std::vector<InputAttribute> inputAttributes =
+	{
+		// POSITION
+		{
+			0,								// location
+			0,								// binding
+			BASE_FORMAT::R32G32B32A32_FLOAT	// format
+		},
+		// COLOR
+		{
+			1,								// location
+			0,								// binding
+			BASE_FORMAT::R32G32B32A32_FLOAT	// format
+		},
+	};
+
+	std::array<IShader*, 2> shaders =
+	{
+		pVertShader,
+		pFragShader
+	};
+
+	GraphicsPipelineDesc pipelineDesc{};
+	pipelineDesc.topology = PHX::PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
+	pipelineDesc.pInputAttributes = inputAttributes.data();
+	pipelineDesc.attributeCount = static_cast<u32>(inputAttributes.size());
+	pipelineDesc.viewportSize = { s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() };
+	pipelineDesc.ppShaders = shaders.data();
+	pipelineDesc.shaderCount = static_cast<u32>(shaders.size());
+	pipelineDesc.cullMode = PHX::CULL_MODE::NONE;
+	pipelineDesc.pUniformCollection = pUniforms;
+
 	// CORE LOOP
 	int i = 0;
 	std::chrono::duration<float> frameBudgetMs(1.0f / 60.0f); // 60FPS
@@ -355,11 +348,11 @@ int main(int argc, char** argv)
 		//pDeviceContext->BeginRenderPass(currFramebuffer, &clearCol, 1);
 
 		// Update test UBO
-		test.time += elapsedSeconds.count();
-		uniformBuffer->CopyData(&test, sizeof(TestUBO));
+		//test.time += elapsedSeconds.count();
+		//uniformBuffer->CopyData(&test, sizeof(TestUBO));
 
-		pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
-		pUniforms->FlushUpdateQueue();
+		//pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
+		//pUniforms->FlushUpdateQueue();
 
 		// Draw operations
 		pRenderGraph->Reset();
@@ -369,14 +362,15 @@ int main(int argc, char** argv)
 
 		IRenderPass* newPass = pRenderGraph->RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS);
 		newPass->SetBackbufferOutput(backbufferTex);
-		newPass->SetExecuteCallback([&](IDeviceContext* pDeviceContext)
+		newPass->SetPipeline(pipelineDesc);
+		newPass->SetExecuteCallback([&](IDeviceContext* pDeviceContext, IPipeline* pPipeline)
 		{
+			// Update test UBO
 			test.time += elapsedSeconds.count();
 			uniformBuffer->CopyData(&test, sizeof(TestUBO));
-		 
 			pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
 			pUniforms->FlushUpdateQueue();
-			
+
 			pDeviceContext->CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * VERTEX_COUNT);
 			pDeviceContext->BindPipeline(pPipeline);
 			pDeviceContext->BindUniformCollection(pUniforms, pPipeline);
@@ -387,20 +381,6 @@ int main(int argc, char** argv)
 		});
 
 		pRenderGraph->Bake(pSwapChain, &clearCol, 1);
-
-		// Represents recording one secondary command buffer
-		//{
-		//	pDeviceContext->CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * VERTEX_COUNT);
-		//	pDeviceContext->BindPipeline(pPipeline);
-		//	pDeviceContext->BindUniformCollection(pUniforms, pPipeline);
-		//	pDeviceContext->BindVertexBuffer(vBuffer);
-		//	pDeviceContext->SetScissor({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
-		//	pDeviceContext->SetViewport({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
-		//	pDeviceContext->Draw(VERTEX_COUNT);
-		//}
-
-		//pDeviceContext->EndRenderPass();
-		//pDeviceContext->Flush();
 
 		pSwapChain->Present();
 

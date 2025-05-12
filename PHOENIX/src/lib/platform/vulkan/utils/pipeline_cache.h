@@ -9,39 +9,41 @@ namespace PHX
 {
 	struct GraphicsPipelineDescHasher
 	{
-		size_t operator()(const GraphicsPipelineCreateInfo& desc) const;
+		size_t operator()(const GraphicsPipelineDesc& desc) const;
 	};
 
 	struct ComputePipelineDescHasher
 	{
-		size_t operator()(const ComputePipelineCreateInfo& desc) const;
+		size_t operator()(const ComputePipelineDesc& desc) const;
 	};
 
 	class PipelineCache
 	{
 	public:
 
-		PipelineCache() = default;
-		~PipelineCache() = default;
+		explicit PipelineCache(RenderDeviceVk* pRenderDevice);
+		~PipelineCache();
 
 		PipelineCache(const PipelineCache& other) = delete;
 		PipelineCache& operator=(const PipelineCache& other) = delete;
 
 		// Graphics pipeline
-		PipelineVk* FindOrCreate(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& desc);
-		PipelineVk* Find(const GraphicsPipelineCreateInfo& desc);
-		void Delete(const GraphicsPipelineCreateInfo& desc);
+		PipelineVk* FindOrCreate(RenderDeviceVk* pRenderDevice, VkRenderPass renderPass, const GraphicsPipelineDesc& desc);
+		PipelineVk* Find(const GraphicsPipelineDesc& desc);
+		void Delete(const GraphicsPipelineDesc& desc);
 
 		// Compute pipeline
-		PipelineVk* FindOrCreate(RenderDeviceVk* pRenderDevice, const ComputePipelineCreateInfo& desc);
-		PipelineVk* Find(const ComputePipelineCreateInfo& desc);
-		void Delete(const ComputePipelineCreateInfo& desc);
+		PipelineVk* FindOrCreate(RenderDeviceVk* pRenderDevice, const ComputePipelineDesc& desc);
+		PipelineVk* Find(const ComputePipelineDesc& desc);
+		void Delete(const ComputePipelineDesc& desc);
 
 	private:
 
+		RenderDeviceVk* m_renderDevice;
+
 		// PipelineVk caches
-		std::unordered_map<GraphicsPipelineCreateInfo, PipelineVk*, GraphicsPipelineDescHasher> m_graphicsPipelineCache;
-		std::unordered_map<ComputePipelineCreateInfo, PipelineVk*, ComputePipelineDescHasher> m_computePipelineCache;
+		std::unordered_map<GraphicsPipelineDesc, PipelineVk*, GraphicsPipelineDescHasher> m_graphicsPipelineCache;
+		std::unordered_map<ComputePipelineDesc, PipelineVk*, ComputePipelineDescHasher> m_computePipelineCache;
 
 		// VkPipeline cache
 		VkPipelineCache m_vkCache;

@@ -1,18 +1,16 @@
 #pragma once
 
 #include <bitset>
-//#include <unordered_map>
 #include <vector>
 
+#include "framebuffer_vk.h"
 #include "PHX/interface/render_graph.h"
+#include "pipeline_vk.h"
 #include "utils/crc32.h"
 #include "utils/render_graph_utils.h"
-#include "framebuffer_vk.h"
 
 namespace PHX
 {
-	//static constexpr u32 MAX_RENDER_GRAPH_RESOURCES = 256;
-
 	// Forward declarations
 	class RenderDeviceVk;
 	class RenderGraphVk;
@@ -37,6 +35,10 @@ namespace PHX
 		void SetResolveOutput(ITexture* pTexture) override;
 		void SetBackbufferOutput(ITexture* pTexture) override;
 
+		// Pipeline
+		void SetPipeline(const GraphicsPipelineDesc& graphicsPipelineDesc) override;
+		void SetPipeline(const ComputePipelineDesc& computePipelineDesc) override;
+
 		// Callbacks
 		void SetExecuteCallback(ExecuteRenderPassCallbackFn callback) override;
 
@@ -50,8 +52,11 @@ namespace PHX
 
 		std::vector<ResourceDesc> m_inputResources;
 		std::vector<ResourceDesc> m_outputResources;
-		//std::unordered_map<CRC32, ResourceDesc> m_nameToResource;
 		ExecuteRenderPassCallbackFn m_execCallback;
+
+		// TODO - Consider using union?
+		GraphicsPipelineDesc graphicsDesc;
+		ComputePipelineDesc computeDesc;
 		BIND_POINT m_bindPoint;
 	};
 
@@ -70,11 +75,14 @@ namespace PHX
 
 		VkRenderPass CreateRenderPass(const RenderPassVk& renderPass);
 		FramebufferVk* CreateFramebuffer(const RenderPassVk& renderPass, VkRenderPass renderPassVk);
+		PipelineVk* CreatePipeline(const RenderPassVk& renderPass, VkRenderPass renderPassVk);
 
 	private:
 
 		std::vector<RenderPassVk> m_registeredRenderPasses;
 		std::vector<ResourceDesc> m_registeredResources;
 		RenderDeviceVk* m_renderDevice;
+
+		const CRC32 m_pReservedBackbufferNameCRC;
 	};
 }

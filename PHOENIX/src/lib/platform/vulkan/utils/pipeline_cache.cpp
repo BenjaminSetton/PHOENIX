@@ -1,11 +1,16 @@
 
+#include <vulkan/vk_enum_string_helper.h>
+
 #include "pipeline_cache.h"
 
+#include "../render_device_vk.h"
 #include "utils/cache_utils.h"
+#include "utils/logger.h"
 
 namespace PHX
 {
-	size_t GraphicsPipelineDescHasher::operator()(const GraphicsPipelineCreateInfo& desc) const
+	
+	size_t GraphicsPipelineDescHasher::operator()(const GraphicsPipelineDesc& desc) const
 	{
 		//STATIC_ASSERT_MSG(sizeof(desc) == SOME_SIZE, "If graphics pipeline description changed, make sure to change this hashing function!");
 
@@ -63,8 +68,18 @@ namespace PHX
 		HashCombine(seed, desc.compareOp);
 		HashCombine(seed, desc.enableDepthBoundsTest);
 		HashCombine(seed, desc.enableStencilTest);
-		HashCombine(seed, desc.stencilFront);
-		HashCombine(seed, desc.stencilBack);
+		HashCombine(seed, desc.stencilFront.failOp);
+		HashCombine(seed, desc.stencilFront.passOp);
+		HashCombine(seed, desc.stencilFront.depthFailOp);
+		HashCombine(seed, desc.stencilFront.compareOp);
+		HashCombine(seed, desc.stencilFront.compareMask);
+		HashCombine(seed, desc.stencilFront.reference);
+		HashCombine(seed, desc.stencilBack.failOp);
+		HashCombine(seed, desc.stencilBack.passOp);
+		HashCombine(seed, desc.stencilBack.depthFailOp);
+		HashCombine(seed, desc.stencilBack.compareOp);
+		HashCombine(seed, desc.stencilBack.compareMask);
+		HashCombine(seed, desc.stencilBack.reference);
 		HashCombine(seed, desc.depthBoundsRange);
 
 		// Uniform collection
@@ -75,7 +90,7 @@ namespace PHX
 
 			for (u32 i = 0; i < uniformGroupCount; i++)
 			{
-				const UniformDataGroup& currUniformGroup = desc.pUniformCollection->GetGroup(i);
+				const UniformDataGroup& currUniformGroup = *(desc.pUniformCollection->GetGroup(i));
 				const u32 uniformArrayCount = currUniformGroup.uniformArrayCount;
 
 				HashCombine(seed, currUniformGroup.set);
@@ -114,7 +129,7 @@ namespace PHX
 		return seed;
 	}
 
-	size_t ComputePipelineDescHasher::operator()(const ComputePipelineCreateInfo& desc) const
+	size_t ComputePipelineDescHasher::operator()(const ComputePipelineDesc& desc) const
 	{
 		//STATIC_ASSERT_MSG(sizeof(desc) == SOME_SIZE, "If compute pipeline description changed, make sure to change this hashing function!");
 
@@ -134,7 +149,7 @@ namespace PHX
 
 			for (u32 i = 0; i < uniformGroupCount; i++)
 			{
-				const UniformDataGroup& currUniformGroup = desc.pUniformCollection->GetGroup(i);
+				const UniformDataGroup& currUniformGroup = *(desc.pUniformCollection->GetGroup(i));
 				const u32 uniformArrayCount = currUniformGroup.uniformArrayCount;
 
 				HashCombine(seed, currUniformGroup.set);
@@ -153,17 +168,40 @@ namespace PHX
 				}
 			}
 		}
+
+		return seed;
+	}
+
+	PipelineCache::PipelineCache(RenderDeviceVk* pRenderDevice) : m_renderDevice(pRenderDevice)
+	{
+		VkPipelineCacheCreateInfo cacheCI{};
+		cacheCI.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
+		cacheCI.pNext = nullptr;
+		cacheCI.flags = 0;
+		cacheCI.pInitialData = nullptr;
+		cacheCI.initialDataSize = 0;
+
+		VkResult res = vkCreatePipelineCache(pRenderDevice->GetLogicalDevice(), &cacheCI, nullptr, &m_vkCache);
+		if (res != VK_SUCCESS)
+		{
+			LogError("Failed to create pipeline cache! Got error: \"%s\"", string_VkResult(res));
+		}
+	}
+
+	PipelineCache::~PipelineCache()
+	{
+		vkDestroyPipelineCache(m_renderDevice->GetLogicalDevice(), m_vkCache, nullptr);
 	}
 
 	// GRAPHICS
-	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, const GraphicsPipelineCreateInfo& desc)
+	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, VkRenderPass renderPass, const GraphicsPipelineDesc& desc)
 	{
 		PipelineVk* res = nullptr;
 
 		auto iter = m_graphicsPipelineCache.find(desc);
 		if (iter == m_graphicsPipelineCache.end())
 		{
-			PipelineVk* newPipeline = new PipelineVk(pRenderDevice, m_vkCache, desc);
+			PipelineVk* newPipeline = new PipelineVk(pRenderDevice, m_vkCache, renderPass, desc);
 			m_graphicsPipelineCache.insert({desc, newPipeline});
 			res = newPipeline;
 		}
@@ -175,7 +213,7 @@ namespace PHX
 		return res;
 	}
 
-	PipelineVk* PipelineCache::Find(const GraphicsPipelineCreateInfo& desc)
+	PipelineVk* PipelineCache::Find(const GraphicsPipelineDesc& desc)
 	{
 		auto iter = m_graphicsPipelineCache.find(desc);
 		if (iter != m_graphicsPipelineCache.end())
@@ -186,13 +224,13 @@ namespace PHX
 		return nullptr;
 	}
 
-	void PipelineCache::Delete(const GraphicsPipelineCreateInfo& desc)
+	void PipelineCache::Delete(const GraphicsPipelineDesc& desc)
 	{
 		m_graphicsPipelineCache.erase(desc);
 	}
 
 	// COMPUTE
-	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, const ComputePipelineCreateInfo& desc)
+	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, const ComputePipelineDesc& desc)
 	{
 		PipelineVk* res = nullptr;
 
@@ -211,7 +249,7 @@ namespace PHX
 		return res;
 	}
 
-	PipelineVk* PipelineCache::Find(const ComputePipelineCreateInfo& desc)
+	PipelineVk* PipelineCache::Find(const ComputePipelineDesc& desc)
 	{
 		auto iter = m_computePipelineCache.find(desc);
 		if (iter != m_computePipelineCache.end())
@@ -222,7 +260,7 @@ namespace PHX
 		return nullptr;
 	}
 
-	void PipelineCache::Delete(const ComputePipelineCreateInfo& desc)
+	void PipelineCache::Delete(const ComputePipelineDesc& desc)
 	{
 		m_computePipelineCache.erase(desc);
 	}

@@ -5,15 +5,18 @@
 
 namespace PHX
 {
-	VkPipelineBindPoint ConvertBindPoint(BIND_POINT bindPoint)
+	namespace RG_UTILS
 	{
-		switch (bindPoint)
+		VkPipelineBindPoint ConvertBindPoint(BIND_POINT bindPoint)
 		{
-		case BIND_POINT::GRAPHICS: return VK_PIPELINE_BIND_POINT_GRAPHICS;
-		case BIND_POINT::COMPUTE:  return VK_PIPELINE_BIND_POINT_COMPUTE;
-		}
+			switch (bindPoint)
+			{
+			case BIND_POINT::GRAPHICS: return VK_PIPELINE_BIND_POINT_GRAPHICS;
+			case BIND_POINT::COMPUTE:  return VK_PIPELINE_BIND_POINT_COMPUTE;
+			}
 
-		LogError("Failed to convert bind point to VkPipelineBindPoint");
-		return VK_PIPELINE_BIND_POINT_MAX_ENUM;
+			LogError("Failed to convert bind point to VkPipelineBindPoint");
+			return VK_PIPELINE_BIND_POINT_MAX_ENUM;
+		}
 	}
 }

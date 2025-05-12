@@ -20,7 +20,7 @@ namespace PHX
 		~RenderPassCache() = default;
 
 		VkRenderPass Find(const RenderPassDescription& desc) const;
-		VkRenderPass FindOrCreate(RenderDeviceVk* pRenderDevice, const RenderPassDescription& desc) const;
+		VkRenderPass FindOrCreate(RenderDeviceVk* pRenderDevice, const RenderPassDescription& desc);
 		void Delete(const RenderPassDescription& desc);
 
 	private:

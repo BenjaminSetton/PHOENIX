@@ -1,7 +1,6 @@
 #pragma once
 
 #include "PHX/interface/buffer.h"
-#include "PHX/interface/framebuffer.h"
 #include "PHX/interface/pipeline.h"
 #include "PHX/interface/swap_chain.h"
 #include "PHX/interface/uniform.h"
@@ -26,7 +25,7 @@ namespace PHX
 		virtual STATUS_CODE BindVertexBuffer(IBuffer* pVertexBuffer) = 0;
 		virtual STATUS_CODE BindMesh(IBuffer* pVertexBuffer, IBuffer* pIndexBuffer) = 0;
 		virtual STATUS_CODE BindUniformCollection(IUniformCollection* pUniformCollection, IPipeline* pPipeline) = 0;
-		virtual STATUS_CODE BindPipeline(IPipeline* pPipeline) = 0;
+		virtual STATUS_CODE BindPipeline(IPipeline* pPipeline) = 0; // TODO - Switch over to render graph?
 		virtual STATUS_CODE SetViewport(Vec2u size, Vec2u offset) = 0;
 		virtual STATUS_CODE SetScissor(Vec2u size, Vec2u offset) = 0;
 

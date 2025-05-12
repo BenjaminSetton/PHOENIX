@@ -29,8 +29,6 @@ namespace PHX
 		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer) override;
 		STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, ITexture** out_texture) override;
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader) override;
-		//STATUS_CODE AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
-		//STATUS_CODE AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline) override;
 		STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, IUniformCollection** out_uniformCollection) override;
 
 		void DeallocateDeviceContext(IDeviceContext** pDeviceContext) override;
@@ -48,13 +46,13 @@ namespace PHX
 		void DestroyRenderPass(const RenderPassDescription& desc);
 		VkRenderPass GetRenderPass(const RenderPassDescription& desc) const;
 
-		VkPipeline CreateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo);
-		void DestroyGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo);
-		VkPipeline GetGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo);
+		PipelineVk* CreateGraphicsPipeline(const GraphicsPipelineDesc& desc, VkRenderPass renderPass);
+		void DestroyGraphicsPipeline(const GraphicsPipelineDesc& desc);
+		PipelineVk* GetGraphicsPipeline(const GraphicsPipelineDesc& desc);
 
-		VkPipeline CreateComputePipeline(const ComputePipelineCreateInfo& createInfo);
-		void DestroyComputePipeline(const ComputePipelineCreateInfo& createInfo);
-		VkPipeline GetComputePipeline(const ComputePipelineCreateInfo& createInfo);
+		PipelineVk* CreateComputePipeline(const ComputePipelineDesc& desc);
+		void DestroyComputePipeline(const ComputePipelineDesc& desc);
+		PipelineVk* GetComputePipeline(const ComputePipelineDesc& desc);
 
 		// Getters
 		VkDevice GetLogicalDevice() const;
@@ -99,6 +97,6 @@ namespace PHX
 		// Object caches
 		FramebufferCache m_framebufferCache;
 		RenderPassCache m_renderPassCache;
-		PipelineCache m_pipelineCache;
+		PipelineCache* m_pipelineCache;
 	};
 }

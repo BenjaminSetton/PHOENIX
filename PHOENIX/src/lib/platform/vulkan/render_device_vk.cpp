@@ -118,12 +118,17 @@ namespace PHX
 			return;
 		}
 
+		// Initialize the pipeline cache
+		m_pipelineCache = new PipelineCache(this);
+
 		LogInfo("Successfully constructed Vk device!");
 	}
 
 	RenderDeviceVk::~RenderDeviceVk()
 	{
 		vkDeviceWaitIdle(m_logicalDevice);
+
+		SAFE_DEL(m_pipelineCache);
 
 		// Destroy command pools
 		for (auto& iter : m_commandPools)
@@ -176,18 +181,6 @@ namespace PHX
 		*out_shader = new ShaderVk(this, createInfo);
 		return STATUS_CODE::SUCCESS;
 	}
-
-	//STATUS_CODE RenderDeviceVk::AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline)
-	//{
-	//	*out_pipeline = new PipelineVk(this, createInfo);
-	//	return STATUS_CODE::SUCCESS;
-	//}
-
-	//STATUS_CODE RenderDeviceVk::AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline)
-	//{
-	//	*out_pipeline = new PipelineVk(this, createInfo);
-	//	return STATUS_CODE::SUCCESS;
-	//}
 
 	STATUS_CODE RenderDeviceVk::AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, IUniformCollection** out_uniformCollection)
 	{
@@ -250,60 +243,46 @@ namespace PHX
 		return m_renderPassCache.Find(desc);
 	}
 
-	VkPipeline RenderDeviceVk::CreateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo)
+	PipelineVk* RenderDeviceVk::CreateGraphicsPipeline(const GraphicsPipelineDesc& desc, VkRenderPass renderPass)
 	{
-		PipelineVk* pipeline = m_pipelineCache.FindOrCreate(this, createInfo);
-		if (pipeline != nullptr)
+		PipelineVk* pipeline = m_pipelineCache->FindOrCreate(this, renderPass, desc);
+		if (pipeline == nullptr)
 		{
-			return pipeline->GetPipeline();
+			ASSERT_ALWAYS("Failed to create graphics pipeline!");
 		}
 
-		ASSERT_ALWAYS("Failed to create graphics pipeline!");
-		return VK_NULL_HANDLE;
+		return pipeline;
 	}
 
-	void RenderDeviceVk::DestroyGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo)
+	void RenderDeviceVk::DestroyGraphicsPipeline(const GraphicsPipelineDesc& desc)
 	{
-		m_pipelineCache.Delete(createInfo);
+		m_pipelineCache->Delete(desc);
 	}
 
-	VkPipeline RenderDeviceVk::GetGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo)
+	PipelineVk* RenderDeviceVk::GetGraphicsPipeline(const GraphicsPipelineDesc& desc)
 	{
-		PipelineVk* pipeline = m_pipelineCache.Find(createInfo);
-		if (pipeline != nullptr)
+		return m_pipelineCache->Find(desc);
+	}
+
+	PipelineVk* RenderDeviceVk::CreateComputePipeline(const ComputePipelineDesc& desc)
+	{
+		PipelineVk* pipeline = m_pipelineCache->FindOrCreate(this, desc);
+		if (pipeline == nullptr)
 		{
-			return pipeline->GetPipeline();
+			ASSERT_ALWAYS("Failed to create compute pipeline!");
 		}
 
-		return VK_NULL_HANDLE;
+		return pipeline;
 	}
 
-	VkPipeline RenderDeviceVk::CreateComputePipeline(const ComputePipelineCreateInfo& createInfo)
+	void RenderDeviceVk::DestroyComputePipeline(const ComputePipelineDesc& desc)
 	{
-		PipelineVk* pipeline = m_pipelineCache.FindOrCreate(this, createInfo);
-		if (pipeline != nullptr)
-		{
-			return pipeline->GetPipeline();
-		}
-
-		ASSERT_ALWAYS("Failed to create compute pipeline!");
-		return VK_NULL_HANDLE;
+		m_pipelineCache->Delete(desc);
 	}
 
-	void RenderDeviceVk::DestroyComputePipeline(const ComputePipelineCreateInfo& createInfo)
+	PipelineVk* RenderDeviceVk::GetComputePipeline(const ComputePipelineDesc& desc)
 	{
-		m_pipelineCache.Delete(createInfo);
-	}
-
-	VkPipeline RenderDeviceVk::GetComputePipeline(const ComputePipelineCreateInfo& createInfo)
-	{
-		PipelineVk* pipeline = m_pipelineCache.Find(createInfo);
-		if (pipeline != nullptr)
-		{
-			return pipeline->GetPipeline();
-		}
-
-		return VK_NULL_HANDLE;
+		return m_pipelineCache->Find(desc);
 	}
 
 	VkDevice RenderDeviceVk::GetLogicalDevice() const

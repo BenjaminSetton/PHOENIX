@@ -2,14 +2,14 @@
 
 #include "PHX/types/status_code.h"
 
-#include "buffer.h"
-#include "device_context.h"
-#include "pipeline.h"
-#include "render_graph.h"
-#include "shader.h"
-#include "texture.h"
-#include "uniform.h"
-#include "window.h"
+#include "PHX/interface/buffer.h"
+#include "PHX/interface/device_context.h"
+#include "PHX/interface/pipeline.h"
+#include "PHX/interface/render_graph.h"
+#include "PHX/interface/shader.h"
+#include "PHX/interface/texture.h"
+#include "PHX/interface/uniform.h"
+#include "PHX/interface/window.h"
 
 namespace PHX
 {
@@ -36,8 +36,6 @@ namespace PHX
 		virtual STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer)																												= 0;
 		virtual STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, ITexture** out_texture)	= 0;
 		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)																												= 0;
-		//virtual STATUS_CODE AllocateGraphicsPipeline(const GraphicsPipelineCreateInfo& createInfo, IPipeline** out_pipeline)																						= 0;
-		//virtual STATUS_CODE AllocateComputePipeline(const ComputePipelineCreateInfo& createInfo, IPipeline** out_pipeline)																							= 0;
 		virtual STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, IUniformCollection** out_uniformCollection)																	= 0;
 
 		// Deallocations
@@ -45,7 +43,6 @@ namespace PHX
 		virtual void DeallocateBuffer(IBuffer** pBuffer)									= 0;
 		virtual void DeallocateTexture(ITexture** pTexture)									= 0;
 		virtual void DeallocateShader(IShader** pShader)									= 0;
-		//virtual void DeallocatePipeline(IPipeline** pPipeline)								= 0;
 		virtual void DeallocateUniformCollection(IUniformCollection** pUniformCollection)	= 0;
 	};
 }

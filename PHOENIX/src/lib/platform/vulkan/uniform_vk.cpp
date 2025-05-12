@@ -39,6 +39,7 @@ namespace PHX
 		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
 		m_descriptorSets.resize(createInfo.groupCount);
 		m_descriptorSetLayouts.resize(createInfo.groupCount);
+		m_uniformGroups.reserve(createInfo.groupCount);
 
 		for (u32 i = 0; i < createInfo.groupCount; i++)
 		{
@@ -46,6 +47,8 @@ namespace PHX
 
 			// Create descriptor bindings for each descriptor set
 			const u32 numBindings = dataGroup.uniformArrayCount;
+			m_uniforms.reserve(numBindings);
+
 			std::vector<VkDescriptorSetLayoutBinding> setBindings(numBindings);
 			for (u32 j = 0; j < numBindings; j++)
 			{
@@ -95,6 +98,9 @@ namespace PHX
 		m_writeBufferInfo.reserve(MAX_DESCRIPTOR_WRITE_ARRAY_SIZE);
 		m_writeImageInfo.reserve(MAX_DESCRIPTOR_WRITE_ARRAY_SIZE);
 		m_descriptorWrites.reserve(2 * MAX_DESCRIPTOR_WRITE_ARRAY_SIZE); // Must hold MAX image _and_ buffer write requests
+
+		// Copy the uniform data to internal cache
+		CacheUniformGroupData(createInfo.dataGroups, createInfo.groupCount);
 	}
 
 	UniformCollectionVk::~UniformCollectionVk()
@@ -107,26 +113,27 @@ namespace PHX
 
 	u32 UniformCollectionVk::GetGroupCount() const
 	{
-		TODO();
-		return 0;
+		return static_cast<u32>(m_uniformGroups.size());
 	}
 
-	const UniformDataGroup& UniformCollectionVk::GetGroup(u32 groupIndex) const
+	const UniformDataGroup* UniformCollectionVk::GetGroup(u32 groupIndex) const
 	{
-		TODO();
+		if (groupIndex >= m_uniformGroups.size())
+		{
+			return nullptr;
+		}
 
-		UNUSED(groupIndex);
-		static UniformDataGroup temp;
-		return temp;
+		return &(m_uniformGroups.at(groupIndex));
 	}
 
-	UniformDataGroup& UniformCollectionVk::GetGroup(u32 groupIndex)
+	UniformDataGroup* UniformCollectionVk::GetGroup(u32 groupIndex)
 	{
-		TODO();
+		if (groupIndex >= m_uniformGroups.size())
+		{
+			return nullptr;
+		}
 
-		UNUSED(groupIndex);
-		static UniformDataGroup temp;
-		return temp;
+		return &(m_uniformGroups.at(groupIndex));
 	}
 
 	STATUS_CODE UniformCollectionVk::QueueBufferUpdate(u32 set, u32 binding, u32 offset, IBuffer* pBuffer)
@@ -260,5 +267,39 @@ namespace PHX
 	u32 UniformCollectionVk::GetDescriptorSetLayoutCount() const
 	{
 		return static_cast<u32>(m_descriptorSetLayouts.size());
+	}
+
+	void UniformCollectionVk::CacheUniformGroupData(const UniformDataGroup* pDataGroups, u32 groupCount)
+	{
+		if (pDataGroups == nullptr || groupCount == 0)
+		{
+			return;
+		}
+
+		// Count up the number of uniform groups and uniform data objects
+		const u32 uniformGroupCount = groupCount;
+		u32 uniformDataCount = 0;
+
+		for (u32 i = 0; i < groupCount; i++)
+		{
+			const UniformDataGroup& dataGroup = pDataGroups[i];
+			uniformDataCount += dataGroup.uniformArrayCount;
+		}
+
+		// Cache the uniform data
+		m_uniformGroups.reserve(uniformGroupCount);
+		m_uniforms.reserve(uniformDataCount);
+		for (u32 i = 0; i < groupCount; i++)
+		{
+			UniformDataGroup dataGroup = pDataGroups[i];
+			dataGroup.uniformArray = (m_uniforms.data() + m_uniforms.size()); // Modify the pointer to the internal cache
+			m_uniformGroups.push_back(dataGroup);
+
+			for (u32 j = 0; j < dataGroup.uniformArrayCount; j++)
+			{
+				const UniformData& uniformData = dataGroup.uniformArray[j];
+				m_uniforms.push_back(uniformData);
+			}
+		}
 	}
 }
