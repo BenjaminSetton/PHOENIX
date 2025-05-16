@@ -83,6 +83,8 @@ namespace PHX
 		std::vector<ResourceDesc> m_registeredResources;
 		RenderDeviceVk* m_renderDevice;
 
+		u32 m_frameIndex;
+
 		const CRC32 m_pReservedBackbufferNameCRC;
 	};
 }

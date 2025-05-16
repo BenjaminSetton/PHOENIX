@@ -16,11 +16,9 @@ namespace PHX
 
 	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, IWindow** out_window);
 	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, IRenderDevice** out_renderDevice);
-	STATUS_CODE CreateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain);
 
 	void DestroyWindow(IWindow** pWindow);
 	void DestroyRenderDevice(IRenderDevice** pRenderDevice);
-	void DestroySwapChain(ISwapChain** pSwapChain);
 
 	// UTILS
 	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result);

@@ -9,6 +9,9 @@
 
 namespace PHX
 {
+	// Forward declarations
+	class SwapChainVk;
+
 	class DeviceContextVk : public IDeviceContext
 	{
 	public:
@@ -31,8 +34,8 @@ namespace PHX
 
 		STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) override;
 
-		STATUS_CODE BeginFrame(ISwapChain* pSwapChain);
-		STATUS_CODE Flush();
+		STATUS_CODE BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex);
+		STATUS_CODE Flush(SwapChainVk* pSwapChain, u32 frameIndex);
 
 		STATUS_CODE BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount);
 		STATUS_CODE EndRenderPass();

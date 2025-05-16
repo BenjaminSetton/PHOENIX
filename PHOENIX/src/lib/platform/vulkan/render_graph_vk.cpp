@@ -3,6 +3,7 @@
 
 #include "device_context_vk.h"
 #include "render_device_vk.h"
+#include "swap_chain_vk.h"
 #include "utils/attachment_type_converter.h"
 #include "utils/logger.h"
 #include "utils/math.h"
@@ -281,7 +282,7 @@ namespace PHX
 
 	//--------------------------------------------------------------------------------------------
 
-	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pReservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName))
+	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_frameIndex(0), m_pReservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName))
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -313,6 +314,9 @@ namespace PHX
 	STATUS_CODE RenderGraphVk::Bake(ISwapChain* pSwapChain, ClearValues* pClearColors, u32 clearColorCount)
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
+
+		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(pSwapChain);
+		ASSERT_PTR(swapChainVk);
 
 		// Create the render graph tree using the following steps:
 		// 1. Find the render pass that writes to the back-buffer
@@ -382,7 +386,7 @@ namespace PHX
 		//}
 
 		// Use the device context to start/end the frame and all the render passes
-		res = pDeviceContextVk->BeginFrame(pSwapChain);
+		res = pDeviceContextVk->BeginFrame(swapChainVk, m_frameIndex);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to bake render graph. Device context could not begin frame!");
@@ -416,12 +420,15 @@ namespace PHX
 			return res;
 		}
 
-		res = pDeviceContextVk->Flush();
+		res = pDeviceContextVk->Flush(swapChainVk, m_frameIndex);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to bake render graph. Device context could not flush!");
 			return res;
 		}
+
+		// Now that all the work has been done for the current frame, move onto the next one
+		m_frameIndex = (m_frameIndex + 1) % m_renderDevice->GetFramesInFlight();
 
 		return res;
 	}

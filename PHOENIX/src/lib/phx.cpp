@@ -161,20 +161,6 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE CreateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain)
-	{
-		if (out_swapChain == nullptr)
-		{
-			LogError("Failed to create swap chain! out_swapChain is null");
-			return STATUS_CODE::ERR_API;
-		}
-
-		*out_swapChain = OBJ_FACTORY::CreateSwapChain(createInfo);
-
-		// TODO - Figure out a way to capture errors. Catch exceptions or change OBJ_FACTORY return type?
-		return STATUS_CODE::SUCCESS;
-	}
-
 	void DestroyWindow(IWindow** pWindow)
 	{
 		SAFE_DEL(*pWindow);
@@ -183,11 +169,6 @@ namespace PHX
 	void DestroyRenderDevice(IRenderDevice** pRenderDevice)
 	{
 		SAFE_DEL(*pRenderDevice);
-	}
-
-	void DestroySwapChain(ISwapChain** pSwapChain)
-	{
-		SAFE_DEL(*pSwapChain);
 	}
 
 	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result)

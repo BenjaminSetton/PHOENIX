@@ -2,7 +2,6 @@
 
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/pipeline.h"
-#include "PHX/interface/swap_chain.h"
 #include "PHX/interface/uniform.h"
 #include "PHX/types/clear_color.h"
 #include "PHX/types/integral_types.h"

@@ -13,9 +13,7 @@ namespace PHX
 	namespace OBJ_FACTORY
 	{
 		STATUS_CODE CreateCoreObjects(IWindow* pWindow);
-
 		IWindow* CreateWindow(const WindowCreateInfo& createInfo);
 		IRenderDevice* CreateRenderDevice(const RenderDeviceCreateInfo& createInfo);
-		ISwapChain* CreateSwapChain(const SwapChainCreateInfo& createInfo);
 	}
 }

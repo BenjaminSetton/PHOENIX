@@ -92,12 +92,12 @@ namespace PHX
 		}
 	}
 
-	SwapChainVk::SwapChainVk(const SwapChainCreateInfo& createInfo)
+	SwapChainVk::SwapChainVk(RenderDeviceVk* pRenderDevice, const SwapChainCreateInfo& createInfo)
 	{
-		RenderDeviceVk* renderDevice = static_cast<RenderDeviceVk*>(createInfo.renderDevice);
-		if (createInfo.renderDevice == nullptr)
+		RenderDeviceVk* renderDevice = static_cast<RenderDeviceVk*>(pRenderDevice);
+		if (pRenderDevice == nullptr)
 		{
-			LogError("Render device pointer is null. Failed to create swap chain!");
+			LogError("Failed to create swap chain. Render device pointer is null!");
 			return;
 		}
 
@@ -128,7 +128,7 @@ namespace PHX
 
 	u32 SwapChainVk::GetImageCount() const
 	{
-		return static_cast<u32>(m_images.size());
+		return m_imageCount;
 	}
 
 	u32 SwapChainVk::GetCurrentImageIndex() const
@@ -176,9 +176,8 @@ namespace PHX
 		}
 	}
 
-	STATUS_CODE SwapChainVk::AcquireNextImage()
+	STATUS_CODE SwapChainVk::AcquireNextImage(VkSemaphore imageAvailableSemaphore)
 	{
-		VkSemaphore imageAvailableSemaphore = m_imageAvailableSemaphores[m_currImageIndex];
 		VkResult resVk = vkAcquireNextImageKHR(m_renderDevice->GetLogicalDevice(), m_swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &m_currImageIndex);
 		if (resVk == VK_ERROR_OUT_OF_DATE_KHR || resVk == VK_SUBOPTIMAL_KHR)
 		{
@@ -298,9 +297,10 @@ namespace PHX
 		m_format = surfaceFormat.format;
 		m_width = extent.width;
 		m_height = extent.height;
+		m_imageCount = imageCount;
 
 		// Image views
-		STATUS_CODE res = CreateSwapChainImageViews(pRenderDevice, imageCount, surfaceFormat.format);
+		STATUS_CODE res = CreateSwapChainImageViews(pRenderDevice, surfaceFormat.format);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			DestroySwapChain();
@@ -309,25 +309,17 @@ namespace PHX
 
 		m_currImageIndex = 0;
 
-		// Image available semaphores
-		res = CreateImageAvailableSemaphore(pRenderDevice, imageCount);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			DestroySwapChain();
-			return res;
-		}
-
 		LogInfo("Successfully created swap chain with dimensions %ux%u!", m_width, m_height);
 
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE SwapChainVk::CreateSwapChainImageViews(RenderDeviceVk* pRenderDevice, u32 imageCount, VkFormat imageFormat)
+	STATUS_CODE SwapChainVk::CreateSwapChainImageViews(RenderDeviceVk* pRenderDevice, VkFormat imageFormat)
 	{
 		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
 
-		std::vector<VkImage> swapChainImages(imageCount);
-		vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, swapChainImages.data());
+		std::vector<VkImage> swapChainImages(m_imageCount);
+		vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &m_imageCount, swapChainImages.data());
 
 		VkImageViewCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -340,9 +332,9 @@ namespace PHX
 		createInfo.subresourceRange.layerCount = 1;
 
 		std::vector<VkImageView> imageViews;
-		imageViews.resize(imageCount);
+		imageViews.resize(m_imageCount);
 
-		for (uint32_t i = 0; i < imageCount; i++)
+		for (uint32_t i = 0; i < m_imageCount; i++)
 		{
 			createInfo.image = swapChainImages[i];
 			if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &(imageViews.at(i))) != VK_SUCCESS)
@@ -363,8 +355,8 @@ namespace PHX
 		texBaseCI.sampleFlags = SAMPLE_COUNT::COUNT_1;
 		texBaseCI.format = TEX_UTILS::ConvertSurfaceFormat(m_format);
 
-		m_images.reserve(imageCount);
-		for (u32 i = 0; i < imageCount; i++)
+		m_images.reserve(m_imageCount);
+		for (u32 i = 0; i < m_imageCount; i++)
 		{
 			m_images.push_back(new TextureVk(pRenderDevice, texBaseCI, imageViews.at(i)));
 		}
@@ -396,24 +388,5 @@ namespace PHX
 	bool SwapChainVk::IsValid() const
 	{
 		return (m_swapChain != VK_NULL_HANDLE && m_images.size() > 0);
-	}
-
-	STATUS_CODE SwapChainVk::CreateImageAvailableSemaphore(RenderDeviceVk* pRenderDevice, u32 imageCount)
-	{
-		VkSemaphoreCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-		m_imageAvailableSemaphores.resize(imageCount);
-		for (uint32_t i = 0; i < imageCount; i++)
-		{
-			VkResult res = vkCreateSemaphore(pRenderDevice->GetLogicalDevice(), &createInfo, nullptr, &(m_imageAvailableSemaphores[i]));
-			if (res != VK_SUCCESS)
-			{
-				LogError("Failed to create image available semaphore for image #%u! Got error: \"%s\"", i, string_VkResult(res));
-				return STATUS_CODE::ERR_INTERNAL;
-			}
-		}
-
-		return STATUS_CODE::SUCCESS;
 	}
 }

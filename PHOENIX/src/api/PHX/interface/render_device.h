@@ -19,6 +19,7 @@ namespace PHX
 	{
 		DebugMessageCallbackFn debugMessageCallback = nullptr;
 		IWindow* window								= nullptr;
+		u32 framesInFlight							= 2;
 	};
 
 	class IRenderDevice
@@ -31,6 +32,7 @@ namespace PHX
 		virtual const char* GetDeviceName() const = 0;
 
 		// Allocations
+		virtual STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain)																									= 0;
 		virtual STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext)																					= 0; // TODO - REMOVE
 		virtual STATUS_CODE AllocateRenderGraph(IRenderGraph** out_renderGraph)																																		= 0;
 		virtual STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer)																												= 0;
@@ -39,10 +41,14 @@ namespace PHX
 		virtual STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, IUniformCollection** out_uniformCollection)																	= 0;
 
 		// Deallocations
+		virtual void DeallocateSwapChain(ISwapChain** out_swapChain)						= 0;
 		virtual void DeallocateDeviceContext(IDeviceContext** pDeviceContext)				= 0;
 		virtual void DeallocateBuffer(IBuffer** pBuffer)									= 0;
 		virtual void DeallocateTexture(ITexture** pTexture)									= 0;
 		virtual void DeallocateShader(IShader** pShader)									= 0;
 		virtual void DeallocateUniformCollection(IUniformCollection** pUniformCollection)	= 0;
+
+		// Getters
+		virtual u32 GetFramesInFlight() const = 0;
 	};
 }

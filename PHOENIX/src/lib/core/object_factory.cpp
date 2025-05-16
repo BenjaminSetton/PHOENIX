@@ -86,34 +86,5 @@ namespace PHX
 
 			return nullptr;
 		}
-
-		ISwapChain* CreateSwapChain(const SwapChainCreateInfo& createInfo)
-		{
-			auto& settings = GetSettings();
-			switch (settings.backendAPI)
-			{
-			case GRAPHICS_API::VULKAN:
-			{
-				return new SwapChainVk(createInfo);
-			}
-			case GRAPHICS_API::OPENGL:
-			{
-				TODO();
-				break;
-			}
-			case GRAPHICS_API::DX11:
-			{
-				TODO();
-				break;
-			}
-			case GRAPHICS_API::DX12:
-			{
-				TODO();
-				break;
-			}
-			}
-
-			return nullptr;
-		}
 	}
 }

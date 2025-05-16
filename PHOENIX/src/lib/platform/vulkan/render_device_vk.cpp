@@ -82,9 +82,6 @@ namespace PHX
 	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
 		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_descriptorPool(VK_NULL_HANDLE)
 	{
-		UNUSED(ci);
-		LogWarning("Ignoring render device create info!");
-
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
 
@@ -118,8 +115,14 @@ namespace PHX
 			return;
 		}
 
-		// Initialize the pipeline cache
+		res = AllocateSyncObjects(ci.framesInFlight);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			return;
+		}
+
 		m_pipelineCache = new PipelineCache(this);
+		m_framesInFlight = ci.framesInFlight;
 
 		LogInfo("Successfully constructed Vk device!");
 	}
@@ -129,6 +132,13 @@ namespace PHX
 		vkDeviceWaitIdle(m_logicalDevice);
 
 		SAFE_DEL(m_pipelineCache);
+
+		// Destroy sync objects
+		for (u32 i = 0; i < m_framesInFlight; i++)
+		{
+			vkDestroySemaphore(m_logicalDevice, m_imageAvailableSemaphores[i], nullptr);
+		}
+		m_imageAvailableSemaphores.clear();
 
 		// Destroy command pools
 		for (auto& iter : m_commandPools)
@@ -150,6 +160,12 @@ namespace PHX
 	const char* RenderDeviceVk::GetDeviceName() const 
 	{
 		return m_physicalDeviceProperties.deviceName;
+	}
+
+	STATUS_CODE RenderDeviceVk::AllocateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain)
+	{
+		*out_swapChain = new SwapChainVk(this, createInfo);
+		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE RenderDeviceVk::AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext)
@@ -188,6 +204,11 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	void RenderDeviceVk::DeallocateSwapChain(ISwapChain** pSwapChain)
+	{
+		SAFE_DEL(*pSwapChain);
+	}
+
 	void RenderDeviceVk::DeallocateDeviceContext(IDeviceContext** pDeviceContext)
 	{
 		SAFE_DEL(*pDeviceContext);
@@ -211,6 +232,11 @@ namespace PHX
 	void RenderDeviceVk::DeallocateUniformCollection(IUniformCollection** pUniformCollection)
 	{
 		SAFE_DEL(*pUniformCollection);
+	}
+
+	u32 RenderDeviceVk::GetFramesInFlight() const
+	{
+		return m_framesInFlight;
 	}
 
 	FramebufferVk* RenderDeviceVk::CreateFramebuffer(const FramebufferDescription& desc)
@@ -325,6 +351,16 @@ namespace PHX
 		}
 
 		return iter->second;
+	}
+
+	VkSemaphore RenderDeviceVk::GetImageAvailableSemaphore(u32 index) const
+	{
+		if (index >= m_framesInFlight)
+		{
+			return VK_NULL_HANDLE;
+		}
+
+		return m_imageAvailableSemaphores[index];
 	}
 
 	STATUS_CODE RenderDeviceVk::CreateVMAAllocator()
@@ -527,6 +563,25 @@ namespace PHX
 		{
 			LogError("Failed to create command pool of type %u! Got error: \"%s\"", static_cast<u32>(type), string_VkResult(res));
 			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE RenderDeviceVk::AllocateSyncObjects(u32 framesInFlight)
+	{
+		VkSemaphoreCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+		m_imageAvailableSemaphores.resize(framesInFlight);
+		for (uint32_t i = 0; i < framesInFlight; i++)
+		{
+			VkResult res = vkCreateSemaphore(m_logicalDevice, &createInfo, nullptr, &(m_imageAvailableSemaphores[i]));
+			if (res != VK_SUCCESS)
+			{
+				LogError("Failed to create image available semaphore! Got error: \"%s\"", string_VkResult(res));
+				return STATUS_CODE::ERR_INTERNAL;
+			}
 		}
 
 		return STATUS_CODE::SUCCESS;

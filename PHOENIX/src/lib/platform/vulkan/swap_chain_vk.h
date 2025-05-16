@@ -13,7 +13,7 @@ namespace PHX
 	{
 	public:
 
-		explicit SwapChainVk(const SwapChainCreateInfo& createInfo);
+		explicit SwapChainVk(RenderDeviceVk* pRenderDevice, const SwapChainCreateInfo& createInfo);
 		~SwapChainVk();
 
 		ITexture* GetImage(u32 imageIndex) const override;
@@ -22,7 +22,7 @@ namespace PHX
 		STATUS_CODE Present() override;
 		void Resize(u32 newWidth, u32 newHeight) override;
 
-		STATUS_CODE AcquireNextImage(); // TODO - Expose to API?
+		STATUS_CODE AcquireNextImage(VkSemaphore imageAvailableSemaphore);
 
 		VkSwapchainKHR GetSwapChain() const;
 		VkFormat GetSwapChainFormat() const;
@@ -33,10 +33,9 @@ namespace PHX
 	private:
 
 		STATUS_CODE CreateSwapChain(RenderDeviceVk* pRenderDevice, u32 width, u32 height, bool enableVSync);
-		STATUS_CODE CreateSwapChainImageViews(RenderDeviceVk* pRenderDevice, u32 imageCount, VkFormat imageFormat);
+		STATUS_CODE CreateSwapChainImageViews(RenderDeviceVk* pRenderDevice, VkFormat imageFormat);
 		void DestroySwapChain();
 		bool IsValid() const;
-		STATUS_CODE CreateImageAvailableSemaphore(RenderDeviceVk* pRenderDevice, u32 imageCount);
 
 	private:
 
@@ -48,9 +47,7 @@ namespace PHX
 		u32 m_height;
 		std::vector<TextureVk*> m_images;
 		u32 m_currImageIndex;
+		u32 m_imageCount;
 		bool m_isVSyncEnabled;
-
-		std::vector<VkSemaphore> m_imageAvailableSemaphores;
-
 	};
 }

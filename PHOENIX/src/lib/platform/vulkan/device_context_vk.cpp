@@ -275,7 +275,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::BeginFrame(ISwapChain* pSwapChain)
+	STATUS_CODE DeviceContextVk::BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex)
 	{
 		if (m_pRenderDevice == VK_NULL_HANDLE)
 		{
@@ -291,7 +291,9 @@ namespace PHX
 		}
 
 		STATUS_CODE res;
-		res = swapChainVk->AcquireNextImage();
+
+		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(frameIndex);
+		res = swapChainVk->AcquireNextImage(imageAvailableSemaphore);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to begin frame! Swap chain could not acquire next image");
@@ -328,13 +330,22 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::Flush()
+	STATUS_CODE DeviceContextVk::Flush(SwapChainVk* pSwapChain, u32 frameIndex)
 	{
+		if (pSwapChain == nullptr)
+		{
+			LogError("Failed to flush device context. Swap chain is null!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(frameIndex);
+		VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
 		VkSubmitInfo vkSubmitInfo{};
 		vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		vkSubmitInfo.waitSemaphoreCount = 0; // TODO
-		vkSubmitInfo.pWaitSemaphores = nullptr; // TODO
-		vkSubmitInfo.pWaitDstStageMask = nullptr; // TODO
+		vkSubmitInfo.waitSemaphoreCount = 1;
+		vkSubmitInfo.pWaitSemaphores = &imageAvailableSemaphore;
+		vkSubmitInfo.pWaitDstStageMask = &waitDstFlags;
 		vkSubmitInfo.commandBufferCount = 1;
 		vkSubmitInfo.pCommandBuffers = &m_primaryCmdBuffer;
 		vkSubmitInfo.signalSemaphoreCount = 0; // TODO

@@ -186,6 +186,7 @@ int main(int argc, char** argv)
 	// RENDER DEVICE
 	RenderDeviceCreateInfo renderDeviceCI{};
 	renderDeviceCI.window = s_pWindow;
+	renderDeviceCI.framesInFlight = 3;
 	if (CreateRenderDevice(renderDeviceCI, &s_pRenderDevice) != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create render device
@@ -197,10 +198,9 @@ int main(int argc, char** argv)
 	swapChainCI.enableVSync = true;
 	swapChainCI.width = s_pWindow->GetCurrentWidth();
 	swapChainCI.height = s_pWindow->GetCurrentHeight();
-	swapChainCI.renderDevice = s_pRenderDevice;
 
 	ISwapChain* pSwapChain = nullptr;
-	if (CreateSwapChain(swapChainCI, &pSwapChain) != STATUS_CODE::SUCCESS)
+	if (s_pRenderDevice->AllocateSwapChain(swapChainCI, &pSwapChain) != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create swap chain
 		return -1;
@@ -397,9 +397,9 @@ int main(int argc, char** argv)
 	// Clean up
 	s_pRenderDevice->DeallocateBuffer(&uniformBuffer);
 	s_pRenderDevice->DeallocateBuffer(&vBuffer);
+	s_pRenderDevice->DeallocateSwapChain(&pSwapChain);
 
 	// Clean up core objects
-	DestroySwapChain(&pSwapChain);
 	DestroyRenderDevice(&s_pRenderDevice);
 	DestroyWindow(&s_pWindow);
 }

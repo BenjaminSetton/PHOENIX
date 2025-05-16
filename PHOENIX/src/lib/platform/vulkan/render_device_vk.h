@@ -24,6 +24,7 @@ namespace PHX
 
 		const char* GetDeviceName() const;
 
+		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain) override;
 		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext) override; // TODO - REMOVE
 		STATUS_CODE AllocateRenderGraph(IRenderGraph** out_renderGraph) override;
 		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer) override;
@@ -31,11 +32,14 @@ namespace PHX
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader) override;
 		STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, IUniformCollection** out_uniformCollection) override;
 
+		void DeallocateSwapChain(ISwapChain** pSwapChain) override;
 		void DeallocateDeviceContext(IDeviceContext** pDeviceContext) override;
 		void DeallocateBuffer(IBuffer** pBuffer) override;
 		void DeallocateTexture(ITexture** pTexture) override;
 		void DeallocateShader(IShader** pShader) override;
 		void DeallocateUniformCollection(IUniformCollection** pUniformCollection) override;
+
+		u32 GetFramesInFlight() const override;
 
 		// Cached creation calls - vulkan only
 		FramebufferVk* CreateFramebuffer(const FramebufferDescription& desc);
@@ -61,6 +65,7 @@ namespace PHX
 		VkDescriptorPool GetDescriptorPool() const;
 		VkCommandPool GetCommandPool(QUEUE_TYPE type) const;
 		VkQueue GetQueue(QUEUE_TYPE type) const;
+		VkSemaphore GetImageAvailableSemaphore(u32 index) const;
 
 	private:
 
@@ -74,6 +79,8 @@ namespace PHX
 		STATUS_CODE AllocateCommandPools();
 		STATUS_CODE AllocateCommandPool_Helper(QUEUE_TYPE type, VkCommandPoolCreateFlags flags);
 
+		STATUS_CODE AllocateSyncObjects(u32 framesInFlight);
+
 	private:
 
 		VmaAllocator m_allocator;
@@ -82,6 +89,8 @@ namespace PHX
 		VkPhysicalDevice m_physicalDevice;
 		std::unordered_map<QUEUE_TYPE, VkQueue> m_queues;
 		QueueFamilyIndices m_queueFamilyIndices;
+
+		u32 m_framesInFlight;
 
 		// Physical device cache
 		VkPhysicalDeviceProperties m_physicalDeviceProperties;
@@ -98,5 +107,8 @@ namespace PHX
 		FramebufferCache m_framebufferCache;
 		RenderPassCache m_renderPassCache;
 		PipelineCache* m_pipelineCache;
+
+		// Sync objects
+		std::vector<VkSemaphore> m_imageAvailableSemaphores;
 	};
 }
