@@ -11,6 +11,57 @@
 
 namespace PHX
 {
+	FramebufferDescription::~FramebufferDescription()
+	{
+		if (shouldDeleteAttachments)
+		{
+			SAFE_DEL(pAttachments);
+		}
+	}
+
+	FramebufferDescription::FramebufferDescription(const FramebufferDescription& other) : 
+		width(other.width), height(other.height), layers(other.layers), renderPass(other.renderPass), attachmentCount(other.attachmentCount)
+	{
+		// Deep copy attachments
+		pAttachments = new FramebufferAttachmentDesc[attachmentCount];
+		for (u32 i = 0; i < attachmentCount; i++)
+		{
+			pAttachments[i] = other.pAttachments[i];
+		}
+
+		shouldDeleteAttachments = true;
+	}
+
+	FramebufferDescription& FramebufferDescription::operator=(const FramebufferDescription& other)
+	{
+		if (this == &other)
+		{
+			return *this;
+		}
+
+		width = other.width;
+		height = other.height;
+		layers = other.layers;
+		renderPass = other.renderPass;
+		attachmentCount = other.attachmentCount;
+
+		// Deep copy attachments
+		if (pAttachments != nullptr)
+		{
+			SAFE_DEL(pAttachments);
+		}
+
+		pAttachments = new FramebufferAttachmentDesc[attachmentCount];
+		for (u32 i = 0; i < attachmentCount; i++)
+		{
+			pAttachments[i] = other.pAttachments[i];
+		}
+
+		shouldDeleteAttachments = true;
+
+		return *this;
+	}
+
 	bool FramebufferDescription::operator==(const FramebufferDescription& other) const
 	{
 		const bool isBaseDataValid = (width == other.width)						&&
@@ -30,7 +81,7 @@ namespace PHX
 			const FramebufferAttachmentDesc& thisAtt = pAttachments[i];
 			const FramebufferAttachmentDesc& otherAtt = other.pAttachments[i];
 
-			//allAttachmentsEqual &= (thisAtt.pTexture == otherAtt.pTexture); // Ignore texture pointer
+			allAttachmentsEqual &= (thisAtt.pTexture == otherAtt.pTexture);
 			allAttachmentsEqual &= (thisAtt.mipTarget == otherAtt.mipTarget);
 			allAttachmentsEqual &= (thisAtt.type == otherAtt.type);
 			allAttachmentsEqual &= (thisAtt.loadOp == otherAtt.loadOp);
@@ -39,6 +90,8 @@ namespace PHX
 
 		return allAttachmentsEqual;
 	}
+
+	/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	FramebufferVk::FramebufferVk(RenderDeviceVk* pRenderDevice, const FramebufferDescription& desc)
 	{
@@ -89,6 +142,21 @@ namespace PHX
 		m_height = desc.height;
 		m_layers = desc.layers;
 		m_renderPass = desc.renderPass;
+
+		// Log creation info
+#if defined(PHX_DEBUG)
+		LogDebug("FRAMEBUFFER CREATED: %u width, %u height, %u layers, %u attachments", m_width, m_height, m_layers, desc.attachmentCount);
+		for (u32 i = 0; i < desc.attachmentCount; i++)
+		{
+			const FramebufferAttachmentDesc& attachmentDesc = desc.pAttachments[i];
+
+			LogDebug("\tAttachment %u", i);
+			LogDebug("\t- Texture ptr: %p", attachmentDesc.pTexture);
+			LogDebug("\t- Mip target: %u", attachmentDesc.mipTarget);
+			LogDebug("\t- Load op: %s", string_VkAttachmentLoadOp(ATT_UTILS::ConvertLoadOp(attachmentDesc.loadOp)));
+			LogDebug("\t- Store op: %s", string_VkAttachmentStoreOp(ATT_UTILS::ConvertStoreOp(attachmentDesc.storeOp)));
+		}
+#endif
 	}
 
 	FramebufferVk::~FramebufferVk()

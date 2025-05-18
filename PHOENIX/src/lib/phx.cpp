@@ -10,6 +10,14 @@
 #include "utils/logger.h"
 #include "utils/sanity.h"
 
+// TEMP
+void* operator new(size_t size)
+{
+	void* p = malloc(size);
+	return p;
+}
+// TEMP
+
 // TODO - Move into own shader_compiler.h or something...
 static void GetDefaultShaderResources(TBuiltInResource& resources)
 {
@@ -129,6 +137,8 @@ namespace PHX
 		{
 			return coreObjStatus;
 		}
+
+		LogWarning("TODO - Waiting for transfer queue to be idle when copying data to buffer");
 
 		return STATUS_CODE::SUCCESS;
 	}

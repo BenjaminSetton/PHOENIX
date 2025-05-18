@@ -16,7 +16,7 @@ namespace PHX
 		explicit SwapChainVk(RenderDeviceVk* pRenderDevice, const SwapChainCreateInfo& createInfo);
 		~SwapChainVk();
 
-		ITexture* GetImage(u32 imageIndex) const override;
+		ITexture* GetCurrentImage() const override;
 		u32 GetImageCount() const override;
 		u32 GetCurrentImageIndex() const override;
 		STATUS_CODE Present() override;

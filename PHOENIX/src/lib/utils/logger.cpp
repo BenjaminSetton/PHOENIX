@@ -113,4 +113,13 @@ namespace PHX
 	{
 		LOG_FORMAT_CODE(LOG_TYPE::INFO);
 	}
+
+	void LogDebug(const char* format, ...)
+	{
+#if defined(PHX_DEBUG)
+		LOG_FORMAT_CODE(LOG_TYPE::DBG);
+#elif
+		UNUSED(format);
+#endif
+	}
 }

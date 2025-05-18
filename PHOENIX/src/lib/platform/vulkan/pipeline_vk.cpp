@@ -122,23 +122,6 @@ namespace PHX
 			createInfo.depthBiasClamp, 
 			createInfo.depthBiasSlopeFactor);
 
-		// TODO
-		// 
-		//FramebufferVk* pFramebuffer = dynamic_cast<FramebufferVk*>(createInfo.pFramebuffer);
-		//VkRenderPass vkRenderPass = RenderPassCache::Get().Find(pFramebuffer->GetRenderPassDescription());
-		//if (vkRenderPass == VK_NULL_HANDLE)
-		//{
-		//	LogError("Failed to create pipeline! Render pass associated with framebuffer object is invalid!");
-		//	return STATUS_CODE::ERR_INTERNAL;
-		//}
-
-		//  ----- Build a render pass description and request it from the render device.
-		// Actually I don't even think we can do that because pipelines are created before
-		// the render graph has a chance to create new render passes :/
-		RenderPassDescription renderPassDesc{};
-		//
-		// TODO
-
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = static_cast<u32>(shaderStages.size());
@@ -165,6 +148,28 @@ namespace PHX
 		}
 
 		m_bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+
+#if defined(PHX_DEBUG)
+		LogDebug("GRAPHICS PIPELINE CREATED: %u stages", pipelineInfo.stageCount);
+		for (u32 i = 0; i < pipelineInfo.stageCount; i++)
+		{
+			const VkPipelineShaderStageCreateInfo& shaderStage = shaderStages[i];
+			LogDebug("\tShader stage %u (%s)", i, string_VkShaderStageFlagBits(shaderStage.stage));
+			LogDebug("\t- Name: %s", shaderStage.pName);
+		}
+		LogDebug("\tPrimitive topology: %s", string_VkPrimitiveTopology(inputAssembly.topology));
+		LogDebug("\tViewport position: (%2.3f, %2.3f)", viewport.x, viewport.y);
+		LogDebug("\tViewport size: (%2.3f, %2.3f)", viewport.width, viewport.height);
+		LogDebug("\tScissor position: (%i, %i)", scissor.offset.x, scissor.offset.y);
+		LogDebug("\tScissor size: (%u, %u)", scissor.extent.width, scissor.extent.height);
+		LogDebug("\tMultisampling samples: %u", multisampling.rasterizationSamples);
+		LogDebug("\tFront face: %s", string_VkFrontFace(rasterizer.frontFace));
+		LogDebug("\tPolygon mode: %s", string_VkPolygonMode(rasterizer.polygonMode));
+		LogDebug("\tLine width: %u", rasterizer.lineWidth);
+		LogDebug("\tRasterizer discard: %s", rasterizer.rasterizerDiscardEnable ? "true" : "false");
+		LogDebug("\tLayout ptr: %p", pipelineInfo.layout);
+		LogDebug("\tRender pass: %p", pipelineInfo.renderPass);
+#endif
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -198,6 +203,12 @@ namespace PHX
 		}
 
 		m_bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
+
+#if defined(PHX_DEBUG)
+		LogDebug("COMPUTE PIPELINE CREATED");
+		LogDebug("\tShader name: %s", pipelineInfo.stage.pName);
+		LogDebug("\tLayout ptr: %p", pipelineInfo.layout);
+#endif
 
 		return STATUS_CODE::SUCCESS;
 	}

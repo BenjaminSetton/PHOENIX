@@ -160,7 +160,7 @@ namespace PHX
 		}
 
 		// UNIFORMS
-		if (CanPointersBeUsedForComparison(pUniformCollection, other.pUniformCollection))
+		if (!CanPointersBeUsedForComparison(pUniformCollection, other.pUniformCollection))
 		{
 			return false;
 		}

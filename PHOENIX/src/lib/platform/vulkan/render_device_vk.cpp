@@ -136,8 +136,10 @@ namespace PHX
 		// Destroy sync objects
 		for (u32 i = 0; i < m_framesInFlight; i++)
 		{
+			vkDestroyFence(m_logicalDevice, m_inFlightFences[i], nullptr);
 			vkDestroySemaphore(m_logicalDevice, m_imageAvailableSemaphores[i], nullptr);
 		}
+		m_inFlightFences.clear();
 		m_imageAvailableSemaphores.clear();
 
 		// Destroy command pools
@@ -363,6 +365,16 @@ namespace PHX
 		return m_imageAvailableSemaphores[index];
 	}
 
+	VkFence RenderDeviceVk::GetInFlightFence(u32 index) const
+	{
+		if (index >= m_framesInFlight)
+		{
+			return VK_NULL_HANDLE;
+		}
+
+		return m_inFlightFences[index];
+	}
+
 	STATUS_CODE RenderDeviceVk::CreateVMAAllocator()
 	{
 		VmaAllocatorCreateInfo info{};
@@ -570,16 +582,35 @@ namespace PHX
 
 	STATUS_CODE RenderDeviceVk::AllocateSyncObjects(u32 framesInFlight)
 	{
-		VkSemaphoreCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		VkResult res = VK_SUCCESS;
+
+		VkSemaphoreCreateInfo semaphoreCI{};
+		semaphoreCI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+		VkFenceCreateInfo fenceCI{};
+		fenceCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		// Creates the fence on the signaled state so we don't block on this fence for
+		// the first frame (when we don't have any previous frames to wait on)
+		fenceCI.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
 		m_imageAvailableSemaphores.resize(framesInFlight);
+		m_inFlightFences.resize(framesInFlight);
+
 		for (uint32_t i = 0; i < framesInFlight; i++)
 		{
-			VkResult res = vkCreateSemaphore(m_logicalDevice, &createInfo, nullptr, &(m_imageAvailableSemaphores[i]));
+			// IMAGE AVAILABLE SEMAPHORE
+			res = vkCreateSemaphore(m_logicalDevice, &semaphoreCI, nullptr, &(m_imageAvailableSemaphores[i]));
 			if (res != VK_SUCCESS)
 			{
 				LogError("Failed to create image available semaphore! Got error: \"%s\"", string_VkResult(res));
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+
+			// IN-FLIGHT FENCE
+			res = vkCreateFence(m_logicalDevice, &fenceCI, nullptr, &(m_inFlightFences[i]));
+			if (res != VK_SUCCESS)
+			{
+				LogError("Failed to create in-flight fence! Got error: \"%s\"", string_VkResult(res));
 				return STATUS_CODE::ERR_INTERNAL;
 			}
 		}

@@ -116,14 +116,9 @@ namespace PHX
 		DestroySwapChain();
 	}
 
-	ITexture* SwapChainVk::GetImage(u32 imageIndex) const
+	ITexture* SwapChainVk::GetCurrentImage() const
 	{
-		if (imageIndex < m_images.size())
-		{
-			return m_images[imageIndex];
-		}
-
-		return nullptr;
+		return m_images[m_currImageIndex];
 	}
 
 	u32 SwapChainVk::GetImageCount() const

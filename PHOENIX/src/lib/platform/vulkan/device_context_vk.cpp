@@ -30,7 +30,12 @@ namespace PHX
 
 	DeviceContextVk::~DeviceContextVk()
 	{
-		TODO();
+		DestroyCommandBuffer(m_primaryCmdBuffer);
+		for (auto& cmdBuffer : m_cmdBuffers)
+		{
+			DestroyCommandBuffer(cmdBuffer);
+		}
+		m_cmdBuffers.clear();
 	}
 
 	STATUS_CODE DeviceContextVk::BindVertexBuffer(IBuffer* pVertexBuffer)
@@ -269,7 +274,6 @@ namespace PHX
 
 		vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
 
-		LogWarning("Waiting for transfer queue to be idle when copying data to buffer");
 		vkQueueWaitIdle(transferQueue);
 
 		return STATUS_CODE::SUCCESS;
@@ -292,7 +296,12 @@ namespace PHX
 
 		STATUS_CODE res;
 
+		VkFence inFlightFence = m_pRenderDevice->GetInFlightFence(frameIndex);
 		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(frameIndex);
+
+		// Wait until rendering is done for the last frame-in-flight with the same index
+		vkWaitForFences(m_pRenderDevice->GetLogicalDevice(), 1, &inFlightFence, VK_TRUE, UINT64_MAX);
+
 		res = swapChainVk->AcquireNextImage(imageAvailableSemaphore);
 		if (res != STATUS_CODE::SUCCESS)
 		{
@@ -316,6 +325,9 @@ namespace PHX
 		}
 		m_primaryCmdBuffer = cmdBuffer;
 
+		// Only reset the fence if we're submitting work, otherwise we might deadlock
+		vkResetFences(m_pRenderDevice->GetLogicalDevice(), 1, &inFlightFence);
+
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Is this right?
@@ -338,6 +350,7 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		VkFence inFlightFence = m_pRenderDevice->GetInFlightFence(frameIndex);
 		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(frameIndex);
 		VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
@@ -352,7 +365,7 @@ namespace PHX
 		vkSubmitInfo.pSignalSemaphores = nullptr; // TODO
 
 		VkQueue graphicsQueue = m_pRenderDevice->GetQueue(QUEUE_TYPE::GRAPHICS);
-		VkResult res = vkQueueSubmit(graphicsQueue, 1, &vkSubmitInfo, VK_NULL_HANDLE);
+		VkResult res = vkQueueSubmit(graphicsQueue, 1, &vkSubmitInfo, inFlightFence);
 		if (res != VK_SUCCESS)
 		{
 			LogError("Failed to flush command buffers! Submit call failed with error: %s", string_VkResult(res));

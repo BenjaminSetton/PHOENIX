@@ -24,6 +24,13 @@ namespace PHX
 
 	struct FramebufferDescription
 	{
+		FramebufferDescription() = default;
+		~FramebufferDescription();
+
+		FramebufferDescription(const FramebufferDescription& desc);
+		FramebufferDescription& operator=(const FramebufferDescription& desc);
+		bool operator==(const FramebufferDescription& other) const;
+
 		u32 width = 0;
 		u32 height = 0;
 		u32 layers = 0;
@@ -31,9 +38,8 @@ namespace PHX
 		u32 attachmentCount = 0;
 		VkRenderPass renderPass;
 
-		////////
-		bool operator==(const FramebufferDescription& other) const;
-		////////
+		// INTERNAL
+		bool shouldDeleteAttachments = false;
 	};
 
 	class FramebufferVk

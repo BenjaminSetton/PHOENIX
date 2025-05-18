@@ -259,14 +259,6 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
-	//for (u32 i = 0; i < pSwapChain->GetImageCount(); i++)
-	//{
-	//	if (pDeviceContext->TEMP_TransitionTextureToGeneralLayout(pSwapChain->GetImage(i)) != PHX::STATUS_CODE::SUCCESS)
-	//	{
-	//		return -1;
-	//	}
-	//}
-
 	// Just clear the color attachment, no depth/stencil
 	ClearValues clearCol{};
 	clearCol.color.color = { 0.1f, 0.1f, 0.1f, 0.0f };
@@ -339,27 +331,12 @@ int main(int argc, char** argv)
 		timeStart = std::chrono::high_resolution_clock::now();
 
 		s_pWindow->Update(0.13f);
-
-		s_pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_pRenderDevice->GetDeviceName(), i++, elapsedMs.count(), 1.0f / elapsedSeconds.count());
-
-		//pDeviceContext->BeginFrame(pSwapChain);
-
-		//IFramebuffer* currFramebuffer = s_framebuffers.at(currSwapChainImageIndex);
-		//pDeviceContext->BeginRenderPass(currFramebuffer, &clearCol, 1);
-
-		// Update test UBO
-		//test.time += elapsedSeconds.count();
-		//uniformBuffer->CopyData(&test, sizeof(TestUBO));
-
-		//pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
-		//pUniforms->FlushUpdateQueue();
+		s_pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_pRenderDevice->GetDeviceName(), i, elapsedMs.count(), 1.0f / elapsedSeconds.count());
 
 		// Draw operations
 		pRenderGraph->Reset();
 
-		u32 currSwapChainImageIndex = i % pSwapChain->GetImageCount();
-		ITexture* backbufferTex = pSwapChain->GetImage(currSwapChainImageIndex);
-
+		ITexture* backbufferTex = pSwapChain->GetCurrentImage();
 		IRenderPass* newPass = pRenderGraph->RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS);
 		newPass->SetBackbufferOutput(backbufferTex);
 		newPass->SetPipeline(pipelineDesc);
@@ -392,6 +369,8 @@ int main(int argc, char** argv)
 		}
 
 		timeEnd = std::chrono::high_resolution_clock::now();
+
+		i++;
 	}
 
 	// Clean up

@@ -66,6 +66,7 @@ namespace PHX
 		VkCommandPool GetCommandPool(QUEUE_TYPE type) const;
 		VkQueue GetQueue(QUEUE_TYPE type) const;
 		VkSemaphore GetImageAvailableSemaphore(u32 index) const;
+		VkFence GetInFlightFence(u32 index) const;
 
 	private:
 
@@ -110,5 +111,6 @@ namespace PHX
 
 		// Sync objects
 		std::vector<VkSemaphore> m_imageAvailableSemaphores;
+		std::vector<VkFence> m_inFlightFences;
 	};
 }

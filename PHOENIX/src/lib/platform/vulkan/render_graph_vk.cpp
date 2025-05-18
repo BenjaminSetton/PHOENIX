@@ -367,7 +367,7 @@ namespace PHX
 		// 3. Insert resource barriers and/or perform layout transitions as necessary
 		// 4. Call the execute callback and pass in the device context
 		IDeviceContext* pDeviceContext = nullptr;
-		if (m_renderDevice->AllocateDeviceContext({}, &pDeviceContext) != STATUS_CODE::SUCCESS)
+		if (m_renderDevice->AllocateDeviceContext({}, &pDeviceContext) != STATUS_CODE::SUCCESS) // TODO - Find more efficient way to handle device contexts
 		{
 			LogError("Failed to bake render graph! Device context creation failed");
 			return STATUS_CODE::ERR_INTERNAL;
@@ -430,6 +430,9 @@ namespace PHX
 		// Now that all the work has been done for the current frame, move onto the next one
 		m_frameIndex = (m_frameIndex + 1) % m_renderDevice->GetFramesInFlight();
 
+		// TODO - Find more efficient way to handle device contexts
+		m_renderDevice->DeallocateDeviceContext(&pDeviceContext);
+
 		return res;
 	}
 
@@ -441,9 +444,10 @@ namespace PHX
 
 		SubpassDescription subpassDesc{};
 		subpassDesc.bindPoint = RG_UTILS::ConvertBindPoint(renderPass.m_bindPoint);
-		subpassDesc.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // TODO - optimize
-		subpassDesc.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT; // TODO - optimize
-		subpassDesc.dstAccessMask = VK_ACCESS_NONE;
+		subpassDesc.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+		subpassDesc.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+		subpassDesc.srcAccessMask = VK_ACCESS_NONE;
+		subpassDesc.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
 		for (u32 i = 0; i < renderPass.m_outputResources.size(); i++)
 		{
