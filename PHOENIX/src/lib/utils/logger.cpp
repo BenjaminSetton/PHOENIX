@@ -4,6 +4,7 @@
 #include <time.h>
 
 #include "logger.h"
+#include "sanity.h"
 
 #include "PHX/types/integral_types.h"
 
@@ -118,7 +119,7 @@ namespace PHX
 	{
 #if defined(PHX_DEBUG)
 		LOG_FORMAT_CODE(LOG_TYPE::DBG);
-#elif
+#else
 		UNUSED(format);
 #endif
 	}

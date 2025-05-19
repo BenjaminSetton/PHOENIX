@@ -121,6 +121,8 @@ void OnSwapChainResized(PHX::ISwapChain* pSwapChain)
 
 [[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::IRenderDevice* pRenderDevice)
 {
+	PHX::STATUS_CODE result = PHX::STATUS_CODE::SUCCESS;
+
 	std::ifstream shaderFile;
 	shaderFile.open(shaderName, std::ios::in);
 	if (!shaderFile.is_open())
@@ -138,7 +140,8 @@ void OnSwapChainResized(PHX::ISwapChain* pSwapChain)
 	shaderSrc.optimizationLevel = PHX::SHADER_OPTIMIZATION_LEVEL::NONE;
 
 	PHX::CompiledShader shaderRes;
-	if (CompileShader(shaderSrc, shaderRes) != PHX::STATUS_CODE::SUCCESS)
+	result = CompileShader(shaderSrc, shaderRes);
+	if (result != PHX::STATUS_CODE::SUCCESS)
 	{
 		return nullptr;
 	}
@@ -149,7 +152,8 @@ void OnSwapChainResized(PHX::ISwapChain* pSwapChain)
 	shaderCI.stage = stage;
 
 	PHX::IShader* pShader = nullptr;
-	if (pRenderDevice->AllocateShader(shaderCI, &pShader) != PHX::STATUS_CODE::SUCCESS)
+	result = pRenderDevice->AllocateShader(shaderCI, &pShader);
+	if (result != PHX::STATUS_CODE::SUCCESS)
 	{
 		return nullptr;
 	}
@@ -163,9 +167,12 @@ int main(int argc, char** argv)
 	(void)argc;
 	(void)argv;
 
+	PHX::STATUS_CODE result = PHX::STATUS_CODE::SUCCESS;
+
 	// WINDOW
 	WindowCreateInfo windowCI{};
-	if (CreateWindow(windowCI, &s_pWindow) != STATUS_CODE::SUCCESS)
+	result = CreateWindow(windowCI, &s_pWindow);
+	if (result != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create window
 		return -1;
@@ -177,7 +184,8 @@ int main(int argc, char** argv)
 	initSettings.enableValidation = true;
 	initSettings.logCallback = nullptr; // LogCallback;
 	initSettings.swapChainResizedCallback = OnSwapChainResized;
-	if (Initialize(initSettings, s_pWindow) != STATUS_CODE::SUCCESS)
+	result = Initialize(initSettings, s_pWindow);
+	if (result != STATUS_CODE::SUCCESS)
 	{
 		// Failed to initialize graphics
 		return -1;
@@ -187,7 +195,8 @@ int main(int argc, char** argv)
 	RenderDeviceCreateInfo renderDeviceCI{};
 	renderDeviceCI.window = s_pWindow;
 	renderDeviceCI.framesInFlight = 3;
-	if (CreateRenderDevice(renderDeviceCI, &s_pRenderDevice) != STATUS_CODE::SUCCESS)
+	result = CreateRenderDevice(renderDeviceCI, &s_pRenderDevice);
+	if (result != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create render device
 		return -1;
@@ -200,17 +209,12 @@ int main(int argc, char** argv)
 	swapChainCI.height = s_pWindow->GetCurrentHeight();
 
 	ISwapChain* pSwapChain = nullptr;
-	if (s_pRenderDevice->AllocateSwapChain(swapChainCI, &pSwapChain) != STATUS_CODE::SUCCESS)
+	s_pRenderDevice->AllocateSwapChain(swapChainCI, &pSwapChain);
+	if (result != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create swap chain
 		return -1;
 	}
-
-	// FRAMEBUFFER
-	//if (!AllocateSwapChainFramebuffer(pSwapChain, s_pRenderDevice))
-	//{
-	//	return -1;
-	//}
 
 	// SHADERS
 	std::string vertShaderName("../src/shaders/vertex_sample.vert");
@@ -243,7 +247,8 @@ int main(int argc, char** argv)
 	uniformCollectionCI.groupCount = 1;
 
 	IUniformCollection* pUniforms = nullptr;
-	if (s_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &pUniforms) != PHX::STATUS_CODE::SUCCESS)
+	result = s_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &pUniforms);
+	if (result != PHX::STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
@@ -254,7 +259,8 @@ int main(int argc, char** argv)
 	bufferCI.size = sizeof(SimpleVertexType) * VERTEX_COUNT; // Triangle!
 
 	IBuffer* vBuffer = nullptr;
-	if (s_pRenderDevice->AllocateBuffer(bufferCI, &vBuffer) != STATUS_CODE::SUCCESS)
+	result = s_pRenderDevice->AllocateBuffer(bufferCI, &vBuffer);
+	if (result != STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
@@ -273,14 +279,16 @@ int main(int argc, char** argv)
 	uniformBufferCI.size = sizeof(TestUBO);
 
 	IBuffer* uniformBuffer = nullptr;
-	if (s_pRenderDevice->AllocateBuffer(uniformBufferCI, &uniformBuffer) != STATUS_CODE::SUCCESS)
+	result = s_pRenderDevice->AllocateBuffer(uniformBufferCI, &uniformBuffer);
+	if (result != STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
 
 	// RENDER GRAPH
 	IRenderGraph* pRenderGraph = nullptr;
-	if (s_pRenderDevice->AllocateRenderGraph(&pRenderGraph) != PHX::STATUS_CODE::SUCCESS)
+	result = s_pRenderDevice->AllocateRenderGraph(&pRenderGraph);
+	if (result != PHX::STATUS_CODE::SUCCESS)
 	{
 		return -1;
 	}
@@ -334,7 +342,12 @@ int main(int argc, char** argv)
 		s_pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_pRenderDevice->GetDeviceName(), i, elapsedMs.count(), 1.0f / elapsedSeconds.count());
 
 		// Draw operations
-		pRenderGraph->Reset();
+		result = pRenderGraph->BeginFrame(pSwapChain);
+		if (result != PHX::STATUS_CODE::SUCCESS)
+		{
+			std::cout << "Failed to begin frame - skipping frame!" << std::endl;
+			continue;
+		}
 
 		ITexture* backbufferTex = pSwapChain->GetCurrentImage();
 		IRenderPass* newPass = pRenderGraph->RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS);
@@ -357,9 +370,26 @@ int main(int argc, char** argv)
 			pDeviceContext->Draw(VERTEX_COUNT);
 		});
 
-		pRenderGraph->Bake(pSwapChain, &clearCol, 1);
+		result = pRenderGraph->Bake(pSwapChain, &clearCol, 1);
+		if (result != PHX::STATUS_CODE::SUCCESS)
+		{
+			std::cout << "Failed to bake render graph - skipping frame!" << std::endl;
+			continue;
+		}
 
-		pSwapChain->Present();
+		result = pRenderGraph->EndFrame(pSwapChain);
+		if (result != PHX::STATUS_CODE::SUCCESS)
+		{
+			std::cout << "Failed to end frame - skipping frame!" << std::endl;
+			continue;
+		}
+
+		result = pSwapChain->Present();
+		if (result != PHX::STATUS_CODE::SUCCESS)
+		{
+			std::cout << "Failed to present frame - skipping frame!" << std::endl;
+			continue;
+		}
 
 		// Sleep for the remainder of the frame, if under budget
 		if (elapsedMs < frameBudgetMs)

@@ -49,7 +49,8 @@ namespace PHX
 
 		virtual ~IRenderGraph() { }
 
-		virtual void Reset() = 0;
+		virtual STATUS_CODE BeginFrame(ISwapChain* pSwapChain) = 0;
+		virtual STATUS_CODE EndFrame(ISwapChain* pSwapChain) = 0;
 		virtual IRenderPass* RegisterPass(const char* passName, BIND_POINT bindPoint) = 0;
 		virtual STATUS_CODE Bake(ISwapChain* pSwapChain, ClearValues* pClearColors, u32 clearColorCount) = 0;
 	};

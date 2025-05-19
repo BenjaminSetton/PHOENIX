@@ -14,6 +14,7 @@ namespace PHX
 	// Forward declarations
 	class RenderDeviceVk;
 	class RenderGraphVk;
+	class DeviceContextVk;
 
 	class RenderPassVk : public IRenderPass
 	{
@@ -67,7 +68,8 @@ namespace PHX
 		RenderGraphVk(RenderDeviceVk* pRenderDevice);
 		~RenderGraphVk() override;
 
-		void Reset() override;
+		STATUS_CODE BeginFrame(ISwapChain* pSwapChain) override;
+		STATUS_CODE EndFrame(ISwapChain* pSwapChain) override;
 		IRenderPass* RegisterPass(const char* passName, BIND_POINT bindPoint) override;
 		STATUS_CODE Bake(ISwapChain* pSwapChain, ClearValues* pClearColors, u32 clearColorCount) override;
 
@@ -82,6 +84,7 @@ namespace PHX
 		std::vector<RenderPassVk> m_registeredRenderPasses;
 		std::vector<ResourceDesc> m_registeredResources;
 		RenderDeviceVk* m_renderDevice;
+		DeviceContextVk* m_mainDeviceContext;
 
 		u32 m_frameIndex;
 

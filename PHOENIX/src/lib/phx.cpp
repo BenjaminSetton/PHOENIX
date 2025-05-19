@@ -139,6 +139,8 @@ namespace PHX
 		}
 
 		LogWarning("TODO - Waiting for transfer queue to be idle when copying data to buffer");
+		LogWarning("TODO - Device context is created/destroyed every frame");
+		LogWarning("TODO - Command buffers are allocated/deallocated every frame");
 
 		return STATUS_CODE::SUCCESS;
 	}

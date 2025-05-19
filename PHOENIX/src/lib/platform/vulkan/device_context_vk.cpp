@@ -564,6 +564,7 @@ namespace PHX
 	void DeviceContextVk::DestroyCachedCommandBuffers()
 	{
 		// TODO - Delete commands from the correct pool
+		TODO();
 		VkCommandPool cmdPool = m_pRenderDevice->GetCommandPool(QUEUE_TYPE::GRAPHICS);
 		vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), cmdPool, static_cast<u32>(m_cmdBuffers.size()), m_cmdBuffers.data());
 	}
