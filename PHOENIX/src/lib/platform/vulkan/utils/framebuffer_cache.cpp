@@ -3,6 +3,8 @@
 
 #include "../render_device_vk.h"
 #include "utils/cache_utils.h"
+#include "utils/logger.h"
+#include "utils/sanity.h"
 
 namespace PHX
 {
@@ -28,6 +30,20 @@ namespace PHX
 		return seed;
 	}
 
+	FramebufferCache::FramebufferCache() : m_cache()
+	{
+	}
+
+	FramebufferCache::~FramebufferCache()
+	{
+		for (auto iter : m_cache)
+		{
+			FramebufferVk* pFramebuffer = iter.second;
+			SAFE_DEL(pFramebuffer);
+		}
+		m_cache.clear();
+	}
+
 	FramebufferVk* FramebufferCache::Find(const FramebufferDescription& desc) const
 	{
 		auto iter = m_cache.find(desc);
@@ -49,6 +65,8 @@ namespace PHX
 			FramebufferVk* pFramebuffer = new FramebufferVk(pRenderDevice, desc);
 			m_cache.insert({ desc, pFramebuffer });
 			res = pFramebuffer;
+
+			LogDebug("Framebuffer added to cache. New cache size: %u", m_cache.size());
 		}
 		else
 		{
@@ -63,7 +81,20 @@ namespace PHX
 		auto iter = m_cache.find(desc);
 		if (iter != m_cache.end())
 		{
+			FramebufferVk* pFramebuffer = iter->second;
+			SAFE_DEL(pFramebuffer);
+
 			m_cache.erase(iter);
 		}
+	}
+
+	FramebufferCache::CacheIterator FramebufferCache::Begin()
+	{
+		return m_cache.begin();
+	}
+
+	FramebufferCache::CacheIterator FramebufferCache::End()
+	{
+		return m_cache.end();
 	}
 }

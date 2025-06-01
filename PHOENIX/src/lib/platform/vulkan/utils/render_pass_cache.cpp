@@ -10,6 +10,24 @@
 
 namespace PHX
 {
+	RenderPassCache::RenderPassCache(RenderDeviceVk* pRenderDevice) : m_pRenderDevice(pRenderDevice)
+	{
+	}
+
+	RenderPassCache::~RenderPassCache()
+	{
+		if (m_pRenderDevice == nullptr)
+		{
+			return;
+		}
+
+		for (auto iter : m_cache)
+		{
+			vkDestroyRenderPass(m_pRenderDevice->GetLogicalDevice(), iter.second, nullptr);
+		}
+		m_cache.clear();
+	}
+
 	VkRenderPass RenderPassCache::Find(const RenderPassDescription& desc) const
 	{
 		auto it = m_cache.find(desc);
@@ -31,6 +49,8 @@ namespace PHX
 			VkRenderPass pass = CreateFromDescription(pRenderDevice, desc);
 			m_cache.insert({ desc, pass });
 			res = pass;
+
+			LogDebug("Render pass added to cache. New cache size: %u", m_cache.size());
 		}
 		else
 		{
@@ -129,7 +149,6 @@ namespace PHX
 			LogError("Failed to create render pass from description! Got error: \"%s\"", string_VkResult(res));
 		}
 
-#if defined(PHX_DEBUG)
 		LogDebug("RENDER PASS CREATED: %u attachments, %u subpasses, %u subpass dependencies", static_cast<u32>(attachmentDescs.size()), 1, 1);
 
 		// ATTACHMENTS
@@ -164,7 +183,6 @@ namespace PHX
 			LogDebug("\t- Src access mask: %u", subpassDepVk.srcAccessMask);
 			LogDebug("\t- Dst access mask: %u", subpassDepVk.dstAccessMask);
 		}
-#endif
 
 		// If the above fails, is renderPass still VK_NULL_HANDLE?
 		return renderPass;

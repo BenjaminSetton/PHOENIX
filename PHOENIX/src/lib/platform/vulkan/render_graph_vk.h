@@ -89,5 +89,6 @@ namespace PHX
 		u32 m_frameIndex;
 
 		const CRC32 m_pReservedBackbufferNameCRC;
+		u32 m_backbufferRenderPassIndex;
 	};
 }

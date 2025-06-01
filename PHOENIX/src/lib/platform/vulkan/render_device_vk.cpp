@@ -121,7 +121,10 @@ namespace PHX
 			return;
 		}
 
+		m_framebufferCache = new FramebufferCache();
+		m_renderPassCache = new RenderPassCache(this);
 		m_pipelineCache = new PipelineCache(this);
+
 		m_framesInFlight = ci.framesInFlight;
 
 		LogInfo("Successfully constructed Vk device!");
@@ -132,6 +135,8 @@ namespace PHX
 		vkDeviceWaitIdle(m_logicalDevice);
 
 		SAFE_DEL(m_pipelineCache);
+		SAFE_DEL(m_renderPassCache);
+		SAFE_DEL(m_framebufferCache);
 
 		// Destroy sync objects
 		for (u32 i = 0; i < m_framesInFlight; i++)
@@ -243,32 +248,32 @@ namespace PHX
 
 	FramebufferVk* RenderDeviceVk::CreateFramebuffer(const FramebufferDescription& desc)
 	{
-		return m_framebufferCache.FindOrCreate(this, desc);
+		return m_framebufferCache->FindOrCreate(this, desc);
 	}
 
 	void RenderDeviceVk::DestroyFramebuffer(const FramebufferDescription& desc)
 	{
-		m_framebufferCache.Delete(desc);
+		m_framebufferCache->Delete(desc);
 	}
 
 	FramebufferVk* RenderDeviceVk::GetFramebuffer(const FramebufferDescription& desc) const
 	{
-		return m_framebufferCache.Find(desc);
+		return m_framebufferCache->Find(desc);
 	}
 
 	VkRenderPass RenderDeviceVk::CreateRenderPass(const RenderPassDescription& desc)
 	{
-		return m_renderPassCache.FindOrCreate(this, desc);
+		return m_renderPassCache->FindOrCreate(this, desc);
 	}
 
 	void RenderDeviceVk::DestroyRenderPass(const RenderPassDescription& desc)
 	{
-		m_renderPassCache.Delete(desc);
+		m_renderPassCache->Delete(desc);
 	}
 
 	VkRenderPass RenderDeviceVk::GetRenderPass(const RenderPassDescription& desc) const
 	{
-		return m_renderPassCache.Find(desc);
+		return m_renderPassCache->Find(desc);
 	}
 
 	PipelineVk* RenderDeviceVk::CreateGraphicsPipeline(const GraphicsPipelineDesc& desc, VkRenderPass renderPass)
@@ -311,6 +316,32 @@ namespace PHX
 	PipelineVk* RenderDeviceVk::GetComputePipeline(const ComputePipelineDesc& desc)
 	{
 		return m_pipelineCache->Find(desc);
+	}
+
+	void RenderDeviceVk::InvalidateBackbufferFramebuffers()
+	{
+		std::vector<const FramebufferDescription*> m_invalidFramebufferDescs;
+		m_invalidFramebufferDescs.reserve(5); // Should be plenty for any reasonable amount of backbuffer framebuffers
+
+		// Find all backbuffer framebuffers in the cache
+		const auto cacheBegin = m_framebufferCache->Begin();
+		const auto cacheEnd = m_framebufferCache->End();
+		for (auto iter = cacheBegin; iter != cacheEnd; iter++)
+		{
+			const FramebufferDescription& currDesc = iter->first;
+			if (currDesc.isBackbuffer)
+			{
+				m_invalidFramebufferDescs.push_back(&currDesc);
+			}
+		}
+
+		// Erase them
+		for (auto& iter : m_invalidFramebufferDescs)
+		{
+			m_framebufferCache->Delete(*iter);
+		}
+
+		LogInfo("Invalidated %u backbuffer framebuffer objects!", m_invalidFramebufferDescs.size());
 	}
 
 	VkDevice RenderDeviceVk::GetLogicalDevice() const

@@ -19,15 +19,19 @@ namespace PHX
 		void Update(float deltaTime) override;
 		bool InFocus() const override;
 		bool ShouldClose() const override;
+		bool IsMinimized() const override;
+		bool IsMaximized() const override;
 
 		u32 GetCurrentWidth() const override;
 		u32 GetCurrentHeight() const override;
 		const char* GetName() const override;
-		fp_onWindowResized GetWindowResizedCallback() const;
-		fp_onWindowFocusChanged GetWindowFocusChangedCallback() const;
+
+		void OnWindowResizedCallback(u32 newWidth, u32 newHeight);
+		void OnWindowFocusChangedCallback(bool inFocus);
+		void OnWindowMinimizedCallback(bool wasIconified);
+		void OnWindowMaximizedCallback(bool wasMaximized);
 
 		void SetWindowTitle(const char* format, ...) override;
-		void SetInFocus(bool inFocus);
 
 	private:
 
@@ -35,8 +39,8 @@ namespace PHX
 		u32 m_height;
 		const char* m_title;
 		bool m_inFocus;
-		fp_onWindowResized m_windowResizedCallback;
-		fp_onWindowFocusChanged m_windowFocusChangedCallback;
+		bool m_isMinimized;
+		bool m_isMaximized;
 
 		GLFWwindow* m_handle;
 	};

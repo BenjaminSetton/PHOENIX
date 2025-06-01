@@ -30,9 +30,9 @@ struct TestUBO
 };
 
 // Ugly, but easier for demo's sake
-//static std::vector<PHX::IFramebuffer*> s_framebuffers;
 static PHX::IWindow* s_pWindow = nullptr;
 static PHX::IRenderDevice* s_pRenderDevice = nullptr;
+static PHX::ISwapChain* s_pSwapChain = nullptr;
 
 void LogCallback(const char* msg, PHX::LOG_TYPE severity)
 {
@@ -68,55 +68,29 @@ void LogCallback(const char* msg, PHX::LOG_TYPE severity)
 	std::cout << msg << std::endl;
 }
 
-//void DeleteSwapChainFramebuffer(PHX::IRenderDevice* pRenderDevice)
-//{
-	//// Clean up existing framebuffers, if applicable
-	//for (PHX::u32 i = 0; i < s_framebuffers.size(); i++)
-	//{
-	//	pRenderDevice->DeallocateFramebuffer(&(s_framebuffers.at(i)));
-	//}
-	//s_framebuffers.clear();
-//}
-
-//bool AllocateSwapChainFramebuffer(PHX::ISwapChain* pSwapChain, PHX::IRenderDevice* pRenderDevice)
-//{
-	//// Allocate new framebuffers
-	//s_framebuffers.resize(pSwapChain->GetImageCount());
-	//for (PHX::u32 i = 0; i < pSwapChain->GetImageCount(); i++)
-	//{
-	//	PHX::FramebufferAttachmentDesc desc;
-	//	desc.pTexture = pSwapChain->GetImage(i);
-	//	desc.mipTarget = 0;
-	//	desc.type = PHX::ATTACHMENT_TYPE::COLOR;
-	//	desc.storeOp = PHX::ATTACHMENT_STORE_OP::STORE;
-	//	desc.loadOp = PHX::ATTACHMENT_LOAD_OP::CLEAR;
-
-	//	PHX::FramebufferDescription framebufferCI{};
-	//	framebufferCI.width = desc.pTexture->GetWidth();
-	//	framebufferCI.height = desc.pTexture->GetHeight();
-	//	framebufferCI.layers = 1;
-	//	framebufferCI.pAttachments = &desc;
-	//	framebufferCI.attachmentCount = 1;
-	//	if (pRenderDevice->AllocateFramebuffer(framebufferCI, &(s_framebuffers.at(i))) != PHX::STATUS_CODE::SUCCESS)
-	//	{
-	//		return false;
-	//	}
-	//}
-
-	//return true;
-//}
-
-void OnSwapChainResized(PHX::ISwapChain* pSwapChain)
+void OnWindowResizedCallback(PHX::u32 newWidth, PHX::u32 newHeight)
 {
-	//DeleteSwapChainFramebuffer(s_pRenderDevice);
+	s_pSwapChain->Resize(newWidth, newHeight);
+}
 
-	// Get the new dimensions from the main window, and also re-create the main framebuffer that's linked to the swap chain's images
-	pSwapChain->Resize(s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight());
+void OnWindowFocusChangedCallback(bool inFocus)
+{
+	// TODO
+}
 
-	//if (AllocateSwapChainFramebuffer(pSwapChain, s_pRenderDevice))
-	//{
-	//	// Failed to allocate new framebuffer
-	//}
+void OnWindowMinimizedCallback(bool wasMinimized)
+{
+	// TODO
+}
+
+void OnWindowMaximizedCallback(bool wasMaximized)
+{
+	// TODO
+}
+
+void OnSwapChainOutdatedCallback()
+{
+	// TODO
 }
 
 [[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::IRenderDevice* pRenderDevice)
@@ -183,7 +157,11 @@ int main(int argc, char** argv)
 	initSettings.backendAPI = PHX::GRAPHICS_API::VULKAN;
 	initSettings.enableValidation = true;
 	initSettings.logCallback = nullptr; // LogCallback;
-	initSettings.swapChainResizedCallback = OnSwapChainResized;
+	initSettings.swapChainOutdatedCallback = OnSwapChainOutdatedCallback;
+	initSettings.windowResizedCallback = OnWindowResizedCallback;
+	initSettings.windowFocusChangedCallback = OnWindowFocusChangedCallback;
+	initSettings.windowMinimizedCallback = OnWindowMinimizedCallback;
+	initSettings.windowMaximizedCallback = OnWindowMaximizedCallback;
 	result = Initialize(initSettings, s_pWindow);
 	if (result != STATUS_CODE::SUCCESS)
 	{
@@ -208,8 +186,7 @@ int main(int argc, char** argv)
 	swapChainCI.width = s_pWindow->GetCurrentWidth();
 	swapChainCI.height = s_pWindow->GetCurrentHeight();
 
-	ISwapChain* pSwapChain = nullptr;
-	s_pRenderDevice->AllocateSwapChain(swapChainCI, &pSwapChain);
+	s_pRenderDevice->AllocateSwapChain(swapChainCI, &s_pSwapChain);
 	if (result != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create swap chain
@@ -339,17 +316,23 @@ int main(int argc, char** argv)
 		timeStart = std::chrono::high_resolution_clock::now();
 
 		s_pWindow->Update(0.13f);
+		if (s_pWindow->IsMinimized())
+		{
+			// No need to render/draw while minimized
+			continue;
+		}
+
 		s_pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_pRenderDevice->GetDeviceName(), i, elapsedMs.count(), 1.0f / elapsedSeconds.count());
 
 		// Draw operations
-		result = pRenderGraph->BeginFrame(pSwapChain);
+		result = pRenderGraph->BeginFrame(s_pSwapChain);
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to begin frame - skipping frame!" << std::endl;
 			continue;
 		}
 
-		ITexture* backbufferTex = pSwapChain->GetCurrentImage();
+		ITexture* backbufferTex = s_pSwapChain->GetCurrentImage();
 		IRenderPass* newPass = pRenderGraph->RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS);
 		newPass->SetBackbufferOutput(backbufferTex);
 		newPass->SetPipeline(pipelineDesc);
@@ -370,21 +353,21 @@ int main(int argc, char** argv)
 			pDeviceContext->Draw(VERTEX_COUNT);
 		});
 
-		result = pRenderGraph->Bake(pSwapChain, &clearCol, 1);
+		result = pRenderGraph->Bake(s_pSwapChain, &clearCol, 1);
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to bake render graph - skipping frame!" << std::endl;
 			continue;
 		}
 
-		result = pRenderGraph->EndFrame(pSwapChain);
+		result = pRenderGraph->EndFrame(s_pSwapChain);
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to end frame - skipping frame!" << std::endl;
 			continue;
 		}
 
-		result = pSwapChain->Present();
+		result = s_pSwapChain->Present();
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to present frame - skipping frame!" << std::endl;
@@ -406,7 +389,10 @@ int main(int argc, char** argv)
 	// Clean up
 	s_pRenderDevice->DeallocateBuffer(&uniformBuffer);
 	s_pRenderDevice->DeallocateBuffer(&vBuffer);
-	s_pRenderDevice->DeallocateSwapChain(&pSwapChain);
+	s_pRenderDevice->DeallocateSwapChain(&s_pSwapChain);
+	s_pRenderDevice->DeallocateShader(&pVertShader);
+	s_pRenderDevice->DeallocateShader(&pFragShader);
+	s_pRenderDevice->DeallocateUniformCollection(&pUniforms);
 
 	// Clean up core objects
 	DestroyRenderDevice(&s_pRenderDevice);

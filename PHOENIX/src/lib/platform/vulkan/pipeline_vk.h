@@ -34,6 +34,8 @@ namespace PHX
 
 	private:
 
+		RenderDeviceVk* m_pRenderDevice;
+
 		VkPipeline m_pipeline;
 		VkPipelineLayout m_layout;
 		VkPipelineBindPoint m_bindPoint;

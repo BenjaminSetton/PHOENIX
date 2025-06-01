@@ -58,6 +58,10 @@ namespace PHX
 		void DestroyComputePipeline(const ComputePipelineDesc& desc);
 		PipelineVk* GetComputePipeline(const ComputePipelineDesc& desc);
 
+		// Removes all framebuffer entries in the cache related to the backbuffer. 
+		// This is used to clean up old framebuffers after a window resize, for example
+		void InvalidateBackbufferFramebuffers();
+
 		// Getters
 		VkDevice GetLogicalDevice() const;
 		VkPhysicalDevice GetPhysicalDevice() const;
@@ -105,8 +109,8 @@ namespace PHX
 		std::unordered_map<QUEUE_TYPE, VkCommandPool> m_commandPools;
 
 		// Object caches
-		FramebufferCache m_framebufferCache;
-		RenderPassCache m_renderPassCache;
+		FramebufferCache* m_framebufferCache;
+		RenderPassCache* m_renderPassCache;
 		PipelineCache* m_pipelineCache;
 
 		// Sync objects

@@ -7,11 +7,6 @@ namespace PHX
 {
 	const Settings& GlobalSettings::GetSettings() const
 	{
-		if (!m_isSet)
-		{
-			LogError("Failed to get global settings! They have not been set yet");
-		}
-
 		return m_settings;
 	}
 
@@ -19,7 +14,6 @@ namespace PHX
 	{
 		if (m_isSet)
 		{
-			LogWarning("Attempting to overwrite global settings!");
 			return;
 		}
 

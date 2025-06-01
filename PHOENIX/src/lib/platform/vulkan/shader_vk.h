@@ -14,6 +14,7 @@ namespace PHX
 	public:
 
 		explicit ShaderVk(RenderDeviceVk* pRenderDevice, const ShaderCreateInfo& createInfo);
+		~ShaderVk();
 
 		SHADER_STAGE GetStage() const override;
 
@@ -21,8 +22,9 @@ namespace PHX
 
 	private:
 
-		VkShaderModule m_shader;
+		RenderDeviceVk* m_pRenderDevice;
 
+		VkShaderModule m_shader;
 		SHADER_STAGE m_stage;
 	};
 

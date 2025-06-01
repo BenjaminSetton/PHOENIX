@@ -147,10 +147,7 @@ namespace PHX
 
 		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR)
 		{
-			// Call callback for swapchain resize and let the client select the new dimensions
-			auto& settings = GetSettings();
-			ASSERT_PTR(settings.swapChainResizedCallback); // This should always be set!
-			settings.swapChainResizedCallback(this);
+			OnSwapChainOutdated();
 		}
 		else if (res != VK_SUCCESS)
 		{
@@ -163,6 +160,17 @@ namespace PHX
 
 	void SwapChainVk::Resize(u32 newWidth, u32 newHeight)
 	{
+		if (newWidth == 0 && newHeight == 0)
+		{
+			// Don't do anything when extent is (0, 0); window was probably minimized
+			return;
+		}
+
+		LogInfo("Resized swap chain from %ux%u to %ux%u", m_width, m_height, newWidth, newHeight);
+
+		// Invalidate the old swapchain framebuffers which are still stored in the render device's framebuffer cache
+		m_renderDevice->InvalidateBackbufferFramebuffers();
+
 		STATUS_CODE res = CreateSwapChain(m_renderDevice, newWidth, newHeight, m_isVSyncEnabled);
 		if (res != STATUS_CODE::SUCCESS)
 		{
@@ -176,10 +184,7 @@ namespace PHX
 		VkResult resVk = vkAcquireNextImageKHR(m_renderDevice->GetLogicalDevice(), m_swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &m_currImageIndex);
 		if (resVk == VK_ERROR_OUT_OF_DATE_KHR || resVk == VK_SUBOPTIMAL_KHR)
 		{
-			// Call callback for swapchain resize and let the client select the new dimensions
-			auto& settings = GetSettings();
-			ASSERT_PTR(settings.swapChainResizedCallback); // This should always be set!
-			settings.swapChainResizedCallback(this);
+			OnSwapChainOutdated();
 		}
 		else if (resVk != VK_SUCCESS)
 		{
@@ -383,5 +388,17 @@ namespace PHX
 	bool SwapChainVk::IsValid() const
 	{
 		return (m_swapChain != VK_NULL_HANDLE && m_images.size() > 0);
+	}
+
+	void SwapChainVk::OnSwapChainOutdated()
+	{
+		auto& settings = GetSettings();
+		if (settings.swapChainOutdatedCallback == nullptr)
+		{
+			LogWarning("Swap chain is outdated but no callback was provided for swapChainOutdatedCallback in Settings!");
+			return;
+		}
+
+		settings.swapChainOutdatedCallback();
 	}
 }

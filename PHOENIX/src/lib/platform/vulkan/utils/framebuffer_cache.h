@@ -4,6 +4,7 @@
 #include <unordered_map>
 
 #include "../framebuffer_vk.h"
+#include "utils/cache_utils.h"
 
 namespace PHX
 {
@@ -20,15 +21,23 @@ namespace PHX
 	{
 	public:
 
-		FramebufferCache() = default;
-		~FramebufferCache() = default;
+		using UnderlyingCacheType = std::unordered_map<FramebufferDescription, FramebufferVk*, FramebufferDescriptionHasher>;
+		using CacheIterator = UnderlyingCacheType::const_iterator;
+
+	public:
+
+		FramebufferCache();
+		~FramebufferCache();
 
 		FramebufferVk* Find(const FramebufferDescription& desc) const;
 		FramebufferVk* FindOrCreate(RenderDeviceVk* pRenderDevice, const FramebufferDescription& desc);
 		void Delete(const FramebufferDescription& desc);
 
+		CacheIterator Begin();
+		CacheIterator End();
+
 	private:
 
-		std::unordered_map<FramebufferDescription, FramebufferVk*, FramebufferDescriptionHasher> m_cache;
+		UnderlyingCacheType m_cache;
 	};
 }

@@ -13,6 +13,7 @@
 namespace PHX
 {
 	static const char* s_pReservedBackbufferName = "INTERNAL_backbuffer";
+	static constexpr u32 s_invalidRenderPassIndex = U32_MAX;
 
 	//static RenderPassDescription BuildRenderPassDescription(const FramebufferDescription& info)
 	//{
@@ -387,8 +388,7 @@ namespace PHX
 		// Create the render graph tree using the following steps:
 		// 1. Find the render pass that writes to the back-buffer
 
-		int backbufferRPIndex = -1;
-		for (int i = 0; i < m_registeredRenderPasses.size(); i++)
+		for (u32 i = 0; i < m_registeredRenderPasses.size(); i++)
 		{
 			auto& renderPass = m_registeredRenderPasses.at(i);
 			// Check if any of the render pass's output resources are the backbuffer
@@ -398,19 +398,19 @@ namespace PHX
 				const CRC32 outputResourceCRC = HashCRC32(outputResource.name);
 				if (outputResourceCRC == m_pReservedBackbufferNameCRC)
 				{
-					backbufferRPIndex = i;
+					m_backbufferRenderPassIndex = i;
 					break;
 				}
 			}
 
-			if (backbufferRPIndex != -1)
+			if (m_backbufferRenderPassIndex != s_invalidRenderPassIndex)
 			{
 				// Found backbuffer render pass index!
 				break;
 			}
 		}
 
-		if (backbufferRPIndex == -1)
+		if (m_backbufferRenderPassIndex == s_invalidRenderPassIndex)
 		{
 			LogError("Failed to bake render graph! No registered render pass writes to the backbuffer");
 			return STATUS_CODE::ERR_API;
@@ -418,7 +418,7 @@ namespace PHX
 		
 		// 2. Once that render pass is found, build render graph by looking at inputs and working up recursively (using breadth-first search)
 		// TODO - Simply include the backbuffer pass in the render graph for now
-		RenderPassVk& backbufferRP = m_registeredRenderPasses.at(backbufferRPIndex);
+		RenderPassVk& backbufferRP = m_registeredRenderPasses.at(m_backbufferRenderPassIndex);
 
 		// 3. [TRIMMING] Accumulate all contributing render passes into a separate container for the render graph. This is done so that
 		//               all non-contributing passes are indirectly trimmed
@@ -597,6 +597,8 @@ namespace PHX
 			maxHeight = Max(maxHeight, pAttachmentTex->GetHeight());
 		}
 
+		const RenderPassVk& backbufferRP = m_registeredRenderPasses[m_backbufferRenderPassIndex];
+
 		FramebufferDescription framebufferCI{};
 		framebufferCI.width = maxWidth;
 		framebufferCI.height = maxHeight;
@@ -604,6 +606,7 @@ namespace PHX
 		framebufferCI.pAttachments = attachments.data();
 		framebufferCI.attachmentCount = static_cast<u32>(attachments.size());
 		framebufferCI.renderPass = renderPassVk;
+		framebufferCI.isBackbuffer = (renderPass.m_name == backbufferRP.m_name);
 		FramebufferVk* pFramebuffer = m_renderDevice->CreateFramebuffer(framebufferCI);
 		return pFramebuffer;
 	}

@@ -16,8 +16,8 @@ namespace PHX
 	{
 	public:
 
-		RenderPassCache() = default;
-		~RenderPassCache() = default;
+		explicit RenderPassCache(RenderDeviceVk* pRenderDevice);
+		~RenderPassCache();
 
 		VkRenderPass Find(const RenderPassDescription& desc) const;
 		VkRenderPass FindOrCreate(RenderDeviceVk* pRenderDevice, const RenderPassDescription& desc);
@@ -28,6 +28,8 @@ namespace PHX
 		VkRenderPass CreateFromDescription(RenderDeviceVk* pRenderDevice, const RenderPassDescription& desc) const;
 
 	private:
+
+		RenderDeviceVk* m_pRenderDevice;
 
 		std::unordered_map<RenderPassDescription, VkRenderPass, RenderPassDescriptionHasher> m_cache;
 	};

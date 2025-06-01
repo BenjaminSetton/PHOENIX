@@ -20,7 +20,8 @@ namespace PHX
 	}
 
 	FramebufferDescription::FramebufferDescription(const FramebufferDescription& other) : 
-		width(other.width), height(other.height), layers(other.layers), renderPass(other.renderPass), attachmentCount(other.attachmentCount)
+		width(other.width), height(other.height), layers(other.layers), renderPass(other.renderPass), 
+		isBackbuffer(other.isBackbuffer), attachmentCount(other.attachmentCount)
 	{
 		// Deep copy attachments
 		pAttachments = new FramebufferAttachmentDesc[attachmentCount];
@@ -43,6 +44,7 @@ namespace PHX
 		height = other.height;
 		layers = other.layers;
 		renderPass = other.renderPass;
+		isBackbuffer = other.isBackbuffer;
 		attachmentCount = other.attachmentCount;
 
 		// Deep copy attachments
@@ -68,7 +70,8 @@ namespace PHX
 									 (height == other.height)					&&
 									 (layers == other.layers)					&&
 									 (attachmentCount == other.attachmentCount) &&
-									 (renderPass == other.renderPass);
+									 (renderPass == other.renderPass)			&&
+									 (isBackbuffer == other.isBackbuffer);
 
 		if (!isBaseDataValid)
 		{
@@ -144,8 +147,7 @@ namespace PHX
 		m_renderPass = desc.renderPass;
 
 		// Log creation info
-#if defined(PHX_DEBUG)
-		LogDebug("FRAMEBUFFER CREATED: %u width, %u height, %u layers, %u attachments", m_width, m_height, m_layers, desc.attachmentCount);
+		LogDebug("FRAMEBUFFER CREATED: width (%u), height (%u), layers (%u), attachments (%u), isBackbuffer (%s)", m_width, m_height, m_layers, desc.attachmentCount, desc.isBackbuffer ? "true" : "false");
 		for (u32 i = 0; i < desc.attachmentCount; i++)
 		{
 			const FramebufferAttachmentDesc& attachmentDesc = desc.pAttachments[i];
@@ -156,11 +158,14 @@ namespace PHX
 			LogDebug("\t- Load op: %s", string_VkAttachmentLoadOp(ATT_UTILS::ConvertLoadOp(attachmentDesc.loadOp)));
 			LogDebug("\t- Store op: %s", string_VkAttachmentStoreOp(ATT_UTILS::ConvertStoreOp(attachmentDesc.storeOp)));
 		}
-#endif
+
+		m_pRenderDevice = pRenderDevice;
 	}
 
 	FramebufferVk::~FramebufferVk()
 	{
+		vkDestroyFramebuffer(m_pRenderDevice->GetLogicalDevice(), m_framebuffer, nullptr);
+
 		m_attachments.clear();
 	}
 

@@ -105,10 +105,14 @@ namespace PHX
 
 	UniformCollectionVk::~UniformCollectionVk()
 	{
-		for (auto& setLayout : m_descriptorSets)
+		// VkDescriptorSet is cleaned up by deleting the descriptor pool that allocated it
+		// This is done by the render device itself, since it owns the pool
+
+		for (auto& setLayout : m_descriptorSetLayouts)
 		{
-			setLayout = VK_NULL_HANDLE;
+			vkDestroyDescriptorSetLayout(m_renderDevice->GetLogicalDevice(), setLayout, nullptr);
 		}
+		m_descriptorSetLayouts.clear();
 	}
 
 	u32 UniformCollectionVk::GetGroupCount() const

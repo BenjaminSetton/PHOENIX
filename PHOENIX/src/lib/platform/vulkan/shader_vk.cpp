@@ -37,7 +37,14 @@ namespace PHX
 			return;
 		}
 
+		m_pRenderDevice = pRenderDevice;
+
 		m_stage = createInfo.stage;
+	}
+
+	ShaderVk::~ShaderVk()
+	{
+		vkDestroyShaderModule(m_pRenderDevice->GetLogicalDevice(), m_shader, nullptr);
 	}
 
 	SHADER_STAGE ShaderVk::GetStage() const

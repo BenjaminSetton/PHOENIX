@@ -37,6 +37,7 @@ namespace PHX
 		FramebufferAttachmentDesc* pAttachments = nullptr;
 		u32 attachmentCount = 0;
 		VkRenderPass renderPass;
+		bool isBackbuffer = false;
 
 		// INTERNAL
 		bool shouldDeleteAttachments = false;
@@ -64,6 +65,8 @@ namespace PHX
 		STATUS_CODE VerifyDescription(const FramebufferDescription& desc);
 
 	private:
+
+		RenderDeviceVk* m_pRenderDevice;
 
 		VkFramebuffer m_framebuffer;
 		std::vector<TextureVk*> m_attachments;

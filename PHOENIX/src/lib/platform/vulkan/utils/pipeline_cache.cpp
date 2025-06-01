@@ -190,6 +190,18 @@ namespace PHX
 
 	PipelineCache::~PipelineCache()
 	{
+		for (auto iter : m_graphicsPipelineCache)
+		{
+			delete iter.second;
+		}
+		m_graphicsPipelineCache.clear();
+
+		for (auto iter : m_computePipelineCache)
+		{
+			delete iter.second;
+		}
+		m_graphicsPipelineCache.clear();
+
 		vkDestroyPipelineCache(m_renderDevice->GetLogicalDevice(), m_vkCache, nullptr);
 	}
 
@@ -204,6 +216,8 @@ namespace PHX
 			PipelineVk* newPipeline = new PipelineVk(pRenderDevice, m_vkCache, renderPass, desc);
 			m_graphicsPipelineCache.insert({desc, newPipeline});
 			res = newPipeline;
+
+			LogDebug("Graphics pipeline added to cache. New cache size: %u", m_graphicsPipelineCache.size());
 		}
 		else
 		{
@@ -240,6 +254,8 @@ namespace PHX
 			PipelineVk* newPipeline = new PipelineVk(pRenderDevice, m_vkCache, desc);
 			m_computePipelineCache.insert({ desc, newPipeline });
 			res = newPipeline;
+
+			LogDebug("Compute pipeline added to cache. New cache size: %u", m_computePipelineCache.size());
 		}
 		else
 		{

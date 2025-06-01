@@ -36,6 +36,7 @@ namespace PHX
 		STATUS_CODE CreateSwapChainImageViews(RenderDeviceVk* pRenderDevice, VkFormat imageFormat);
 		void DestroySwapChain();
 		bool IsValid() const;
+		void OnSwapChainOutdated();
 
 	private:
 

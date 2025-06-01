@@ -17,7 +17,7 @@
 namespace PHX
 {
 
-	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, VkRenderPass renderPass, const GraphicsPipelineDesc& createInfo)
+	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, VkRenderPass renderPass, const GraphicsPipelineDesc& createInfo) : m_pRenderDevice(nullptr)
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -27,7 +27,7 @@ namespace PHX
 		CreateGraphicsPipeline(pRenderDevice, cache, renderPass, createInfo);
 	}
 
-	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineDesc& createInfo)
+	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineDesc& createInfo) : m_pRenderDevice(nullptr)
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -39,7 +39,13 @@ namespace PHX
 
 	PipelineVk::~PipelineVk()
 	{
+		if (m_pRenderDevice == nullptr)
+		{
+			return;
+		}
 
+		vkDestroyPipeline(m_pRenderDevice->GetLogicalDevice(), m_pipeline, nullptr);
+		vkDestroyPipelineLayout(m_pRenderDevice->GetLogicalDevice(), m_layout, nullptr);
 	}
 
 	VkPipeline PipelineVk::GetPipeline() const
@@ -149,7 +155,6 @@ namespace PHX
 
 		m_bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-#if defined(PHX_DEBUG)
 		LogDebug("GRAPHICS PIPELINE CREATED: %u stages", pipelineInfo.stageCount);
 		for (u32 i = 0; i < pipelineInfo.stageCount; i++)
 		{
@@ -169,7 +174,8 @@ namespace PHX
 		LogDebug("\tRasterizer discard: %s", rasterizer.rasterizerDiscardEnable ? "true" : "false");
 		LogDebug("\tLayout ptr: %p", pipelineInfo.layout);
 		LogDebug("\tRender pass: %p", pipelineInfo.renderPass);
-#endif
+
+		m_pRenderDevice = pRenderDevice;
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -204,11 +210,11 @@ namespace PHX
 
 		m_bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
 
-#if defined(PHX_DEBUG)
 		LogDebug("COMPUTE PIPELINE CREATED");
 		LogDebug("\tShader name: %s", pipelineInfo.stage.pName);
 		LogDebug("\tLayout ptr: %p", pipelineInfo.layout);
-#endif
+
+		m_pRenderDevice = pRenderDevice;
 
 		return STATUS_CODE::SUCCESS;
 	}

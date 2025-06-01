@@ -115,13 +115,57 @@ static void GetDefaultShaderResources(TBuiltInResource& resources)
 	resources.limits.generalConstantMatrixVectorIndexing = 1;
 }
 
+static bool CheckMandatorySettings(const PHX::Settings& settings)
+{
+	bool isValid = true;
+
+	if (settings.swapChainOutdatedCallback == nullptr)
+	{
+		PHX::LogError("Mandatory setting \"swapChainOutdatedCallback\" has not been set!");
+		isValid = false;
+	}
+
+	if (settings.windowFocusChangedCallback == nullptr)
+	{
+		PHX::LogError("Mandatory setting \"windowFocusChangedCallback\" has not been set!");
+		isValid = false;
+	}
+
+	if (settings.windowMaximizedCallback == nullptr)
+	{
+		PHX::LogError("Mandatory setting \"windowMaximizedCallback\" has not been set!");
+		isValid = false;
+	}
+
+	if (settings.windowMinimizedCallback == nullptr)
+	{
+		PHX::LogError("Mandatory setting \"windowMinimizedCallback\" has not been set!");
+		isValid = false;
+	}
+
+	if (settings.windowResizedCallback == nullptr)
+	{
+		PHX::LogError("Mandatory setting \"windowResizedCallback\" has not been set!");
+		isValid = false;
+	}
+
+	return isValid;
+}
+
 namespace PHX
 {
 	STATUS_CODE Initialize(const Settings& initSettings, IWindow* pWindow)
 	{
 		if (pWindow == nullptr)
 		{
-			LogError("Failed to initialize graphics.! Window is null");
+			LogError("Failed to initialize library! Window is null");
+			return STATUS_CODE::ERR_API;
+		}
+
+		if (!CheckMandatorySettings(initSettings))
+		{
+			// Errors are logged in the check function specifically for what's missing
+			LogError("Failed to initialize library! One or more mandatory settings have not been set");
 			return STATUS_CODE::ERR_API;
 		}
 
