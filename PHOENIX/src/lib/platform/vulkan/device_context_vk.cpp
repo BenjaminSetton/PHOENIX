@@ -30,12 +30,7 @@ namespace PHX
 
 	DeviceContextVk::~DeviceContextVk()
 	{
-		DestroyCommandBuffer(m_primaryCmdBuffer);
-		for (auto& cmdBuffer : m_cmdBuffers)
-		{
-			DestroyCommandBuffer(cmdBuffer);
-		}
-		m_cmdBuffers.clear();
+		FreeCachedCommandBuffers();
 	}
 
 	STATUS_CODE DeviceContextVk::BindVertexBuffer(IBuffer* pVertexBuffer)
@@ -379,6 +374,9 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		// Release the frame's command buffers
+
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -554,19 +552,26 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	void DeviceContextVk::DestroyCommandBuffer(VkCommandBuffer cmdBuffer)
+	void DeviceContextVk::FreeCommandBuffer(VkCommandBuffer cmdBuffer)
 	{
 		// TODO - Delete commands from the correct pool
 		VkCommandPool cmdPool = m_pRenderDevice->GetCommandPool(QUEUE_TYPE::GRAPHICS);
 		vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), cmdPool, 1, &cmdBuffer);
 	}
 
-	void DeviceContextVk::DestroyCachedCommandBuffers()
+	void DeviceContextVk::FreeCachedCommandBuffers()
 	{
 		// TODO - Delete commands from the correct pool
-		TODO();
+
+		// Free secondary command buffers
 		VkCommandPool cmdPool = m_pRenderDevice->GetCommandPool(QUEUE_TYPE::GRAPHICS);
 		vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), cmdPool, static_cast<u32>(m_cmdBuffers.size()), m_cmdBuffers.data());
+
+		// Free primary command buffer
+		vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), cmdPool, 1, &m_primaryCmdBuffer);
+
+		m_primaryCmdBuffer = VK_NULL_HANDLE;
+		m_cmdBuffers.clear();
 	}
 
 	VkCommandBuffer DeviceContextVk::GetLastCommandBuffer()

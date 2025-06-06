@@ -47,8 +47,8 @@ namespace PHX
 	private:
 
 		STATUS_CODE CreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer);
-		void DestroyCommandBuffer(VkCommandBuffer cmdBuffer);
-		void DestroyCachedCommandBuffers();
+		void FreeCommandBuffer(VkCommandBuffer cmdBuffer);
+		void FreeCachedCommandBuffers();
 
 		VkCommandBuffer GetLastCommandBuffer();
 

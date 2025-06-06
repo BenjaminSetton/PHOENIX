@@ -79,12 +79,16 @@ namespace PHX
 		FramebufferVk* CreateFramebuffer(const RenderPassVk& renderPass, VkRenderPass renderPassVk);
 		PipelineVk* CreatePipeline(const RenderPassVk& renderPass, VkRenderPass renderPassVk);
 
+		DeviceContextVk* GetDeviceContext() const;
+
 	private:
 
 		std::vector<RenderPassVk> m_registeredRenderPasses;
 		std::vector<ResourceDesc> m_registeredResources;
 		RenderDeviceVk* m_renderDevice;
-		DeviceContextVk* m_mainDeviceContext;
+
+		// One device context per frame in flight
+		std::vector<DeviceContextVk*> m_deviceContexts;
 
 		u32 m_frameIndex;
 

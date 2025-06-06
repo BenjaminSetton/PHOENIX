@@ -283,7 +283,7 @@ namespace PHX
 
 	//--------------------------------------------------------------------------------------------
 
-	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_frameIndex(0), m_pReservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)), m_mainDeviceContext(nullptr)
+	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_frameIndex(0), m_pReservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)), m_deviceContexts()
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -292,11 +292,34 @@ namespace PHX
 		}
 
 		m_renderDevice = pRenderDevice;
+
+		const u32 framesInFlight = m_renderDevice->GetFramesInFlight();
+		m_deviceContexts.reserve(framesInFlight);
+
+		for (u32 i = 0; i < framesInFlight; i++)
+		{
+			IDeviceContext* pDeviceContext = nullptr;
+			STATUS_CODE res = m_renderDevice->AllocateDeviceContext({}, &pDeviceContext);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to construct render graph. Device context creation failed!");
+				return;
+			}
+
+			DeviceContextVk* pDeviceContextVk = static_cast<DeviceContextVk*>(pDeviceContext);
+			ASSERT_PTR(pDeviceContextVk);
+			m_deviceContexts.push_back(pDeviceContextVk);
+		}
 	}
 
 	RenderGraphVk::~RenderGraphVk()
 	{
-		TODO();
+		for (DeviceContextVk* deviceContextVk : m_deviceContexts)
+		{
+			IDeviceContext* pDeviceContext = static_cast<IDeviceContext*>(deviceContextVk);
+			m_renderDevice->DeallocateDeviceContext(&pDeviceContext);
+		}
+		m_deviceContexts.clear();
 	}
 
 	STATUS_CODE RenderGraphVk::BeginFrame(ISwapChain* pSwapChain)
@@ -313,24 +336,12 @@ namespace PHX
 		m_registeredRenderPasses.clear();
 		m_registeredResources.clear();
 
-		IDeviceContext* pDeviceContext = nullptr;
-		res = m_renderDevice->AllocateDeviceContext({}, &pDeviceContext);
-		if (res != STATUS_CODE::SUCCESS) // TODO - Find more efficient way to handle device contexts
-		{
-			LogError("Failed to begin frame. Device context creation failed!");
-			return res;
-		}
-
-		DeviceContextVk* pDeviceContextVk = static_cast<DeviceContextVk*>(pDeviceContext);
-		ASSERT_PTR(pDeviceContextVk);
 
 		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(pSwapChain);
 		ASSERT_PTR(swapChainVk);
 
-		// Cache main device context
-		m_mainDeviceContext = pDeviceContextVk;
-
-		res = pDeviceContextVk->BeginFrame(swapChainVk, m_frameIndex);
+		DeviceContextVk* pDeviceContext = GetDeviceContext();
+		res = pDeviceContext->BeginFrame(swapChainVk, m_frameIndex);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to begin frame. Device context could not begin frame!");
@@ -353,18 +364,13 @@ namespace PHX
 		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(pSwapChain);
 		ASSERT_PTR(swapChainVk);
 
-		res = m_mainDeviceContext->Flush(swapChainVk, m_frameIndex);
+		DeviceContextVk* pDeviceContext = GetDeviceContext();
+		res = pDeviceContext->Flush(swapChainVk, m_frameIndex);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to end frame. Device context could not flush!");
 			return res;
 		}
-
-		// TODO - Find more efficient way to handle device contexts
-		//		  Also, this is stupid...
-		IDeviceContext* pTempDeviceContext = static_cast<IDeviceContext*>(m_mainDeviceContext);
-		m_renderDevice->DeallocateDeviceContext(&pTempDeviceContext);
-		m_mainDeviceContext = nullptr;
 
 		// Now that all the work has been done for the current frame, move onto the next one
 		m_frameIndex = (m_frameIndex + 1) % m_renderDevice->GetFramesInFlight();
@@ -453,7 +459,8 @@ namespace PHX
 		//		Get or create pipeline from render device (should refer to internal cache)
 		PipelineVk* pPipeline = CreatePipeline(backbufferRP, renderPassVk);
 		
-		res = m_mainDeviceContext->BeginRenderPass(renderPassVk, pFramebuffer, pClearColors, clearColorCount);
+		DeviceContextVk* pDeviceContext = GetDeviceContext();
+		res = pDeviceContext->BeginRenderPass(renderPassVk, pFramebuffer, pClearColors, clearColorCount);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to bake render pass. Device context could not begin render pass!");
@@ -461,9 +468,9 @@ namespace PHX
 		}
 
 		// Call the main render pass execution callback
-		backbufferRP.m_execCallback(m_mainDeviceContext, pPipeline);
+		backbufferRP.m_execCallback(pDeviceContext, pPipeline);
 
-		res = m_mainDeviceContext->EndRenderPass();
+		res = pDeviceContext->EndRenderPass();
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to bake render graph. Device context could not end render pass!");
@@ -636,5 +643,10 @@ namespace PHX
 		}
 
 		return pipeline;
+	}
+
+	DeviceContextVk* RenderGraphVk::GetDeviceContext() const
+	{
+		return m_deviceContexts[m_frameIndex];
 	}
 }
