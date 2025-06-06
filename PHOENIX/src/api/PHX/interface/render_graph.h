@@ -7,6 +7,7 @@
 #include "PHX/interface/swap_chain.h"
 #include "PHX/interface/texture.h"
 #include "PHX/interface/uniform.h"
+#include "PHX/types/clear_color.h"
 
 namespace PHX
 {

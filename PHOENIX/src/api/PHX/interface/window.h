@@ -13,10 +13,11 @@ namespace PHX
 
 	struct WindowCreateInfo
 	{
-		const char* title                                  = nullptr;
-		u32 width                                          = 1920;
-		u32 height                                         = 1080;
-		CURSOR_TYPE cursorType                             = CURSOR_TYPE::SHOWN;
+		const char* title		= nullptr;
+		u32 width				= 1920;
+		u32 height				= 1080;
+		CURSOR_TYPE cursorType	= CURSOR_TYPE::SHOWN;
+		bool canResize			= true;
 	};
 
 	class IWindow

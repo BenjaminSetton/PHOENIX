@@ -43,6 +43,7 @@ namespace PHX
 		// Deallocations
 		virtual void DeallocateSwapChain(ISwapChain** out_swapChain)						= 0;
 		virtual void DeallocateDeviceContext(IDeviceContext** pDeviceContext)				= 0;
+		virtual void DeallocateRenderGraph(IRenderGraph** pRenderGraph)						= 0;
 		virtual void DeallocateBuffer(IBuffer** pBuffer)									= 0;
 		virtual void DeallocateTexture(ITexture** pTexture)									= 0;
 		virtual void DeallocateShader(IShader** pShader)									= 0;

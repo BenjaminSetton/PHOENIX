@@ -88,6 +88,7 @@ namespace PHX
 		glfwInit();
 
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+		glfwWindowHint(GLFW_RESIZABLE, createInfo.canResize ? GLFW_TRUE : GLFW_FALSE);
 
 		const char* titleUsed = createInfo.title;
 		if (createInfo.title == nullptr)

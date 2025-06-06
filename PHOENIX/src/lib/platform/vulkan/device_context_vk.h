@@ -59,5 +59,7 @@ namespace PHX
 		// Do we want to guarantee that all of these command buffers were allocated from the same pool?
 		VkCommandBuffer m_primaryCmdBuffer;
 		std::vector<VkCommandBuffer> m_cmdBuffers; // all secondary command buffers
+
+		bool m_wasWorkSubmitted;
 	};
 }

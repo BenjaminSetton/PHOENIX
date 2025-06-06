@@ -291,12 +291,15 @@ namespace PHX
 
 		STATUS_CODE res;
 
+		// Only block on the in-flight fence if work was submitted for the corresponding frame
 		VkFence inFlightFence = m_pRenderDevice->GetInFlightFence(frameIndex);
+		if (m_wasWorkSubmitted)
+		{
+			// Wait until rendering is done for the last frame-in-flight with the same index
+			vkWaitForFences(m_pRenderDevice->GetLogicalDevice(), 1, &inFlightFence, VK_TRUE, UINT64_MAX);
+		}
+
 		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(frameIndex);
-
-		// Wait until rendering is done for the last frame-in-flight with the same index
-		vkWaitForFences(m_pRenderDevice->GetLogicalDevice(), 1, &inFlightFence, VK_TRUE, UINT64_MAX);
-
 		res = swapChainVk->AcquireNextImage(imageAvailableSemaphore);
 		if (res != STATUS_CODE::SUCCESS)
 		{
@@ -321,7 +324,10 @@ namespace PHX
 		m_primaryCmdBuffer = cmdBuffer;
 
 		// Only reset the fence if we're submitting work, otherwise we might deadlock
-		vkResetFences(m_pRenderDevice->GetLogicalDevice(), 1, &inFlightFence);
+		if (m_wasWorkSubmitted)
+		{
+			vkResetFences(m_pRenderDevice->GetLogicalDevice(), 1, &inFlightFence);
+		}
 
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -334,6 +340,8 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		m_wasWorkSubmitted = false;
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -345,6 +353,20 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		if (m_cmdBuffers.size() <= 0)
+		{
+			LogWarning("Attempting to flush a frame but no command buffers have been submitted!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		m_wasWorkSubmitted = true;
+
+		// End the primary command buffer
+		vkCmdExecuteCommands(m_primaryCmdBuffer, static_cast<u32>(m_cmdBuffers.size()), m_cmdBuffers.data());
+		vkCmdEndRenderPass(m_primaryCmdBuffer);
+		vkEndCommandBuffer(m_primaryCmdBuffer);
+
+		// Submit all commands
 		VkFence inFlightFence = m_pRenderDevice->GetInFlightFence(frameIndex);
 		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(frameIndex);
 		VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
@@ -451,10 +473,6 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 		vkEndCommandBuffer(cmdBuffer);
-
-		vkCmdExecuteCommands(m_primaryCmdBuffer, static_cast<u32>(m_cmdBuffers.size()), m_cmdBuffers.data());
-		vkCmdEndRenderPass(m_primaryCmdBuffer);
-		vkEndCommandBuffer(m_primaryCmdBuffer);
 
 		return STATUS_CODE::SUCCESS;
 	}

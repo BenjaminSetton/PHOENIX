@@ -23,6 +23,6 @@ namespace PHX
 			ClearColor color;
 			ClearDepthStencil depthStencil;
 		};
-		bool isClearColor; // Determines whether the value with the correct data in the union is the clear color or not
+		bool isClearColor = true; // Determines whether the value with the correct data in the union is the clear color or not
 	};
 }

@@ -14,6 +14,14 @@ namespace PHX
 	// INIT
 	STATUS_CODE Initialize(const Settings& initSettings, IWindow* pWindow);
 
+	// Returns the combined versions into a single u32
+	u32 GetFullVersion();
+
+	// Returns the individual version components
+	u32 GetMajorVersion();
+	u32 GetMinorVersion();
+	u32 GetPatchVersion();
+
 	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, IWindow** out_window);
 	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, IRenderDevice** out_renderDevice);
 

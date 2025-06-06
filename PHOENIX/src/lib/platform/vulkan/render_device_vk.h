@@ -34,6 +34,7 @@ namespace PHX
 
 		void DeallocateSwapChain(ISwapChain** pSwapChain) override;
 		void DeallocateDeviceContext(IDeviceContext** pDeviceContext) override;
+		void DeallocateRenderGraph(IRenderGraph** pRenderGraph) override;
 		void DeallocateBuffer(IBuffer** pBuffer) override;
 		void DeallocateTexture(ITexture** pTexture) override;
 		void DeallocateShader(IShader** pShader) override;

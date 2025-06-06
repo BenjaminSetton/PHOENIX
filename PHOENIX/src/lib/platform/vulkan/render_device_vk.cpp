@@ -221,6 +221,11 @@ namespace PHX
 		SAFE_DEL(*pDeviceContext);
 	}
 
+	void RenderDeviceVk::DeallocateRenderGraph(IRenderGraph** pRenderGraph)
+	{
+		SAFE_DEL(*pRenderGraph);
+	}
+
 	void RenderDeviceVk::DeallocateBuffer(IBuffer** pBuffer)
 	{
 		SAFE_DEL(*pBuffer);

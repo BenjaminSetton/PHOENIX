@@ -75,16 +75,19 @@ void OnWindowResizedCallback(PHX::u32 newWidth, PHX::u32 newHeight)
 
 void OnWindowFocusChangedCallback(bool inFocus)
 {
+	(void)inFocus;
 	// TODO
 }
 
 void OnWindowMinimizedCallback(bool wasMinimized)
 {
+	(void)wasMinimized;
 	// TODO
 }
 
 void OnWindowMaximizedCallback(bool wasMaximized)
 {
+	(void)wasMaximized;
 	// TODO
 }
 
@@ -387,6 +390,7 @@ int main(int argc, char** argv)
 	}
 
 	// Clean up
+	s_pRenderDevice->DeallocateRenderGraph(&pRenderGraph);
 	s_pRenderDevice->DeallocateBuffer(&uniformBuffer);
 	s_pRenderDevice->DeallocateBuffer(&vBuffer);
 	s_pRenderDevice->DeallocateSwapChain(&s_pSwapChain);

@@ -283,7 +283,8 @@ namespace PHX
 
 	//--------------------------------------------------------------------------------------------
 
-	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_frameIndex(0), m_pReservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)), m_deviceContexts()
+	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_frameIndex(0), m_pReservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)), 
+																  m_deviceContexts(), m_backbufferRenderPassIndex(s_invalidRenderPassIndex)
 	{
 		if (pRenderDevice == nullptr)
 		{

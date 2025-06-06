@@ -10,13 +10,19 @@
 #include "utils/logger.h"
 #include "utils/sanity.h"
 
-// TEMP
-void* operator new(size_t size)
-{
-	void* p = malloc(size);
-	return p;
-}
-// TEMP
+static constexpr PHX::u32 VER_MAJOR_SIZE = 8; // 256
+static constexpr PHX::u32 VER_MINOR_SIZE = 8; // 256
+static constexpr PHX::u32 VER_PATCH_SIZE = 16; // 65536
+
+// PHEONIX VERSION 0.0.1
+static constexpr PHX::u32 VER_MAJOR = 0;
+static constexpr PHX::u32 VER_MINOR = 0;
+static constexpr PHX::u32 VER_PATCH = 1;
+
+#define BUILD_VERSION(major, minor, patch) \
+	(major << (VER_MINOR_SIZE + VER_PATCH_SIZE)) | \
+	(minor << (VER_PATCH_SIZE)				   ) | \
+	(patch << 0								   )
 
 // TODO - Move into own shader_compiler.h or something...
 static void GetDefaultShaderResources(TBuiltInResource& resources)
@@ -186,6 +192,26 @@ namespace PHX
 		LogWarning("TODO - Command buffers are allocated/deallocated every frame");
 
 		return STATUS_CODE::SUCCESS;
+	}
+
+	u32 GetFullVersion()
+	{
+		return BUILD_VERSION(VER_MAJOR, VER_MINOR, VER_PATCH);
+	}
+
+	u32 GetMajorVersion()
+	{
+		return VER_MAJOR;
+	}
+
+	u32 GetMinorVersion()
+	{
+		return VER_MINOR;
+	}
+
+	u32 GetPatchVersion()
+	{
+		return VER_PATCH;
 	}
 
 	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, IWindow** out_window)
