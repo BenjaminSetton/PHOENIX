@@ -18,14 +18,24 @@ namespace PHX
 
 	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo)
 	{
+		UNUSED(createInfo);
+
 		if (pRenderDevice == nullptr)
 		{
 			LogError("Attempting to create a device context, but the render device is null!");
 			return;
 		}
-
-		UNUSED(createInfo);
 		m_pRenderDevice = pRenderDevice;
+
+		// Create the primary command buffer that will run all secondary commands
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		STATUS_CODE res = CreateCommandBuffer(QUEUE_TYPE::GRAPHICS, true, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to create device context. Primary command buffer creation failed!");
+			return;
+		}
+		m_primaryCmdBuffer = cmdBuffer;
 	}
 
 	DeviceContextVk::~DeviceContextVk()
@@ -307,21 +317,10 @@ namespace PHX
 			return res;
 		}
 
-		for (auto& cmdBuffer : m_cmdBuffers)
-		{
-			vkResetCommandBuffer(cmdBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
-		}
+		FreeSecondaryCommandBuffers();
 		m_cmdBuffers.clear();
 
-		// Create the primary command buffer that will run all secondary commands
-		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-		res = CreateCommandBuffer(QUEUE_TYPE::GRAPHICS, true, cmdBuffer);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to begin frame! Primary command buffer creation failed");
-			return res;
-		}
-		m_primaryCmdBuffer = cmdBuffer;
+		vkResetCommandBuffer(m_primaryCmdBuffer, 0);
 
 		// Only reset the fence if we're submitting work, otherwise we might deadlock
 		if (m_wasWorkSubmitted)
@@ -395,9 +394,6 @@ namespace PHX
 			LogError("Failed to wait until queue became idle after submitting! Got error: %s", string_VkResult(res));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
-
-		// Release the frame's command buffers
-
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -590,6 +586,19 @@ namespace PHX
 
 		m_primaryCmdBuffer = VK_NULL_HANDLE;
 		m_cmdBuffers.clear();
+	}
+
+	void DeviceContextVk::FreeSecondaryCommandBuffers()
+	{
+		if (m_cmdBuffers.size() <= 0)
+		{
+			// Nothing to free
+			return;
+		}
+
+		// TODO - Delete commands from the correct pool
+		VkCommandPool cmdPool = m_pRenderDevice->GetCommandPool(QUEUE_TYPE::GRAPHICS);
+		vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), cmdPool, static_cast<u32>(m_cmdBuffers.size()), m_cmdBuffers.data());
 	}
 
 	VkCommandBuffer DeviceContextVk::GetLastCommandBuffer()

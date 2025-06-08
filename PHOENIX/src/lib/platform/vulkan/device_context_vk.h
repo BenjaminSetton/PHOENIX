@@ -48,13 +48,15 @@ namespace PHX
 
 		STATUS_CODE CreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer);
 		void FreeCommandBuffer(VkCommandBuffer cmdBuffer);
+
 		void FreeCachedCommandBuffers();
+		void FreeSecondaryCommandBuffers();
 
 		VkCommandBuffer GetLastCommandBuffer();
 
 	private:
 
-		RenderDeviceVk* m_pRenderDevice; // Not sure if this is a good idea or not :/
+		RenderDeviceVk* m_pRenderDevice;
 
 		// Do we want to guarantee that all of these command buffers were allocated from the same pool?
 		VkCommandBuffer m_primaryCmdBuffer;
