@@ -4,3 +4,6 @@
 [submodule "PHOENIX/vendor/glslang"]
 	path = PHOENIX/vendor/glslang
 	url = https://github.com/BenjaminSetton/glslang.git
+[submodule "samples/common/vendor/assimp"]
+	path = samples/common/vendor/assimp
+	url = https://github.com/BenjaminSetton/assimp.git
