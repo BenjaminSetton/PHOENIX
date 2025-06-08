@@ -25,6 +25,12 @@ namespace PHX
 		userPointer->OnWindowResizedCallback(static_cast<u32>(newWidth), static_cast<u32>(newHeight));
 	}
 
+	static void Global_OnWindowMoved(GLFWwindow* window, int newX, int newY)
+	{
+		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		userPointer->OnWindowMovedCallback(newX, newY);
+	}
+
 	static void Global_OnWindowFocusChanged(GLFWwindow* window, int isFocused)
 	{
 		// isFocused should only ever be GLFW_TRUE or GLFW_FALSE
@@ -76,7 +82,7 @@ namespace PHX
 		return GLFW_CURSOR_NORMAL;
 	}
 
-	WindowWin64::WindowWin64(const WindowCreateInfo& createInfo) : m_width(0), m_height(0), m_title(""), m_inFocus(true), 
+	WindowWin64::WindowWin64(const WindowCreateInfo& createInfo) : m_size(0), m_position(0), m_title(""), m_inFocus(true), 
 																   m_isMinimized(false), m_isMaximized(false), m_handle(nullptr)
 	{
 		if (m_handle != nullptr)
@@ -96,13 +102,20 @@ namespace PHX
 			// I don't believe GLFW accepts nullptr for the title
 			titleUsed = "";
 		}
-		m_handle = glfwCreateWindow(createInfo.width, createInfo.height, titleUsed, nullptr, nullptr);
+		m_handle = glfwCreateWindow(createInfo.size.GetX(), createInfo.size.GetY(), titleUsed, nullptr, nullptr);
+
 		glfwSetWindowUserPointer(m_handle, this);
 		glfwSetInputMode(m_handle, GLFW_CURSOR, ConvertGLFWCursorTypeToInternal(createInfo.cursorType));
 		glfwSetFramebufferSizeCallback(m_handle, Global_OnWindowResized);
+		glfwSetWindowPosCallback(m_handle, Global_OnWindowMoved);
 		glfwSetWindowFocusCallback(m_handle, Global_OnWindowFocusChanged);
 		glfwSetWindowIconifyCallback(m_handle, Global_OnWindowMinimized);
 		glfwSetWindowMaximizeCallback(m_handle, Global_OnWindowMaximized);
+
+		// Take the user's desired position and add it to the top-left coordinate to account for the menu bar
+		int windowTop, windowLeft;
+		glfwGetWindowFrameSize(m_handle, &windowLeft, &windowTop, nullptr, nullptr);
+		glfwSetWindowPos(m_handle, createInfo.position.GetX() + windowLeft, createInfo.position.GetY() + windowTop);
 
 		// Use raw mouse motion if available, meaning we won't consider any acceleration or other features that
 		// are applied to a desktop mouse to make it "feel" better. Raw mouse motion is better for controlling 3D cameras
@@ -115,8 +128,8 @@ namespace PHX
 			LogInfo("Raw mouse motion is not supported");
 		}
 
-		m_width = createInfo.width;
-		m_height = createInfo.height;
+		m_size = createInfo.size;
+		m_position = createInfo.position;
 		m_title = titleUsed;
 		m_inFocus = true;
 	}
@@ -168,12 +181,22 @@ namespace PHX
 
 	u32 WindowWin64::GetCurrentWidth() const
 	{
-		return m_width;
+		return m_size.GetX();
 	}
 
 	u32 WindowWin64::GetCurrentHeight() const
 	{
-		return m_height;
+		return m_size.GetY();
+	}
+
+	int WindowWin64::GetPositionX() const
+	{
+		return m_position.GetX();
+	}
+
+	int WindowWin64::GetPositionY() const
+	{
+		return m_position.GetY();
 	}
 
 	const char* WindowWin64::GetName() const
@@ -189,8 +212,7 @@ namespace PHX
 			return;
 		}
 
-		m_width = newWidth;
-		m_height = newHeight;
+		m_size = { newWidth, newHeight };
 
 		auto& settings = GetSettings();
 		if (settings.windowResizedCallback == nullptr)
@@ -199,7 +221,12 @@ namespace PHX
 			return;
 		}
 
-		settings.windowResizedCallback(m_width, m_height);
+		settings.windowResizedCallback(m_size.GetX(), m_size.GetY());
+	}
+
+	void WindowWin64::OnWindowMovedCallback(int newX, int newY)
+	{
+		m_position = { static_cast<u32>(newX), static_cast<u32>(newY) };
 	}
 
 	void WindowWin64::OnWindowFocusChangedCallback(bool inFocus)

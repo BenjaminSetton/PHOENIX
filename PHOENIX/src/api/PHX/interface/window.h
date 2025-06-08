@@ -1,6 +1,7 @@
 #pragma once
 
 #include "../types/integral_types.h"
+#include "../types/vec_types.h"
 
 namespace PHX
 {
@@ -14,8 +15,8 @@ namespace PHX
 	struct WindowCreateInfo
 	{
 		const char* title		= nullptr;
-		u32 width				= 1920;
-		u32 height				= 1080;
+		Vec2u size				= { 1920, 1080 };
+		Vec2u position			= { 0 , 0 };
 		CURSOR_TYPE cursorType	= CURSOR_TYPE::SHOWN;
 		bool canResize			= true;
 	};
@@ -28,6 +29,8 @@ namespace PHX
 
 		virtual u32 GetCurrentWidth() const = 0;
 		virtual u32 GetCurrentHeight() const = 0;
+		virtual int GetPositionX() const = 0;
+		virtual int GetPositionY() const = 0;
 		virtual const char* GetName() const = 0;
 
 		virtual void Update(float deltaTime) = 0;

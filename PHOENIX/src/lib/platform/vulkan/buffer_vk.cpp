@@ -10,9 +10,13 @@ namespace PHX
 {
 	static constexpr u32 MIN_SIZE_FOR_DEDICATED_MEMORY = 128; // in bytes
 
-	BufferVk::BufferVk(RenderDeviceVk* pRenderDevice, const BufferCreateInfo& createInfo)
+	BufferVk::BufferVk(RenderDeviceVk* pRenderDevice, const BufferCreateInfo& createInfo) : m_renderDevice(VK_NULL_HANDLE), m_usage()
 	{
-		m_renderDevice = pRenderDevice;
+		if (createInfo.size == 0)
+		{
+			LogError("Failed to create buffer. Buffer size is 0!");
+			return;
+		}
 
 		BufferData newBuffer{};
 
@@ -53,6 +57,7 @@ namespace PHX
 			m_stagingBuffer = newBuffer;
 		}
 
+		m_renderDevice = pRenderDevice;
 		m_usage = createInfo.bufferUsage;
 	}
 

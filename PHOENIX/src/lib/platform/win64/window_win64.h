@@ -24,9 +24,12 @@ namespace PHX
 
 		u32 GetCurrentWidth() const override;
 		u32 GetCurrentHeight() const override;
+		int GetPositionX() const override;
+		int GetPositionY() const override;
 		const char* GetName() const override;
 
 		void OnWindowResizedCallback(u32 newWidth, u32 newHeight);
+		void OnWindowMovedCallback(int newX, int newY);
 		void OnWindowFocusChangedCallback(bool inFocus);
 		void OnWindowMinimizedCallback(bool wasIconified);
 		void OnWindowMaximizedCallback(bool wasMaximized);
@@ -35,8 +38,8 @@ namespace PHX
 
 	private:
 
-		u32 m_width;
-		u32 m_height;
+		Vec2u m_size;
+		Vec2u m_position;
 		const char* m_title;
 		bool m_inFocus;
 		bool m_isMinimized;

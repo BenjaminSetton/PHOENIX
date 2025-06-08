@@ -34,10 +34,15 @@ namespace PHX
 		STATUS_CODE CreateInstance(bool enableValidationLayers);
 		STATUS_CODE CreateSurface(IWindow* pWindow);
 
+		void DestroyInstance();
+		void DestroySurface();
+
 	private:
 
 		VkInstance m_instance;
 		VkSurfaceKHR m_surface;
+
+		VkDebugUtilsMessengerEXT m_validationMessenger;
 
 		u32 m_apiVersion;
 	};

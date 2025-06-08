@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+#include <initializer_list>
 #include <type_traits>
 
 #include "integral_types.h"

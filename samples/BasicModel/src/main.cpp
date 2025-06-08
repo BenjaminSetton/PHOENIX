@@ -86,6 +86,22 @@ int main(int argc, char** argv)
 		return -1;
 	}
 
+	// VERTEX BUFFER
+	BufferCreateInfo vBufferCI{};
+	vBufferCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
+	vBufferCI.size = 0; // TODO
+
+	IBuffer* pVertexBuffer = nullptr;
+	pRenderDevice->AllocateBuffer(vBufferCI, &pVertexBuffer);
+
+	// INDEX BUFFER
+	BufferCreateInfo iBufferCI{};
+	iBufferCI.bufferUsage = BUFFER_USAGE::INDEX_BUFFER;
+	iBufferCI.size = 0; // TODO
+
+	IBuffer* pIndexBuffer = nullptr;
+	pRenderDevice->AllocateBuffer(iBufferCI, &pIndexBuffer);
+
 	// RENDER GRAPH
 	IRenderGraph* pRenderGraph = nullptr;
 	phxRes = pRenderDevice->AllocateRenderGraph(&pRenderGraph);
@@ -109,6 +125,8 @@ int main(int argc, char** argv)
 		pSwapChain->Present();
 	}
 
+	pRenderDevice->DeallocateBuffer(&pIndexBuffer);
+	pRenderDevice->DeallocateBuffer(&pIndexBuffer);
 	pRenderDevice->DeallocateSwapChain(&pSwapChain);
 
 	DestroyWindow(&pWindow);
