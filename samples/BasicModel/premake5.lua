@@ -19,16 +19,20 @@ project "BasicModel"
 		"src/**.h",
 		"src/**.cpp",
 		"src/**.vert",
-		"src/**.frag"
+		"src/**.frag",
+		"../common/src/**.h",
+		"../common/src/**.cpp"
 	}
 	
 	includedirs
 	{
 		"%{SamplesCommon_IncludeDirs.PHOENIX}",
+		"%{SamplesCommon_IncludeDirs.assimp_core}",
+		"%{SamplesCommon_IncludeDirs.assimp_generated}"
 	}
 	
 	filter "system:windows"
-		cppdialect "C++14"
+		cppdialect "C++17"
 		systemversion "latest"
 		warnings "High"
 	
@@ -38,6 +42,8 @@ project "BasicModel"
 			links
 			{
 				"%{SamplesCommon_Libraries.PHOENIX_win64_debug}",
+				"%{SamplesCommon_Libraries.assimp_zlib_debug}",
+				"%{SamplesCommon_Libraries.assimp_debug}"
 			}
 		
 		filter "configurations:Release"
@@ -46,4 +52,6 @@ project "BasicModel"
 			links
 			{
 				"%{SamplesCommon_Libraries.PHOENIX_win64_release}",
+				"%{SamplesCommon_Libraries.assimp_zlib_release}",
+				"%{SamplesCommon_Libraries.assimp_release}"
 			}
