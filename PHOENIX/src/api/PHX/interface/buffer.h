@@ -8,7 +8,7 @@ namespace PHX
 {
 	struct BufferCreateInfo
 	{
-		u64 size;
+		u64 sizeBytes;
 		BUFFER_USAGE bufferUsage;
 	};
 

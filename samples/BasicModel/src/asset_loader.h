@@ -22,8 +22,7 @@ using AssetManager = Common::GenericAssetManager<AssetType>;
 static Common::AssetHandle ConvertAssetDiskToAssetType(const Common::AssetDisk* pAssetDisk)
 {
 	AssetType newAsset;
-	const uint32_t vertexCount = pAssetDisk->vertices.size();
-	const uint32_t indexCount = pAssetDisk->indices.size();
+	const uint32_t vertexCount = static_cast<uint32_t>(pAssetDisk->vertices.size());
 
 	// VERTICES
 	for (uint32_t i = 0; i < vertexCount; i++)

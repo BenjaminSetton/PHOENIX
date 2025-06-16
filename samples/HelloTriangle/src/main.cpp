@@ -236,7 +236,7 @@ int main(int argc, char** argv)
 	// VERTEX BUFFER
 	BufferCreateInfo bufferCI{};
 	bufferCI.bufferUsage = PHX::BUFFER_USAGE::VERTEX_BUFFER;
-	bufferCI.size = sizeof(SimpleVertexType) * VERTEX_COUNT; // Triangle!
+	bufferCI.sizeBytes = sizeof(SimpleVertexType) * VERTEX_COUNT; // Triangle!
 
 	IBuffer* vBuffer = nullptr;
 	result = s_pRenderDevice->AllocateBuffer(bufferCI, &vBuffer);
@@ -256,7 +256,7 @@ int main(int argc, char** argv)
 
 	BufferCreateInfo uniformBufferCI{};
 	uniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
-	uniformBufferCI.size = sizeof(TestUBO);
+	uniformBufferCI.sizeBytes = sizeof(TestUBO);
 
 	IBuffer* uniformBuffer = nullptr;
 	result = s_pRenderDevice->AllocateBuffer(uniformBufferCI, &uniformBuffer);

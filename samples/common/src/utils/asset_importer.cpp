@@ -31,7 +31,7 @@ namespace Common
 		}
 
 		std::shared_ptr<AssetDisk> asset = std::make_shared<AssetDisk>();
-		asset->name = filePath.filename().string();
+		asset->name = filePath.stem().string();
 
 		// VERTICES
 		const uint32_t vertexCount = importedMesh->mNumVertices;
@@ -62,9 +62,9 @@ namespace Common
 			uint32_t indexCount = j * 3;
 			const aiFace& importedFace = importedMesh->mFaces[j];
 
-			asset->indices[indexCount    ] = importedFace.mIndices[0];
-			asset->indices[indexCount + 1] = importedFace.mIndices[1];
-			asset->indices[indexCount + 2] = importedFace.mIndices[2];
+			asset->indices.push_back(importedFace.mIndices[0]);
+			asset->indices.push_back(importedFace.mIndices[1]);
+			asset->indices.push_back(importedFace.mIndices[2]);
 		}
 
 		// TEXTURES (loading standalone for now)

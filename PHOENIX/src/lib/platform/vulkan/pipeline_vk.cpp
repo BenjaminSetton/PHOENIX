@@ -231,6 +231,21 @@ namespace PHX
 			LogError("Failed to create graphics pipeline! Shaders array is null");
 			return STATUS_CODE::ERR_API;
 		}
+		if (createInfo.shaderCount == 0)
+		{
+			LogError("Failed to create graphics pipeline! Shader count is 0");
+			return STATUS_CODE::ERR_API;
+		}
+
+		for (u32 i = 0; i < createInfo.shaderCount; i++)
+		{
+			const IShader* pShader = createInfo.ppShaders[i];
+			if (pShader == nullptr)
+			{
+				LogError("Failed to create graphics pipeline! Shader at index %u is null", i);
+				return STATUS_CODE::ERR_API;
+			}
+		}
 
 		return STATUS_CODE::SUCCESS;
 	}

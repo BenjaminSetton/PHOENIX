@@ -12,17 +12,18 @@ namespace PHX
 
 	BufferVk::BufferVk(RenderDeviceVk* pRenderDevice, const BufferCreateInfo& createInfo) : m_renderDevice(VK_NULL_HANDLE), m_usage()
 	{
-		if (createInfo.size == 0)
+		if (createInfo.sizeBytes == 0)
 		{
 			LogError("Failed to create buffer. Buffer size is 0!");
 			return;
 		}
+		m_renderDevice = pRenderDevice;
 
 		BufferData newBuffer{};
 
 		// Create buffer
 		VmaAllocationCreateFlags bufferCreateFlags = 0;
-		if (createInfo.size >= MIN_SIZE_FOR_DEDICATED_MEMORY)
+		if (createInfo.sizeBytes >= MIN_SIZE_FOR_DEDICATED_MEMORY)
 		{
 			// Create dedicated memory for "large" allocations, such as larger buffers or images
 			bufferCreateFlags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
@@ -34,7 +35,7 @@ namespace PHX
 		}
 
 		const VkBufferUsageFlags bufferUsageFlags = BUFFER_UTILS::ConvertBufferUsage(createInfo.bufferUsage) | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		newBuffer = CreateBuffer(createInfo.size, bufferUsageFlags, bufferCreateFlags, 0, 0);
+		newBuffer = CreateBuffer(createInfo.sizeBytes, bufferUsageFlags, bufferCreateFlags, 0, 0);
 		if (!newBuffer.isValid)
 		{
 			LogError("Failed to create buffer!");
@@ -47,7 +48,7 @@ namespace PHX
 		{
 			const VmaAllocationCreateFlags stagingBufferCreateFlags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 			const VkBufferUsageFlags stagingBufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-			newBuffer = CreateBuffer(createInfo.size, stagingBufferUsageFlags, stagingBufferCreateFlags, 0, 0);
+			newBuffer = CreateBuffer(createInfo.sizeBytes, stagingBufferUsageFlags, stagingBufferCreateFlags, 0, 0);
 			if (!newBuffer.isValid)
 			{
 				LogError("Failed to create staging buffer!");
@@ -57,7 +58,6 @@ namespace PHX
 			m_stagingBuffer = newBuffer;
 		}
 
-		m_renderDevice = pRenderDevice;
 		m_usage = createInfo.bufferUsage;
 	}
 

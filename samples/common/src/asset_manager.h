@@ -36,15 +36,16 @@ namespace Common
 			{
 				return nullptr;
 			}
-			return m_assets.at(id);
+			return &m_assets.at(id);
 		}
+
 		const AssetType* const GetAsset(AssetHandle id) const
 		{
 			if (m_assets.find(id) == m_assets.end())
 			{
 				return nullptr;
 			}
-			return m_assets.at(id);
+			return &m_assets.at(id);
 		}
 		
 		AssetHandle AddAsset(const AssetType& asset)
@@ -54,7 +55,7 @@ namespace Common
 			do
 			{
 				id = GetUUID();
-				if (!m_assets.find(id))
+				if (m_assets.find(id) == m_assets.end())
 				{
 					break;
 				}
@@ -63,6 +64,7 @@ namespace Common
 
 			// Copy AssetType into container
 			m_assets.insert({ id, asset });
+			return id;
 		}
 
 		void RemoveAsset(AssetHandle id)
