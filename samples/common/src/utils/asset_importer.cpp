@@ -59,7 +59,6 @@ namespace Common
 		asset->indices.reserve(faceCount * 3);
 		for (uint32_t j = 0; j < faceCount; j++)
 		{
-			uint32_t indexCount = j * 3;
 			const aiFace& importedFace = importedMesh->mFaces[j];
 
 			asset->indices.push_back(importedFace.mIndices[0]);
