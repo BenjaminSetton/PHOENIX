@@ -28,7 +28,8 @@ project "BasicModel"
 	{
 		"%{SamplesCommon_IncludeDirs.PHOENIX}",
 		"%{SamplesCommon_IncludeDirs.assimp_core}",
-		"%{SamplesCommon_IncludeDirs.assimp_generated}"
+		"%{SamplesCommon_IncludeDirs.assimp_generated}",
+		"%{SamplesCommon_IncludeDirs.glm}"
 	}
 	
 	filter "system:windows"
@@ -43,7 +44,8 @@ project "BasicModel"
 			{
 				"%{SamplesCommon_Libraries.PHOENIX_win64_debug}",
 				"%{SamplesCommon_Libraries.assimp_zlib_debug}",
-				"%{SamplesCommon_Libraries.assimp_debug}"
+				"%{SamplesCommon_Libraries.assimp_debug}",
+				"%{SamplesCommon_Libraries.glm_debug}"
 			}
 		
 		filter "configurations:Release"
@@ -53,5 +55,6 @@ project "BasicModel"
 			{
 				"%{SamplesCommon_Libraries.PHOENIX_win64_release}",
 				"%{SamplesCommon_Libraries.assimp_zlib_release}",
-				"%{SamplesCommon_Libraries.assimp_release}"
+				"%{SamplesCommon_Libraries.assimp_release}",
+				"%{SamplesCommon_Libraries.glm_release}"
 			}

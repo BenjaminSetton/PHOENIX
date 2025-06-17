@@ -29,5 +29,29 @@ echo [%LOG_CHANNEL%] Finished building assimp release!
 echo [%LOG_CHANNEL%] Finished building assimp!
 ::-----------------------------------------------------------
 
+:: Build glm
+::-----------------------------------------------------------
+echo [%LOG_CHANNEL%] Building glm dependency...
+
+set GLM_SRC=".\samples\common\vendor\glm"
+set GLM_OUT="%SAMPLES_OUTPUT_DIR%glm"
+
+:: Build assimp project
+cmake -S %GLM_SRC% -B %GLM_OUT% -D GLM_BUILD_LIBRARY=ON -D GLM_BUILD_TESTS=OFF
+
+:: Debug build
+echo [%LOG_CHANNEL%] Started building glm debug...
+cmake --build %GLM_OUT% --config Debug
+echo [%LOG_CHANNEL%] Finished building glm debug!
+
+:: Release build
+echo [%LOG_CHANNEL%] Started building glm release...
+cmake --build %GLM_OUT% --config Release
+echo [%LOG_CHANNEL%] Finished building glm release!
+
+echo [%LOG_CHANNEL%] Finished building glm!
+::-----------------------------------------------------------
+
+
 echo [%LOG_CHANNEL%] Finished building dependencies!
 pause
