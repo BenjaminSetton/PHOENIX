@@ -23,6 +23,7 @@ namespace PHX
 		~BufferVk();
 
 		STATUS_CODE CopyData(const void* data, u64 size) override;
+		BUFFER_USAGE GetUsage() const override;
 
 		VkBuffer GetBuffer() const;
 		VkBuffer GetStagingBuffer() const;

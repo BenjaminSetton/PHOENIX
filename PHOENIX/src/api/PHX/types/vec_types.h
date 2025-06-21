@@ -10,7 +10,7 @@ namespace PHX
 {
 	// Only valid for integral types and for vectors holding 2-4 elements
 	template<typename T, unsigned N, class = typename std::enable_if<std::is_integral<T>::value && (N > 1 && N <= 4)>>
-		class VecT
+	class VecT
 	{
 	public:
 		VecT()
@@ -29,6 +29,15 @@ namespace PHX
 			size_t copySize = initList.size() <= N ? initList.size() : N;
 			std::copy_n(initList.begin(), copySize, values);
 		}
+
+		template<class = typename std::enable_if<N >= 2>>
+		VecT(T x, T y) { values[0] = x; values[1] = y; }
+
+		template<class = typename std::enable_if<N >= 3>>
+		VecT(T x, T y, T z) { values[0] = x; values[1] = y; values[2] = z; }
+
+		template<class = typename std::enable_if<N >= 4>>
+		VecT(T x, T y, T z, T w) { values[0] = x; values[1] = y; values[2] = z; values[3] = w; }
 
 		~VecT() = default;
 

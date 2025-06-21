@@ -248,7 +248,7 @@ int main(int argc, char** argv)
 	// Just clear the color attachment, no depth/stencil
 	ClearValues clearCol{};
 	clearCol.color.color = { 0.1f, 0.1f, 0.1f, 0.0f };
-	clearCol.isClearColor = true;
+	clearCol.useClearColor = true;
 
 	// UNIFORM BUFFER
 	TestUBO test{};

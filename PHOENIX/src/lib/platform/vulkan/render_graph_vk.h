@@ -32,6 +32,7 @@ namespace PHX
 
 		// Outputs
 		void SetColorOutput(ITexture* pTexture) override;
+		void SetDepthOutput(ITexture* pTexture) override;
 		void SetDepthStencilOutput(ITexture* pTexture) override;
 		void SetResolveOutput(ITexture* pTexture) override;
 		void SetBackbufferOutput(ITexture* pTexture) override;

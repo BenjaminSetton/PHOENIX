@@ -32,6 +32,7 @@ namespace PHX
 			 
 		// Outputs
 		virtual void SetColorOutput(ITexture* pTexture) = 0;
+		virtual void SetDepthOutput(ITexture* pTexture) = 0;
 		virtual void SetDepthStencilOutput(ITexture* pTexture) = 0;
 		virtual void SetResolveOutput(ITexture* pTexture) = 0;
 		virtual void SetBackbufferOutput(ITexture* pTexture) = 0;

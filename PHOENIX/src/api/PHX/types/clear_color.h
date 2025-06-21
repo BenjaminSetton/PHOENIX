@@ -18,11 +18,8 @@ namespace PHX
 
 	struct ClearValues
 	{
-		union
-		{
-			ClearColor color;
-			ClearDepthStencil depthStencil;
-		};
-		bool isClearColor = true; // Determines whether the value with the correct data in the union is the clear color or not
+		ClearColor color;
+		ClearDepthStencil depthStencil;
+		bool useClearColor = true; // Determines whether to use the values from clear color or clear depth/stencil
 	};
 }

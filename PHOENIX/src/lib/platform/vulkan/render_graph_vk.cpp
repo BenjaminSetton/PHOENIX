@@ -218,6 +218,19 @@ namespace PHX
 		m_outputResources.push_back(desc);
 	}
 
+	void RenderPassVk::SetDepthOutput(ITexture* pTexture)
+	{
+		ResourceDesc desc{};
+		desc.name = "out_depth_tex"; // TODO
+		desc.data = pTexture;
+		desc.io = RESOURCE_IO::OUTPUT;
+		desc.resourceType = RESOURCE_TYPE::TEXTURE;
+		desc.attachmentType = ATTACHMENT_TYPE::DEPTH;
+		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
+		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
+		m_outputResources.push_back(desc);
+	}
+
 	void RenderPassVk::SetDepthStencilOutput(ITexture* pTexture)
 	{
 		TODO();
@@ -442,7 +455,6 @@ namespace PHX
 
 		// TODO - Simply dealing with the backbuffer pass for now
 		// Transition the backbuffer resource to PRESENT layout
-		ASSERT_MSG(backbufferRP.m_outputResources.size() == 1, "Backbuffer render pass doesn't have exactly 1 output resource!"); // TEMP
 		//ResourceDesc& backbufferResourceDesc = backbufferRP.m_outputResources.at(0);
 		//if (backbufferResourceDesc.resourceType == RESOURCE_TYPE::TEXTURE)
 		//{
@@ -504,14 +516,25 @@ namespace PHX
 
 			AttachmentDescription attDesc{};
 			attDesc.pTexture = static_cast<TextureVk*>(outputResource.data);
-			attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL; // TODO
 			attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // TODO
-			attDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // TODO
+
+			// TODO - Since we're only dealing with 1 render pass for now, I'll assume that
+			//        the special backbuffer resource will be used as the present resource and
+			//        everything else is a depth buffer resource (since this is only for output resources)
+			if (HashCRC32(outputResource.name) == m_pReservedBackbufferNameCRC)
+			{
+				attDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+			}
+			else
+			{
+				attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+			}
 			
 			switch (outputResource.attachmentType)
 			{
 			case ATTACHMENT_TYPE::COLOR:
 			{
+				attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
 				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
 
@@ -520,6 +543,7 @@ namespace PHX
 			}
 			case ATTACHMENT_TYPE::DEPTH:
 			{
+				attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; // TODO - Switch to DEPTH_ONLY in Vulkan version 1.2?
 				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
 				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
 
@@ -529,6 +553,7 @@ namespace PHX
 			}
 			case ATTACHMENT_TYPE::STENCIL:
 			{
+				attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; // TODO - Switch to STENCIL_ONLY in Vulkan version 1.2?
 				attDesc.stencilLoadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
 				attDesc.stencilStoreOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
 
@@ -539,6 +564,7 @@ namespace PHX
 			case ATTACHMENT_TYPE::DEPTH_STENCIL:
 			{
 				// TODO - Should this be considered a stencil or regular load/store op?
+				attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
 				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
 
@@ -548,6 +574,7 @@ namespace PHX
 			}
 			case ATTACHMENT_TYPE::RESOLVE:
 			{
+				attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
 				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
 

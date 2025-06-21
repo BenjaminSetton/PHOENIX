@@ -234,6 +234,12 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
+		if (bufferVk->GetUsage() == BUFFER_USAGE::UNIFORM_BUFFER)
+		{
+			LogWarning("Attempting to copy data from staging buffer to uniform buffer, but uniform buffers don't have staging buffers. Skipping operation");
+			return STATUS_CODE::ERR_API;
+		}
+
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		res = CreateCommandBuffer(QUEUE_TYPE::TRANSFER, true, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
@@ -405,7 +411,7 @@ namespace PHX
 		for (u32 i = 0; i < clearColorCount; i++)
 		{
 			VkClearValue clearValues{};
-			if (pClearColors[i].isClearColor)
+			if (pClearColors[i].useClearColor)
 			{
 				memcpy(&clearValues.color.float32, &pClearColors[i].color.color, sizeof(float) * 4);
 			}

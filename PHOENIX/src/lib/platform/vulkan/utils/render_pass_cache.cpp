@@ -106,6 +106,8 @@ namespace PHX
 
 		subpassDescVk.pipelineBindPoint = subpassInfo.bindPoint;
 		subpassDescVk.colorAttachmentCount = static_cast<u32>(subpassInfo.colorAttachmentIndices.size());
+		subpassDescVk.pInputAttachments = nullptr;
+		subpassDescVk.inputAttachmentCount = 0;
 
 		if (subpassInfo.depthStencilAttachmentIndex != U32_MAX)
 		{

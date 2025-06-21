@@ -17,22 +17,26 @@
 namespace PHX
 {
 
-	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, VkRenderPass renderPass, const GraphicsPipelineDesc& createInfo) : m_pRenderDevice(nullptr)
+	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, VkRenderPass renderPass, const GraphicsPipelineDesc& createInfo) : 
+		m_pRenderDevice(nullptr), m_pipeline(), m_layout(), m_bindPoint(VK_PIPELINE_BIND_POINT_MAX_ENUM)
 	{
 		if (pRenderDevice == nullptr)
 		{
 			return;
 		}
+		m_pRenderDevice = pRenderDevice;
 
 		CreateGraphicsPipeline(pRenderDevice, cache, renderPass, createInfo);
 	}
 
-	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineDesc& createInfo) : m_pRenderDevice(nullptr)
+	PipelineVk::PipelineVk(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineDesc& createInfo) : 
+		m_pRenderDevice(nullptr), m_pipeline(), m_layout(), m_bindPoint(VK_PIPELINE_BIND_POINT_MAX_ENUM)
 	{
 		if (pRenderDevice == nullptr)
 		{
 			return;
 		}
+		m_pRenderDevice = pRenderDevice;
 
 		CreateComputePipeline(pRenderDevice, cache, createInfo);
 	}
@@ -81,6 +85,7 @@ namespace PHX
 
 		// Shaders
 		std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+		shaderStages.reserve(createInfo.shaderCount);
 		for (u32 i = 0; i < createInfo.shaderCount; i++)
 		{
 			shaderStages.emplace_back(PopulateShaderCreateInfo(createInfo.ppShaders[i]));
@@ -175,8 +180,6 @@ namespace PHX
 		LogDebug("\tLayout ptr: %p", pipelineInfo.layout);
 		LogDebug("\tRender pass: %p", pipelineInfo.renderPass);
 
-		m_pRenderDevice = pRenderDevice;
-
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -214,8 +217,6 @@ namespace PHX
 		LogDebug("\tShader name: %s", pipelineInfo.stage.pName);
 		LogDebug("\tLayout ptr: %p", pipelineInfo.layout);
 
-		m_pRenderDevice = pRenderDevice;
-
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -247,6 +248,41 @@ namespace PHX
 			}
 		}
 
+		// Check set and binding numbers against device limits, if applicable
+		if (createInfo.pUniformCollection != nullptr)
+		{
+			const u32 maxBoundDescriptors = m_pRenderDevice->GetDeviceProperties().limits.maxBoundDescriptorSets;
+			const u32 groupCount = createInfo.pUniformCollection->GetGroupCount();
+
+			for (u32 i = 0; i < groupCount; i++)
+			{
+				const UniformDataGroup* const dataGroup = createInfo.pUniformCollection->GetGroup(i);
+				const u32 dataGroupSetNumber = dataGroup->set;
+				if (dataGroupSetNumber > maxBoundDescriptors)
+				{
+					LogWarning("Attempting to create graphics pipeline, but the set of a uniform data group (%u) exceeds the maximum allowed by the device (%u)", dataGroupSetNumber, maxBoundDescriptors);
+				}
+
+				const u32 uniformArrayCount = dataGroup->uniformArrayCount;
+				for (u32 j = 0; j < uniformArrayCount; j++)
+				{
+					const UniformData& uniformData = dataGroup->uniformArray[j];
+					
+					const u32 shaderStage = static_cast<u32>(uniformData.shaderStage);
+					if (shaderStage >= static_cast<u32>(SHADER_STAGE::MAX))
+					{
+						LogWarning("Attempting to create a graphics pipeline, but the shader stage from data group %u at index %u is invalid (%i)", i, j, shaderStage);
+					}
+
+					const u32 uniformType = static_cast<u32>(uniformData.type);
+					if (uniformType >= static_cast<u32>(UNIFORM_TYPE::MAX))
+					{
+						LogWarning("Attempting to create a graphics pipeline, but the type from data group %u at index %u is invalid (%u)", i, j, uniformType);
+					}
+				}
+			}
+		}
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -258,6 +294,41 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
+		// Check set and binding numbers against device limits, if applicable
+		if (createInfo.pUniformCollection != nullptr)
+		{
+			const u32 maxBoundDescriptors = m_pRenderDevice->GetDeviceProperties().limits.maxBoundDescriptorSets;
+			const u32 groupCount = createInfo.pUniformCollection->GetGroupCount();
+
+			for (u32 i = 0; i < groupCount; i++)
+			{
+				const UniformDataGroup* const dataGroup = createInfo.pUniformCollection->GetGroup(i);
+				const u32 dataGroupSetNumber = dataGroup->set;
+				if (dataGroupSetNumber > maxBoundDescriptors)
+				{
+					LogWarning("Attempting to create compute pipeline, but the set of a uniform data group (%u) exceeds the maximum allowed by the device (%u)", dataGroupSetNumber, maxBoundDescriptors);
+				}
+
+				const u32 uniformArrayCount = dataGroup->uniformArrayCount;
+				for (u32 j = 0; j < uniformArrayCount; j++)
+				{
+					const UniformData& uniformData = dataGroup->uniformArray[j];
+
+					const u32 shaderStage = static_cast<u32>(uniformData.shaderStage);
+					if (shaderStage >= static_cast<u32>(SHADER_STAGE::MAX))
+					{
+						LogWarning("Attempting to create a compute pipeline, but the shader stage from data group %u at index %u is invalid (%i)", i, j, shaderStage);
+					}
+
+					const u32 uniformType = static_cast<u32>(uniformData.type);
+					if (uniformType >= static_cast<u32>(UNIFORM_TYPE::MAX))
+					{
+						LogWarning("Attempting to create a compute pipeline, but the type from data group %u at index %u is invalid (%u)", i, j, uniformType);
+					}
+				}
+			}
+		}
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -267,7 +338,7 @@ namespace PHX
 		if (pUniformCollection != nullptr)
 		{
 			// TODO - Add support for push constants
-			UniformCollectionVk* pUniformCollectionVk = dynamic_cast<UniformCollectionVk*>(pUniformCollection);
+			UniformCollectionVk* pUniformCollectionVk = static_cast<UniformCollectionVk*>(pUniformCollection);
 			pipelineLayoutInfo = PopulatePipelineLayoutCreateInfo(pUniformCollectionVk->GetDescriptorSetLayouts(), pUniformCollectionVk->GetDescriptorSetLayoutCount(), nullptr, 0);
 		}
 		else

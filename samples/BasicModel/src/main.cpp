@@ -1,12 +1,23 @@
 
 #include <array>
 #include <fstream>
+#include <glm.hpp>
+#include <gtc/matrix_transform.hpp>
 #include <sstream>
 
 #include "asset_loader.h"
 #include "PHX/phx.h"
 
 using namespace PHX;
+
+#define CHECK_PHX_RES(phxRes) if(phxRes != PHX::STATUS_CODE::SUCCESS) { return -1; }
+
+struct TransformData
+{
+	glm::mat4 worldMat;
+	glm::mat4 viewMat;
+	glm::mat4 projMat;
+};
 
 void OnSwapChainOutdatedCallback()
 {
@@ -76,6 +87,25 @@ void OnWindowMaximizedCallback(bool wasMaximized)
 	return pShader;
 }
 
+static TransformData InitializeTransform(glm::vec3 initialCameraPos, float FOV, float aspectRatio)
+{
+	TransformData data;
+
+	// World
+	data.worldMat = glm::identity<glm::mat4>();
+
+	// View (toward -Z)
+	glm::vec3 eye = initialCameraPos;
+	glm::vec3 center = { 0.0f, 0.0f, -1.0f };
+	glm::vec3 up = { 0.0f, 1.0f, 0.0f };
+	data.viewMat =  glm::inverse(glm::lookAt(eye, center, up));
+
+	// Perspective
+	data.projMat = glm::perspective(FOV, aspectRatio, 0.01f, 1000.0f);
+
+	return data;
+}
+
 int main(int argc, char** argv)
 {
 	(void)argc;
@@ -98,10 +128,8 @@ int main(int argc, char** argv)
 	// WINDOW
 	IWindow* pWindow;
 	phxRes = CreateWindow(windowCI, &pWindow);
-	if (phxRes != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
+	CHECK_PHX_RES(phxRes);
+
 	pWindow->SetWindowTitle("PHX %u.%u.%u | BASIC MODEL", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
 
 	// INIT
@@ -115,10 +143,7 @@ int main(int argc, char** argv)
 	settings.windowMinimizedCallback = OnWindowMinimizedCallback;
 	settings.windowResizedCallback = OnWindowResizedCallback;
 	phxRes = Initialize(settings, pWindow);
-	if (phxRes != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
+	CHECK_PHX_RES(phxRes);
 
 	// RENDER DEVICE
 	RenderDeviceCreateInfo renderDeviceCI{};
@@ -127,10 +152,7 @@ int main(int argc, char** argv)
 
 	IRenderDevice* pRenderDevice = nullptr;
 	phxRes = CreateRenderDevice(renderDeviceCI, &pRenderDevice);
-	if (phxRes != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
+	CHECK_PHX_RES(phxRes);
 
 	// SWAP CHAIN
 	SwapChainCreateInfo swapChainCI{};
@@ -140,10 +162,7 @@ int main(int argc, char** argv)
 
 	ISwapChain* pSwapChain = nullptr;
 	phxRes = pRenderDevice->AllocateSwapChain(swapChainCI, &pSwapChain);
-	if (phxRes != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
+	CHECK_PHX_RES(phxRes);
 
 	// VERTEX BUFFER
 	const u64 vBufferSizeBytes = static_cast<u64>(cubeAsset->vertices.size() * sizeof(AssetVertex));
@@ -154,17 +173,11 @@ int main(int argc, char** argv)
 
 	IBuffer* pVertexBuffer = nullptr;
 	phxRes = pRenderDevice->AllocateBuffer(vBufferCI, &pVertexBuffer);
-	if (phxRes != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
+	CHECK_PHX_RES(phxRes);
 
 	// Copy over asset vertex data to GPU, and keep it there permanently :)
 	phxRes = pVertexBuffer->CopyData(cubeAsset->vertices.data(), vBufferSizeBytes);
-	if (phxRes != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
+	CHECK_PHX_RES(phxRes);
 
 	// INDEX BUFFER
 	const u64 iBufferSizeBytes = static_cast<u64>(cubeAsset->indices.size() * sizeof(Common::AssetIndexType));
@@ -175,25 +188,41 @@ int main(int argc, char** argv)
 
 	IBuffer* pIndexBuffer = nullptr;
 	phxRes = pRenderDevice->AllocateBuffer(iBufferCI, &pIndexBuffer);
-	if (phxRes != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
+	CHECK_PHX_RES(phxRes);
 
 	// Copy over asset vertex data to GPU, and keep it there permanently :)
 	phxRes = pIndexBuffer->CopyData(cubeAsset->indices.data(), iBufferSizeBytes);
-	if (phxRes != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
+	CHECK_PHX_RES(phxRes);
 
 	// RENDER GRAPH
 	IRenderGraph* pRenderGraph = nullptr;
 	phxRes = pRenderDevice->AllocateRenderGraph(&pRenderGraph);
-	if (phxRes != STATUS_CODE::SUCCESS)
-	{
-		return -1;
-	}
+	CHECK_PHX_RES(phxRes);
+
+	// DEPTH BUFFER
+	TextureBaseCreateInfo depthBufferBaseCI{};
+	depthBufferBaseCI.width = pWindow->GetCurrentWidth();
+	depthBufferBaseCI.height = pWindow->GetCurrentHeight();
+	depthBufferBaseCI.arrayLayers = 1;
+	depthBufferBaseCI.generateMips = false;
+	depthBufferBaseCI.format = BASE_FORMAT::D32_FLOAT;
+	depthBufferBaseCI.usageFlags = (u8)USAGE_TYPE::DEPTH_STENCIL_ATTACHMENT | (u8)USAGE_TYPE::SAMPLED;
+
+	TextureViewCreateInfo depthBufferViewCI{};
+	depthBufferViewCI.type = VIEW_TYPE::TYPE_2D;
+	depthBufferViewCI.scope = VIEW_SCOPE::ENTIRE;
+	depthBufferViewCI.aspectFlags = (u8)ASPECT_TYPE::DEPTH;
+
+	TextureSamplerCreateInfo depthBufferSamplerCI{};
+	depthBufferSamplerCI.addressModeUVW = SAMPLER_ADDRESS_MODE::REPEAT;
+	depthBufferSamplerCI.enableAnisotropicFiltering = false;
+	depthBufferSamplerCI.magnificationFilter = FILTER_MODE::NEAREST;
+	depthBufferSamplerCI.minificationFilter = FILTER_MODE::NEAREST;
+	depthBufferSamplerCI.samplerMipMapFilter = FILTER_MODE::NEAREST;
+
+	ITexture* pDepthBuffer = nullptr;
+	phxRes = pRenderDevice->AllocateTexture(depthBufferBaseCI, depthBufferViewCI, depthBufferSamplerCI, &pDepthBuffer);
+	CHECK_PHX_RES(phxRes);
 
 	// SHADERS
 	IShader* pVertShader = AllocateShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, pRenderDevice);
@@ -221,19 +250,67 @@ int main(int argc, char** argv)
 		},
 	};
 
+	// TRANSFORMS + UNIFORM BUFFER
+	glm::vec3 initialCameraPos = { 0.0f, 1.0f, -7.0f };
+	float fov = 45.0f;
+	float aspectRatio = static_cast<float>(pWindow->GetCurrentWidth()) / pWindow->GetCurrentHeight();
+	TransformData transform = InitializeTransform(initialCameraPos, fov, aspectRatio);
+
+	BufferCreateInfo uniformBufferCI{};
+	uniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	uniformBufferCI.sizeBytes = sizeof(TransformData);
+
+	IBuffer* pUniformBuffer = nullptr;
+	phxRes = pRenderDevice->AllocateBuffer(uniformBufferCI, &pUniformBuffer);
+	CHECK_PHX_RES(phxRes);
+
+	UniformData uniformData;
+	uniformData.binding = 0;
+	uniformData.shaderStage = SHADER_STAGE::VERTEX;
+	uniformData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
+
+	UniformDataGroup dataGroup;
+	dataGroup.set = 1;
+	dataGroup.uniformArray = &uniformData;
+	dataGroup.uniformArrayCount = 1;
+
+	UniformCollectionCreateInfo uniformCollectionCI{};
+	uniformCollectionCI.dataGroups = &dataGroup;
+	uniformCollectionCI.groupCount = 1;
+
+	IUniformCollection* pUniformCollection = nullptr;
+	phxRes = pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &pUniformCollection);
+	CHECK_PHX_RES(phxRes);
+
 	// GRAPHICS PIPELINE
 	GraphicsPipelineDesc pipelineDesc{};
 	pipelineDesc.viewportSize = { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() };
 	pipelineDesc.viewportPos = { 0, 0 };
 	pipelineDesc.polygonMode = POLYGON_MODE::FILL;
 	pipelineDesc.topology = PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
-	pipelineDesc.cullMode = CULL_MODE::NONE;
+	pipelineDesc.cullMode = CULL_MODE::FRONT;
 	pipelineDesc.ppShaders = shaders.data();
 	pipelineDesc.shaderCount = static_cast<u32>(shaders.size());
 	pipelineDesc.pInputAttributes = inputAttributes.data();
 	pipelineDesc.attributeCount = static_cast<u32>(inputAttributes.size());
+	pipelineDesc.pUniformCollection = pUniformCollection;
+	pipelineDesc.enableDepthTest = true;
+	pipelineDesc.enableDepthWrite = true;
 
-	ClearValues clearVals{};
+	ClearValues clearColor{};
+	clearColor.color.color = Vec4f(0.5f, 0.75f, 0.98f, 1.0f);
+	clearColor.useClearColor = true;
+
+	ClearValues clearDepth{};
+	clearDepth.depthStencil.depthClear = 1.0f;
+	clearDepth.depthStencil.stencilClear = 0;
+	clearDepth.useClearColor = false;
+
+	std::array<ClearValues, 2> clearVals =
+	{
+		clearColor,
+		clearDepth
+	};
 
 	// MAIN LOOP
 	while(!pWindow->ShouldClose())
@@ -241,14 +318,24 @@ int main(int argc, char** argv)
 		pWindow->Update(0);
 
 		pRenderGraph->BeginFrame(pSwapChain);
+
+		// Update the cube's transform
+		transform.worldMat = glm::rotate(transform.worldMat, 0.01f, { 0.0f, 1.0f, 0.0f });
 		
 		IRenderPass* pRenderPass = pRenderGraph->RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS);
 		pRenderPass->SetBackbufferOutput(pSwapChain->GetCurrentImage());
+		pRenderPass->SetDepthOutput(pDepthBuffer);
 		pRenderPass->SetPipeline(pipelineDesc);
-		pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline) {
+		pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline) 
+		{
+			// Update the transform uniform data
+			pUniformBuffer->CopyData(&transform, sizeof(TransformData));
+			pUniformCollection->QueueBufferUpdate(0, 0, 0, pUniformBuffer);
+			pUniformCollection->FlushUpdateQueue();
 
 			pContext->CopyDataToBuffer(pVertexBuffer, cubeAsset->vertices.data(), vBufferSizeBytes);
 			pContext->CopyDataToBuffer(pIndexBuffer, cubeAsset->indices.data(), iBufferSizeBytes);
+			pContext->BindUniformCollection(pUniformCollection, pPipeline);
 			pContext->BindMesh(pVertexBuffer, pIndexBuffer);
 			pContext->BindPipeline(pPipeline);
 			pContext->SetScissor( { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 } );
@@ -256,14 +343,19 @@ int main(int argc, char** argv)
 			pContext->DrawIndexed(static_cast<u32>(cubeAsset->indices.size()));
 		});
 
-		pRenderGraph->Bake(pSwapChain, &clearVals, 1);
+		pRenderGraph->Bake(pSwapChain, clearVals.data(), static_cast<u32>(clearVals.size()));
 		pRenderGraph->EndFrame(pSwapChain);
 
 		pSwapChain->Present();
 	}
 
+	pRenderDevice->DeallocateBuffer(&pUniformBuffer);
 	pRenderDevice->DeallocateBuffer(&pIndexBuffer);
 	pRenderDevice->DeallocateBuffer(&pVertexBuffer);
+	pRenderDevice->DeallocateUniformCollection(&pUniformCollection);
+	pRenderDevice->DeallocateTexture(&pDepthBuffer);
+	pRenderDevice->DeallocateShader(&pVertShader);
+	pRenderDevice->DeallocateShader(&pFragShader);
 	pRenderDevice->DeallocateSwapChain(&pSwapChain);
 
 	DestroyWindow(&pWindow);

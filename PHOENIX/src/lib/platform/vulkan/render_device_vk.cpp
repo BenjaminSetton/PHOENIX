@@ -411,6 +411,21 @@ namespace PHX
 		return m_inFlightFences[index];
 	}
 
+	const VkPhysicalDeviceProperties& RenderDeviceVk::GetDeviceProperties() const
+	{
+		return m_physicalDeviceProperties;
+	}
+
+	const VkPhysicalDeviceFeatures& RenderDeviceVk::GetDeviceFeatures() const
+	{
+		return m_physicalDeviceFeatures;
+	}
+
+	const VkPhysicalDeviceMemoryProperties RenderDeviceVk::GetDeviceMemoryProperties() const
+	{
+		return m_physicalDeviceMemoryProperties;
+	}
+
 	STATUS_CODE RenderDeviceVk::CreateVMAAllocator()
 	{
 		VmaAllocatorCreateInfo info{};

@@ -110,6 +110,8 @@ namespace PHX
 			return res;
 		}
 
+		LogInfo("Successfully initialized Vulkan version %u.%u.%u", VK_API_VERSION_MAJOR(m_apiVersion), VK_API_VERSION_MINOR(m_apiVersion), VK_API_VERSION_PATCH(m_apiVersion));
+
 		return res;
 	}
 
@@ -131,7 +133,7 @@ namespace PHX
 	CoreVk::CoreVk() : m_instance(VK_NULL_HANDLE), m_surface(VK_NULL_HANDLE), m_apiVersion(0)
 	{
 		// 1.0.0
-		m_apiVersion = VK_API_VERSION_1_0;
+		m_apiVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
 	}
 
 	CoreVk::~CoreVk()

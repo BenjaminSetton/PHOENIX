@@ -142,10 +142,10 @@ namespace PHX
 		bool enableAlphaToOne					= false;
 
 		// Depth stencil state
-		bool enableDepthTest					= true;
-		bool enableDepthWrite					= true;
+		bool enableDepthTest					= false;
+		bool enableDepthWrite					= false;
 		COMPARE_OP compareOp					= COMPARE_OP::LESS_OR_EQUAL;
-		bool enableDepthBoundsTest				= true;
+		bool enableDepthBoundsTest				= false;
 		bool enableStencilTest					= false;
 		StencilOpState stencilFront				= { };
 		StencilOpState stencilBack				= { };

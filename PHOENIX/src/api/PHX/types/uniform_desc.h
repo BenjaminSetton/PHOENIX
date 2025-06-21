@@ -13,7 +13,9 @@ namespace PHX
 		STORAGE_IMAGE,
 		UNIFORM_BUFFER,
 		STORAGE_BUFFER,
-		INPUT_ATTACHMENT
+		INPUT_ATTACHMENT,
+
+		MAX
 	};
 
 	// AKA a Vulkan descriptor

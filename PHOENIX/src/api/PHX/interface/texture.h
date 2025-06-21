@@ -24,7 +24,7 @@ namespace PHX
 	{
 		VIEW_TYPE type         = VIEW_TYPE::INVALID;
 		VIEW_SCOPE scope       = VIEW_SCOPE::INVALID;
-		AspectTypeFlags aspect = 0;
+		AspectTypeFlags aspectFlags = 0;
 	};
 
 	struct TextureSamplerCreateInfo

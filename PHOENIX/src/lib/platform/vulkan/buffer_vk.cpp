@@ -95,6 +95,11 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	BUFFER_USAGE BufferVk::GetUsage() const
+	{
+		return m_usage;
+	}
+
 	VkBuffer BufferVk::GetBuffer() const
 	{
 		return m_buffer.buffer;

@@ -73,6 +73,11 @@ namespace PHX
 		VkSemaphore GetImageAvailableSemaphore(u32 index) const;
 		VkFence GetInFlightFence(u32 index) const;
 
+		// Device info
+		const VkPhysicalDeviceProperties& GetDeviceProperties() const;
+		const VkPhysicalDeviceFeatures& GetDeviceFeatures() const;
+		const VkPhysicalDeviceMemoryProperties GetDeviceMemoryProperties() const;
+
 	private:
 
 		STATUS_CODE CreateVMAAllocator();

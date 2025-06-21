@@ -12,9 +12,10 @@
 namespace PHX
 {
 	TextureVk::TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo) :
-		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_width(0), m_height(0), m_format(BASE_FORMAT::INVALID), m_arrayLayers(0), m_mipLevels(0),
-		m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID),
-		m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), m_anisotropyLevel(0.0f), m_bytesPerTexel(0)
+		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_sampler(VK_NULL_HANDLE), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_width(0), m_height(0), 
+		m_format(BASE_FORMAT::INVALID), m_arrayLayers(0), m_mipLevels(0), m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), 
+		m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID), m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), 
+		m_anisotropyLevel(0.0f), m_bytesPerTexel(0)
 	{
 		RenderDeviceVk* renderDeviceVk = static_cast<RenderDeviceVk*>(pRenderDevice);
 		if (renderDeviceVk == nullptr)
@@ -23,20 +24,22 @@ namespace PHX
 			return;
 		}
 
-		if (CreateBaseImage(pRenderDevice, baseCreateInfo) != STATUS_CODE::SUCCESS)
-		{
-			return;
-		}
-
-		if (CreateImageViews(pRenderDevice, viewCreateInfo) != STATUS_CODE::SUCCESS)
-		{
-			return;
-		}
-
-		// Sampler
-		TODO();
-
 		m_renderDevice = renderDeviceVk;
+
+		if (CreateBaseImage(baseCreateInfo) != STATUS_CODE::SUCCESS)
+		{
+			return;
+		}
+
+		if (CreateImageViews(viewCreateInfo) != STATUS_CODE::SUCCESS)
+		{
+			return;
+		}
+
+		if (CreateSampler(samplerCreateInfo) != STATUS_CODE::SUCCESS)
+		{
+			return;
+		}
 
 		m_minFilter = samplerCreateInfo.minificationFilter;
 		m_magFilter = samplerCreateInfo.magnificationFilter;
@@ -47,9 +50,10 @@ namespace PHX
 	}
 
 	TextureVk::TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView) :
-		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_width(0), m_height(0), m_format(BASE_FORMAT::INVALID), m_arrayLayers(0), m_mipLevels(0),
-		m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID),
-		m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), m_anisotropyLevel(0.0f), m_bytesPerTexel(0)
+		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_sampler(VK_NULL_HANDLE), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_width(0), m_height(0), 
+		m_format(BASE_FORMAT::INVALID), m_arrayLayers(0), m_mipLevels(0), m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), 
+		m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID), m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), 
+		m_anisotropyLevel(0.0f), m_bytesPerTexel(0)
 	{
 		RenderDeviceVk* renderDeviceVk = static_cast<RenderDeviceVk*>(pRenderDevice);
 		if (renderDeviceVk == nullptr)
@@ -58,17 +62,17 @@ namespace PHX
 			return;
 		}
 
+		m_renderDevice = renderDeviceVk;
+
 		// NOTE - Special constructor which is only called by the swap chain. In this case, we must not make new VkImage objects, since
 		//        the swap chain owns those. Simply populate image information and leave the VkImage object as VK_NULL_HANDLE
 		//
-		if (CreateBaseImage(pRenderDevice, baseCreateInfo, false) != STATUS_CODE::SUCCESS)
+		if (CreateBaseImage(baseCreateInfo, false) != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
 
 		m_imageViews.push_back(imageView);
-
-		m_renderDevice = renderDeviceVk;
 	}
 
 	TextureVk::~TextureVk()
@@ -474,7 +478,12 @@ namespace PHX
 		return true;
 	}
 
-	STATUS_CODE TextureVk::CreateBaseImage(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& createInfo, bool createVkImageHandle)
+	VkSampler TextureVk::GetSampler() const
+	{
+		return m_sampler;
+	}
+
+	STATUS_CODE TextureVk::CreateBaseImage(const TextureBaseCreateInfo& createInfo, bool createVkImageHandle)
 	{
 		// Re-calculate mip count, if necessary. Vulkan disallows 0 mip levels
 		u32 mipsToUse = 1;
@@ -513,7 +522,7 @@ namespace PHX
 			allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 			allocCreateInfo.priority = 1.0f;
 
-			VkResult res = vmaCreateImage(pRenderDevice->GetAllocator(), &imageInfo, &allocCreateInfo, &m_baseImage, &m_alloc, nullptr);
+			VkResult res = vmaCreateImage(m_renderDevice->GetAllocator(), &imageInfo, &allocCreateInfo, &m_baseImage, &m_alloc, nullptr);
 			if (res != VK_SUCCESS)
 			{
 				LogError("Failed to create texture! Got error: \"%s\"", string_VkResult(res));
@@ -544,16 +553,16 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE TextureVk::CreateImageViews(RenderDeviceVk* pRenderDevice, const TextureViewCreateInfo& createInfo)
+	STATUS_CODE TextureVk::CreateImageViews(const TextureViewCreateInfo& createInfo)
 	{
-		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
+		VkDevice logicalDevice = m_renderDevice->GetLogicalDevice();
 
 		VkImageViewCreateInfo createInfoVk{};
 		createInfoVk.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		createInfoVk.image = m_baseImage;
 		createInfoVk.viewType = TEX_UTILS::ConvertViewType(createInfo.type);
 		createInfoVk.format = TEX_UTILS::ConvertBaseFormat(m_format);
-		createInfoVk.subresourceRange.aspectMask = TEX_UTILS::ConvertAspectFlags(createInfo.aspect);
+		createInfoVk.subresourceRange.aspectMask = TEX_UTILS::ConvertAspectFlags(createInfo.aspectFlags);
 		createInfoVk.subresourceRange.baseMipLevel = 0;
 		createInfoVk.subresourceRange.levelCount = m_mipLevels;
 		createInfoVk.subresourceRange.baseArrayLayer = 0;
@@ -608,6 +617,43 @@ namespace PHX
 
 		m_viewType = createInfo.type;
 		m_viewScope = createInfo.scope;
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE TextureVk::CreateSampler(const TextureSamplerCreateInfo& createInfo)
+	{
+		if (createInfo.enableAnisotropicFiltering && createInfo.maxAnisotropy == 1.0)
+		{
+			LogWarning("Anisotropy is enabled for texture resource, but it's max level is set to 1.0. This effectively disables anisotropy. Consider disabling anisotropic filtering or increasing max anisotropy");
+		}
+
+		VkDevice logicalDevice = m_renderDevice->GetLogicalDevice();
+
+		VkSamplerCreateInfo vkCreateInfo{};
+		vkCreateInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		vkCreateInfo.magFilter = TEX_UTILS::ConvertFilterMode(createInfo.magnificationFilter);
+		vkCreateInfo.minFilter = TEX_UTILS::ConvertFilterMode(createInfo.minificationFilter);
+		vkCreateInfo.addressModeU = TEX_UTILS::ConvertAddressMode(createInfo.addressModeUVW);
+		vkCreateInfo.addressModeV = TEX_UTILS::ConvertAddressMode(createInfo.addressModeUVW);
+		vkCreateInfo.addressModeW = TEX_UTILS::ConvertAddressMode(createInfo.addressModeUVW);
+		vkCreateInfo.anisotropyEnable = createInfo.enableAnisotropicFiltering;
+		vkCreateInfo.maxAnisotropy = createInfo.maxAnisotropy;
+		vkCreateInfo.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+		vkCreateInfo.unnormalizedCoordinates = VK_FALSE;
+		vkCreateInfo.compareEnable = VK_FALSE;
+		vkCreateInfo.compareOp = VK_COMPARE_OP_ALWAYS;
+		vkCreateInfo.mipmapMode = TEX_UTILS::ConvertMipMapMode(createInfo.samplerMipMapFilter);
+		vkCreateInfo.mipLodBias = 0.0f;
+		vkCreateInfo.minLod = 0.0f;
+		vkCreateInfo.maxLod = static_cast<float>(m_mipLevels);
+
+		VkResult res = vkCreateSampler(logicalDevice, &vkCreateInfo, nullptr, &m_sampler);
+		if (res != VK_SUCCESS)
+		{
+			LogError(false, "Failed to create texture sampler! Got error: \"%s\"", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
+		}
 
 		return STATUS_CODE::SUCCESS;
 	}

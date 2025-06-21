@@ -34,32 +34,37 @@ namespace PHX
 			return;
 		}
 
+		m_renderDevice = pRenderDevice;
+
+		// Copy the uniform data to internal cache
+		CacheUniformGroupData(createInfo.dataGroups, createInfo.groupCount);
+
 		VkResult res = VK_SUCCESS;
-
 		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
-		m_descriptorSets.resize(createInfo.groupCount);
-		m_descriptorSetLayouts.resize(createInfo.groupCount);
-		m_uniformGroups.reserve(createInfo.groupCount);
+		const u32 numDataGroups = static_cast<u32>(m_uniformGroups.size());
 
-		for (u32 i = 0; i < createInfo.groupCount; i++)
+		m_descriptorSetLayouts.reserve(numDataGroups);
+		for (u32 i = 0; i < numDataGroups; i++)
 		{
-			const UniformDataGroup& dataGroup = createInfo.dataGroups[i];
+			const UniformDataGroup& dataGroup = m_uniformGroups[i];
 
 			// Create descriptor bindings for each descriptor set
 			const u32 numBindings = dataGroup.uniformArrayCount;
-			m_uniforms.reserve(numBindings);
 
-			std::vector<VkDescriptorSetLayoutBinding> setBindings(numBindings);
+			std::vector<VkDescriptorSetLayoutBinding> setBindings;
+			setBindings.reserve(numBindings);
 			for (u32 j = 0; j < numBindings; j++)
 			{
 				const UniformData& uniformData = dataGroup.uniformArray[j];
 
-				VkDescriptorSetLayoutBinding& vkSetLayoutBinding = setBindings[i];
+				VkDescriptorSetLayoutBinding vkSetLayoutBinding;
 				vkSetLayoutBinding.binding = uniformData.binding;
 				vkSetLayoutBinding.descriptorType = UNIFORM_UTILS::ConvertUniformType(uniformData.type);
 				vkSetLayoutBinding.descriptorCount = 1;
 				vkSetLayoutBinding.stageFlags = SHADER_UTILS::ConvertShaderStage(uniformData.shaderStage);
 				vkSetLayoutBinding.pImmutableSamplers = nullptr; // Optional
+
+				setBindings.push_back(vkSetLayoutBinding);
 			}
 
 			// Create descriptor set layouts
@@ -69,13 +74,15 @@ namespace PHX
 			vkCreateInfo.pBindings = setBindings.data();
 			vkCreateInfo.bindingCount = static_cast<u32>(setBindings.size());
 
-			VkDescriptorSetLayout& vkDescriptorSetLayout = m_descriptorSetLayouts.at(i);
+			VkDescriptorSetLayout vkDescriptorSetLayout;
 			res = vkCreateDescriptorSetLayout(logicalDevice, &vkCreateInfo, nullptr, &vkDescriptorSetLayout);
 			if (res != VK_SUCCESS)
 			{
-				LogError("Failed to create descriptor set layout #%u! Got error: %s", i, string_VkResult(res));
+				LogError("Failed to create descriptor set layout #%u! Got error: \"%s\"", i, string_VkResult(res));
 				continue;
 			}
+
+			m_descriptorSetLayouts.push_back(vkDescriptorSetLayout);
 		}
 
 		// Create descriptor sets
@@ -85,22 +92,18 @@ namespace PHX
 		allocInfo.descriptorSetCount = static_cast<u32>(m_descriptorSetLayouts.size());
 		allocInfo.pSetLayouts = m_descriptorSetLayouts.data();
 
+		m_descriptorSets.resize(numDataGroups);
 		res = vkAllocateDescriptorSets(logicalDevice, &allocInfo, m_descriptorSets.data());
 		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to allocate descriptor sets! Got error: %s", string_VkResult(res));
+			LogError("Failed to allocate descriptor sets! Got error: \"%s\"", string_VkResult(res));
 			return;
 		}
-
-		m_renderDevice = pRenderDevice;
 
 		// Allocate enough space in the write descriptor arrays for a maximum amount of write entries
 		m_writeBufferInfo.reserve(MAX_DESCRIPTOR_WRITE_ARRAY_SIZE);
 		m_writeImageInfo.reserve(MAX_DESCRIPTOR_WRITE_ARRAY_SIZE);
 		m_descriptorWrites.reserve(2 * MAX_DESCRIPTOR_WRITE_ARRAY_SIZE); // Must hold MAX image _and_ buffer write requests
-
-		// Copy the uniform data to internal cache
-		CacheUniformGroupData(createInfo.dataGroups, createInfo.groupCount);
 	}
 
 	UniformCollectionVk::~UniformCollectionVk()
@@ -290,20 +293,32 @@ namespace PHX
 			uniformDataCount += dataGroup.uniformArrayCount;
 		}
 
+		// Find the uniform count, so we can properly resize the uniforms array
+		u32 uniformCount = 0;
+		for (u32 i = 0; i < groupCount; i++)
+		{
+			const UniformDataGroup& dataGroup = pDataGroups[i];
+			uniformCount += dataGroup.uniformArrayCount;
+		}
+
 		// Cache the uniform data
 		m_uniformGroups.reserve(uniformGroupCount);
-		m_uniforms.reserve(uniformDataCount);
+		m_uniforms.reserve(uniformCount);
 		for (u32 i = 0; i < groupCount; i++)
 		{
 			UniformDataGroup dataGroup = pDataGroups[i];
-			dataGroup.uniformArray = (m_uniforms.data() + m_uniforms.size()); // Modify the pointer to the internal cache
-			m_uniformGroups.push_back(dataGroup);
 
+			// First push the uniform data
+			UniformData* uniformDataStartPtr = m_uniforms.data();
 			for (u32 j = 0; j < dataGroup.uniformArrayCount; j++)
 			{
 				const UniformData& uniformData = dataGroup.uniformArray[j];
 				m_uniforms.push_back(uniformData);
 			}
+
+			// Then push the data groups, and modify the uniform data pointer to the newly-allocated uniform data array
+			dataGroup.uniformArray = uniformDataStartPtr;
+			m_uniformGroups.push_back(dataGroup);
 		}
 	}
 }

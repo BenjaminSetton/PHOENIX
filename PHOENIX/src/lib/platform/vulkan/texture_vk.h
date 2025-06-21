@@ -55,10 +55,13 @@ namespace PHX
 		void SetLayout(VkImageLayout layout); // Used when device context adds transition commands to command buffer
 		bool FillTransitionLayoutInfo(VkImageLayout destinationLayout, VkPipelineStageFlags& out_sourceStage, VkPipelineStageFlags& out_destinationStage, QUEUE_TYPE& out_queueType, VkImageMemoryBarrier& out_barrier);
 
+		VkSampler GetSampler() const;
+
 	private:
 
-		STATUS_CODE CreateBaseImage(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& createInfo, bool createVkImageHandle = true);
-		STATUS_CODE CreateImageViews(RenderDeviceVk* pRenderDevice, const TextureViewCreateInfo& createInfo);
+		STATUS_CODE CreateBaseImage(const TextureBaseCreateInfo& createInfo, bool createVkImageHandle = true);
+		STATUS_CODE CreateImageViews(const TextureViewCreateInfo& createInfo);
+		STATUS_CODE CreateSampler(const TextureSamplerCreateInfo& createInfo);
 		void DestroyImage();
 
 	private:
@@ -68,7 +71,7 @@ namespace PHX
 		VkImage m_baseImage;
 		std::vector<VkImageView> m_imageViews;
 		VmaAllocation m_alloc;
-		//VkSampler sampler;
+		VkSampler m_sampler;
 		VkImageLayout m_layout;
 
 		u32 m_width;

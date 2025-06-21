@@ -13,6 +13,9 @@ namespace PHX
 		VkSampleCountFlagBits ConvertSampleCount(SAMPLE_COUNT sampleCount);
 		VkImageViewType ConvertViewType(VIEW_TYPE type);
 		VkImageAspectFlags ConvertAspectFlags(AspectTypeFlags flags);
+		VkFilter ConvertFilterMode(FILTER_MODE filterMode);
+		VkSamplerMipmapMode ConvertMipMapMode(FILTER_MODE filterMode);
+		VkSamplerAddressMode ConvertAddressMode(SAMPLER_ADDRESS_MODE addressMode);
 
 		BASE_FORMAT ConvertSurfaceFormat(VkFormat format);
 	}
