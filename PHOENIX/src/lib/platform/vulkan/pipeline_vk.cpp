@@ -167,18 +167,18 @@ namespace PHX
 			LogDebug("\tShader stage %u (%s)", i, string_VkShaderStageFlagBits(shaderStage.stage));
 			LogDebug("\t- Name: %s", shaderStage.pName);
 		}
-		LogDebug("\tPrimitive topology: %s", string_VkPrimitiveTopology(inputAssembly.topology));
-		LogDebug("\tViewport position: (%2.3f, %2.3f)", viewport.x, viewport.y);
-		LogDebug("\tViewport size: (%2.3f, %2.3f)", viewport.width, viewport.height);
-		LogDebug("\tScissor position: (%i, %i)", scissor.offset.x, scissor.offset.y);
-		LogDebug("\tScissor size: (%u, %u)", scissor.extent.width, scissor.extent.height);
+		LogDebug("\tPrimitive topology:    %s", string_VkPrimitiveTopology(inputAssembly.topology));
+		LogDebug("\tViewport position:     (%2.3f, %2.3f)", viewport.x, viewport.y);
+		LogDebug("\tViewport size:         (%2.3f, %2.3f)", viewport.width, viewport.height);
+		LogDebug("\tScissor position:      (%i, %i)", scissor.offset.x, scissor.offset.y);
+		LogDebug("\tScissor size:          (%u, %u)", scissor.extent.width, scissor.extent.height);
 		LogDebug("\tMultisampling samples: %u", multisampling.rasterizationSamples);
-		LogDebug("\tFront face: %s", string_VkFrontFace(rasterizer.frontFace));
-		LogDebug("\tPolygon mode: %s", string_VkPolygonMode(rasterizer.polygonMode));
-		LogDebug("\tLine width: %u", rasterizer.lineWidth);
-		LogDebug("\tRasterizer discard: %s", rasterizer.rasterizerDiscardEnable ? "true" : "false");
-		LogDebug("\tLayout ptr: %p", pipelineInfo.layout);
-		LogDebug("\tRender pass: %p", pipelineInfo.renderPass);
+		LogDebug("\tFront face:            %s", string_VkFrontFace(rasterizer.frontFace));
+		LogDebug("\tPolygon mode:          %s", string_VkPolygonMode(rasterizer.polygonMode));
+		LogDebug("\tLine width:            %u", rasterizer.lineWidth);
+		LogDebug("\tRasterizer discard:    %s", rasterizer.rasterizerDiscardEnable ? "true" : "false");
+		LogDebug("\tLayout ptr:            %p", pipelineInfo.layout);
+		LogDebug("\tRender pass:           %p", pipelineInfo.renderPass);
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -215,7 +215,7 @@ namespace PHX
 
 		LogDebug("COMPUTE PIPELINE CREATED");
 		LogDebug("\tShader name: %s", pipelineInfo.stage.pName);
-		LogDebug("\tLayout ptr: %p", pipelineInfo.layout);
+		LogDebug("\tLayout ptr:  %p", pipelineInfo.layout);
 
 		return STATUS_CODE::SUCCESS;
 	}

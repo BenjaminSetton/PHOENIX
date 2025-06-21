@@ -664,9 +664,10 @@ namespace PHX
 		{
 			return;
 		}
-
-		// Allocation
-		vmaDestroyImage(m_renderDevice->GetAllocator(), m_baseImage, m_alloc);
+		
+		// Sampler
+		vkDestroySampler(m_renderDevice->GetLogicalDevice(), m_sampler, nullptr);
+		m_sampler = VK_NULL_HANDLE;
 
 		// Image views
 		for (auto& imageView : m_imageViews)
@@ -680,10 +681,8 @@ namespace PHX
 		m_imageViews.clear();
 
 		// Image
-		if (m_baseImage != VK_NULL_HANDLE)
-		{
-			vkDestroyImage(m_renderDevice->GetLogicalDevice(), m_baseImage, nullptr);
-			m_baseImage = VK_NULL_HANDLE;
-		}
+		vmaDestroyImage(m_renderDevice->GetAllocator(), m_baseImage, m_alloc);
+		m_baseImage = VK_NULL_HANDLE;
+		
 	}
 }

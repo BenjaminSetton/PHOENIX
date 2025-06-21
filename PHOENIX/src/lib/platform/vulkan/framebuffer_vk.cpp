@@ -154,9 +154,9 @@ namespace PHX
 
 			LogDebug("\tAttachment %u", i);
 			LogDebug("\t- Texture ptr: %p", attachmentDesc.pTexture);
-			LogDebug("\t- Mip target: %u", attachmentDesc.mipTarget);
-			LogDebug("\t- Load op: %s", string_VkAttachmentLoadOp(ATT_UTILS::ConvertLoadOp(attachmentDesc.loadOp)));
-			LogDebug("\t- Store op: %s", string_VkAttachmentStoreOp(ATT_UTILS::ConvertStoreOp(attachmentDesc.storeOp)));
+			LogDebug("\t- Mip target:  %u", attachmentDesc.mipTarget);
+			LogDebug("\t- Load op:     %s", string_VkAttachmentLoadOp(ATT_UTILS::ConvertLoadOp(attachmentDesc.loadOp)));
+			LogDebug("\t- Store op:    %s", string_VkAttachmentStoreOp(ATT_UTILS::ConvertStoreOp(attachmentDesc.storeOp)));
 		}
 
 		m_pRenderDevice = pRenderDevice;

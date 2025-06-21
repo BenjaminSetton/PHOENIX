@@ -160,15 +160,15 @@ namespace PHX
 			const VkAttachmentReference& attachmentRefVk = attachmentRefs.at(i);
 
 			LogDebug("\tAttachment %u", i);
-			LogDebug("\t- Format: %s", string_VkFormat(attachmentDescVk.format));
-			LogDebug("\t- Samples: %u", attachmentDescVk.samples);
-			LogDebug("\t- Load op: %s", string_VkAttachmentLoadOp(attachmentDescVk.loadOp));
-			LogDebug("\t- Store op: %s", string_VkAttachmentStoreOp(attachmentDescVk.storeOp));
-			LogDebug("\t- Stencil load op: %s", string_VkAttachmentLoadOp(attachmentDescVk.stencilLoadOp));
+			LogDebug("\t- Format:           %s", string_VkFormat(attachmentDescVk.format));
+			LogDebug("\t- Samples:          %u", attachmentDescVk.samples);
+			LogDebug("\t- Load op:          %s", string_VkAttachmentLoadOp(attachmentDescVk.loadOp));
+			LogDebug("\t- Store op:         %s", string_VkAttachmentStoreOp(attachmentDescVk.storeOp));
+			LogDebug("\t- Stencil load op:  %s", string_VkAttachmentLoadOp(attachmentDescVk.stencilLoadOp));
 			LogDebug("\t- Stencil store op: %s", string_VkAttachmentStoreOp(attachmentDescVk.stencilStoreOp));
-			LogDebug("\t- Initial layout: %s", string_VkImageLayout(attachmentDescVk.initialLayout));
-			LogDebug("\t- Layout: %s", string_VkImageLayout(attachmentRefVk.layout));
-			LogDebug("\t- Final layout: %s", string_VkImageLayout(attachmentDescVk.finalLayout));
+			LogDebug("\t- Initial layout:   %s", string_VkImageLayout(attachmentDescVk.initialLayout));
+			LogDebug("\t- Layout:           %s", string_VkImageLayout(attachmentRefVk.layout));
+			LogDebug("\t- Final layout:     %s", string_VkImageLayout(attachmentDescVk.finalLayout));
 		}
 		LogDebug(""); // Separation
 
@@ -176,14 +176,14 @@ namespace PHX
 		for (u32 i = 0; i < 1; i++) // Hard-coded to only 1 for now
 		{
 			LogDebug("\tSubpass %u (and dependencies)", i);
-			LogDebug("\t- Bind point: %s", string_VkPipelineBindPoint(subpassDescVk.pipelineBindPoint));
-			LogDebug("\t- Color attachment count: %u", subpassDescVk.colorAttachmentCount);
+			LogDebug("\t- Bind point:               %s", string_VkPipelineBindPoint(subpassDescVk.pipelineBindPoint));
+			LogDebug("\t- Color attachment count:   %u", subpassDescVk.colorAttachmentCount);
 			LogDebug("\t- Depth/stencil attachment: %u", subpassDescVk.pDepthStencilAttachment == nullptr ? 0 : 1);
 			LogDebug("\t- Resolve attachment count: %u", subpassDescVk.pResolveAttachments == nullptr ? 0 : 1);
-			LogDebug("\t- Src stage mask: %u", subpassDepVk.srcStageMask);
-			LogDebug("\t- Dst stage mask: %u", subpassDepVk.dstStageMask);
-			LogDebug("\t- Src access mask: %u", subpassDepVk.srcAccessMask);
-			LogDebug("\t- Dst access mask: %u", subpassDepVk.dstAccessMask);
+			LogDebug("\t- Src stage mask:           %u", subpassDepVk.srcStageMask);
+			LogDebug("\t- Dst stage mask:           %u", subpassDepVk.dstStageMask);
+			LogDebug("\t- Src access mask:          %u", subpassDepVk.srcAccessMask);
+			LogDebug("\t- Dst access mask:          %u", subpassDepVk.dstAccessMask);
 		}
 
 		// If the above fails, is renderPass still VK_NULL_HANDLE?

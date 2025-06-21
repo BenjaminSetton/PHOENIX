@@ -114,7 +114,7 @@ int main(int argc, char** argv)
 	// Load model
 	Common::AssetHandle cubeAssetID = Common::INVALID_ASSET_HANDLE;
 	{
-		std::shared_ptr<Common::AssetDisk> assetDisk = Common::ImportAsset("../../common/assets/cube.fbx");
+		std::shared_ptr<Common::AssetDisk> assetDisk = Common::ImportAsset("../../common/assets/suzanne.fbx");
 		cubeAssetID = ConvertAssetDiskToAssetType(assetDisk.get());
 	}
 	const AssetType* cubeAsset = AssetManager::Get().GetAsset(cubeAssetID);
@@ -320,7 +320,8 @@ int main(int argc, char** argv)
 		pRenderGraph->BeginFrame(pSwapChain);
 
 		// Update the cube's transform
-		transform.worldMat = glm::rotate(transform.worldMat, 0.01f, { 0.0f, 1.0f, 0.0f });
+		transform.worldMat = glm::rotate(transform.worldMat, 0.02f, { 0.0f, -1.0f, 0.0f });
+		transform.worldMat = glm::rotate(transform.worldMat, 0.02f, { 1.0f, 0.0f, 0.0f });
 		
 		IRenderPass* pRenderPass = pRenderGraph->RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS);
 		pRenderPass->SetBackbufferOutput(pSwapChain->GetCurrentImage());
