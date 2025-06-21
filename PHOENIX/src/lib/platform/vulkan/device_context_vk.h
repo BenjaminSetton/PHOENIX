@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <vector>
 #include <vulkan/vulkan.h>
 
@@ -11,6 +12,8 @@ namespace PHX
 {
 	// Forward declarations
 	class SwapChainVk;
+
+	using CommandList = std::vector<VkCommandBuffer>;
 
 	class DeviceContextVk : public IDeviceContext
 	{
@@ -47,20 +50,25 @@ namespace PHX
 	private:
 
 		STATUS_CODE CreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer);
-		void FreeCommandBuffer(VkCommandBuffer cmdBuffer);
+		void FreeCommandBuffer(VkCommandBuffer cmdBuffer, QUEUE_TYPE queueType);
 
 		void FreeCachedCommandBuffers();
 		void FreeSecondaryCommandBuffers();
 
-		VkCommandBuffer GetLastCommandBuffer();
+		VkCommandBuffer GetLastCommandBuffer(QUEUE_TYPE queueType);
+
+		// Returns the queue type from the pipeline bind point. May return invalid result in the form of QUEUE_TYPE::COUNT!
+		QUEUE_TYPE GetQueueTypeFromPipelineBindPoint(VkPipelineBindPoint vkBindPoint);
 
 	private:
 
 		RenderDeviceVk* m_pRenderDevice;
 
-		// Do we want to guarantee that all of these command buffers were allocated from the same pool?
+		// Primary graphics command buffer, allocated from graphics command pool
 		VkCommandBuffer m_primaryCmdBuffer;
-		std::vector<VkCommandBuffer> m_cmdBuffers; // all secondary command buffers
+
+		// Stores all command buffers from all supported queues
+		std::array<CommandList, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_cmdBuffers;
 
 		bool m_wasWorkSubmitted;
 	};

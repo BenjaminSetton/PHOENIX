@@ -52,7 +52,7 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
-		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(QUEUE_TYPE::GRAPHICS);
 		if (cmdBuffer == nullptr)
 		{
 			LogError("Failed to bind vertex buffer! No command buffers exist");
@@ -82,7 +82,7 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
-		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(QUEUE_TYPE::GRAPHICS);
 		if (cmdBuffer == VK_NULL_HANDLE)
 		{
 			LogError("Failed to bind mesh! No command buffers exist");
@@ -112,11 +112,19 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
-		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
-		VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, "Failed to bind uniform collection! No command buffers exist");
-
 		PipelineVk* pipelineVk = static_cast<PipelineVk*>(pPipeline);
 		ASSERT_PTR(pipelineVk);
+
+		VkPipelineBindPoint vkBindPoint = pipelineVk->GetBindPoint();
+		QUEUE_TYPE cmdQueueType = GetQueueTypeFromPipelineBindPoint(vkBindPoint);
+		if (cmdQueueType == QUEUE_TYPE::COUNT)
+		{
+			LogError("Failed to bind uniform collection. Pipeline has a VkPipelineBindPoint (%u) that's not graphics or compute!", static_cast<u32>(vkBindPoint));
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(cmdQueueType);
+		VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, "Failed to bind uniform collection! No command buffers exist");
 
 		UniformCollectionVk* uniformCollectionVk = static_cast<UniformCollectionVk*>(pUniformCollection);
 		ASSERT_PTR(uniformCollectionVk);
@@ -131,16 +139,25 @@ namespace PHX
 		if (pPipeline == nullptr)
 		{
 			LogWarning("Attempting to bind pipeline but the pipeline is null!");
-			return STATUS_CODE::SUCCESS;
+			return STATUS_CODE::ERR_API;
 		}
-
-		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
-		VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, "Failed to bind uniform collection! No command buffers exist");
 
 		PipelineVk* pipelineVk = static_cast<PipelineVk*>(pPipeline);
 		ASSERT_PTR(pipelineVk);
 
-		vkCmdBindPipeline(cmdBuffer, pipelineVk->GetBindPoint(), pipelineVk->GetPipeline());
+		// Determine whether we're trying to bind a graphics or compute pipeline
+		VkPipelineBindPoint vkBindPoint = pipelineVk->GetBindPoint();
+		QUEUE_TYPE cmdQueueType = GetQueueTypeFromPipelineBindPoint(vkBindPoint);
+		if (cmdQueueType == QUEUE_TYPE::COUNT)
+		{
+			LogError("Failed to bind pipeline. Pipeline has a VkPipelineBindPoint (%u) that's not graphics or compute!", static_cast<u32>(vkBindPoint));
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(cmdQueueType);
+		VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, "Failed to bind uniform collection! No command buffers exist");
+
+		vkCmdBindPipeline(cmdBuffer, vkBindPoint, pipelineVk->GetPipeline());
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -151,7 +168,7 @@ namespace PHX
 			LogWarning("Attempting to set viewport with a size of 0!");
 		}
 
-		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(QUEUE_TYPE::GRAPHICS);
 		VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, "Failed to set viewport! No command buffers exist");
 
 		VkViewport viewport{};
@@ -173,7 +190,7 @@ namespace PHX
 			LogWarning("Attempting to set scissor with a size of 0!");
 		}
 
-		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(QUEUE_TYPE::GRAPHICS);
 		VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, "Failed to set scissor! No command buffers exist");
 
 		VkRect2D scissor{};
@@ -186,7 +203,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::Draw(u32 vertexCount)
 	{
-		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(QUEUE_TYPE::GRAPHICS);
 		VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, "Failed to issue draw call! No command buffers exist");
 
 		vkCmdDraw(cmdBuffer, vertexCount, 1, 0, 0);
@@ -195,7 +212,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::DrawIndexed(u32 indexCount)
 	{
-		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(QUEUE_TYPE::GRAPHICS);
 		VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, "Failed to issue draw indexed call! No command buffers exist");
 
 		vkCmdDrawIndexed(cmdBuffer, static_cast<u32>(indexCount), 1, 0, 0, 0);
@@ -204,7 +221,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::DrawIndexedInstanced(u32 indexCount, u32 instanceCount)
 	{
-		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(QUEUE_TYPE::GRAPHICS);
 		VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, "Failed to issue draw indexed instanced call! No command buffers exist");
 
 		vkCmdDrawIndexed(cmdBuffer, indexCount, instanceCount, 0, 0, 0);
@@ -213,10 +230,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::Dispatch(Vec3u dimensions)
 	{
-		// Properly support compute commands. These commands must be cleaned up from the correct pool
-		TODO();
-
-		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(QUEUE_TYPE::COMPUTE);
 		VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, "Failed to issue dispatch call! No command buffers exist");
 
 		vkCmdDispatch(cmdBuffer, dimensions.GetX(), dimensions.GetY(), dimensions.GetZ());
@@ -241,7 +255,9 @@ namespace PHX
 		}
 
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-		res = CreateCommandBuffer(QUEUE_TYPE::TRANSFER, true, cmdBuffer);
+		const QUEUE_TYPE transferQueueType = QUEUE_TYPE::TRANSFER;
+
+		res = CreateCommandBuffer(transferQueueType, true, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to copy data to buffer! Command buffer creation failed");
@@ -275,7 +291,7 @@ namespace PHX
 		submitInfo.commandBufferCount = 1;
 		submitInfo.pCommandBuffers = &cmdBuffer;
 
-		VkQueue transferQueue = m_pRenderDevice->GetQueue(QUEUE_TYPE::TRANSFER);
+		VkQueue transferQueue = m_pRenderDevice->GetQueue(transferQueueType);
 		if (transferQueue == VK_NULL_HANDLE)
 		{
 			LogError("Failed to copy data to buffer! Transfer queue does not exist");
@@ -284,8 +300,10 @@ namespace PHX
 		}
 
 		vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-
 		vkQueueWaitIdle(transferQueue);
+
+		// Clean up
+		FreeCommandBuffer(cmdBuffer, transferQueueType);
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -324,7 +342,6 @@ namespace PHX
 		}
 
 		FreeSecondaryCommandBuffers();
-		m_cmdBuffers.clear();
 
 		vkResetCommandBuffer(m_primaryCmdBuffer, 0);
 
@@ -367,7 +384,8 @@ namespace PHX
 		m_wasWorkSubmitted = true;
 
 		// End the primary command buffer
-		vkCmdExecuteCommands(m_primaryCmdBuffer, static_cast<u32>(m_cmdBuffers.size()), m_cmdBuffers.data());
+		CommandList& graphicsCmdList = m_cmdBuffers.at(static_cast<u32>(QUEUE_TYPE::GRAPHICS));
+		vkCmdExecuteCommands(m_primaryCmdBuffer, static_cast<u32>(graphicsCmdList.size()), graphicsCmdList.data());
 		vkCmdEndRenderPass(m_primaryCmdBuffer);
 		vkEndCommandBuffer(m_primaryCmdBuffer);
 
@@ -443,7 +461,8 @@ namespace PHX
 			LogError("Failed to create new command buffer to start render pass!");
 			return res;
 		}
-		m_cmdBuffers.push_back(cmdBuffer);
+		CommandList& cmdList = m_cmdBuffers.at(static_cast<u32>(QUEUE_TYPE::GRAPHICS));
+		cmdList.push_back(cmdBuffer);
 
 		VkCommandBufferInheritanceInfo inheritanceInfo{};
 		inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
@@ -468,7 +487,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::EndRenderPass()
 	{
-		VkCommandBuffer cmdBuffer = GetLastCommandBuffer();
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(QUEUE_TYPE::GRAPHICS);
 		if (cmdBuffer == VK_NULL_HANDLE)
 		{
 			LogError("Failed to end render pass! No command buffers exist");
@@ -572,48 +591,83 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	void DeviceContextVk::FreeCommandBuffer(VkCommandBuffer cmdBuffer)
+	void DeviceContextVk::FreeCommandBuffer(VkCommandBuffer cmdBuffer, QUEUE_TYPE queueType)
 	{
-		// TODO - Delete commands from the correct pool
-		VkCommandPool cmdPool = m_pRenderDevice->GetCommandPool(QUEUE_TYPE::GRAPHICS);
+		VkCommandPool cmdPool = m_pRenderDevice->GetCommandPool(queueType);
 		vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), cmdPool, 1, &cmdBuffer);
 	}
 
 	void DeviceContextVk::FreeCachedCommandBuffers()
 	{
-		// TODO - Delete commands from the correct pool
-
 		// Free secondary command buffers
-		VkCommandPool cmdPool = m_pRenderDevice->GetCommandPool(QUEUE_TYPE::GRAPHICS);
-		vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), cmdPool, static_cast<u32>(m_cmdBuffers.size()), m_cmdBuffers.data());
+		FreeSecondaryCommandBuffers();
 
-		// Free primary command buffer
-		vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), cmdPool, 1, &m_primaryCmdBuffer);
-
+		// Free primary command buffer (allocated from graphics pool by definition)
+		VkCommandPool graphicsCmdPool = m_pRenderDevice->GetCommandPool(QUEUE_TYPE::GRAPHICS);
+		vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), graphicsCmdPool, 1, &m_primaryCmdBuffer);
 		m_primaryCmdBuffer = VK_NULL_HANDLE;
-		m_cmdBuffers.clear();
 	}
 
 	void DeviceContextVk::FreeSecondaryCommandBuffers()
 	{
-		if (m_cmdBuffers.size() <= 0)
-		{
-			// Nothing to free
-			return;
-		}
+		ASSERT_MSG(m_cmdBuffers.size() == static_cast<size_t>(QUEUE_TYPE::COUNT), "Command list container doesn't have space to hold command lists from every queue type");
 
-		// TODO - Delete commands from the correct pool
-		VkCommandPool cmdPool = m_pRenderDevice->GetCommandPool(QUEUE_TYPE::GRAPHICS);
-		vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), cmdPool, static_cast<u32>(m_cmdBuffers.size()), m_cmdBuffers.data());
+		VkDevice logicalDevice = m_pRenderDevice->GetLogicalDevice();
+		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
+		{
+			CommandList& cmdList = m_cmdBuffers[i];
+			if (cmdList.size() <= 0)
+			{
+				// Nothing to free
+				return;
+			}
+
+			VkCommandPool cmdPool = m_pRenderDevice->GetCommandPool(static_cast<QUEUE_TYPE>(i));
+			vkFreeCommandBuffers(logicalDevice, cmdPool, static_cast<u32>(cmdList.size()), cmdList.data());
+			cmdList.clear();
+		}
 	}
 
-	VkCommandBuffer DeviceContextVk::GetLastCommandBuffer()
+	VkCommandBuffer DeviceContextVk::GetLastCommandBuffer(QUEUE_TYPE queueType)
 	{
-		if (m_cmdBuffers.size() == 0)
+		ASSERT_MSG(m_cmdBuffers.size() == static_cast<size_t>(QUEUE_TYPE::COUNT), "Command list container doesn't have space to hold command lists from every queue type");
+
+		if (queueType == QUEUE_TYPE::COUNT)
+		{
+			LogError("Failed to get last command buffer. Requested queue type is invalid: \"COUNT\"!");
+			return VK_NULL_HANDLE;
+		}
+
+		const CommandList& cmdList = m_cmdBuffers.at(static_cast<u32>(queueType));
+		if (cmdList.size() <= 0)
 		{
 			return VK_NULL_HANDLE;
 		}
 
-		return m_cmdBuffers.at(m_cmdBuffers.size() - 1);
+		return cmdList.back();
+	}
+
+	QUEUE_TYPE DeviceContextVk::GetQueueTypeFromPipelineBindPoint(VkPipelineBindPoint vkBindPoint)
+	{
+		QUEUE_TYPE cmdQueueType = QUEUE_TYPE::COUNT;
+		switch (vkBindPoint)
+		{
+		case VK_PIPELINE_BIND_POINT_GRAPHICS:
+		{
+			cmdQueueType = QUEUE_TYPE::GRAPHICS;
+			break;
+		}
+		case VK_PIPELINE_BIND_POINT_COMPUTE:
+		{
+			cmdQueueType = QUEUE_TYPE::COMPUTE;
+			break;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		return cmdQueueType;
 	}
 }
