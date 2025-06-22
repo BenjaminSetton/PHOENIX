@@ -16,7 +16,8 @@
 namespace PHX
 {
 
-	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo)
+	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo) :
+		m_primaryCmdBuffer(VK_NULL_HANDLE), m_cmdBuffers(), m_wasWorkSubmitted(true)
 	{
 		UNUSED(createInfo);
 

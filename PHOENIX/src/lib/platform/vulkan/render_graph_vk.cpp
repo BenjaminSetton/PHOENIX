@@ -501,10 +501,10 @@ namespace PHX
 
 		SubpassDescription subpassDesc{};
 		subpassDesc.bindPoint = RG_UTILS::ConvertBindPoint(renderPass.m_bindPoint);
-		subpassDesc.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-		subpassDesc.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-		subpassDesc.srcAccessMask = VK_ACCESS_NONE;
-		subpassDesc.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		subpassDesc.srcStageMask = 0;
+		subpassDesc.dstStageMask = 0;
+		subpassDesc.srcAccessMask = 0;
+		subpassDesc.dstAccessMask = 0;
 
 		for (u32 i = 0; i < renderPass.m_outputResources.size(); i++)
 		{
@@ -538,6 +538,11 @@ namespace PHX
 				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
 				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
 
+				subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+				subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+				subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
+				subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
 				subpassDesc.colorAttachmentIndices.push_back(i);
 				break;
 			}
@@ -546,6 +551,11 @@ namespace PHX
 				attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; // TODO - Switch to DEPTH_ONLY in Vulkan version 1.2?
 				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
 				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
+
+				subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+				subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+				subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
 				ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
 				subpassDesc.depthStencilAttachmentIndex = i;
@@ -556,6 +566,11 @@ namespace PHX
 				attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; // TODO - Switch to STENCIL_ONLY in Vulkan version 1.2?
 				attDesc.stencilLoadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
 				attDesc.stencilStoreOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
+
+				subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+				subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+				subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
 				ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
 				subpassDesc.depthStencilAttachmentIndex = i;
@@ -568,6 +583,11 @@ namespace PHX
 				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
 				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
 
+				subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+				subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+				subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
 				ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
 				subpassDesc.depthStencilAttachmentIndex = i;
 				break;
@@ -577,6 +597,11 @@ namespace PHX
 				attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
 				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
+
+				subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+				subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+				subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
+				subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
 				ASSERT_MSG(subpassDesc.resolveAttachmentIndex == -1, "Already assigned the resolve attachment index!");
 				subpassDesc.resolveAttachmentIndex = i;
