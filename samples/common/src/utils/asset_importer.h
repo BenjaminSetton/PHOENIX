@@ -20,6 +20,19 @@ namespace Common
 {
 	using AssetIndexType = uint32_t;
 
+	enum class TEXTURE_TYPE
+	{
+		DIFFUSE = 0,
+		SPECULAR,
+		NORMAL,
+		AMBIENT_OCCLUSION,
+		METALLIC,
+		ROUGHNESS,
+		LIGHTMAP,
+		
+		MAX
+	};
+
 	struct AssetDiskVertex
 	{
 		PHX::Vec3f position;
@@ -31,8 +44,9 @@ namespace Common
 
 	struct AssetDiskTexture
 	{
-		void* pData;
-		PHX::Vec2u size;
+		void* pData			= nullptr;
+		PHX::Vec2u size		= { 0, 0 };
+		TEXTURE_TYPE type	= TEXTURE_TYPE::MAX;
 	};
 
 	// A raw representation of an asset on disk. This is a generalization of common 3D asset extensions such as OBJ, FBX,

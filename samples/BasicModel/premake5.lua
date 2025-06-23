@@ -29,7 +29,8 @@ project "BasicModel"
 		"%{SamplesCommon_IncludeDirs.PHOENIX}",
 		"%{SamplesCommon_IncludeDirs.assimp_core}",
 		"%{SamplesCommon_IncludeDirs.assimp_generated}",
-		"%{SamplesCommon_IncludeDirs.glm}"
+		"%{SamplesCommon_IncludeDirs.glm}",
+		"%{SamplesCommon_IncludeDirs.stb_image}"
 	}
 	
 	filter "system:windows"

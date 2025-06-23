@@ -1,7 +1,7 @@
 workspace "PHOENIX"
 
 	architecture "x64"
-	startproject "BasicModel"
+	startproject "TexturedModel"
 	
 	configurations
 	{
@@ -18,4 +18,5 @@ include "PHOENIX/premake5.lua"
 group "Samples"
 include "samples/HelloTriangle/premake5.lua"
 include "samples/BasicModel/premake5.lua"
+include "samples/TexturedModel/premake5.lua"
 group ""

@@ -24,6 +24,14 @@ static constexpr PHX::u32 VER_PATCH = 1;
 	(minor << (VER_PATCH_SIZE)				   ) | \
 	(patch << 0								   )
 
+static constexpr const char* SHADER_STAGE_NAMES[static_cast<PHX::u32>(PHX::SHADER_STAGE::MAX)] =
+{
+	"VERTEX",
+	"GEOMETRY",
+	"FRAGMENT",
+	"COMPUTE",
+};
+
 // TODO - Move into own shader_compiler.h or something...
 static void GetDefaultShaderResources(TBuiltInResource& resources)
 {
@@ -254,9 +262,10 @@ namespace PHX
 
 	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result)
 	{
+		const char* shaderStageStr = SHADER_STAGE_NAMES[static_cast<u32>(srcData.stage)];
 		if (srcData.data == nullptr)
 		{
-			LogError("Failed to compile shader! Source data's data pointer is null");
+			LogError("Failed to compile %s shader! Source data's data pointer is null", shaderStageStr);
 			return STATUS_CODE::ERR_API;
 		}
 
@@ -286,7 +295,7 @@ namespace PHX
 		std::string preprocessedStr;
 		if (!shader.preprocess(&resources, defaultVersion, defaultProfile, false, forwardCompatible, messageFlags, &preprocessedStr, includer))
 		{
-			LogError("Failed to preprocess shader! Got error: \"%s\"", shader.getInfoLog());
+			LogError("Failed to preprocess %s shader! Got error: \"%s\"", shaderStageStr, shader.getInfoLog());
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
@@ -295,7 +304,7 @@ namespace PHX
 
 		if (!shader.parse(&resources, defaultVersion, defaultProfile, false, forwardCompatible, messageFlags, includer))
 		{
-			LogError("Failed to parse shader! Got error: \"%s\"", shader.getInfoLog());
+			LogError("Failed to parse %s shader! Got error: \"%s\"", shaderStageStr, shader.getInfoLog());
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
@@ -303,7 +312,7 @@ namespace PHX
 		program.addShader(&shader);
 		if (!program.link(messageFlags))
 		{
-			LogError("Failed to link shader! Got error: \"%s\"", program.getInfoLog());
+			LogError("Failed to link %s shader! Got error: \"%s\"", shaderStageStr, program.getInfoLog());
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 

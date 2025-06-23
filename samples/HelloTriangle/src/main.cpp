@@ -10,6 +10,8 @@
 
 #include <PHX/phx.h>
 
+#include "../../common/src/utils/shader_utils.h"
+
 struct SimpleVertexType
 {
 	float pos[4];
@@ -96,48 +98,6 @@ void OnSwapChainOutdatedCallback()
 	// TODO
 }
 
-[[nodiscard]] static PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::IRenderDevice* pRenderDevice)
-{
-	PHX::STATUS_CODE result = PHX::STATUS_CODE::SUCCESS;
-
-	std::ifstream shaderFile;
-	shaderFile.open(shaderName, std::ios::in);
-	if (!shaderFile.is_open())
-	{
-		return nullptr;
-	}
-	std::stringstream buffer;
-	buffer << shaderFile.rdbuf();
-	std::string shaderStr = buffer.str();
-
-	PHX::ShaderSourceData shaderSrc;
-	shaderSrc.data = shaderStr.c_str();
-	shaderSrc.stage = stage;
-	shaderSrc.origin = PHX::SHADER_ORIGIN::GLSL;
-	shaderSrc.optimizationLevel = PHX::SHADER_OPTIMIZATION_LEVEL::NONE;
-
-	PHX::CompiledShader shaderRes;
-	result = CompileShader(shaderSrc, shaderRes);
-	if (result != PHX::STATUS_CODE::SUCCESS)
-	{
-		return nullptr;
-	}
-
-	PHX::ShaderCreateInfo shaderCI{};
-	shaderCI.pBytecode = shaderRes.data.get();
-	shaderCI.size = shaderRes.size;
-	shaderCI.stage = stage;
-
-	PHX::IShader* pShader = nullptr;
-	result = pRenderDevice->AllocateShader(shaderCI, &pShader);
-	if (result != PHX::STATUS_CODE::SUCCESS)
-	{
-		return nullptr;
-	}
-
-	return pShader;
-}
-
 int main(int argc, char** argv)
 {
 	using namespace PHX;
@@ -198,14 +158,14 @@ int main(int argc, char** argv)
 
 	// SHADERS
 	std::string vertShaderName("../src/shaders/vertex_sample.vert");
-	IShader* pVertShader = AllocateShader(vertShaderName, SHADER_STAGE::VERTEX, s_pRenderDevice);
+	IShader* pVertShader = Common::AllocateShader(vertShaderName, SHADER_STAGE::VERTEX, s_pRenderDevice);
 	if (pVertShader == nullptr)
 	{
 		return -1;
 	}
 
 	std::string fragShaderName("../src/shaders/fragment_sample.frag");
-	IShader* pFragShader = AllocateShader(fragShaderName, SHADER_STAGE::FRAGMENT, s_pRenderDevice);
+	IShader* pFragShader = Common::AllocateShader(fragShaderName, SHADER_STAGE::FRAGMENT, s_pRenderDevice);
 	if (pFragShader == nullptr)
 	{
 		return -1;
