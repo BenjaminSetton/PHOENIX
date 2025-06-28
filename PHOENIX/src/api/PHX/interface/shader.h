@@ -10,6 +10,7 @@ namespace PHX
 		const u32* pBytecode;
 		u32 size;
 		SHADER_STAGE stage;
+		ShaderReflectionData reflectionData;
 	};
 
 	class IShader
@@ -19,5 +20,6 @@ namespace PHX
 		virtual ~IShader() { }
 
 		virtual SHADER_STAGE GetStage() const = 0;
+		virtual const ShaderReflectionData& GetReflectionData() const = 0;
 	};
 }

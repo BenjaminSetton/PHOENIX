@@ -13,6 +13,11 @@ struct TransformData
 	glm::mat4 projMat;
 };
 
+enum class PBRTextureType
+{
+
+};
+
 class TexturedModelSample : public Common::BaseSample
 {
 public:
@@ -30,6 +35,14 @@ protected:
 
 private:
 
+	// Create PHX::ITexture objects for m_assetID;
+	void CreateAssetTextures();
+
+	// Creates uniform collection for all shader resources. Stored result in m_pUniformCollection
+	void CreateUniformCollection();
+
+private:
+
 	TransformData m_transform;
 
 	PHX::GraphicsPipelineDesc m_pipelineDesc;
@@ -44,6 +57,8 @@ private:
 
 	std::vector<PHX::InputAttribute> m_inputAttributes;
 
-	Common::AssetHandle m_axeAssetID;
+	std::vector<PHX::ITexture*> m_assetTextures;
+
+	Common::AssetHandle m_assetID;
 
 };

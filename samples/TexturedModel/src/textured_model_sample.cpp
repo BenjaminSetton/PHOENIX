@@ -35,7 +35,7 @@ static TransformData InitializeTransform(glm::vec3 initialCameraPos, float FOV, 
 
 TexturedModelSample::TexturedModelSample() : m_transform(), m_pipelineDesc(), 
 	m_pDepthBuffer(nullptr), m_pUniformCollection(nullptr), m_pUniformBuffer(nullptr), m_pVertexBuffer(nullptr), 
-	m_pIndexBuffer(nullptr), m_axeAssetID(Common::INVALID_ASSET_HANDLE)
+	m_pIndexBuffer(nullptr), m_assetID(Common::INVALID_ASSET_HANDLE)
 {
 	Init();
 }
@@ -52,7 +52,7 @@ bool TexturedModelSample::Update(float dt)
 
 void TexturedModelSample::Draw()
 {
-	const AssetType* axeAsset = AssetManager::Get().GetAsset(m_axeAssetID);
+	const AssetType* axeAsset = AssetManager::Get().GetAsset(m_assetID);
 	if (axeAsset == nullptr)
 	{
 		return;
@@ -112,14 +112,14 @@ void TexturedModelSample::Init()
 {
 	STATUS_CODE phxRes;
 
-	m_pWindow->SetWindowTitle("PHX %u.%u.%u | BASIC MODEL", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
+	m_pWindow->SetWindowTitle("PHX %u.%u.%u | TEXTURED MODEL", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
 
 	// LOAD MODEL
 	{
 		std::shared_ptr<Common::AssetDisk> assetDisk = Common::ImportAsset("../assets/axe/scene.gltf");
-		m_axeAssetID = ConvertAssetDiskToAssetType(assetDisk.get());
+		m_assetID = ConvertAssetDiskToAssetType(assetDisk.get());
 	}
-	const AssetType* axeAsset = AssetManager::Get().GetAsset(m_axeAssetID);
+	const AssetType* axeAsset = AssetManager::Get().GetAsset(m_assetID);
 
 	// VERTEX BUFFER
 	const u64 vBufferSizeBytes = static_cast<u64>(axeAsset->vertices.size() * sizeof(AssetVertex));
@@ -216,22 +216,8 @@ void TexturedModelSample::Init()
 	phxRes = m_pRenderDevice->AllocateBuffer(uniformBufferCI, &m_pUniformBuffer);
 	CHECK_PHX_RES(phxRes);
 
-	UniformData uniformData;
-	uniformData.binding = 0;
-	uniformData.shaderStage = SHADER_STAGE::VERTEX;
-	uniformData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
-
-	UniformDataGroup dataGroup;
-	dataGroup.set = 1;
-	dataGroup.uniformArray = &uniformData;
-	dataGroup.uniformArrayCount = 1;
-
-	UniformCollectionCreateInfo uniformCollectionCI{};
-	uniformCollectionCI.dataGroups = &dataGroup;
-	uniformCollectionCI.groupCount = 1;
-
-	phxRes = m_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &m_pUniformCollection);
-	CHECK_PHX_RES(phxRes);
+	// UNIFORM DATA
+	CreateUniformCollection();
 
 	// GRAPHICS PIPELINE
 	m_pipelineDesc.viewportSize = { m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() };
@@ -246,18 +232,97 @@ void TexturedModelSample::Init()
 	m_pipelineDesc.pUniformCollection = m_pUniformCollection;
 	m_pipelineDesc.enableDepthTest = true;
 	m_pipelineDesc.enableDepthWrite = true;
+
+	// ASSET TEXTURES
+	CreateAssetTextures();
 }
 
 void TexturedModelSample::Shutdown()
 {
+	for (ITexture* pAssetTex : m_assetTextures)
+	{
+		m_pRenderDevice->DeallocateTexture(&pAssetTex);
+	}
+	m_assetTextures.clear();
+
 	for (IShader* pShader : m_shaders)
 	{
 		m_pRenderDevice->DeallocateShader(&pShader);
 	}
+	m_shaders.clear();
 
 	m_pRenderDevice->DeallocateBuffer(&m_pUniformBuffer);
 	m_pRenderDevice->DeallocateBuffer(&m_pIndexBuffer);
 	m_pRenderDevice->DeallocateBuffer(&m_pVertexBuffer);
 	m_pRenderDevice->DeallocateUniformCollection(&m_pUniformCollection);
 	m_pRenderDevice->DeallocateTexture(&m_pDepthBuffer);
+}
+
+void TexturedModelSample::CreateAssetTextures()
+{
+	AssetType* pAsset = AssetManager::Get().GetAsset(m_assetID);
+	if (pAsset == nullptr)
+	{
+		return;
+	}
+
+	for (u32 i = 0; i < static_cast<u32>(pAsset->textures.size()); i++)
+	{
+		const Texture& currTex = pAsset->textures[i];
+
+		TextureBaseCreateInfo baseCI{};
+		baseCI.width = m_pWindow->GetCurrentWidth();
+		baseCI.height = m_pWindow->GetCurrentHeight();
+		baseCI.arrayLayers = 1;
+		baseCI.generateMips = false;
+		baseCI.format = (currTex.type == Common::TEXTURE_TYPE::DIFFUSE) ? BASE_FORMAT::R8G8B8A8_SRGB : BASE_FORMAT::R8G8B8A8_UNORM;
+		baseCI.usageFlags = (u8)USAGE_TYPE::SAMPLED |
+							(u8)USAGE_TYPE::TRANSFER_DST |
+							(u8)USAGE_TYPE::INPUT_ATTACHMENT;
+
+		TextureViewCreateInfo viewCI{};
+		viewCI.type = VIEW_TYPE::TYPE_2D;
+		viewCI.scope = VIEW_SCOPE::ENTIRE;
+		viewCI.aspectFlags = (u8)ASPECT_TYPE::COLOR;
+
+		TextureSamplerCreateInfo samplerCI{};
+		samplerCI.addressModeUVW = SAMPLER_ADDRESS_MODE::REPEAT;
+		samplerCI.enableAnisotropicFiltering = false;
+		samplerCI.magnificationFilter = FILTER_MODE::LINEAR;
+		samplerCI.minificationFilter = FILTER_MODE::LINEAR;
+		samplerCI.samplerMipMapFilter = FILTER_MODE::LINEAR;
+
+		ITexture* pAssetTex = nullptr;
+		STATUS_CODE res = m_pRenderDevice->AllocateTexture(baseCI, viewCI, samplerCI, &pAssetTex);
+		CHECK_PHX_RES(res);
+
+		m_assetTextures.push_back(pAssetTex);
+	}
+}
+
+void TexturedModelSample::CreateUniformCollection()
+{
+	// SET 0
+	UniformData uniformData;
+	uniformData.binding = 0;
+	uniformData.shaderStage = SHADER_STAGE::VERTEX;
+	uniformData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
+
+	UniformDataGroup dataGroup;
+	dataGroup.set = 1;
+	dataGroup.uniformArray = &uniformData;
+	dataGroup.uniformArrayCount = 1;
+
+	// SET 1
+	UniformData texUniformData;
+	texUniformData.binding = 0;
+	texUniformData.shaderStage = SHADER_STAGE::FRAGMENT;
+	texUniformData.type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
+
+	UniformCollectionCreateInfo uniformCollectionCI{};
+	uniformCollectionCI.dataGroups = &dataGroup;
+	uniformCollectionCI.groupCount = 1;
+
+	STATUS_CODE phxRes = m_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &m_pUniformCollection);
+	CHECK_PHX_RES(phxRes);
 }

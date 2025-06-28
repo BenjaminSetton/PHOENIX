@@ -279,7 +279,7 @@ namespace PHX
 		glslang::EShTargetLanguageVersion spirvVersion = glslang::EShTargetSpv_1_0;
 		shader.setEnvTarget(glslang::EshTargetSpv, spirvVersion);
 
-		shader.setEntryPoint("main"); // Only use "main" for now
+		shader.setEntryPoint(srcData.entryPoint);
 
 		TBuiltInResource resources;
 		GetDefaultShaderResources(resources);
@@ -331,6 +331,39 @@ namespace PHX
 
 		// Copy the memory into our own struct
 		memcpy(out_result.data.get(), spirv.data(), size * sizeof(u32));
+
+		// Optionally perform reflection
+		if (srcData.performReflection)
+		{
+			if (!program.buildReflection())
+			{
+				LogError("Failed to perform shader reflection for %s shader! Got error: \"\"", shaderStageStr, shader.getInfoLog());
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+
+			u32 uniformCount = static_cast<u32>(program.getNumUniformVariables());
+			out_result.reflectionData.pUniformData = std::shared_ptr<ShaderUniformData[]>(new ShaderUniformData[uniformCount]);
+
+			for (u32 i = 0; i < uniformCount; i++)
+			{
+				const glslang::TObjectReflection& reflectedObject = program.getUniform(i);
+
+				ShaderUniformData& uniformData = out_result.reflectionData.pUniformData[i];
+				uniformData.name = reflectedObject.name.c_str();
+				uniformData.index = reflectedObject.index;
+				uniformData.size = reflectedObject.size;
+				uniformData.stages = GLSLANG_UTILS::ConvertShaderStageFlags(reflectedObject.stages);
+			}
+
+			if (srcData.stage == SHADER_STAGE::COMPUTE)
+			{
+				out_result.reflectionData.localSize.SetX(program.getLocalSize(0));
+				out_result.reflectionData.localSize.SetY(program.getLocalSize(1));
+				out_result.reflectionData.localSize.SetZ(program.getLocalSize(2));
+			}
+
+			out_result.reflectionData.isValid = true;
+		}
 
 		return STATUS_CODE::SUCCESS;
 	}

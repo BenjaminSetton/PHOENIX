@@ -40,6 +40,7 @@ namespace PHX
 		m_pRenderDevice = pRenderDevice;
 
 		m_stage = createInfo.stage;
+		m_reflectionData = createInfo.reflectionData;
 	}
 
 	ShaderVk::~ShaderVk()
@@ -50,6 +51,11 @@ namespace PHX
 	SHADER_STAGE ShaderVk::GetStage() const
 	{
 		return m_stage;
+	}
+
+	const ShaderReflectionData& ShaderVk::GetReflectionData() const
+	{
+		return m_reflectionData;
 	}
 
 	VkShaderModule ShaderVk::GetShaderModule() const

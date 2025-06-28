@@ -15,17 +15,17 @@ namespace PHX
 	public:
 		VecT()
 		{
-			std::memset(values, 0, N);
+			std::memset(values, 0, GetSizeBytes());
 		}
 
 		VecT(T v)
 		{
-			std::memset(values, static_cast<int>(v), N);
+			std::memset(values, static_cast<int>(v), GetSizeBytes());
 		}
 
 		VecT(const std::initializer_list<T>& initList)
 		{
-			std::memset(values, 0, N);
+			std::memset(values, 0, GetSizeBytes());
 			size_t copySize = initList.size() <= N ? initList.size() : N;
 			std::copy_n(initList.begin(), copySize, values);
 		}
@@ -77,7 +77,7 @@ namespace PHX
 
 		bool operator==(const VecT& other) const
 		{
-			return (std::memcmp(values, other.values, N * sizeof(T)) == 0);
+			return (std::memcmp(values, other.values, GetSizeBytes()) == 0);
 		}
 
 		template<class = typename std::enable_if<N >= 1>>
@@ -92,6 +92,18 @@ namespace PHX
 		template<class = typename std::enable_if<N == 4>>
 		T GetW() const { return values[3]; }
 
+		template<class = typename std::enable_if<N >= 1>>
+		void SetX(T val) { values[0] = val; }
+
+		template<class = typename std::enable_if<N >= 2>>
+		void SetY(T val) { values[1] = val; }
+
+		template<class = typename std::enable_if<N >= 3>>
+		void SetZ(T val) { values[2] = val; }
+
+		template<class = typename std::enable_if<N == 4>>
+		void SetW(T val) { values[3] = val; }
+
 		constexpr u32 GetSize() const
 		{
 			return N;
@@ -104,6 +116,11 @@ namespace PHX
 		void CopyValues(const VecT& other)
 		{
 			std::memcpy(values, other.values, N * sizeof(T));
+		}
+
+		constexpr u32 GetSizeBytes()
+		{
+			return sizeof(T) * N;
 		}
 	};
 

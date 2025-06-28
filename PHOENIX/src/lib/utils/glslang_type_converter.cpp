@@ -8,7 +8,7 @@ namespace PHX
 {
 	namespace GLSLANG_UTILS
 	{
-		STATIC_ASSERT(static_cast<u32>(SHADER_STAGE::MAX) == 4);
+		STATIC_ASSERT(static_cast<u8>(SHADER_STAGE::MAX) == 4);
 		EShLanguage ConvertShaderStage(SHADER_STAGE kind)
 		{
 			switch (kind)
@@ -19,7 +19,7 @@ namespace PHX
 			case SHADER_STAGE::COMPUTE:  return EShLangCompute;
 			}
 
-			LogError("Failed to convert shader kind. SHADER_KIND::MAX is not a valid value!");
+			LogError("Failed to convert shader kind. SHADER_KIND::COUNT is not a valid value!");
 			return {};
 		}
 
@@ -49,6 +49,39 @@ namespace PHX
 
 			LogError("Failed to convert shader optimization level. SHADER_ORIGIN::MAX is not a valid value!");
 			return {};
+		}
+
+		ShaderStageFlags ConvertShaderStageFlags(EShLanguageMask stageMask)
+		{
+			ShaderStageFlags flagResult = 0;
+
+			u32 maskBitSize = sizeof(EShLanguageMask) * 8;
+			for (u32 i = 0; i < maskBitSize; i++)
+			{
+				u32 currBitFlag = (1 << i);
+				if ((currBitFlag & stageMask) != 0)
+				{
+					switch (maskBitSize)
+					{
+					case EShLangVertexMask:         { flagResult |= SHADER_STAGE_FLAG_VERTEX; break; }
+					case EShLangTessControlMask:    { TODO(); break; }
+					case EShLangTessEvaluationMask: { TODO(); break; }
+					case EShLangGeometryMask:       { flagResult |= SHADER_STAGE_FLAG_GEOMETRY; break; }
+					case EShLangFragmentMask:       { flagResult |= SHADER_STAGE_FLAG_FRAGMENT; break; }
+					case EShLangComputeMask:        { flagResult |= SHADER_STAGE_FLAG_COMPUTE; break; }
+					case EShLangRayGenMask:         { TODO(); break; }
+					case EShLangIntersectMask:      { TODO(); break; }
+					case EShLangAnyHitMask:         { TODO(); break; }
+					case EShLangClosestHitMask:     { TODO(); break; }
+					case EShLangMissMask:           { TODO(); break; }
+					case EShLangCallableMask:       { TODO(); break; }
+					case EShLangTaskMask:           { TODO(); break; }
+					case EShLangMeshMask:           { TODO(); break; }
+					}
+				}
+			}
+
+			return flagResult;
 		}
 	}
 }

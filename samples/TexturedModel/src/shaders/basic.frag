@@ -3,11 +3,11 @@
 layout(location = 0) in vec3 inNormal;
 layout(location = 1) in vec2 inUV;
 
-layout(set = 0, binding = 0) uniform sampler2D diffuseSampler;
-layout(set = 0, binding = 1) uniform sampler2D normalSampler;
-layout(set = 0, binding = 2) uniform sampler2D metallicSampler;
-layout(set = 0, binding = 3) uniform sampler2D roughnessSampler;
-layout(set = 0, binding = 4) uniform sampler2D lightmapSampler;
+layout(set = 1, binding = 0) uniform sampler2D diffuseSampler;
+layout(set = 1, binding = 1) uniform sampler2D normalSampler;
+layout(set = 1, binding = 2) uniform sampler2D metallicSampler;
+layout(set = 1, binding = 3) uniform sampler2D roughnessSampler;
+layout(set = 1, binding = 4) uniform sampler2D lightmapSampler;
 
 layout(location = 0) out vec4 outColor;
 

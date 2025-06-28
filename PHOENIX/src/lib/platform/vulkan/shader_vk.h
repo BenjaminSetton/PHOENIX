@@ -17,6 +17,7 @@ namespace PHX
 		~ShaderVk();
 
 		SHADER_STAGE GetStage() const override;
+		const ShaderReflectionData& GetReflectionData() const override;
 
 		VkShaderModule GetShaderModule() const;
 
@@ -26,6 +27,8 @@ namespace PHX
 
 		VkShaderModule m_shader;
 		SHADER_STAGE m_stage;
+
+		ShaderReflectionData m_reflectionData;
 	};
 
 }
