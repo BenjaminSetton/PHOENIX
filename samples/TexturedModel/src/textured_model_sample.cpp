@@ -180,26 +180,39 @@ void TexturedModelSample::Init()
 	IShader* pFragShader = Common::AllocateShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, m_pRenderDevice);
 	m_shaders.push_back(pFragShader);
 
+	// TODO - Replace with data from vertex shader reflection
 	// INPUT ATTRIBUTES
 	m_inputAttributes =
 	{
-		// POSITION
+		// POSITION (12 bytes)
 		{
 			0,								// location
 			0,								// binding
-			BASE_FORMAT::R32G32B32_FLOAT	// format
+			BASE_FORMAT::R32G32B32_FLOAT	// format (Vec3f)
 		},
-		// NORMAL
+		// NORMAL (12 bytes)
 		{
 			1,								// location
 			0,								// binding
-			BASE_FORMAT::R32G32B32_FLOAT	// format
+			BASE_FORMAT::R32G32B32_FLOAT	// format (Vec3f)
 		},
-		// UV
+		// TANGENT (12 bytes)
 		{
 			2,								// location
 			0,								// binding
-			BASE_FORMAT::R32G32_FLOAT		// format
+			BASE_FORMAT::R32G32B32_FLOAT	// format (Vec3f)
+		},
+		// BITANGENT (12 bytes)
+		{
+			3,								// location
+			0,								// binding
+			BASE_FORMAT::R32G32B32_FLOAT	// format (Vec3f)
+		},
+		// UV (8 bytes)
+		{
+			4,								// location
+			0,								// binding
+			BASE_FORMAT::R32G32_FLOAT		// format (Vec2f)
 		},
 	};
 

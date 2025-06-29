@@ -9,6 +9,8 @@ struct AssetVertex
 {
 	PHX::Vec3f position;
 	PHX::Vec3f normal;
+	PHX::Vec3f tangent;
+	PHX::Vec3f bitangent;
 	PHX::Vec2f uv;
 };
 
@@ -41,6 +43,8 @@ static Common::AssetHandle ConvertAssetDiskToAssetType(const Common::AssetDisk* 
 		AssetVertex newVert;
 		newVert.position = diskVert.position;
 		newVert.normal = diskVert.normal;
+		newVert.tangent = diskVert.tangent;
+		newVert.bitangent = diskVert.bitangent;
 		newVert.uv = diskVert.uv;
 
 		newAsset.vertices.push_back(newVert);

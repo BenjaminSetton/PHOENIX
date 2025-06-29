@@ -4,6 +4,7 @@
 
 #include "integral_types.h"
 #include "vec_types.h"
+#include "texture_desc.h"
 
 namespace PHX
 {
@@ -46,20 +47,35 @@ namespace PHX
 
 	struct ShaderUniformData
 	{
-		const char* name		= nullptr;
-		ShaderStageFlags stages	= 0;
-		u32 size				= 0;
-		u32 index				= 0;
+		const char* name        = nullptr;
+		ShaderStageFlags stages = 0;
+		u32 size                = 0;
+		u32 binding             = 0;
+		u32 offset              = 0;
+	};
+
+	struct ShaderIOData
+	{
+		const char* name   = nullptr;
+		BASE_FORMAT format = BASE_FORMAT::INVALID;
+		u32 location       = 0;
+		u32 binding        = 0;
 	};
 
 	struct ShaderReflectionData
 	{
-		bool isValid										= false;
+		bool isValid                                        = false;
 
-		std::shared_ptr<ShaderUniformData[]> pUniformData	= nullptr;
-		u32 uniformCount									= 0;
+		std::shared_ptr<ShaderUniformData[]> uniforms       = nullptr;
+		u32 uniformCount                                    = 0;
 
-		Vec3u localSize										= Vec3u(0); // Only valid for compute shaders
+		std::shared_ptr<ShaderIOData[]> inputs              = nullptr;
+		u32 inputCount                                      = 0;
+
+		std::shared_ptr<ShaderIOData[]> outputs             = nullptr;
+		u32 outputCount                                     = 0;
+
+		Vec3u localSize                                     = Vec3u(0); // Only valid for compute shaders
 	};
 
 	struct ShaderSourceData

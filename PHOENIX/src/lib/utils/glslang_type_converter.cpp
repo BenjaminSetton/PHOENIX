@@ -61,7 +61,7 @@ namespace PHX
 				u32 currBitFlag = (1 << i);
 				if ((currBitFlag & stageMask) != 0)
 				{
-					switch (maskBitSize)
+					switch (currBitFlag)
 					{
 					case EShLangVertexMask:         { flagResult |= SHADER_STAGE_FLAG_VERTEX; break; }
 					case EShLangTessControlMask:    { TODO(); break; }
@@ -82,6 +82,28 @@ namespace PHX
 			}
 
 			return flagResult;
+		}
+
+		BASE_FORMAT ConvertIOTypeToBaseFormat(glslang::TBasicType type, u32 vectorSize)
+		{
+			if (type != glslang::EbtFloat)
+			{
+				// TODO
+				ASSERT_ALWAYS("Currently only 32-bit float is supported in ConvertIOTypeToBaseFormat()");
+				return BASE_FORMAT::INVALID;
+			}
+
+			switch (vectorSize)
+			{
+			case 1: return BASE_FORMAT::R32_FLOAT;
+			case 2: return BASE_FORMAT::R32G32_FLOAT;
+			case 3: return BASE_FORMAT::R32G32B32_FLOAT;
+			case 4: return BASE_FORMAT::R32G32B32A32_FLOAT;
+			default: break;
+			}
+
+			ASSERT_ALWAYS("Failed to convert IO type to base format. Vector size is out of expected range! (1-4)");
+			return BASE_FORMAT::INVALID;
 		}
 	}
 }

@@ -1,4 +1,6 @@
 
+#include <glslang/Include/Types.h>
+
 #include <SPIRV/GlslangToSpv.h>
 
 #include "PHX/phx.h"
@@ -335,31 +337,88 @@ namespace PHX
 		// Optionally perform reflection
 		if (srcData.performReflection)
 		{
-			if (!program.buildReflection())
+			const u32 reflectionOptions = EShReflectionDefault | EShReflectionAllIOVariables;
+			if (!program.buildReflection(reflectionOptions))
 			{
-				LogError("Failed to perform shader reflection for %s shader! Got error: \"\"", shaderStageStr, shader.getInfoLog());
+				LogError("Failed to perform shader reflection for %s shader! Got error: \"%s\"", shaderStageStr, shader.getInfoLog());
 				return STATUS_CODE::ERR_INTERNAL;
 			}
 
-			u32 uniformCount = static_cast<u32>(program.getNumUniformVariables());
-			out_result.reflectionData.pUniformData = std::shared_ptr<ShaderUniformData[]>(new ShaderUniformData[uniformCount]);
-
-			for (u32 i = 0; i < uniformCount; i++)
+			// UNIFORMS
 			{
-				const glslang::TObjectReflection& reflectedObject = program.getUniform(i);
+				u32 uniformCount = static_cast<u32>(program.getNumUniformVariables());
+				out_result.reflectionData.uniforms = std::shared_ptr<ShaderUniformData[]>(new ShaderUniformData[uniformCount]);
+				out_result.reflectionData.uniformCount = uniformCount;
 
-				ShaderUniformData& uniformData = out_result.reflectionData.pUniformData[i];
-				uniformData.name = reflectedObject.name.c_str();
-				uniformData.index = reflectedObject.index;
-				uniformData.size = reflectedObject.size;
-				uniformData.stages = GLSLANG_UTILS::ConvertShaderStageFlags(reflectedObject.stages);
+				for (u32 i = 0; i < uniformCount; i++)
+				{
+					const glslang::TObjectReflection& reflectedObject = program.getUniform(i);
+
+					ShaderUniformData& uniformData = out_result.reflectionData.uniforms[i];
+					uniformData.name = reflectedObject.name.c_str();
+					uniformData.binding = reflectedObject.index;
+					uniformData.size = reflectedObject.size;
+					uniformData.stages = GLSLANG_UTILS::ConvertShaderStageFlags(reflectedObject.stages);
+					uniformData.offset = reflectedObject.offset;
+				}
 			}
 
-			if (srcData.stage == SHADER_STAGE::COMPUTE)
+			// LOCAL SIZE
 			{
-				out_result.reflectionData.localSize.SetX(program.getLocalSize(0));
-				out_result.reflectionData.localSize.SetY(program.getLocalSize(1));
-				out_result.reflectionData.localSize.SetZ(program.getLocalSize(2));
+				if (srcData.stage == SHADER_STAGE::COMPUTE)
+				{
+					out_result.reflectionData.localSize.SetX(program.getLocalSize(0));
+					out_result.reflectionData.localSize.SetY(program.getLocalSize(1));
+					out_result.reflectionData.localSize.SetZ(program.getLocalSize(2));
+				}
+			}
+
+			// INPUTS
+			{
+				u32 inputCount = static_cast<u32>(program.getNumPipeInputs());
+				if (inputCount > 0)
+				{
+					out_result.reflectionData.inputs = std::shared_ptr<ShaderIOData[]>(new ShaderIOData[inputCount]);
+					out_result.reflectionData.inputCount = inputCount;
+
+					for (u32 i = 0; i < inputCount; i++)
+					{
+						const glslang::TObjectReflection& reflectedObject = program.getPipeInput(i);
+
+						const u32 vectorSize = reflectedObject.getType()->getVectorSize();
+						const glslang::TBasicType basicType = reflectedObject.getType()->getBasicType();
+
+						ShaderIOData& inputData = out_result.reflectionData.inputs[i];
+						inputData.name = reflectedObject.name.c_str();
+						inputData.format = GLSLANG_UTILS::ConvertIOTypeToBaseFormat(basicType, vectorSize);
+						inputData.location = program.getReflectionPipeIOIndex(reflectedObject.name.c_str(), true);
+						inputData.binding = 0; // TODO
+					}
+				}
+			}
+
+			//OUTPUTS
+			{
+				u32 outputCount = static_cast<u32>(program.getNumPipeOutputs());
+				if (outputCount > 0)
+				{
+					out_result.reflectionData.outputs = std::shared_ptr<ShaderIOData[]>(new ShaderIOData[outputCount]);
+					out_result.reflectionData.outputCount = outputCount;
+
+					for (u32 i = 0; i < outputCount; i++)
+					{
+						const glslang::TObjectReflection& reflectedObject = program.getPipeOutput(i);
+
+						const u32 vectorSize = reflectedObject.getType()->getVectorSize();
+						const glslang::TBasicType basicType = reflectedObject.getType()->getBasicType();
+
+						ShaderIOData& outputData = out_result.reflectionData.outputs[i];
+						outputData.name = reflectedObject.name.c_str();
+						outputData.format = GLSLANG_UTILS::ConvertIOTypeToBaseFormat(basicType, vectorSize);
+						outputData.location = program.getReflectionPipeIOIndex(reflectedObject.name.c_str(), false);
+						outputData.binding = 0; // TODO
+					}
+				}
 			}
 
 			out_result.reflectionData.isValid = true;
