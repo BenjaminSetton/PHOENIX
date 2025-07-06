@@ -67,6 +67,16 @@ namespace PHX
 		DestroyBuffer(m_buffer);
 	}
 
+	BUFFER_USAGE BufferVk::GetUsage() const
+	{
+		return m_usage;
+	}
+
+	VkDeviceSize BufferVk::GetSize() const
+	{
+		return m_buffer.size;
+	}
+
 	STATUS_CODE BufferVk::CopyData(const void* data, u64 size)
 	{
 		if (!m_stagingBuffer.isValid && !m_buffer.isValid)
@@ -95,11 +105,6 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	BUFFER_USAGE BufferVk::GetUsage() const
-	{
-		return m_usage;
-	}
-
 	VkBuffer BufferVk::GetBuffer() const
 	{
 		return m_buffer.buffer;
@@ -113,11 +118,6 @@ namespace PHX
 	VkDeviceSize BufferVk::GetOffset() const
 	{
 		return m_buffer.allocInfo.offset;
-	}
-
-	VkDeviceSize BufferVk::GetSize() const
-	{
-		return m_buffer.size;
 	}
 
 	VkDeviceSize BufferVk::GetAllocatedSize() const

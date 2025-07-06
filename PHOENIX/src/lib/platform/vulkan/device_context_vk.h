@@ -13,7 +13,16 @@ namespace PHX
 	// Forward declarations
 	class SwapChainVk;
 
-	using CommandList = std::vector<VkCommandBuffer>;
+	using CommandBufferList = std::vector<VkCommandBuffer>;
+
+	struct FlushSyncData
+	{
+		VkSemaphore* pWaitSemaphores   = nullptr;
+		u32 waitSemaphoreCount         = 0;
+		VkSemaphore* pSignalSemaphores = nullptr;
+		u32 signalSemaphoreCount       = 0;
+		VkFence signalFence            = VK_NULL_HANDLE;
+	};
 
 	class DeviceContextVk : public IDeviceContext
 	{
@@ -36,16 +45,18 @@ namespace PHX
 		STATUS_CODE Dispatch(Vec3u dimensions) override;
 
 		STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) override;
+		STATUS_CODE CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes) override;
 
 		STATUS_CODE BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex);
-		STATUS_CODE Flush(SwapChainVk* pSwapChain, u32 frameIndex);
+		STATUS_CODE EndFrame(u32 frameIndex);
+
+		STATUS_CODE Flush(QUEUE_TYPE queueType, const FlushSyncData& syncData);
 
 		STATUS_CODE BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount);
 		STATUS_CODE EndRenderPass();
 
-		// TODO - Perform layout transition without creating a new command buffer in transfer queue and blocking.
-		//        Also, have the transition details exposed as function parameters rather than assuming src/dst stages and access masks
-		STATUS_CODE TransitionImageLayout(ITexture* pTexture, VkImageLayout destinationLayout);
+		// TODO - Have the transition details exposed as function parameters rather than assuming src/dst stages and access masks
+		STATUS_CODE TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout);
 
 	private:
 
@@ -68,7 +79,7 @@ namespace PHX
 		VkCommandBuffer m_primaryCmdBuffer;
 
 		// Stores all command buffers from all supported queues
-		std::array<CommandList, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_cmdBuffers;
+		std::array<CommandBufferList, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_cmdBuffers;
 
 		bool m_wasWorkSubmitted;
 	};

@@ -15,133 +15,41 @@ namespace PHX
 	static const char* s_pReservedBackbufferName = "INTERNAL_backbuffer";
 	static constexpr u32 s_invalidRenderPassIndex = U32_MAX;
 
-	//static RenderPassDescription BuildRenderPassDescription(const FramebufferDescription& info)
-	//{
-	//	RenderPassDescription rpDesc{};
+	static ATTACHMENT_TYPE CalculateAttachmentType(ITexture* pTexture)
+	{
+		AspectTypeFlags aspectFlags = pTexture->GetAspectFlags();
+		switch (aspectFlags)
+		{
+		case ASPECT_TYPE_FLAG_COLOR:                              return ATTACHMENT_TYPE::COLOR;
+		case (ASPECT_TYPE_FLAG_DEPTH | ASPECT_TYPE_FLAG_STENCIL): return ATTACHMENT_TYPE::DEPTH_STENCIL;
+		case ASPECT_TYPE_FLAG_DEPTH:                              return ATTACHMENT_TYPE::DEPTH;
+		case ASPECT_TYPE_FLAG_STENCIL:                            return ATTACHMENT_TYPE::STENCIL;
+		}
 
-	//	rpDesc.attachments.resize(info.attachmentCount);
-	//	rpDesc.subpasses.resize(1); // Just using 1 subpass for now
+		LogError("Failed to calculate attachment type from texture's aspect flags. No valid combination was found for aspect flags %u", aspectFlags);
+		return ATTACHMENT_TYPE::INVALID;
+	}
 
-	//	SubpassDescription& subpassDesc = rpDesc.subpasses.at(0);
+	static VkImageLayout CalculateLayoutForInputImage(ATTACHMENT_TYPE attachmentType)
+	{
+		switch (attachmentType)
+		{
+		case ATTACHMENT_TYPE::COLOR:         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		case ATTACHMENT_TYPE::DEPTH:         return VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
+		case ATTACHMENT_TYPE::DEPTH_STENCIL: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		case ATTACHMENT_TYPE::STENCIL:       return VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL;
+		case ATTACHMENT_TYPE::RESOLVE:       return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // Is this right?
+		default:
+		{
+			break;
+		}
+		}
 
-	//	subpassDesc.bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS; // Does compute use framebuffers at all?
-	//	subpassDesc.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT; // TODO - optimize
-	//	subpassDesc.dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT; // TODO - optimize
-	//	subpassDesc.dstAccessMask = VK_ACCESS_NONE;
+		LogWarning("Failed to calculate layout for input image with attachment type %u. Defaulting to general layout", static_cast<u32>(attachmentType));
+		return VK_IMAGE_LAYOUT_GENERAL;
+	}
 
-	//	for (u32 i = 0; i < info.attachmentCount; i++)
-	//	{
-	//		FramebufferAttachmentDesc& framebufferAttDesc = info.pAttachments[i];
-	//		AttachmentDescription& attDesc = rpDesc.attachments.at(i);
-
-	//		attDesc.pTexture = dynamic_cast<TextureVk*>(framebufferAttDesc.pTexture);
-
-	//		VkAttachmentLoadOp loadOp = ATT_UTILS::ConvertLoadOp(framebufferAttDesc.loadOp);
-	//		VkAttachmentStoreOp storeOp = ATT_UTILS::ConvertStoreOp(framebufferAttDesc.storeOp);
-
-	//		switch (framebufferAttDesc.type)
-	//		{
-	//		case ATTACHMENT_TYPE::COLOR:
-	//		{
-	//			attDesc.loadOp = loadOp;
-	//			attDesc.storeOp = storeOp;
-
-	//			// How inefficient is this?
-	//			attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	//			attDesc.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
-	//			attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	//			subpassDesc.colorAttachmentIndices.push_back(i);
-	//			break;
-	//		}
-	//		case ATTACHMENT_TYPE::DEPTH:
-	//		{
-	//			attDesc.loadOp = loadOp;
-	//			attDesc.storeOp = storeOp;
-
-	//			// How inefficient is this?
-	//			attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	//			attDesc.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
-	//			attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-
-	//			if (subpassDesc.depthStencilAttachmentIndex != U32_MAX)
-	//			{
-	//				LogWarning("Attempting to assign depth attachment to framebuffer more than once! Depth attachment is already assigned to index %u", subpassDesc.depthStencilAttachmentIndex);
-	//			}
-	//			else
-	//			{
-	//				subpassDesc.depthStencilAttachmentIndex = i;
-	//			}
-
-	//			break;
-	//		}
-	//		case ATTACHMENT_TYPE::STENCIL:
-	//		{
-	//			attDesc.stencilLoadOp = loadOp;
-	//			attDesc.stencilStoreOp = storeOp;
-
-	//			// How inefficient is this?
-	//			attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	//			attDesc.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
-	//			attDesc.layout = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL;
-
-	//			if (subpassDesc.depthStencilAttachmentIndex != U32_MAX)
-	//			{
-	//				LogWarning("Attempting to assign stencil attachment to framebuffer more than once! Stencil attachment is already assigned to index %u", subpassDesc.depthStencilAttachmentIndex);
-	//			}
-	//			else
-	//			{
-	//				subpassDesc.depthStencilAttachmentIndex = i;
-	//			}
-
-	//			break;
-	//		}
-	//		case ATTACHMENT_TYPE::DEPTH_STENCIL:
-	//		{
-	//			attDesc.stencilLoadOp = loadOp;
-	//			attDesc.stencilStoreOp = storeOp;
-
-	//			// How inefficient is this?
-	//			attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	//			attDesc.finalLayout = VK_IMAGE_LAYOUT_GENERAL;
-	//			attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-	//			if (subpassDesc.depthStencilAttachmentIndex != U32_MAX)
-	//			{
-	//				LogWarning("Attempting to assign depth-stencil attachment to framebuffer more than once! Depth-stencil attachment is already assigned to index %u", subpassDesc.depthStencilAttachmentIndex);
-	//			}
-	//			else
-	//			{
-	//				subpassDesc.depthStencilAttachmentIndex = i;
-	//			}
-
-	//			break;
-	//		}
-	//		case ATTACHMENT_TYPE::RESOLVE:
-	//		{
-	//			attDesc.loadOp = loadOp;
-	//			attDesc.storeOp = storeOp;
-
-	//			attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-	//			attDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR; // Assuming it'll be presented right after resolving
-	//			attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-	//			if (subpassDesc.resolveAttachmentIndex != U32_MAX)
-	//			{
-	//				LogWarning("Attempting to assign resolve attachment to framebuffer more than once! Resolve attachment is already assigned to index %u", subpassDesc.resolveAttachmentIndex);
-	//			}
-	//			else
-	//			{
-	//				subpassDesc.resolveAttachmentIndex = i;
-	//			}
-
-	//			break;
-	//		}
-	//		}
-	//	}
-
-	//	return rpDesc;
-	//}
+	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	RenderPassVk::RenderPassVk(const char* name, BIND_POINT bindPoint) : m_bindPoint(bindPoint)
 	{
@@ -160,13 +68,12 @@ namespace PHX
 
 	void RenderPassVk::SetTextureInput(ITexture* pTexture)
 	{
-		TODO();
 		ResourceDesc desc{};
 		desc.name = nullptr; // TODO
 		desc.data = pTexture;
 		desc.io = RESOURCE_IO::INPUT;
 		desc.resourceType = RESOURCE_TYPE::TEXTURE;
-		desc.attachmentType = ATTACHMENT_TYPE::COLOR;
+		desc.attachmentType = CalculateAttachmentType(pTexture);
 		desc.storeOp = ATTACHMENT_STORE_OP::IGNORE;
 		desc.loadOp = ATTACHMENT_LOAD_OP::LOAD;
 		m_inputResources.push_back(desc);
@@ -379,7 +286,7 @@ namespace PHX
 		ASSERT_PTR(swapChainVk);
 
 		DeviceContextVk* pDeviceContext = GetDeviceContext();
-		res = pDeviceContext->Flush(swapChainVk, m_frameIndex);
+		res = pDeviceContext->EndFrame(m_frameIndex);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to end frame. Device context could not flush!");
@@ -471,8 +378,17 @@ namespace PHX
 
 		//		Get or create pipeline from render device (should refer to internal cache)
 		PipelineVk* pPipeline = CreatePipeline(backbufferRP, renderPassVk);
-		
+
 		DeviceContextVk* pDeviceContext = GetDeviceContext();
+
+		FlushSyncData preRPSyncData{}; // No sync for now
+		res = pDeviceContext->Flush(QUEUE_TYPE::TRANSFER, preRPSyncData);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to bake render graph. Device context could not flush image layout transitions!");
+			return res;
+		}
+		
 		res = pDeviceContext->BeginRenderPass(renderPassVk, pFramebuffer, pClearColors, clearColorCount);
 		if (res != STATUS_CODE::SUCCESS)
 		{
@@ -482,6 +398,30 @@ namespace PHX
 
 		// Call the main render pass execution callback
 		backbufferRP.m_execCallback(pDeviceContext, pPipeline);
+
+		// Look at all input resources and make sure they're in the correct layout
+		for (const ResourceDesc& inputResource : backbufferRP.m_inputResources)
+		{
+			if (inputResource.resourceType != RESOURCE_TYPE::TEXTURE)
+			{
+				continue;
+			}
+
+			VkImageLayout destLayout = CalculateLayoutForInputImage(inputResource.attachmentType);
+			TextureVk* textureVk = static_cast<TextureVk*>(inputResource.data);
+
+			// Issue the commands for image layout barriers
+			pDeviceContext->TransitionImageLayout(textureVk, destLayout);
+		}
+
+		// Flush any transfer operations requested in the execution callback
+		FlushSyncData midRPSyncData{}; // No sync for now
+		res = pDeviceContext->Flush(QUEUE_TYPE::TRANSFER, midRPSyncData);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to bake render graph. Device context could not flush transfer operations!");
+			return res;
+		}
 
 		res = pDeviceContext->EndRenderPass();
 		if (res != STATUS_CODE::SUCCESS)

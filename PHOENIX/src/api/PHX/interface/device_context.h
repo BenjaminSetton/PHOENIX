@@ -35,5 +35,6 @@ namespace PHX
 		virtual STATUS_CODE Dispatch(Vec3u dimensions) = 0;
 
 		virtual STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) = 0;
+		virtual STATUS_CODE CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes) = 0;
 	};
 }

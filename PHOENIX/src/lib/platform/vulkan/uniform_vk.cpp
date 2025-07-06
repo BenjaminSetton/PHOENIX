@@ -192,7 +192,7 @@ namespace PHX
 		if (imageView == VK_NULL_HANDLE)
 		{
 			LogError("Failed to queue image update! Image view at index %u is null", imageViewIndex);
-			return STATUS_CODE::ERR_API;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		if (set >= m_descriptorSets.size())
@@ -201,21 +201,21 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		VkImageLayout texLayout = textureVk->GetLayout();
-		if (texLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && texLayout != VK_IMAGE_LAYOUT_GENERAL)
+		// Check if the image is in an appropriate layout
+		const VkImageLayout layout = textureVk->GetLayout();
+		if (!IsImageInAppropriateLayout(layout))
 		{
-			LogWarning("Attempting to update image descriptor on binding %u with texture resource that does not have a layout appropriate for shader read/write operations!", binding);
-			return STATUS_CODE::SUCCESS;
+			LogError("Failed to queue image update! Image layout is invalid: \"%s\". Did you forget to register the input images in the render pass?", string_VkImageLayout(layout));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		VkDescriptorSet vkDescSet = m_descriptorSets.at(set);
 
-
 		m_writeImageInfo.push_back({});
 		VkDescriptorImageInfo& imageInfo = m_writeImageInfo.back();
-		imageInfo.imageLayout = texLayout;
+		imageInfo.imageLayout = layout;
 		imageInfo.imageView = imageView;
-		imageInfo.sampler = VK_NULL_HANDLE; // TODO
+		imageInfo.sampler = textureVk->GetSampler();
 
 		// TODO - Determine if this is wanted behavior
 		VkDescriptorType descType = (imageInfo.sampler == VK_NULL_HANDLE) ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -309,7 +309,7 @@ namespace PHX
 			UniformDataGroup dataGroup = pDataGroups[i];
 
 			// First push the uniform data
-			UniformData* uniformDataStartPtr = m_uniforms.data();
+			UniformData* uniformDataStartPtr = (m_uniforms.data() + m_uniforms.size());
 			for (u32 j = 0; j < dataGroup.uniformArrayCount; j++)
 			{
 				const UniformData& uniformData = dataGroup.uniformArray[j];
@@ -320,5 +320,28 @@ namespace PHX
 			dataGroup.uniformArray = uniformDataStartPtr;
 			m_uniformGroups.push_back(dataGroup);
 		}
+	}
+
+	bool UniformCollectionVk::IsImageInAppropriateLayout(VkImageLayout layout) const
+	{
+		// According to the spec, the following are the allowed image layouts when calling
+		// VkWriteDescriptorSet
+		switch (layout)
+		{
+		case VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL:
+		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		case VK_IMAGE_LAYOUT_GENERAL:
+		case VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL:
+		case VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL:
+		{
+			return true;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		return false;
 	}
 }

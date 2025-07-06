@@ -267,6 +267,7 @@ int main(int argc, char** argv)
 	pipelineDesc.pUniformCollection = pUniforms;
 
 	// CORE LOOP
+	bool updatedMeshBufferData = false;
 	int i = 0;
 	std::chrono::duration<float> frameBudgetMs(1.0f / 60.0f); // 60FPS
 	auto timeStart = std::chrono::high_resolution_clock::now();
@@ -301,13 +302,19 @@ int main(int argc, char** argv)
 		newPass->SetPipeline(pipelineDesc);
 		newPass->SetExecuteCallback([&](IDeviceContext* pDeviceContext, IPipeline* pPipeline)
 		{
+			if (!updatedMeshBufferData)
+			{
+				pDeviceContext->CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * VERTEX_COUNT);
+
+				updatedMeshBufferData = true;
+			}
+
 			// Update test UBO
 			test.time += elapsedSeconds.count();
-			uniformBuffer->CopyData(&test, sizeof(TestUBO));
+			pDeviceContext->CopyDataToBuffer(uniformBuffer, &test, sizeof(TestUBO));
 			pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
 			pUniforms->FlushUpdateQueue();
 
-			pDeviceContext->CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * VERTEX_COUNT);
 			pDeviceContext->BindPipeline(pPipeline);
 			pDeviceContext->BindUniformCollection(pUniforms, pPipeline);
 			pDeviceContext->BindVertexBuffer(vBuffer);

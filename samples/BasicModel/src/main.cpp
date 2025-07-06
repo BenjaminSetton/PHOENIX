@@ -134,10 +134,6 @@ int main(int argc, char** argv)
 	phxRes = pRenderDevice->AllocateBuffer(vBufferCI, &pVertexBuffer);
 	CHECK_PHX_RES(phxRes);
 
-	// Copy over asset vertex data to GPU, and keep it there permanently :)
-	phxRes = pVertexBuffer->CopyData(cubeAsset->vertices.data(), vBufferSizeBytes);
-	CHECK_PHX_RES(phxRes);
-
 	// INDEX BUFFER
 	const u64 iBufferSizeBytes = static_cast<u64>(cubeAsset->indices.size() * sizeof(Common::AssetIndexType));
 
@@ -147,10 +143,6 @@ int main(int argc, char** argv)
 
 	IBuffer* pIndexBuffer = nullptr;
 	phxRes = pRenderDevice->AllocateBuffer(iBufferCI, &pIndexBuffer);
-	CHECK_PHX_RES(phxRes);
-
-	// Copy over asset vertex data to GPU, and keep it there permanently :)
-	phxRes = pIndexBuffer->CopyData(cubeAsset->indices.data(), iBufferSizeBytes);
 	CHECK_PHX_RES(phxRes);
 
 	// RENDER GRAPH
@@ -165,12 +157,12 @@ int main(int argc, char** argv)
 	depthBufferBaseCI.arrayLayers = 1;
 	depthBufferBaseCI.generateMips = false;
 	depthBufferBaseCI.format = BASE_FORMAT::D32_FLOAT;
-	depthBufferBaseCI.usageFlags = (u8)USAGE_TYPE::DEPTH_STENCIL_ATTACHMENT | (u8)USAGE_TYPE::SAMPLED;
+	depthBufferBaseCI.usageFlags = USAGE_TYPE_FLAG_DEPTH_STENCIL_ATTACHMENT | USAGE_TYPE_FLAG_SAMPLED;
 
 	TextureViewCreateInfo depthBufferViewCI{};
 	depthBufferViewCI.type = VIEW_TYPE::TYPE_2D;
 	depthBufferViewCI.scope = VIEW_SCOPE::ENTIRE;
-	depthBufferViewCI.aspectFlags = (u8)ASPECT_TYPE::DEPTH;
+	depthBufferViewCI.aspectFlags = ASPECT_TYPE_FLAG_DEPTH;
 
 	TextureSamplerCreateInfo depthBufferSamplerCI{};
 	depthBufferSamplerCI.addressModeUVW = SAMPLER_ADDRESS_MODE::REPEAT;
@@ -271,6 +263,8 @@ int main(int argc, char** argv)
 		clearDepth
 	};
 
+	bool updatedMeshBufferData = false;
+
 	// MAIN LOOP
 	while(!pWindow->ShouldClose())
 	{
@@ -286,16 +280,22 @@ int main(int argc, char** argv)
 		pRenderPass->SetBackbufferOutput(pSwapChain->GetCurrentImage());
 		pRenderPass->SetDepthOutput(pDepthBuffer);
 		pRenderPass->SetPipeline(pipelineDesc);
-		pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline) 
+		pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline)
 		{
+			if (!updatedMeshBufferData)
+			{
+				pContext->CopyDataToBuffer(pVertexBuffer, cubeAsset->vertices.data(), vBufferSizeBytes);
+				pContext->CopyDataToBuffer(pIndexBuffer, cubeAsset->indices.data(), iBufferSizeBytes);
+
+				updatedMeshBufferData = true;
+			}
+
 			// Update the transform uniform data
-			pUniformBuffer->CopyData(&transform, sizeof(TransformData));
+			pContext->CopyDataToBuffer(pUniformBuffer, &transform, sizeof(TransformData));
 			pUniformCollection->QueueBufferUpdate(0, 0, 0, pUniformBuffer);
 			pUniformCollection->FlushUpdateQueue();
-
-			pContext->CopyDataToBuffer(pVertexBuffer, cubeAsset->vertices.data(), vBufferSizeBytes);
-			pContext->CopyDataToBuffer(pIndexBuffer, cubeAsset->indices.data(), iBufferSizeBytes);
 			pContext->BindUniformCollection(pUniformCollection, pPipeline);
+
 			pContext->BindMesh(pVertexBuffer, pIndexBuffer);
 			pContext->BindPipeline(pPipeline);
 			pContext->SetScissor( { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 } );

@@ -351,7 +351,7 @@ namespace PHX
 		texBaseCI.height = m_height;
 		texBaseCI.mipLevels = 1;
 		texBaseCI.generateMips = false;
-		texBaseCI.usageFlags = static_cast<UsageTypeFlags>(USAGE_TYPE::COLOR_ATTACHMENT);
+		texBaseCI.usageFlags = USAGE_TYPE_FLAG_COLOR_ATTACHMENT;
 		texBaseCI.sampleFlags = SAMPLE_COUNT::COUNT_1;
 		texBaseCI.format = TEX_UTILS::ConvertSurfaceFormat(m_format);
 

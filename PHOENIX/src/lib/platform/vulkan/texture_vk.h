@@ -35,6 +35,7 @@ namespace PHX
 		u32 GetMipLevels() const override;
 		SAMPLE_COUNT GetSampleCount() const override;
 
+		AspectTypeFlags GetAspectFlags() const override;
 		VIEW_TYPE GetViewType() const override;
 		VIEW_SCOPE GetViewScope() const override;
 
@@ -53,7 +54,7 @@ namespace PHX
 
 		VkImageLayout GetLayout() const;
 		void SetLayout(VkImageLayout layout); // Used when device context adds transition commands to command buffer
-		bool FillTransitionLayoutInfo(VkImageLayout destinationLayout, VkPipelineStageFlags& out_sourceStage, VkPipelineStageFlags& out_destinationStage, QUEUE_TYPE& out_queueType, VkImageMemoryBarrier& out_barrier);
+		bool FillTransitionLayoutInfo(VkImageLayout destinationLayout, VkPipelineStageFlags& out_sourceStage, VkPipelineStageFlags& out_destinationStage, VkImageMemoryBarrier& out_barrier);
 
 		VkSampler GetSampler() const;
 
@@ -77,6 +78,7 @@ namespace PHX
 		u32 m_width;
 		u32 m_height;
 		BASE_FORMAT m_format;
+		AspectTypeFlags m_aspectFlags;
 		u32 m_arrayLayers;
 		u32 m_mipLevels;
 		SAMPLE_COUNT m_sampleCount;

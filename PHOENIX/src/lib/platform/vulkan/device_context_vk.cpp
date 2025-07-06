@@ -36,7 +36,6 @@ namespace PHX
 			LogError("Failed to create device context. Primary command buffer creation failed!");
 			return;
 		}
-		m_primaryCmdBuffer = cmdBuffer;
 	}
 
 	DeviceContextVk::~DeviceContextVk()
@@ -251,61 +250,53 @@ namespace PHX
 
 		if (bufferVk->GetUsage() == BUFFER_USAGE::UNIFORM_BUFFER)
 		{
-			LogWarning("Attempting to copy data from staging buffer to uniform buffer, but uniform buffers don't have staging buffers. Skipping operation");
-			return STATUS_CODE::ERR_API;
+			// Uniform buffers can copy directly to mapped memory
+
+			bufferVk->CopyData(data, sizeBytes);
 		}
-
-		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-		const QUEUE_TYPE transferQueueType = QUEUE_TYPE::TRANSFER;
-
-		res = CreateCommandBuffer(transferQueueType, true, cmdBuffer);
-		if (res != STATUS_CODE::SUCCESS)
+		else
 		{
-			LogError("Failed to copy data to buffer! Command buffer creation failed");
-			return res;
+			// All other buffers must copy to staging buffer and then issue
+			// a transfer command to copy the data over to the GPU
+
+			VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+			const QUEUE_TYPE transferQueueType = QUEUE_TYPE::TRANSFER;
+
+			res = CreateCommandBuffer(transferQueueType, true, cmdBuffer);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to copy data to buffer! Command buffer creation failed");
+				return res;
+			}
+
+			res = bufferVk->CopyData(data, sizeBytes);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to copy data to buffer! Copy to staging buffer ran into an error");
+				return res;
+			}
+
+			// Copy from staging buffer to GPU buffer
+			VkCommandBufferBeginInfo beginInfo{};
+			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+			vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+
+			VkBufferCopy copyRegion{};
+			copyRegion.srcOffset = 0; // Optional
+			copyRegion.dstOffset = 0; // Optional
+			copyRegion.size = sizeBytes;
+			vkCmdCopyBuffer(cmdBuffer, bufferVk->GetStagingBuffer(), bufferVk->GetBuffer(), 1, &copyRegion);
+
+			vkEndCommandBuffer(cmdBuffer);
 		}
 
-		res = bufferVk->CopyData(data, sizeBytes);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to copy data to buffer! Copy to staging buffer ran into an error");
-			return res;
-		}
+		return res;
+	}
 
-		// Copy from staging buffer to GPU buffer
-		VkCommandBufferBeginInfo beginInfo{};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-		vkBeginCommandBuffer(cmdBuffer, &beginInfo);
-
-		VkBufferCopy copyRegion{};
-		copyRegion.srcOffset = 0; // Optional
-		copyRegion.dstOffset = 0; // Optional
-		copyRegion.size = sizeBytes;
-		vkCmdCopyBuffer(cmdBuffer, bufferVk->GetStagingBuffer(), bufferVk->GetBuffer(), 1, &copyRegion);
-
-		vkEndCommandBuffer(cmdBuffer);
-
-		VkSubmitInfo submitInfo{};
-		submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		submitInfo.commandBufferCount = 1;
-		submitInfo.pCommandBuffers = &cmdBuffer;
-
-		VkQueue transferQueue = m_pRenderDevice->GetQueue(transferQueueType);
-		if (transferQueue == VK_NULL_HANDLE)
-		{
-			LogError("Failed to copy data to buffer! Transfer queue does not exist");
-			vkResetCommandBuffer(cmdBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
-			return STATUS_CODE::ERR_INTERNAL;
-		}
-
-		vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-		vkQueueWaitIdle(transferQueue);
-
-		// Clean up
-		FreeCommandBuffer(cmdBuffer, transferQueueType);
-
+	STATUS_CODE DeviceContextVk::CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes)
+	{
+		TODO();
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -342,9 +333,9 @@ namespace PHX
 			return res;
 		}
 
-		FreeSecondaryCommandBuffers();
+		//FreeSecondaryCommandBuffers();
 
-		vkResetCommandBuffer(m_primaryCmdBuffer, 0);
+		//vkResetCommandBuffer(m_primaryCmdBuffer, 0);
 
 		// Only reset the fence if we're submitting work, otherwise we might deadlock
 		if (m_wasWorkSubmitted)
@@ -368,57 +359,97 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::Flush(SwapChainVk* pSwapChain, u32 frameIndex)
+	STATUS_CODE DeviceContextVk::EndFrame(u32 frameIndex)
 	{
-		if (pSwapChain == nullptr)
+		CommandBufferList& cmdBufferList = m_cmdBuffers.at(static_cast<u32>(QUEUE_TYPE::GRAPHICS));
+		if (cmdBufferList.size() <= 0)
 		{
-			LogError("Failed to flush device context. Swap chain is null!");
+			LogError("Failed to end frame. No graphics work was submitted!");
 			return STATUS_CODE::ERR_INTERNAL;
-		}
-
-		if (m_cmdBuffers.size() <= 0)
-		{
-			LogWarning("Attempting to flush a frame but no command buffers have been submitted!");
-			return STATUS_CODE::ERR_API;
 		}
 
 		m_wasWorkSubmitted = true;
 
 		// End the primary command buffer
-		CommandList& graphicsCmdList = m_cmdBuffers.at(static_cast<u32>(QUEUE_TYPE::GRAPHICS));
-		vkCmdExecuteCommands(m_primaryCmdBuffer, static_cast<u32>(graphicsCmdList.size()), graphicsCmdList.data());
+		vkCmdExecuteCommands(m_primaryCmdBuffer, static_cast<u32>(cmdBufferList.size()), cmdBufferList.data());
 		vkCmdEndRenderPass(m_primaryCmdBuffer);
 		vkEndCommandBuffer(m_primaryCmdBuffer);
 
-		// Submit all commands
 		VkFence inFlightFence = m_pRenderDevice->GetInFlightFence(frameIndex);
 		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(frameIndex);
+
+		FlushSyncData syncData{};
+		syncData.pWaitSemaphores = &imageAvailableSemaphore;
+		syncData.waitSemaphoreCount = 1;
+		syncData.signalFence = inFlightFence;
+
+		return Flush(QUEUE_TYPE::GRAPHICS, syncData);
+	}
+
+	STATUS_CODE DeviceContextVk::Flush(QUEUE_TYPE queueType, const FlushSyncData& syncData)
+	{
+		CommandBufferList& cmdBufferList = m_cmdBuffers.at(static_cast<u32>(queueType));
+		if (cmdBufferList.size() <= 0)
+		{
+			// Nothing to flush
+			return STATUS_CODE::SUCCESS;
+		}
+
+		VkCommandBuffer* buffersToSubmit = nullptr;
+		u32 buffersToSubmitCount = 0;
+		if (queueType == QUEUE_TYPE::GRAPHICS)
+		{
+			// Special case, only primary cmd buffer is submitted
+			buffersToSubmit = &m_primaryCmdBuffer;
+			buffersToSubmitCount = 1;
+		}
+		else
+		{
+			buffersToSubmit = cmdBufferList.data();
+			buffersToSubmitCount = static_cast<u32>(cmdBufferList.size());
+		}
+
+		// Submit all commands
 		VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
 		VkSubmitInfo vkSubmitInfo{};
 		vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		vkSubmitInfo.waitSemaphoreCount = 1;
-		vkSubmitInfo.pWaitSemaphores = &imageAvailableSemaphore;
+		vkSubmitInfo.waitSemaphoreCount = syncData.waitSemaphoreCount;
+		vkSubmitInfo.pWaitSemaphores = syncData.pWaitSemaphores;
 		vkSubmitInfo.pWaitDstStageMask = &waitDstFlags;
-		vkSubmitInfo.commandBufferCount = 1;
-		vkSubmitInfo.pCommandBuffers = &m_primaryCmdBuffer;
+		vkSubmitInfo.commandBufferCount = buffersToSubmitCount;
+		vkSubmitInfo.pCommandBuffers = buffersToSubmit;
 		vkSubmitInfo.signalSemaphoreCount = 0; // TODO
 		vkSubmitInfo.pSignalSemaphores = nullptr; // TODO
 
-		VkQueue graphicsQueue = m_pRenderDevice->GetQueue(QUEUE_TYPE::GRAPHICS);
-		VkResult res = vkQueueSubmit(graphicsQueue, 1, &vkSubmitInfo, inFlightFence);
+		VkQueue queue = m_pRenderDevice->GetQueue(queueType);
+		VkResult res = vkQueueSubmit(queue, 1, &vkSubmitInfo, syncData.signalFence);
 		if (res != VK_SUCCESS)
 		{
 			LogError("Failed to flush command buffers! Submit call failed with error: %s", string_VkResult(res));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		res = vkQueueWaitIdle(graphicsQueue);
+		// TODO - Remove this waitIdle call, prefer synchronization from render graph instead
+		res = vkQueueWaitIdle(queue);
 		if (res != VK_SUCCESS)
 		{
 			LogError("Failed to wait until queue became idle after submitting! Got error: %s", string_VkResult(res));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+		// Free submitted command buffers now that we know they're not being used anymore
+		if (queueType == QUEUE_TYPE::GRAPHICS)
+		{
+			vkResetCommandBuffer(m_primaryCmdBuffer, 0);
+		}
+
+		for (u32 i = 0; i < static_cast<u32>(cmdBufferList.size()); i++)
+		{
+			VkCommandBuffer cmdBuffer = cmdBufferList[i];
+			FreeCommandBuffer(cmdBuffer, queueType);
+		}
+		cmdBufferList.clear();
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -462,8 +493,6 @@ namespace PHX
 			LogError("Failed to create new command buffer to start render pass!");
 			return res;
 		}
-		CommandList& cmdList = m_cmdBuffers.at(static_cast<u32>(QUEUE_TYPE::GRAPHICS));
-		cmdList.push_back(cmdBuffer);
 
 		VkCommandBufferInheritanceInfo inheritanceInfo{};
 		inheritanceInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
@@ -501,29 +530,27 @@ namespace PHX
 
 	// TODO - Perform layout transition without creating a new command buffer in transfer queue and blocking.
 	//        Also, have the transition details exposed as function parameters rather than assuming src/dst stages and access masks
-	STATUS_CODE DeviceContextVk::TransitionImageLayout(ITexture* pTexture, VkImageLayout destinationLayout)
+	STATUS_CODE DeviceContextVk::TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout)
 	{
-		TextureVk* textureVk = static_cast<TextureVk*>(pTexture);
-		if (textureVk == nullptr)
-		{
-			LogError("Failed to transition texture! Texture is null");
-			return STATUS_CODE::ERR_API;
-		}
-
 		VkPipelineStageFlags sourceStage;
 		VkPipelineStageFlags destinationStage;
-		QUEUE_TYPE queueType;
 		VkImageMemoryBarrier imageBarrier;
 
+		QUEUE_TYPE queue = QUEUE_TYPE::TRANSFER;
+
 		// If false is returned, Current layout is the same as destination, nothing more to do
-		if (textureVk->FillTransitionLayoutInfo(destinationLayout, sourceStage, destinationStage, queueType, imageBarrier))
+		if (pTexture->FillTransitionLayoutInfo(destinationLayout, sourceStage, destinationStage, imageBarrier))
 		{
-			VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-			STATUS_CODE res = CreateCommandBuffer(QUEUE_TYPE::TRANSFER, true, cmdBuffer);
-			if (res != STATUS_CODE::SUCCESS)
+			// Attempt to reuse existing transfer cmd buffer
+			VkCommandBuffer cmdBuffer = GetLastCommandBuffer(queue);
+			if (cmdBuffer == VK_NULL_HANDLE)
 			{
-				LogError("Failed to transition texture! Command buffer creation failed");
-				return res;
+				STATUS_CODE res = CreateCommandBuffer(queue, true, cmdBuffer);
+				if (res != STATUS_CODE::SUCCESS)
+				{
+					LogError("Failed to transition texture! Transfer command buffer creation failed");
+					return res;
+				}
 			}
 
 			VkCommandBufferBeginInfo beginInfo{};
@@ -544,25 +571,9 @@ namespace PHX
 
 			vkEndCommandBuffer(cmdBuffer);
 
-			VkSubmitInfo submitInfo{};
-			submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-			submitInfo.commandBufferCount = 1;
-			submitInfo.pCommandBuffers = &cmdBuffer;
+			pTexture->SetLayout(destinationLayout);
 
-			VkQueue transferQueue = m_pRenderDevice->GetQueue(QUEUE_TYPE::TRANSFER);
-			if (transferQueue == VK_NULL_HANDLE)
-			{
-				LogError("Failed to transition texture! Transfer queue does not exist");
-				vkResetCommandBuffer(cmdBuffer, VK_COMMAND_BUFFER_RESET_RELEASE_RESOURCES_BIT);
-				return STATUS_CODE::ERR_INTERNAL;
-			}
-
-			vkQueueSubmit(transferQueue, 1, &submitInfo, VK_NULL_HANDLE);
-
-			LogWarning("Waiting for transfer queue to be idle when copying data to buffer");
-			vkQueueWaitIdle(transferQueue);
-
-			textureVk->SetLayout(destinationLayout);
+			return STATUS_CODE::SUCCESS;
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -582,12 +593,29 @@ namespace PHX
 		allocInfo.commandPool = m_pRenderDevice->GetCommandPool(type);
 		allocInfo.commandBufferCount = 1;
 
-		VkResult res = vkAllocateCommandBuffers(m_pRenderDevice->GetLogicalDevice(), &allocInfo, &out_cmdBuffer);
+		VkCommandBuffer newCmdBuffer = VK_NULL_HANDLE;
+		VkResult res = vkAllocateCommandBuffers(m_pRenderDevice->GetLogicalDevice(), &allocInfo, &newCmdBuffer);
 		if (res != VK_SUCCESS)
 		{
 			LogError("Failed to allocate primary command buffer! Got result: \"%s\"", string_VkResult(res));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+		// Cache it in the command buffer list, unless it's a primary command buffer
+		if ((type == QUEUE_TYPE::GRAPHICS) && isPrimaryCmdBuffer)
+		{
+			if (m_primaryCmdBuffer != VK_NULL_HANDLE)
+			{
+				FreeCommandBuffer(m_primaryCmdBuffer, QUEUE_TYPE::GRAPHICS);
+			}
+			m_primaryCmdBuffer = newCmdBuffer;
+		}
+		else
+		{
+			CommandBufferList& cmdBuffList = m_cmdBuffers[static_cast<u32>(type)];
+			cmdBuffList.push_back(newCmdBuffer);
+		}
+		out_cmdBuffer = newCmdBuffer;
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -616,7 +644,7 @@ namespace PHX
 		VkDevice logicalDevice = m_pRenderDevice->GetLogicalDevice();
 		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
 		{
-			CommandList& cmdList = m_cmdBuffers[i];
+			CommandBufferList& cmdList = m_cmdBuffers[i];
 			if (cmdList.size() <= 0)
 			{
 				// Nothing to free
@@ -639,7 +667,7 @@ namespace PHX
 			return VK_NULL_HANDLE;
 		}
 
-		const CommandList& cmdList = m_cmdBuffers.at(static_cast<u32>(queueType));
+		const CommandBufferList& cmdList = m_cmdBuffers.at(static_cast<u32>(queueType));
 		if (cmdList.size() <= 0)
 		{
 			return VK_NULL_HANDLE;

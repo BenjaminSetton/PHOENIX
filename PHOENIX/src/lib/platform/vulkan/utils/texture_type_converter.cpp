@@ -5,17 +5,11 @@
 
 namespace PHX
 {
-	STATIC_ASSERT_MSG(ASPECT_TYPE_MAX == 3u, "New enum entries must be included in TexUtils::ConvertAspectFlags()");
-	STATIC_ASSERT_MSG(USAGE_TYPE_MAX == 8u, "New enum entries must be included in TexUtils::ConvertUsageFlags()");
+	STATIC_ASSERT_MSG(static_cast<u8>(ASPECT_TYPE::MAX) == 4u, "New enum entries must be included in TexUtils::ConvertAspectFlags()");
+	STATIC_ASSERT_MSG(static_cast<u8>(USAGE_TYPE::MAX) == 9u, "New enum entries must be included in TexUtils::ConvertUsageFlags()");
 
 	namespace TEX_UTILS
 	{
-		template<typename T, typename U> 
-		static bool IsFlagSet(const U& bits, T flag)
-		{
-			return (bits & static_cast<U>(flag)) != 0;
-		}
-
 		VkFormat ConvertBaseFormat(BASE_FORMAT format)
 		{
 			switch (format)
@@ -96,45 +90,43 @@ namespace PHX
 			return VK_FORMAT_UNDEFINED;
 		}
 
-		static bool IsUsageFlagSet(UsageTypeFlags bits, USAGE_TYPE flag) { return IsFlagSet<USAGE_TYPE, UsageTypeFlags>(bits, flag); }
 		VkImageUsageFlags ConvertUsageFlags(UsageTypeFlags flags)
 		{
-			if (flags == static_cast<UsageTypeFlags>(USAGE_TYPE::INVALID))
+			if (flags & USAGE_TYPE_FLAG_INVALID)
 			{
 				return VK_IMAGE_USAGE_FLAG_BITS_MAX_ENUM; // No good alernative for "INVALID"
 			}
 
 			VkImageUsageFlags res = 0;
-
-			if (IsUsageFlagSet(flags, USAGE_TYPE::TRANSFER_SRC))
+			if (flags & USAGE_TYPE_FLAG_TRANSFER_SRC)
 			{
 				res |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 			}
-			if (IsUsageFlagSet(flags, USAGE_TYPE::TRANSFER_DST))
+			if (flags & USAGE_TYPE_FLAG_TRANSFER_DST)
 			{
 				res |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 			}
-			if (IsUsageFlagSet(flags, USAGE_TYPE::SAMPLED))
+			if (flags & USAGE_TYPE_FLAG_SAMPLED)
 			{
 				res |= VK_IMAGE_USAGE_SAMPLED_BIT;
 			}
-			if (IsUsageFlagSet(flags, USAGE_TYPE::STORAGE))
+			if (flags & USAGE_TYPE_FLAG_STORAGE)
 			{
 				res |= VK_IMAGE_USAGE_STORAGE_BIT;
 			}
-			if (IsUsageFlagSet(flags, USAGE_TYPE::COLOR_ATTACHMENT))
+			if (flags & USAGE_TYPE_FLAG_COLOR_ATTACHMENT)
 			{
 				res |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 			}
-			if (IsUsageFlagSet(flags, USAGE_TYPE::DEPTH_STENCIL_ATTACHMENT))
+			if (flags & USAGE_TYPE_FLAG_DEPTH_STENCIL_ATTACHMENT)
 			{
 				res |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 			}
-			if (IsUsageFlagSet(flags, USAGE_TYPE::TRANSIENT_ATTACHMENT))
+			if (flags & USAGE_TYPE_FLAG_TRANSIENT_ATTACHMENT)
 			{
 				res |= VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT;
 			}
-			if (IsUsageFlagSet(flags, USAGE_TYPE::INPUT_ATTACHMENT))
+			if (flags & USAGE_TYPE_FLAG_INPUT_ATTACHMENT)
 			{
 				res |= VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT;
 			}
@@ -178,25 +170,23 @@ namespace PHX
 			return VK_IMAGE_VIEW_TYPE_MAX_ENUM;
 		}
 
-		static bool IsAspectFlagSet(AspectTypeFlags bits, ASPECT_TYPE flag) { return IsFlagSet<ASPECT_TYPE, AspectTypeFlags>(bits, flag); }
 		VkImageAspectFlags ConvertAspectFlags(AspectTypeFlags flags)
 		{
-			if (flags == static_cast<AspectTypeFlags>(ASPECT_TYPE::INVALID))
+			if (flags & ASPECT_TYPE_FLAG_INVALID)
 			{
 				return VK_IMAGE_ASPECT_NONE;
 			}
 
 			AspectTypeFlags res = 0;
-
-			if (IsAspectFlagSet(flags, ASPECT_TYPE::COLOR))
+			if (flags & ASPECT_TYPE_FLAG_COLOR)
 			{
 				res |= VK_IMAGE_ASPECT_COLOR_BIT;
 			}
-			if (IsAspectFlagSet(flags, ASPECT_TYPE::DEPTH))
+			if (flags & ASPECT_TYPE_FLAG_DEPTH)
 			{
 				res |= VK_IMAGE_ASPECT_DEPTH_BIT;
 			}
-			if (IsAspectFlagSet(flags, ASPECT_TYPE::STENCIL))
+			if (flags & ASPECT_TYPE_FLAG_STENCIL)
 			{
 				res |= VK_IMAGE_ASPECT_STENCIL_BIT;
 			}

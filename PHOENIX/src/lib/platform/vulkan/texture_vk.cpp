@@ -13,7 +13,7 @@ namespace PHX
 {
 	TextureVk::TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo) :
 		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_sampler(VK_NULL_HANDLE), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_width(0), m_height(0), 
-		m_format(BASE_FORMAT::INVALID), m_arrayLayers(0), m_mipLevels(0), m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), 
+		m_format(BASE_FORMAT::INVALID), m_aspectFlags(0), m_arrayLayers(0), m_mipLevels(0), m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), 
 		m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID), m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), 
 		m_anisotropyLevel(0.0f), m_bytesPerTexel(0)
 	{
@@ -51,7 +51,7 @@ namespace PHX
 
 	TextureVk::TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView) :
 		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_sampler(VK_NULL_HANDLE), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_width(0), m_height(0), 
-		m_format(BASE_FORMAT::INVALID), m_arrayLayers(0), m_mipLevels(0), m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), 
+		m_format(BASE_FORMAT::INVALID), m_aspectFlags(0), m_arrayLayers(0), m_mipLevels(0), m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID),
 		m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID), m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), 
 		m_anisotropyLevel(0.0f), m_bytesPerTexel(0)
 	{
@@ -120,6 +120,11 @@ namespace PHX
 	SAMPLE_COUNT TextureVk::GetSampleCount() const
 	{
 		return m_sampleCount;
+	}
+
+	AspectTypeFlags TextureVk::GetAspectFlags() const
+	{
+		return m_aspectFlags;
 	}
 
 	VIEW_TYPE TextureVk::GetViewType() const
@@ -228,7 +233,7 @@ namespace PHX
 		m_layout = layout;
 	}
 
-	bool TextureVk::FillTransitionLayoutInfo(VkImageLayout destinationLayout, VkPipelineStageFlags& out_sourceStage, VkPipelineStageFlags& out_destinationStage, QUEUE_TYPE& out_queueType, VkImageMemoryBarrier& out_barrier)
+	bool TextureVk::FillTransitionLayoutInfo(VkImageLayout destinationLayout, VkPipelineStageFlags& out_sourceStage, VkPipelineStageFlags& out_destinationStage, VkImageMemoryBarrier& out_barrier)
 	{
 		if (m_layout == destinationLayout)
 		{
@@ -253,7 +258,6 @@ namespace PHX
 
 		VkPipelineStageFlags sourceStage = VK_PIPELINE_STAGE_NONE;
 		VkPipelineStageFlags destinationStage = VK_PIPELINE_STAGE_NONE;
-		QUEUE_TYPE commandQueueType = QUEUE_TYPE::GRAPHICS;
 
 		if (destinationLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 		{
@@ -276,8 +280,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-			commandQueueType = QUEUE_TYPE::TRANSFER;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && destinationLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
 		{
@@ -286,8 +288,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-			commandQueueType = QUEUE_TYPE::TRANSFER;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL && destinationLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
 		{
@@ -296,8 +296,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-			commandQueueType = QUEUE_TYPE::TRANSFER;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL && destinationLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 		{
@@ -306,8 +304,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_UNDEFINED && destinationLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 		{
@@ -316,8 +312,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 			destinationStage = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT; // Let's block on the vertex shader for now...
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && destinationLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 		{
@@ -326,8 +320,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT; // I guess this depends on whether we're using the texture in the vertex or pixel shader?
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_UNDEFINED && destinationLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL)
 		{
@@ -336,8 +328,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 			destinationStage = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && destinationLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
 		{
@@ -348,8 +338,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && destinationLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
 		{
@@ -358,8 +346,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && destinationLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
 		{
@@ -368,8 +354,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL && destinationLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 		{
@@ -380,8 +364,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_UNDEFINED && destinationLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)
 		{
@@ -390,8 +372,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 			destinationStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_UNDEFINED && destinationLayout == VK_IMAGE_LAYOUT_GENERAL)
 		{
@@ -402,8 +382,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 			destinationStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && destinationLayout == VK_IMAGE_LAYOUT_GENERAL)
 		{
@@ -412,8 +390,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_GENERAL && destinationLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL)
 		{
@@ -422,8 +398,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL && destinationLayout == VK_IMAGE_LAYOUT_GENERAL)
 		{
@@ -432,8 +406,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_GENERAL && destinationLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
 		{
@@ -442,8 +414,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_GENERAL && destinationLayout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
 		{
@@ -452,8 +422,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else if (m_layout == VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL && destinationLayout == VK_IMAGE_LAYOUT_GENERAL)
 		{
@@ -462,8 +430,6 @@ namespace PHX
 
 			sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 			destinationStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
-
-			commandQueueType = QUEUE_TYPE::GRAPHICS;
 		}
 		else
 		{
@@ -472,7 +438,6 @@ namespace PHX
 
 		out_sourceStage = sourceStage;
 		out_destinationStage = destinationStage;
-		out_queueType = commandQueueType;
 		out_barrier = barrier;
 
 		return true;
@@ -615,6 +580,7 @@ namespace PHX
 		}
 		}
 
+		m_aspectFlags = createInfo.aspectFlags;
 		m_viewType = createInfo.type;
 		m_viewScope = createInfo.scope;
 

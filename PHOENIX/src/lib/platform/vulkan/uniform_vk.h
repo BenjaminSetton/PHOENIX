@@ -34,6 +34,7 @@ namespace PHX
 	private:
 
 		void CacheUniformGroupData(const UniformDataGroup* pDataGroups, u32 groupCount);
+		bool IsImageInAppropriateLayout(VkImageLayout layout) const;
 
 	private:
 

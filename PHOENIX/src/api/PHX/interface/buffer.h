@@ -18,7 +18,7 @@ namespace PHX
 
 		virtual ~IBuffer() { }
 
-		virtual STATUS_CODE CopyData(const void* data, u64 size) = 0;
 		virtual BUFFER_USAGE GetUsage() const = 0;
+		virtual u64 GetSize() const = 0;
 	};
 }

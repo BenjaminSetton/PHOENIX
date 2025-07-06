@@ -22,13 +22,14 @@ namespace PHX
 		BufferVk(RenderDeviceVk* pRenderDevice, const BufferCreateInfo& createInfo);
 		~BufferVk();
 
-		STATUS_CODE CopyData(const void* data, u64 size) override;
 		BUFFER_USAGE GetUsage() const override;
+		u64 GetSize() const override;
+
+		STATUS_CODE CopyData(const void* data, u64 size);
 
 		VkBuffer GetBuffer() const;
 		VkBuffer GetStagingBuffer() const;
 		VkDeviceSize GetOffset() const;
-		u64 GetSize() const;
 		u64 GetAllocatedSize() const; // May differ from GetSize() because of alignment
 
 	private:

@@ -31,36 +31,51 @@ namespace PHX
 		MIRRORED_CLAMP_TO_EDGE
 	};
 
-	enum class USAGE_TYPE : u8
+	enum class USAGE_TYPE : u16
 	{
 		INVALID = 0,
 
-		TRANSFER_SRC             = (1 << 0),
-		TRANSFER_DST             = (1 << 1),
-		SAMPLED                  = (1 << 2),
-		STORAGE                  = (1 << 3),
-		COLOR_ATTACHMENT         = (1 << 4),
-		DEPTH_STENCIL_ATTACHMENT = (1 << 5),
-		TRANSIENT_ATTACHMENT     = (1 << 6),
-		INPUT_ATTACHMENT         = (1 << 7)
+		TRANSFER_SRC,
+		TRANSFER_DST,
+		SAMPLED,
+		STORAGE,
+		COLOR_ATTACHMENT,
+		DEPTH_STENCIL_ATTACHMENT,
+		TRANSIENT_ATTACHMENT,
+		INPUT_ATTACHMENT,
+
+		MAX      // Do not use - must come last
 	};
-	static constexpr u8 USAGE_TYPE_MAX = 8u;
-	typedef u8 UsageTypeFlags;
+
+	enum USAGE_TYPE_FLAG : u16
+	{
+		USAGE_TYPE_FLAG_INVALID                  = (1 << static_cast<u8>(USAGE_TYPE::INVALID)),
+
+		USAGE_TYPE_FLAG_TRANSFER_SRC             = (1 << static_cast<u8>(USAGE_TYPE::TRANSFER_SRC)),
+		USAGE_TYPE_FLAG_TRANSFER_DST             = (1 << static_cast<u8>(USAGE_TYPE::TRANSFER_DST)),
+		USAGE_TYPE_FLAG_SAMPLED                  = (1 << static_cast<u8>(USAGE_TYPE::SAMPLED)),
+		USAGE_TYPE_FLAG_STORAGE                  = (1 << static_cast<u8>(USAGE_TYPE::STORAGE)),
+		USAGE_TYPE_FLAG_COLOR_ATTACHMENT         = (1 << static_cast<u8>(USAGE_TYPE::COLOR_ATTACHMENT)),
+		USAGE_TYPE_FLAG_DEPTH_STENCIL_ATTACHMENT = (1 << static_cast<u8>(USAGE_TYPE::DEPTH_STENCIL_ATTACHMENT)),
+		USAGE_TYPE_FLAG_TRANSIENT_ATTACHMENT     = (1 << static_cast<u8>(USAGE_TYPE::TRANSIENT_ATTACHMENT)),
+		USAGE_TYPE_FLAG_INPUT_ATTACHMENT         = (1 << static_cast<u8>(USAGE_TYPE::INPUT_ATTACHMENT)),
+	};
+	using UsageTypeFlags = u16;
 
 	enum class SAMPLE_COUNT : u8
 	{
 		INVALID = 0,
 
-		COUNT_1  = (1 << 0),
-		COUNT_2  = (1 << 1),
-		COUNT_4  = (1 << 2),
-		COUNT_8  = (1 << 3),
-		COUNT_16 = (1 << 4),
-		COUNT_32 = (1 << 5),
-		COUNT_64 = (1 << 6)
+		COUNT_1,
+		COUNT_2,
+		COUNT_4,
+		COUNT_8,
+		COUNT_16,
+		COUNT_32,
+		COUNT_64,
+
+		MAX        // Do not use - must come last
 	};
-	static constexpr u8 SAMPLE_COUNT_MAX = 7u;
-	typedef u8 SampleCountFlags;
 
 	enum class VIEW_TYPE
 	{
@@ -79,12 +94,22 @@ namespace PHX
 	{
 		INVALID = 0,
 
-		COLOR   = (1 << 0),
-		DEPTH   = (1 << 1),
-		STENCIL = (1 << 2)
+		COLOR,
+		DEPTH,
+		STENCIL,
+
+		MAX      // Do not use - must come last
 	};
-	static constexpr u8 ASPECT_TYPE_MAX = 3u;
-	typedef u8 AspectTypeFlags;
+
+	enum ASPECT_TYPE_FLAG : u8
+	{
+		ASPECT_TYPE_FLAG_INVALID = (1 << static_cast<u8>(ASPECT_TYPE::INVALID)),
+
+		ASPECT_TYPE_FLAG_COLOR   = (1 << static_cast<u8>(ASPECT_TYPE::COLOR)),
+		ASPECT_TYPE_FLAG_DEPTH   = (1 << static_cast<u8>(ASPECT_TYPE::DEPTH)),
+		ASPECT_TYPE_FLAG_STENCIL = (1 << static_cast<u8>(ASPECT_TYPE::STENCIL))
+	};
+	using AspectTypeFlags = u8;
 
 	enum class BASE_FORMAT
 	{

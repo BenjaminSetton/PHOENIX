@@ -84,23 +84,36 @@ void TexturedModelSample::Draw()
 	IRenderPass* pRenderPass = m_pRenderGraph->RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS);
 	pRenderPass->SetBackbufferOutput(m_pSwapChain->GetCurrentImage());
 	pRenderPass->SetDepthOutput(m_pDepthBuffer);
+
+	for (ITexture* assetTex : m_assetTextures)
+	{
+		pRenderPass->SetTextureInput(assetTex);
+	}
+
 	pRenderPass->SetPipeline(m_pipelineDesc);
 	pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline)
-		{
-			// Update the transform uniform data
-			m_pUniformBuffer->CopyData(&m_transform, sizeof(TransformData));
-			m_pUniformCollection->QueueBufferUpdate(0, 0, 0, m_pUniformBuffer);
-			m_pUniformCollection->FlushUpdateQueue();
+	{
+		pContext->CopyDataToBuffer(m_pVertexBuffer, axeAsset->vertices.data(), vBufferSizeBytes);
+		pContext->CopyDataToBuffer(m_pIndexBuffer, axeAsset->indices.data(), iBufferSizeBytes);
 
-			pContext->CopyDataToBuffer(m_pVertexBuffer, axeAsset->vertices.data(), vBufferSizeBytes);
-			pContext->CopyDataToBuffer(m_pIndexBuffer, axeAsset->indices.data(), iBufferSizeBytes);
-			pContext->BindUniformCollection(m_pUniformCollection, pPipeline);
-			pContext->BindMesh(m_pVertexBuffer, m_pIndexBuffer);
-			pContext->BindPipeline(pPipeline);
-			pContext->SetScissor({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
-			pContext->SetViewport({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
-			pContext->DrawIndexed(static_cast<u32>(axeAsset->indices.size()));
-		});
+		// Update uniform collection
+		m_pUniformBuffer->CopyData(&m_transform, sizeof(TransformData));
+		m_pUniformCollection->QueueBufferUpdate(0, 0, 0, m_pUniformBuffer);
+
+		for (u32 i = 0; i < m_assetTextures.size(); i++)
+		{
+			ITexture* pCurrTex = m_assetTextures[i];
+			m_pUniformCollection->QueueImageUpdate(1, i, 0, pCurrTex);
+		}
+		m_pUniformCollection->FlushUpdateQueue();
+
+		pContext->BindUniformCollection(m_pUniformCollection, pPipeline);
+		pContext->BindMesh(m_pVertexBuffer, m_pIndexBuffer);
+		pContext->BindPipeline(pPipeline);
+		pContext->SetScissor({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
+		pContext->SetViewport({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
+		pContext->DrawIndexed(static_cast<u32>(axeAsset->indices.size()));
+	});
 
 	m_pRenderGraph->Bake(m_pSwapChain, clearVals.data(), static_cast<u32>(clearVals.size()));
 	m_pRenderGraph->EndFrame(m_pSwapChain);
@@ -156,12 +169,12 @@ void TexturedModelSample::Init()
 	depthBufferBaseCI.arrayLayers = 1;
 	depthBufferBaseCI.generateMips = false;
 	depthBufferBaseCI.format = BASE_FORMAT::D32_FLOAT;
-	depthBufferBaseCI.usageFlags = (u8)USAGE_TYPE::DEPTH_STENCIL_ATTACHMENT | (u8)USAGE_TYPE::SAMPLED;
+	depthBufferBaseCI.usageFlags = USAGE_TYPE_FLAG_DEPTH_STENCIL_ATTACHMENT | USAGE_TYPE_FLAG_SAMPLED;
 
 	TextureViewCreateInfo depthBufferViewCI{};
 	depthBufferViewCI.type = VIEW_TYPE::TYPE_2D;
 	depthBufferViewCI.scope = VIEW_SCOPE::ENTIRE;
-	depthBufferViewCI.aspectFlags = (u8)ASPECT_TYPE::DEPTH;
+	depthBufferViewCI.aspectFlags = ASPECT_TYPE_FLAG_DEPTH;
 
 	TextureSamplerCreateInfo depthBufferSamplerCI{};
 	depthBufferSamplerCI.addressModeUVW = SAMPLER_ADDRESS_MODE::REPEAT;
@@ -289,14 +302,12 @@ void TexturedModelSample::CreateAssetTextures()
 		baseCI.arrayLayers = 1;
 		baseCI.generateMips = false;
 		baseCI.format = (currTex.type == Common::TEXTURE_TYPE::DIFFUSE) ? BASE_FORMAT::R8G8B8A8_SRGB : BASE_FORMAT::R8G8B8A8_UNORM;
-		baseCI.usageFlags = (u8)USAGE_TYPE::SAMPLED |
-							(u8)USAGE_TYPE::TRANSFER_DST |
-							(u8)USAGE_TYPE::INPUT_ATTACHMENT;
+		baseCI.usageFlags = USAGE_TYPE_FLAG_SAMPLED | USAGE_TYPE_FLAG_TRANSFER_DST | USAGE_TYPE_FLAG_INPUT_ATTACHMENT;
 
 		TextureViewCreateInfo viewCI{};
 		viewCI.type = VIEW_TYPE::TYPE_2D;
 		viewCI.scope = VIEW_SCOPE::ENTIRE;
-		viewCI.aspectFlags = (u8)ASPECT_TYPE::COLOR;
+		viewCI.aspectFlags = ASPECT_TYPE_FLAG_COLOR;
 
 		TextureSamplerCreateInfo samplerCI{};
 		samplerCI.addressModeUVW = SAMPLER_ADDRESS_MODE::REPEAT;
@@ -316,25 +327,42 @@ void TexturedModelSample::CreateAssetTextures()
 void TexturedModelSample::CreateUniformCollection()
 {
 	// SET 0
-	UniformData uniformData;
-	uniformData.binding = 0;
-	uniformData.shaderStage = SHADER_STAGE::VERTEX;
-	uniformData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
+	UniformData transformUniformData;
+	transformUniformData.binding = 0;
+	transformUniformData.shaderStage = SHADER_STAGE::VERTEX;
+	transformUniformData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
-	UniformDataGroup dataGroup;
-	dataGroup.set = 1;
-	dataGroup.uniformArray = &uniformData;
-	dataGroup.uniformArrayCount = 1;
+	UniformDataGroup transformDataGroup;
+	transformDataGroup.set = 0;
+	transformDataGroup.uniformArray = &transformUniformData;
+	transformDataGroup.uniformArrayCount = 1;
 
 	// SET 1
-	UniformData texUniformData;
-	texUniformData.binding = 0;
-	texUniformData.shaderStage = SHADER_STAGE::FRAGMENT;
-	texUniformData.type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
+	std::vector<UniformData> texUniforms;
+	for (u32 i = 0; i < 5; i++)
+	{
+		UniformData texUniformData;
+		texUniformData.binding = i;
+		texUniformData.shaderStage = SHADER_STAGE::FRAGMENT;
+		texUniformData.type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
+
+		texUniforms.push_back(texUniformData);
+	}
+
+	UniformDataGroup texUniformDataGroup;
+	texUniformDataGroup.set = 1;
+	texUniformDataGroup.uniformArray = texUniforms.data();
+	texUniformDataGroup.uniformArrayCount = static_cast<u32>(texUniforms.size());
+
+	std::array<UniformDataGroup, 2> dataGroups =
+	{
+		transformDataGroup,
+		texUniformDataGroup
+	};
 
 	UniformCollectionCreateInfo uniformCollectionCI{};
-	uniformCollectionCI.dataGroups = &dataGroup;
-	uniformCollectionCI.groupCount = 1;
+	uniformCollectionCI.dataGroups = dataGroups.data();
+	uniformCollectionCI.groupCount = static_cast<u32>(dataGroups.size());
 
 	STATUS_CODE phxRes = m_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &m_pUniformCollection);
 	CHECK_PHX_RES(phxRes);

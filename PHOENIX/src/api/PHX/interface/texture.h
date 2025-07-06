@@ -54,6 +54,7 @@ namespace PHX
 		virtual u32 GetMipLevels() const = 0;
 		virtual SAMPLE_COUNT GetSampleCount() const = 0;
 
+		virtual AspectTypeFlags GetAspectFlags() const = 0;
 		virtual VIEW_TYPE GetViewType() const = 0;
 		virtual VIEW_SCOPE GetViewScope() const = 0;
 
