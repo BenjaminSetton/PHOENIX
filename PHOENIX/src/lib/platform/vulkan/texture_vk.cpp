@@ -208,6 +208,11 @@ namespace PHX
 		return false;
 	}
 
+	VkImage TextureVk::GetBaseImage() const
+	{
+		return m_baseImage;
+	}
+
 	u32 TextureVk::GetNumImageViews() const
 	{
 		return static_cast<u32>(m_imageViews.size());
@@ -248,7 +253,7 @@ namespace PHX
 		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
 		barrier.image = m_baseImage;
-		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.subresourceRange.aspectMask = TEX_UTILS::ConvertAspectFlags(m_aspectFlags);
 		barrier.subresourceRange.baseMipLevel = 0;
 		barrier.subresourceRange.levelCount = m_mipLevels;
 		barrier.subresourceRange.baseArrayLayer = 0;

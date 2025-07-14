@@ -19,6 +19,7 @@ struct Texture
 	void* data;
 	PHX::Vec2u size;
 	Common::TEXTURE_TYPE type;
+	PHX::u32 bytesPerPixel;
 };
 
 struct AssetType
@@ -62,6 +63,7 @@ static Common::AssetHandle ConvertAssetDiskToAssetType(const Common::AssetDisk* 
 		newTex.data = diskTex.pData; // Move the pointer over, no copying
 		newTex.size = diskTex.size;
 		newTex.type = diskTex.type;
+		newTex.bytesPerPixel = diskTex.bytesPerPixel;
 
 		newAsset.textures.push_back(newTex);
 	}

@@ -26,5 +26,11 @@ namespace PHX
 		ATTACHMENT_TYPE attachmentType;
 		ATTACHMENT_STORE_OP storeOp;
 		ATTACHMENT_LOAD_OP loadOp;
+
+		u64 hash;
+
+		////////
+		bool ResourceDesc::operator==(const ResourceDesc& other) const;
+		////////
 	};
 }

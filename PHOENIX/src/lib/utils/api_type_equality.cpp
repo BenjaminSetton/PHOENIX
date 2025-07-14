@@ -183,7 +183,7 @@ namespace PHX
 		copyB.ppShaders = nullptr;
 		copyB.shaderCount = 0;
 
-		const int cmpResult = std::memcmp(&copyA, &copyB, sizeof(GraphicsPipelineDesc));
+		const int cmpResult = memcmp(&copyA, &copyB, sizeof(GraphicsPipelineDesc));
 		return (cmpResult == 0);
 	}
 

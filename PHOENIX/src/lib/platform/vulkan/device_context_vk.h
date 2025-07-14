@@ -44,9 +44,6 @@ namespace PHX
 
 		STATUS_CODE Dispatch(Vec3u dimensions) override;
 
-		STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) override;
-		STATUS_CODE CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes) override;
-
 		STATUS_CODE BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex);
 		STATUS_CODE EndFrame(u32 frameIndex);
 
@@ -56,13 +53,16 @@ namespace PHX
 		STATUS_CODE EndRenderPass();
 
 		// TODO - Have the transition details exposed as function parameters rather than assuming src/dst stages and access masks
-		STATUS_CODE TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout);
+		STATUS_CODE TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout, VkCommandBuffer cmdBuffer = VK_NULL_HANDLE);
+
+		STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) override;
+		STATUS_CODE CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes) override;
 
 	private:
 
-		STATUS_CODE CreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer);
-		void FreeCommandBuffer(VkCommandBuffer cmdBuffer, QUEUE_TYPE queueType);
+		STATUS_CODE GetOrCreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer);
 
+		void FreeCommandBuffer(VkCommandBuffer cmdBuffer, QUEUE_TYPE queueType);
 		void FreeCachedCommandBuffers();
 		void FreeSecondaryCommandBuffers();
 
@@ -70,6 +70,8 @@ namespace PHX
 
 		// Returns the queue type from the pipeline bind point. May return invalid result in the form of QUEUE_TYPE::COUNT!
 		QUEUE_TYPE GetQueueTypeFromPipelineBindPoint(VkPipelineBindPoint vkBindPoint);
+
+		STATUS_CODE FlushInternal(QUEUE_TYPE queueType, const VkCommandBuffer* pCommandBuffers, u32 commandBufferCount, const FlushSyncData& syncData);
 
 	private:
 

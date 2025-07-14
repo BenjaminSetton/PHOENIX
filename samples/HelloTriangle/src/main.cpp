@@ -299,7 +299,7 @@ int main(int argc, char** argv)
 		ITexture* backbufferTex = s_pSwapChain->GetCurrentImage();
 		IRenderPass* newPass = pRenderGraph->RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS);
 		newPass->SetBackbufferOutput(backbufferTex);
-		newPass->SetPipeline(pipelineDesc);
+		newPass->SetPipelineDescription(pipelineDesc);
 		newPass->SetExecuteCallback([&](IDeviceContext* pDeviceContext, IPipeline* pPipeline)
 		{
 			if (!updatedMeshBufferData)

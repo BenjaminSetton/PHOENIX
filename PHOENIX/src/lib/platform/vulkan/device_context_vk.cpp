@@ -8,8 +8,11 @@
 #include "pipeline_vk.h"
 #include "swap_chain_vk.h"
 #include "uniform_vk.h"
+#include "utils/buffer_utils.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
+#include "utils/staging_buffer.h"
+#include "utils/texture_type_converter.h"
 
 #define VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, msg) if(cmdBuffer == VK_NULL_HANDLE) { LogError(msg); return STATUS_CODE::ERR_INTERNAL; }
 
@@ -30,7 +33,7 @@ namespace PHX
 
 		// Create the primary command buffer that will run all secondary commands
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-		STATUS_CODE res = CreateCommandBuffer(QUEUE_TYPE::GRAPHICS, true, cmdBuffer);
+		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, true, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to create device context. Primary command buffer creation failed!");
@@ -237,69 +240,6 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes)
-	{
-		STATUS_CODE res = STATUS_CODE::SUCCESS;
-
-		BufferVk* bufferVk = static_cast<BufferVk*>(pBuffer);
-		if (bufferVk == nullptr)
-		{
-			LogError("Failed to copy data to buffer! Buffer is null");
-			return STATUS_CODE::ERR_API;
-		}
-
-		if (bufferVk->GetUsage() == BUFFER_USAGE::UNIFORM_BUFFER)
-		{
-			// Uniform buffers can copy directly to mapped memory
-
-			bufferVk->CopyData(data, sizeBytes);
-		}
-		else
-		{
-			// All other buffers must copy to staging buffer and then issue
-			// a transfer command to copy the data over to the GPU
-
-			VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-			const QUEUE_TYPE transferQueueType = QUEUE_TYPE::TRANSFER;
-
-			res = CreateCommandBuffer(transferQueueType, true, cmdBuffer);
-			if (res != STATUS_CODE::SUCCESS)
-			{
-				LogError("Failed to copy data to buffer! Command buffer creation failed");
-				return res;
-			}
-
-			res = bufferVk->CopyData(data, sizeBytes);
-			if (res != STATUS_CODE::SUCCESS)
-			{
-				LogError("Failed to copy data to buffer! Copy to staging buffer ran into an error");
-				return res;
-			}
-
-			// Copy from staging buffer to GPU buffer
-			VkCommandBufferBeginInfo beginInfo{};
-			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-			vkBeginCommandBuffer(cmdBuffer, &beginInfo);
-
-			VkBufferCopy copyRegion{};
-			copyRegion.srcOffset = 0; // Optional
-			copyRegion.dstOffset = 0; // Optional
-			copyRegion.size = sizeBytes;
-			vkCmdCopyBuffer(cmdBuffer, bufferVk->GetStagingBuffer(), bufferVk->GetBuffer(), 1, &copyRegion);
-
-			vkEndCommandBuffer(cmdBuffer);
-		}
-
-		return res;
-	}
-
-	STATUS_CODE DeviceContextVk::CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes)
-	{
-		TODO();
-		return STATUS_CODE::SUCCESS;
-	}
-
 	STATUS_CODE DeviceContextVk::BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex)
 	{
 		if (m_pRenderDevice == VK_NULL_HANDLE)
@@ -343,16 +283,16 @@ namespace PHX
 			vkResetFences(m_pRenderDevice->GetLogicalDevice(), 1, &inFlightFence);
 		}
 
-		VkCommandBufferBeginInfo beginInfo{};
-		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-		beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Is this right?
-		beginInfo.pInheritanceInfo = nullptr;
-		VkResult resVk = vkBeginCommandBuffer(m_primaryCmdBuffer, &beginInfo);
-		if (resVk != VK_SUCCESS)
-		{
-			LogError("Failed to begin frame. Primary command buffer failed to start recording. Got error: %s", string_VkResult(resVk));
-			return STATUS_CODE::ERR_INTERNAL;
-		}
+		//VkCommandBufferBeginInfo beginInfo{};
+		//beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		//beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // Is this right?
+		//beginInfo.pInheritanceInfo = nullptr;
+		//VkResult resVk = vkBeginCommandBuffer(m_primaryCmdBuffer, &beginInfo);
+		//if (resVk != VK_SUCCESS)
+		//{
+		//	LogError("Failed to begin frame. Primary command buffer failed to start recording. Got error: %s", string_VkResult(resVk));
+		//	return STATUS_CODE::ERR_INTERNAL;
+		//}
 
 		m_wasWorkSubmitted = false;
 
@@ -409,34 +349,15 @@ namespace PHX
 			buffersToSubmitCount = static_cast<u32>(cmdBufferList.size());
 		}
 
+		// End recording for all command buffers that will be submitted
+		for (u32 i = 0; i < buffersToSubmitCount; i++)
+		{
+			VkCommandBuffer& cmdBuffer = buffersToSubmit[i];
+			vkEndCommandBuffer(cmdBuffer);
+		}
+
 		// Submit all commands
-		VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-
-		VkSubmitInfo vkSubmitInfo{};
-		vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-		vkSubmitInfo.waitSemaphoreCount = syncData.waitSemaphoreCount;
-		vkSubmitInfo.pWaitSemaphores = syncData.pWaitSemaphores;
-		vkSubmitInfo.pWaitDstStageMask = &waitDstFlags;
-		vkSubmitInfo.commandBufferCount = buffersToSubmitCount;
-		vkSubmitInfo.pCommandBuffers = buffersToSubmit;
-		vkSubmitInfo.signalSemaphoreCount = 0; // TODO
-		vkSubmitInfo.pSignalSemaphores = nullptr; // TODO
-
-		VkQueue queue = m_pRenderDevice->GetQueue(queueType);
-		VkResult res = vkQueueSubmit(queue, 1, &vkSubmitInfo, syncData.signalFence);
-		if (res != VK_SUCCESS)
-		{
-			LogError("Failed to flush command buffers! Submit call failed with error: %s", string_VkResult(res));
-			return STATUS_CODE::ERR_INTERNAL;
-		}
-
-		// TODO - Remove this waitIdle call, prefer synchronization from render graph instead
-		res = vkQueueWaitIdle(queue);
-		if (res != VK_SUCCESS)
-		{
-			LogError("Failed to wait until queue became idle after submitting! Got error: %s", string_VkResult(res));
-			return STATUS_CODE::ERR_INTERNAL;
-		}
+		STATUS_CODE res = FlushInternal(queueType, buffersToSubmit, buffersToSubmitCount, syncData);
 
 		// Free submitted command buffers now that we know they're not being used anymore
 		if (queueType == QUEUE_TYPE::GRAPHICS)
@@ -451,7 +372,7 @@ namespace PHX
 		}
 		cmdBufferList.clear();
 
-		return STATUS_CODE::SUCCESS;
+		return res;
 	}
 
 	STATUS_CODE DeviceContextVk::BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount)
@@ -487,7 +408,7 @@ namespace PHX
 
 		// Create a new secondary command buffer to record draw call
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-		STATUS_CODE res = CreateCommandBuffer(QUEUE_TYPE::GRAPHICS, false, cmdBuffer);
+		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, false, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to create new command buffer to start render pass!");
@@ -528,36 +449,41 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	// TODO - Perform layout transition without creating a new command buffer in transfer queue and blocking.
-	//        Also, have the transition details exposed as function parameters rather than assuming src/dst stages and access masks
-	STATUS_CODE DeviceContextVk::TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout)
+	// TODO - Expose transition details as function parameters rather than assuming src/dst stages and access masks
+	STATUS_CODE DeviceContextVk::TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout, VkCommandBuffer cmdBuffer)
 	{
 		VkPipelineStageFlags sourceStage;
 		VkPipelineStageFlags destinationStage;
 		VkImageMemoryBarrier imageBarrier;
 
-		QUEUE_TYPE queue = QUEUE_TYPE::TRANSFER;
+		const QUEUE_TYPE queue = QUEUE_TYPE::TRANSFER;
 
 		// If false is returned, Current layout is the same as destination, nothing more to do
 		if (pTexture->FillTransitionLayoutInfo(destinationLayout, sourceStage, destinationStage, imageBarrier))
 		{
-			// Attempt to reuse existing transfer cmd buffer
-			VkCommandBuffer cmdBuffer = GetLastCommandBuffer(queue);
+			bool createdOwnCommandBuffer = false;
+
+			// Attempt to reuse existing transfer cmd buffer, if none is provided
 			if (cmdBuffer == VK_NULL_HANDLE)
 			{
-				STATUS_CODE res = CreateCommandBuffer(queue, true, cmdBuffer);
+				STATUS_CODE res = GetOrCreateCommandBuffer(queue, true, cmdBuffer);
 				if (res != STATUS_CODE::SUCCESS)
 				{
-					LogError("Failed to transition texture! Transfer command buffer creation failed");
+					LogError("Failed to transition image layout. Could not retrive or create a valid command buffer!");
 					return res;
 				}
+
+				createdOwnCommandBuffer = true;
 			}
 
-			VkCommandBufferBeginInfo beginInfo{};
-			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+			if (createdOwnCommandBuffer)
+			{
+				VkCommandBufferBeginInfo beginInfo{};
+				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+				beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-			vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+				vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+			}
 
 			vkCmdPipelineBarrier(
 				cmdBuffer,
@@ -569,7 +495,10 @@ namespace PHX
 				1, &imageBarrier
 			);
 
-			vkEndCommandBuffer(cmdBuffer);
+			if (createdOwnCommandBuffer)
+			{
+				vkEndCommandBuffer(cmdBuffer);
+			}
 
 			pTexture->SetLayout(destinationLayout);
 
@@ -579,44 +508,189 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::CreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer)
+	STATUS_CODE DeviceContextVk::CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes)
 	{
+		STATUS_CODE res = STATUS_CODE::SUCCESS;
+
+		BufferVk* bufferVk = static_cast<BufferVk*>(pBuffer);
+		if (bufferVk == nullptr)
+		{
+			LogError("Failed to copy data to buffer! Buffer is null");
+			return STATUS_CODE::ERR_API;
+		}
+
+		if (ShouldUseDirectMemoryMapping(bufferVk->GetUsage()))
+		{
+			// Copy to memory directly, no need to go through a staging buffer
+			bufferVk->CopyToMappedData(data, sizeBytes);
+		}
+		else
+		{
+			// All other buffers must copy to staging buffer and then issue
+			// a transfer command to copy the data over to the GPU
+			BufferCreateInfo stagingBufferCI{}; // Buffer usage is unused in this case
+			stagingBufferCI.sizeBytes = sizeBytes;
+			StagingBufferVk stagingBuffer(m_pRenderDevice, stagingBufferCI);
+			if (!stagingBuffer.IsValid())
+			{
+				LogError("Failed to copy data to buffer. Could not create staging buffer!");
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+
+			VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+			const QUEUE_TYPE transferQueueType = QUEUE_TYPE::TRANSFER;
+
+			res = GetOrCreateCommandBuffer(transferQueueType, true, cmdBuffer);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to copy data to buffer! Command buffer creation failed");
+				return res;
+			}
+
+			res = stagingBuffer.CopyData(data, sizeBytes);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to copy data to staging buffer!");
+				return res;
+			}
+
+			// Copy from staging buffer to GPU buffer
+			VkBufferCopy copyRegion{};
+			copyRegion.srcOffset = 0; // Optional
+			copyRegion.dstOffset = 0; // Optional
+			copyRegion.size = sizeBytes;
+			vkCmdCopyBuffer(cmdBuffer, stagingBuffer.GetBuffer(), bufferVk->GetBuffer(), 1, &copyRegion);
+		}
+
+		return res;
+	}
+
+	STATUS_CODE DeviceContextVk::CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes)
+	{
+		if (pTexture == nullptr)
+		{
+			LogError("Failed to copy data to texture. Texture pointer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		if (data == nullptr)
+		{
+			LogError("Failed to copy data to texture. Data pointer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		if (sizeBytes <= 0)
+		{
+			LogError("Failed to copy data to texture. Size in bytes is 0!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		STATUS_CODE res;
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		const QUEUE_TYPE transferQueueType = QUEUE_TYPE::TRANSFER;
+		TextureVk* textureVk = static_cast<TextureVk*>(pTexture);
+		ASSERT_PTR(textureVk);
+
+		res = GetOrCreateCommandBuffer(transferQueueType, true, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to copy data to texture! Command buffer creation failed");
+			return res;
+		}
+
+		// Create a staging buffer and copy data into staging buffer
+		BufferCreateInfo stagingBufferCI{}; // Buffer usage is unused in this case
+		stagingBufferCI.sizeBytes = sizeBytes;
+		StagingBufferVk stagingBuffer(m_pRenderDevice, stagingBufferCI);
+		if (!stagingBuffer.IsValid())
+		{
+			LogError("Failed to copy data to texture. Could not create staging buffer!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		res = stagingBuffer.CopyData(data, sizeBytes);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to copy data to texture! Could not copy data into staging buffer");
+			return res;
+		}
+
+		// Transition layout to TRANSFER_DST
+		res = TransitionImageLayout(textureVk, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to copy data to texture! Could not transition image layout to TRANSFER_DST_OPTIMAL!");
+			return res;
+		}
+
+		VkBufferImageCopy copyRegion{};
+		copyRegion.bufferOffset = 0;
+		copyRegion.bufferRowLength = 0;
+		copyRegion.bufferImageHeight = 0;
+
+		copyRegion.imageSubresource.aspectMask = TEX_UTILS::ConvertAspectFlags(textureVk->GetAspectFlags());
+		copyRegion.imageSubresource.mipLevel = 0; // TODO - Expose as parameter when mip levels are implemented
+		copyRegion.imageSubresource.baseArrayLayer = 0;
+		copyRegion.imageSubresource.layerCount = textureVk->GetArrayLayers();
+
+		copyRegion.imageOffset = { 0, 0, 0 };
+		copyRegion.imageExtent = { textureVk->GetWidth(), textureVk->GetHeight(), 1 };
+
+		vkCmdCopyBufferToImage(cmdBuffer, stagingBuffer.GetBuffer(), textureVk->GetBaseImage(), textureVk->GetLayout(), 1, &copyRegion);
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE DeviceContextVk::GetOrCreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer)
+	{
+		ASSERT_MSG(out_cmdBuffer == VK_NULL_HANDLE, "Called GetOrCreateCommandBuffer() but out_cmdBuffer is not null?");
+
 		if (m_pRenderDevice == nullptr)
 		{
 			LogError("Failed to create command buffer. Render device is null!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		VkCommandBufferAllocateInfo allocInfo = {};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.level = isPrimaryCmdBuffer ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY;
-		allocInfo.commandPool = m_pRenderDevice->GetCommandPool(type);
-		allocInfo.commandBufferCount = 1;
-
-		VkCommandBuffer newCmdBuffer = VK_NULL_HANDLE;
-		VkResult res = vkAllocateCommandBuffers(m_pRenderDevice->GetLogicalDevice(), &allocInfo, &newCmdBuffer);
-		if (res != VK_SUCCESS)
+		VkCommandBuffer cmdBuffer = GetLastCommandBuffer(type);
+		if (cmdBuffer == VK_NULL_HANDLE)
 		{
-			LogError("Failed to allocate primary command buffer! Got result: \"%s\"", string_VkResult(res));
-			return STATUS_CODE::ERR_INTERNAL;
-		}
+			VkCommandBufferAllocateInfo allocInfo{};
+			allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+			allocInfo.level = isPrimaryCmdBuffer ? VK_COMMAND_BUFFER_LEVEL_PRIMARY : VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+			allocInfo.commandPool = m_pRenderDevice->GetCommandPool(type);
+			allocInfo.commandBufferCount = 1;
 
-		// Cache it in the command buffer list, unless it's a primary command buffer
-		if ((type == QUEUE_TYPE::GRAPHICS) && isPrimaryCmdBuffer)
-		{
-			if (m_primaryCmdBuffer != VK_NULL_HANDLE)
+			VkResult res = vkAllocateCommandBuffers(m_pRenderDevice->GetLogicalDevice(), &allocInfo, &cmdBuffer);
+			if (res != VK_SUCCESS)
 			{
-				FreeCommandBuffer(m_primaryCmdBuffer, QUEUE_TYPE::GRAPHICS);
+				LogError("Failed to allocate primary command buffer! Got result: \"%s\"", string_VkResult(res));
+				return STATUS_CODE::ERR_INTERNAL;
 			}
-			m_primaryCmdBuffer = newCmdBuffer;
-		}
-		else
-		{
-			CommandBufferList& cmdBuffList = m_cmdBuffers[static_cast<u32>(type)];
-			cmdBuffList.push_back(newCmdBuffer);
-		}
-		out_cmdBuffer = newCmdBuffer;
 
+			// Cache it in the command buffer list, unless it's a primary command buffer
+			if ((type == QUEUE_TYPE::GRAPHICS) && isPrimaryCmdBuffer)
+			{
+				if (m_primaryCmdBuffer != VK_NULL_HANDLE)
+				{
+					FreeCommandBuffer(m_primaryCmdBuffer, QUEUE_TYPE::GRAPHICS);
+				}
+				m_primaryCmdBuffer = cmdBuffer;
+			}
+			else
+			{
+				CommandBufferList& cmdBuffList = m_cmdBuffers[static_cast<u32>(type)];
+				cmdBuffList.push_back(cmdBuffer);
+			}
+
+			VkCommandBufferBeginInfo beginInfo{};
+			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // TODO - Determine how to use correct value
+			vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+
+			out_cmdBuffer = cmdBuffer;
+		}
+
+		out_cmdBuffer = cmdBuffer;
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -698,5 +772,38 @@ namespace PHX
 		}
 
 		return cmdQueueType;
+	}
+
+	STATUS_CODE DeviceContextVk::FlushInternal(QUEUE_TYPE queueType, const VkCommandBuffer* pCommandBuffers, u32 commandBufferCount, const FlushSyncData& syncData)
+	{
+		VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+
+		VkSubmitInfo vkSubmitInfo{};
+		vkSubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		vkSubmitInfo.waitSemaphoreCount = syncData.waitSemaphoreCount;
+		vkSubmitInfo.pWaitSemaphores = syncData.pWaitSemaphores;
+		vkSubmitInfo.pWaitDstStageMask = &waitDstFlags;
+		vkSubmitInfo.commandBufferCount = commandBufferCount;
+		vkSubmitInfo.pCommandBuffers = pCommandBuffers;
+		vkSubmitInfo.signalSemaphoreCount = 0; // TODO
+		vkSubmitInfo.pSignalSemaphores = nullptr; // TODO
+
+		VkQueue queue = m_pRenderDevice->GetQueue(queueType);
+		VkResult res = vkQueueSubmit(queue, 1, &vkSubmitInfo, syncData.signalFence);
+		if (res != VK_SUCCESS)
+		{
+			LogError("Failed to flush command buffers! Submit call failed with error: %s", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		// TODO - Remove this waitIdle call, prefer synchronization from render graph instead
+		res = vkQueueWaitIdle(queue);
+		if (res != VK_SUCCESS)
+		{
+			LogError("Failed to wait until queue became idle after submitting! Got error: %s", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		return STATUS_CODE::SUCCESS;
 	}
 }

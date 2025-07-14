@@ -36,10 +36,11 @@ namespace PHX
 		virtual void SetDepthStencilOutput(ITexture* pTexture) = 0;
 		virtual void SetResolveOutput(ITexture* pTexture) = 0;
 		virtual void SetBackbufferOutput(ITexture* pTexture) = 0;
+		virtual void SetBufferOutput(IBuffer* pBuffer) = 0;
 
 		// Pipeline data
-		virtual void SetPipeline(const GraphicsPipelineDesc& graphicsPipelineDesc) = 0;
-		virtual void SetPipeline(const ComputePipelineDesc& computePipelineDesc) = 0;
+		virtual void SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc) = 0;
+		virtual void SetPipelineDescription(const ComputePipelineDesc& computePipelineDesc) = 0;
 
 		// Callbacks
 		virtual void SetExecuteCallback(ExecuteRenderPassCallbackFn callback) = 0;

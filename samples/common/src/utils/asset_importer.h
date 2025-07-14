@@ -44,9 +44,10 @@ namespace Common
 
 	struct AssetDiskTexture
 	{
-		void* pData			= nullptr;
-		PHX::Vec2u size		= { 0, 0 };
-		TEXTURE_TYPE type	= TEXTURE_TYPE::MAX;
+		void* pData				= nullptr;
+		PHX::Vec2u size			= { 0, 0 };
+		TEXTURE_TYPE type		= TEXTURE_TYPE::MAX;
+		PHX::u32 bytesPerPixel	= 0;
 	};
 
 	// A raw representation of an asset on disk. This is a generalization of common 3D asset extensions such as OBJ, FBX,

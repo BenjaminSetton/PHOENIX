@@ -279,7 +279,7 @@ int main(int argc, char** argv)
 		IRenderPass* pRenderPass = pRenderGraph->RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS);
 		pRenderPass->SetBackbufferOutput(pSwapChain->GetCurrentImage());
 		pRenderPass->SetDepthOutput(pDepthBuffer);
-		pRenderPass->SetPipeline(pipelineDesc);
+		pRenderPass->SetPipelineDescription(pipelineDesc);
 		pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline)
 		{
 			if (!updatedMeshBufferData)

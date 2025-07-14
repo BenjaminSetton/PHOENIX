@@ -49,6 +49,8 @@ namespace PHX
 		bool IsDepthTexture() const override;
 		bool HasStencilComponent() const override;
 
+		VkImage GetBaseImage() const;
+
 		u32 GetNumImageViews() const;
 		VkImageView GetImageViewAt(u32 index) const;
 

@@ -58,9 +58,6 @@ void TexturedModelSample::Draw()
 		return;
 	}
 
-	const u64 vBufferSizeBytes = static_cast<u64>(axeAsset->vertices.size() * sizeof(AssetVertex));
-	const u64 iBufferSizeBytes = static_cast<u64>(axeAsset->indices.size() * sizeof(Common::AssetIndexType));
-
 	ClearValues clearColor{};
 	clearColor.color.color = Vec4f(0.5f, 0.75f, 0.98f, 1.0f);
 	clearColor.useClearColor = true;
@@ -81,7 +78,8 @@ void TexturedModelSample::Draw()
 	// Update the cube's transform
 	m_transform.worldMat = glm::rotate(m_transform.worldMat, 0.01f, { 0.0f, -1.0f, 0.0f });
 
-	IRenderPass* pRenderPass = m_pRenderGraph->RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS);
+	// Setup a new render pass for PBR
+	IRenderPass* pRenderPass = m_pRenderGraph->RegisterPass("PBRPass", BIND_POINT::GRAPHICS);
 	pRenderPass->SetBackbufferOutput(m_pSwapChain->GetCurrentImage());
 	pRenderPass->SetDepthOutput(m_pDepthBuffer);
 
@@ -89,15 +87,14 @@ void TexturedModelSample::Draw()
 	{
 		pRenderPass->SetTextureInput(assetTex);
 	}
+	pRenderPass->SetBufferInput(m_pVertexBuffer);
+	pRenderPass->SetBufferInput(m_pIndexBuffer);
 
-	pRenderPass->SetPipeline(m_pipelineDesc);
+	pRenderPass->SetPipelineDescription(m_pipelineDesc);
 	pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline)
 	{
-		pContext->CopyDataToBuffer(m_pVertexBuffer, axeAsset->vertices.data(), vBufferSizeBytes);
-		pContext->CopyDataToBuffer(m_pIndexBuffer, axeAsset->indices.data(), iBufferSizeBytes);
-
-		// Update uniform collection
-		m_pUniformBuffer->CopyData(&m_transform, sizeof(TransformData));
+		// Uniform collection
+		pContext->CopyDataToBuffer(m_pUniformBuffer, &m_transform, sizeof(TransformData));
 		m_pUniformCollection->QueueBufferUpdate(0, 0, 0, m_pUniformBuffer);
 
 		for (u32 i = 0; i < m_assetTextures.size(); i++)
@@ -107,6 +104,7 @@ void TexturedModelSample::Draw()
 		}
 		m_pUniformCollection->FlushUpdateQueue();
 
+		// Draw commands
 		pContext->BindUniformCollection(m_pUniformCollection, pPipeline);
 		pContext->BindMesh(m_pVertexBuffer, m_pIndexBuffer);
 		pContext->BindPipeline(pPipeline);
@@ -144,10 +142,6 @@ void TexturedModelSample::Init()
 	phxRes = m_pRenderDevice->AllocateBuffer(vBufferCI, &m_pVertexBuffer);
 	CHECK_PHX_RES(phxRes);
 
-	// Copy over asset vertex data to GPU, and keep it there permanently :)
-	phxRes = m_pVertexBuffer->CopyData(axeAsset->vertices.data(), vBufferSizeBytes);
-	CHECK_PHX_RES(phxRes);
-
 	// INDEX BUFFER
 	const u64 iBufferSizeBytes = static_cast<u64>(axeAsset->indices.size() * sizeof(Common::AssetIndexType));
 
@@ -156,10 +150,6 @@ void TexturedModelSample::Init()
 	iBufferCI.sizeBytes = iBufferSizeBytes;
 
 	phxRes = m_pRenderDevice->AllocateBuffer(iBufferCI, &m_pIndexBuffer);
-	CHECK_PHX_RES(phxRes);
-
-	// Copy over asset vertex data to GPU, and keep it there permanently :)
-	phxRes = m_pIndexBuffer->CopyData(axeAsset->indices.data(), iBufferSizeBytes);
 	CHECK_PHX_RES(phxRes);
 
 	// DEPTH BUFFER
@@ -261,6 +251,30 @@ void TexturedModelSample::Init()
 
 	// ASSET TEXTURES
 	CreateAssetTextures();
+
+	// Create a new render pass to upload the mesh data to the GPU
+	IRenderPass* pRenderPass = m_pRenderGraph->RegisterPass("MeshDataPass", BIND_POINT::GRAPHICS);
+	pRenderPass->SetBufferOutput(m_pVertexBuffer);
+	pRenderPass->SetBufferOutput(m_pIndexBuffer);
+	for (u32 i = 0; i < m_assetTextures.size(); i++)
+	{
+		ITexture* pCurrAssetTex = m_assetTextures[i];
+		pRenderPass->SetColorOutput(pCurrAssetTex);
+	}
+
+	pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline) 
+	{
+		pContext->CopyDataToBuffer(m_pVertexBuffer, axeAsset->vertices.data(), vBufferSizeBytes);
+		pContext->CopyDataToBuffer(m_pIndexBuffer, axeAsset->indices.data(), iBufferSizeBytes);
+
+		for (u32 i = 0; i < m_assetTextures.size(); i++)
+		{
+			const Texture& texSrc = axeAsset->textures[i];
+			ITexture* texDst = m_assetTextures[i];
+			u64 sizeBytes = (texSrc.size.GetX() * texSrc.size.GetY() * texSrc.bytesPerPixel);
+			pContext->CopyDataToTexture(texDst, texSrc.data, sizeBytes);
+		}
+	});
 }
 
 void TexturedModelSample::Shutdown()
@@ -297,8 +311,8 @@ void TexturedModelSample::CreateAssetTextures()
 		const Texture& currTex = pAsset->textures[i];
 
 		TextureBaseCreateInfo baseCI{};
-		baseCI.width = m_pWindow->GetCurrentWidth();
-		baseCI.height = m_pWindow->GetCurrentHeight();
+		baseCI.width = currTex.size.GetX();
+		baseCI.height = currTex.size.GetY();
 		baseCI.arrayLayers = 1;
 		baseCI.generateMips = false;
 		baseCI.format = (currTex.type == Common::TEXTURE_TYPE::DIFFUSE) ? BASE_FORMAT::R8G8B8A8_SRGB : BASE_FORMAT::R8G8B8A8_UNORM;

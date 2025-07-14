@@ -5,6 +5,7 @@
 #include "render_device_vk.h"
 #include "swap_chain_vk.h"
 #include "utils/attachment_type_converter.h"
+#include "utils/cache_utils.h"
 #include "utils/logger.h"
 #include "utils/math.h"
 #include "utils/render_graph_type_converter.h"
@@ -14,6 +15,16 @@ namespace PHX
 {
 	static const char* s_pReservedBackbufferName = "INTERNAL_backbuffer";
 	static constexpr u32 s_invalidRenderPassIndex = U32_MAX;
+
+	static u64 HashResourceDesc(const ResourceDesc& desc)
+	{
+		// Only hash the resourceType and data pointer. That's all we should look at to determine
+		// whether two resources are the same
+		size_t seed = 0;
+		HashCombine(seed, desc.resourceType);
+		HashCombine(seed, desc.data);
+		return static_cast<u64>(seed);
+	}
 
 	static ATTACHMENT_TYPE CalculateAttachmentType(ITexture* pTexture)
 	{
@@ -49,10 +60,18 @@ namespace PHX
 		return VK_IMAGE_LAYOUT_GENERAL;
 	}
 
+	size_t ResourceDescHasher::operator()(const ResourceDesc& desc) const
+	{
+
+	}
+
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	RenderPassVk::RenderPassVk(const char* name, BIND_POINT bindPoint) : m_bindPoint(bindPoint)
+	RenderPassVk::RenderPassVk(const char* name, BIND_POINT bindPoint, u32 index, RegisterResourceCallbackFn registerResourceCallback) : 
+		m_bindPoint(bindPoint), m_registerResourceCallback(registerResourceCallback), m_index(index)
 	{
+		ASSERT_MSG(m_registerResourceCallback != nullptr, "Register resource callback is null");
+
 		m_name = HashCRC32(name);
 
 #if defined(PHX_DEBUG)
@@ -62,8 +81,8 @@ namespace PHX
 
 	RenderPassVk::~RenderPassVk()
 	{
-		m_inputResources.clear();
-		m_outputResources.clear();
+		m_inputResources.reset();
+		m_outputResources.reset();
 	}
 
 	void RenderPassVk::SetTextureInput(ITexture* pTexture)
@@ -76,12 +95,13 @@ namespace PHX
 		desc.attachmentType = CalculateAttachmentType(pTexture);
 		desc.storeOp = ATTACHMENT_STORE_OP::IGNORE;
 		desc.loadOp = ATTACHMENT_LOAD_OP::LOAD;
-		m_inputResources.push_back(desc);
+
+		const u8 resourceIndex = m_registerResourceCallback(desc);
+		m_inputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetBufferInput(IBuffer* pBuffer)
 	{
-		TODO();
 		ResourceDesc desc{};
 		desc.name = nullptr; // TODO
 		desc.data = pBuffer;
@@ -92,7 +112,9 @@ namespace PHX
 		desc.attachmentType = ATTACHMENT_TYPE::INVALID;
 		desc.storeOp = ATTACHMENT_STORE_OP::INVALID;
 		desc.loadOp = ATTACHMENT_LOAD_OP::INVALID;
-		m_inputResources.push_back(desc);
+
+		const u8 resourceIndex = m_registerResourceCallback(desc);
+		m_inputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetUniformInput(IUniformCollection* pUniformCollection)
@@ -108,12 +130,13 @@ namespace PHX
 		desc.attachmentType = ATTACHMENT_TYPE::INVALID;
 		desc.storeOp = ATTACHMENT_STORE_OP::INVALID;
 		desc.loadOp = ATTACHMENT_LOAD_OP::INVALID;
-		m_inputResources.push_back(desc);
+
+		const u8 resourceIndex = m_registerResourceCallback(desc);
+		m_inputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetColorOutput(ITexture* pTexture)
 	{
-		TODO();
 		ResourceDesc desc{};
 		desc.name = nullptr; // TODO
 		desc.data = pTexture;
@@ -122,7 +145,9 @@ namespace PHX
 		desc.attachmentType = ATTACHMENT_TYPE::COLOR;
 		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
 		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
-		m_outputResources.push_back(desc);
+
+		const u8 resourceIndex = m_registerResourceCallback(desc);
+		m_outputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetDepthOutput(ITexture* pTexture)
@@ -135,7 +160,9 @@ namespace PHX
 		desc.attachmentType = ATTACHMENT_TYPE::DEPTH;
 		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
 		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
-		m_outputResources.push_back(desc);
+
+		const u8 resourceIndex = m_registerResourceCallback(desc);
+		m_outputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetDepthStencilOutput(ITexture* pTexture)
@@ -149,7 +176,9 @@ namespace PHX
 		desc.attachmentType = ATTACHMENT_TYPE::DEPTH_STENCIL;
 		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
 		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
-		m_outputResources.push_back(desc);
+
+		const u8 resourceIndex = m_registerResourceCallback(desc);
+		m_outputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetResolveOutput(ITexture* pTexture)
@@ -163,7 +192,9 @@ namespace PHX
 		desc.attachmentType = ATTACHMENT_TYPE::RESOLVE;
 		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
 		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
-		m_outputResources.push_back(desc);
+
+		const u8 resourceIndex = m_registerResourceCallback(desc);
+		m_outputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetBackbufferOutput(ITexture* pTexture)
@@ -177,15 +208,33 @@ namespace PHX
 		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
 		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		m_outputResources.push_back(desc);
+		const u8 resourceIndex = m_registerResourceCallback(desc);
+		m_outputResources.set(resourceIndex);
 	}
 
-	void RenderPassVk::SetPipeline(const GraphicsPipelineDesc& graphicsPipelineDesc)
+	void RenderPassVk::SetBufferOutput(IBuffer* pBuffer)
+	{
+		ResourceDesc desc{};
+		desc.name = nullptr;
+		desc.data = pBuffer;
+		desc.io = RESOURCE_IO::OUTPUT;
+		desc.resourceType = RESOURCE_TYPE::BUFFER;
+
+		// Not a texture resource
+		desc.attachmentType = ATTACHMENT_TYPE::INVALID;
+		desc.storeOp = ATTACHMENT_STORE_OP::INVALID;
+		desc.loadOp = ATTACHMENT_LOAD_OP::INVALID;
+
+		const u8 resourceIndex = m_registerResourceCallback(desc);
+		m_outputResources.set(resourceIndex);
+	}
+
+	void RenderPassVk::SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc)
 	{
 		graphicsDesc = graphicsPipelineDesc;
 	}
 
-	void RenderPassVk::SetPipeline(const ComputePipelineDesc& computePipelineDesc)
+	void RenderPassVk::SetPipelineDescription(const ComputePipelineDesc& computePipelineDesc)
 	{
 		computeDesc = computePipelineDesc;
 	}
@@ -203,8 +252,7 @@ namespace PHX
 
 	//--------------------------------------------------------------------------------------------
 
-	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_frameIndex(0), m_pReservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)), 
-																  m_deviceContexts(), m_backbufferRenderPassIndex(s_invalidRenderPassIndex)
+	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_frameIndex(0), m_pReservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)), m_deviceContexts()
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -253,11 +301,6 @@ namespace PHX
 
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
-		// TODO - Clean up memory?
-		m_registeredRenderPasses.clear();
-		m_registeredResources.clear();
-
-
 		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(pSwapChain);
 		ASSERT_PTR(swapChainVk);
 
@@ -296,12 +339,19 @@ namespace PHX
 		// Now that all the work has been done for the current frame, move onto the next one
 		m_frameIndex = (m_frameIndex + 1) % m_renderDevice->GetFramesInFlight();
 
+		m_registeredRenderPasses.clear();
+		m_registeredResources.clear();
+		m_resourceDescCache.clear();
+
 		return res;
 	}
 
 	IRenderPass* RenderGraphVk::RegisterPass(const char* passName, BIND_POINT bindPoint)
 	{
-		m_registeredRenderPasses.emplace_back(passName, bindPoint);
+		const u32 passIndex = static_cast<u32>(m_registeredRenderPasses.size());
+
+		auto registerResourceFuncPtr = std::bind(&RenderGraphVk::RegisterResource, this, std::placeholders::_1);
+		m_registeredRenderPasses.emplace_back(passName, bindPoint, passIndex, registerResourceFuncPtr);
 		return &m_registeredRenderPasses.back();
 	}
 
@@ -314,38 +364,17 @@ namespace PHX
 
 		// Create the render graph tree using the following steps:
 		// 1. Find the render pass that writes to the back-buffer
-
-		for (u32 i = 0; i < m_registeredRenderPasses.size(); i++)
+		u32 backbufferRPIndex = FindBackBufferRenderPassIndex();
+		if (backbufferRPIndex == s_invalidRenderPassIndex)
 		{
-			auto& renderPass = m_registeredRenderPasses.at(i);
-			// Check if any of the render pass's output resources are the backbuffer
-			for (const auto& outputResource : renderPass.m_outputResources)
-			{
-				// TODO - Optimize. We probably want to store the CRC rather than the raw string
-				const CRC32 outputResourceCRC = HashCRC32(outputResource.name);
-				if (outputResourceCRC == m_pReservedBackbufferNameCRC)
-				{
-					m_backbufferRenderPassIndex = i;
-					break;
-				}
-			}
-
-			if (m_backbufferRenderPassIndex != s_invalidRenderPassIndex)
-			{
-				// Found backbuffer render pass index!
-				break;
-			}
+			LogError("Failed to bake render graph. No render pass writes to backbuffer!");
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		if (m_backbufferRenderPassIndex == s_invalidRenderPassIndex)
-		{
-			LogError("Failed to bake render graph! No registered render pass writes to the backbuffer");
-			return STATUS_CODE::ERR_API;
-		}
+		RenderPassVk& backbufferRP = m_registeredRenderPasses[backbufferRPIndex];
 		
 		// 2. Once that render pass is found, build render graph by looking at inputs and working up recursively (using breadth-first search)
-		// TODO - Simply include the backbuffer pass in the render graph for now
-		RenderPassVk& backbufferRP = m_registeredRenderPasses.at(m_backbufferRenderPassIndex);
+		BuildDependencyTree(backbufferRPIndex);
 
 		// 3. [TRIMMING] Accumulate all contributing render passes into a separate container for the render graph. This is done so that
 		//               all non-contributing passes are indirectly trimmed
@@ -374,20 +403,36 @@ namespace PHX
 		VkRenderPass renderPassVk = CreateRenderPass(backbufferRP);
 		
 		//		Get or create framebuffer from render device (should refer to internal cache)
-		FramebufferVk* pFramebuffer = CreateFramebuffer(backbufferRP, renderPassVk);
+		const bool isBackbuffer = true;
+		FramebufferVk* pFramebuffer = CreateFramebuffer(backbufferRP, renderPassVk, isBackbuffer);
 
 		//		Get or create pipeline from render device (should refer to internal cache)
 		PipelineVk* pPipeline = CreatePipeline(backbufferRP, renderPassVk);
 
 		DeviceContextVk* pDeviceContext = GetDeviceContext();
 
-		FlushSyncData preRPSyncData{}; // No sync for now
-		res = pDeviceContext->Flush(QUEUE_TYPE::TRANSFER, preRPSyncData);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to bake render graph. Device context could not flush image layout transitions!");
-			return res;
-		}
+		// Look at all input resources and make sure they're in the correct layout
+		//for (const ResourceDesc& inputResource : backbufferRP->m_inputResources)
+		//{
+		//	if (inputResource.resourceType != RESOURCE_TYPE::TEXTURE)
+		//	{
+		//		continue;
+		//	}
+
+		//	VkImageLayout destLayout = CalculateLayoutForInputImage(inputResource.attachmentType);
+		//	TextureVk* textureVk = static_cast<TextureVk*>(inputResource.data);
+
+		//	// Issue the commands for image layout barriers
+		//	pDeviceContext->TransitionImageLayout(textureVk, destLayout);
+		//}
+
+		//FlushSyncData preRPSyncData{}; // No sync for now
+		//res = pDeviceContext->Flush(QUEUE_TYPE::TRANSFER, preRPSyncData);
+		//if (res != STATUS_CODE::SUCCESS)
+		//{
+		//	LogError("Failed to bake render graph. Device context could not flush image layout transitions!");
+		//	return res;
+		//}
 		
 		res = pDeviceContext->BeginRenderPass(renderPassVk, pFramebuffer, pClearColors, clearColorCount);
 		if (res != STATUS_CODE::SUCCESS)
@@ -399,29 +444,14 @@ namespace PHX
 		// Call the main render pass execution callback
 		backbufferRP.m_execCallback(pDeviceContext, pPipeline);
 
-		// Look at all input resources and make sure they're in the correct layout
-		for (const ResourceDesc& inputResource : backbufferRP.m_inputResources)
-		{
-			if (inputResource.resourceType != RESOURCE_TYPE::TEXTURE)
-			{
-				continue;
-			}
-
-			VkImageLayout destLayout = CalculateLayoutForInputImage(inputResource.attachmentType);
-			TextureVk* textureVk = static_cast<TextureVk*>(inputResource.data);
-
-			// Issue the commands for image layout barriers
-			pDeviceContext->TransitionImageLayout(textureVk, destLayout);
-		}
-
 		// Flush any transfer operations requested in the execution callback
-		FlushSyncData midRPSyncData{}; // No sync for now
-		res = pDeviceContext->Flush(QUEUE_TYPE::TRANSFER, midRPSyncData);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to bake render graph. Device context could not flush transfer operations!");
-			return res;
-		}
+		//FlushSyncData midRPSyncData{}; // No sync for now
+		//res = pDeviceContext->Flush(QUEUE_TYPE::TRANSFER, midRPSyncData);
+		//if (res != STATUS_CODE::SUCCESS)
+		//{
+		//	LogError("Failed to bake render graph. Device context could not flush transfer operations!");
+		//	return res;
+		//}
 
 		res = pDeviceContext->EndRenderPass();
 		if (res != STATUS_CODE::SUCCESS)
@@ -446,9 +476,15 @@ namespace PHX
 		subpassDesc.srcAccessMask = 0;
 		subpassDesc.dstAccessMask = 0;
 
-		for (u32 i = 0; i < renderPass.m_outputResources.size(); i++)
+		for (u32 i = 0; i < m_registeredResources.size(); i++)
 		{
-			const ResourceDesc& outputResource = renderPass.m_outputResources[i];
+			// Only consider the render pass's output resources
+			if (!renderPass.m_outputResources.test(i))
+			{
+				continue;
+			}
+
+			const ResourceDesc& outputResource = m_registeredResources[i];
 			if (outputResource.resourceType != RESOURCE_TYPE::TEXTURE)
 			{
 				continue;
@@ -558,15 +594,22 @@ namespace PHX
 		return renderPassVk;
 	}
 
-	FramebufferVk* RenderGraphVk::CreateFramebuffer(const RenderPassVk& renderPass, VkRenderPass renderPassVk)
+	FramebufferVk* RenderGraphVk::CreateFramebuffer(const RenderPassVk& renderPass, VkRenderPass renderPassVk, bool isBackBuffer)
 	{
 		std::vector<FramebufferAttachmentDesc> attachments;
 		attachments.reserve(renderPass.m_outputResources.size());
 
 		u32 maxWidth = 0;
 		u32 maxHeight = 0;
-		for (auto& outputResource : renderPass.m_outputResources)
+		for (u32 i = 0; i < m_registeredResources.size(); i++)
 		{
+			// Only consider the render pass's output resources
+			if (!renderPass.m_outputResources.test(i))
+			{
+				continue;
+			}
+
+			ResourceDesc& outputResource = m_registeredResources[i];
 			if (outputResource.resourceType != RESOURCE_TYPE::TEXTURE)
 			{
 				continue;
@@ -597,8 +640,6 @@ namespace PHX
 			maxHeight = Max(maxHeight, pAttachmentTex->GetHeight());
 		}
 
-		const RenderPassVk& backbufferRP = m_registeredRenderPasses[m_backbufferRenderPassIndex];
-
 		FramebufferDescription framebufferCI{};
 		framebufferCI.width = maxWidth;
 		framebufferCI.height = maxHeight;
@@ -606,7 +647,7 @@ namespace PHX
 		framebufferCI.pAttachments = attachments.data();
 		framebufferCI.attachmentCount = static_cast<u32>(attachments.size());
 		framebufferCI.renderPass = renderPassVk;
-		framebufferCI.isBackbuffer = (renderPass.m_name == backbufferRP.m_name);
+		framebufferCI.isBackbuffer = isBackBuffer;
 		FramebufferVk* pFramebuffer = m_renderDevice->CreateFramebuffer(framebufferCI);
 		return pFramebuffer;
 	}
@@ -638,8 +679,106 @@ namespace PHX
 		return pipeline;
 	}
 
+	u8 RenderGraphVk::RegisterResource(const ResourceDesc& resourceDesc)
+	{
+		u8 resourceIndex = U8_MAX;
+
+		// See if the same resource has already been registered
+		auto iter = m_resourceDescCache.find(resourceDesc);
+		if (iter == m_resourceDescCache.end())
+		{
+			// Couldn't find a matching resource, so create a new one
+			resourceIndex = static_cast<u8>(m_registeredResources.size());
+			m_registeredResources.push_back(resourceDesc);
+
+			m_resourceDescCache.insert({resourceDesc, resourceIndex});
+		}
+		else
+		{
+			// Found existing resource!
+			resourceIndex = static_cast<u8>(iter->second);
+		}
+
+		return resourceIndex;
+	}
+
 	DeviceContextVk* RenderGraphVk::GetDeviceContext() const
 	{
 		return m_deviceContexts[m_frameIndex];
+	}
+
+	u32 RenderGraphVk::FindBackBufferRenderPassIndex()
+	{
+		u32 backbufferRPIndex = s_invalidRenderPassIndex;
+
+		for (u32 i = 0; i < m_registeredRenderPasses.size(); i++)
+		{
+			// Check if any of the render pass's output resources are the backbuffer
+			const RenderPassVk& renderPass = m_registeredRenderPasses.at(i);
+			for (u32 j = 0; j < m_registeredResources.size(); j++)
+			{
+				const ResourceDesc& outputResource = m_registeredResources[j];
+				if (!renderPass.m_outputResources.test(j))
+				{
+					continue;
+				}
+
+				if (outputResource.name == nullptr)
+				{
+					continue;
+				}
+
+				// TODO - Optimize. We probably want to store the CRC rather than the raw string
+				const CRC32 outputResourceCRC = HashCRC32(outputResource.name);
+				if (outputResourceCRC == m_pReservedBackbufferNameCRC)
+				{
+					backbufferRPIndex = i;
+					break;
+				}
+			}
+
+			if (backbufferRPIndex != s_invalidRenderPassIndex)
+			{
+				// Found backbuffer render pass index!
+				break;
+			}
+		}
+
+		return backbufferRPIndex;
+	}
+
+	void RenderGraphVk::BuildDependencyTree(u32 renderPassIndex)
+	{
+		RenderPassVk& currentRenderPass = m_registeredRenderPasses[renderPassIndex];
+
+		// Base case - return if pass has no inputs (or read resources)
+		if (currentRenderPass.m_inputResources.none())
+		{
+			return;
+		}
+
+		// Starting off with the backbuffer render pass, recursively find all other passes
+		// which write to the input resources
+		for (u32 i = 0; i < static_cast<u32>(m_registeredResources.size()); i++)
+		{
+			const auto& currInputs = currentRenderPass.m_inputResources;
+			if (!currInputs.test(i))
+			{
+				continue;
+			}
+
+			for (u32 j = 0; j < static_cast<u32>(m_registeredRenderPasses.size()); j++)
+			{
+				RenderPassVk& potentialWriteRP = m_registeredRenderPasses[j];
+				bool isDependencyRP = ((potentialWriteRP.m_outputResources & currInputs) != 0);
+				if (isDependencyRP)
+				{
+					// Found a dependency. This pass writes to one or more of the current pass's inputs,
+					// so store the dependency in the render pass node
+					currentRenderPass.m_renderPassDependencies.set(renderPassIndex);
+					BuildDependencyTree(i);
+				}
+			}
+		}
 	}
 }

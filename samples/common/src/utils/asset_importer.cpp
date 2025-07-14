@@ -60,6 +60,7 @@ namespace Common
 
 		diskTex.size = size;
 		diskTex.type = type;
+		diskTex.bytesPerPixel = bytesPerPixel;
 
 		return diskTex;
 	}
