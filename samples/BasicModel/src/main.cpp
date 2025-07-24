@@ -303,8 +303,8 @@ int main(int argc, char** argv)
 			pContext->DrawIndexed(static_cast<u32>(cubeAsset->indices.size()));
 		});
 
-		pRenderGraph->Bake(pSwapChain, clearVals.data(), static_cast<u32>(clearVals.size()));
-		pRenderGraph->EndFrame(pSwapChain);
+		pRenderGraph->Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
+		pRenderGraph->EndFrame();
 
 		pSwapChain->Present();
 	}

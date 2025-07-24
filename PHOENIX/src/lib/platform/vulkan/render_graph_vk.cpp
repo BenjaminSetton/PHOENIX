@@ -1,6 +1,9 @@
 
+#include <utility> // std::swap
+
 #include "render_graph_vk.h"
 
+#include "buffer_vk.h"
 #include "device_context_vk.h"
 #include "render_device_vk.h"
 #include "swap_chain_vk.h"
@@ -11,18 +14,21 @@
 #include "utils/render_graph_type_converter.h"
 #include "utils/sanity.h"
 
+// Most of the implementation details were taken from the following sources:
+// https://poniesandlight.co.uk/reflect/island_rendergraph_1/
+//
+
 namespace PHX
 {
 	static const char* s_pReservedBackbufferName = "INTERNAL_backbuffer";
 	static constexpr u32 s_invalidRenderPassIndex = U32_MAX;
 
-	static u64 HashResourceDesc(const ResourceDesc& desc)
+	static u64 HashResource(void* data, const RESOURCE_TYPE& type)
 	{
-		// Only hash the resourceType and data pointer. That's all we should look at to determine
-		// whether two resources are the same
 		size_t seed = 0;
-		HashCombine(seed, desc.resourceType);
-		HashCombine(seed, desc.data);
+		HashCombine(seed, type);
+		HashCombine(seed, data);
+
 		return static_cast<u64>(seed);
 	}
 
@@ -60,9 +66,303 @@ namespace PHX
 		return VK_IMAGE_LAYOUT_GENERAL;
 	}
 
-	size_t ResourceDescHasher::operator()(const ResourceDesc& desc) const
+	static VkAccessFlags CalculateResourceAccessFlags(const ResourceUsage& usage, const RenderResource& resource, BIND_POINT bindPoint)
 	{
+		VkAccessFlags flags = 0;
+		switch (usage.io)
+		{
+		case RESOURCE_IO::INPUT:
+		{
+			if (bindPoint == BIND_POINT::TRANSFER)
+			{
+				flags |= VK_ACCESS_TRANSFER_READ_BIT;
+			}
+			else
+			{
+				switch (resource.type)
+				{
+				case RESOURCE_TYPE::BUFFER:
+				{
+					// Determine whether this access is for vertex, index or storage buffer
+					BufferVk* pBuffer = static_cast<BufferVk*>(resource.data);
+					ASSERT_PTR(pBuffer); // Should never be null, otherwise no point in doing any of this work
 
+					const BUFFER_USAGE bufferUsage = pBuffer->GetUsage();
+					switch (bufferUsage)
+					{
+					case BUFFER_USAGE::VERTEX_BUFFER:
+					{
+						flags |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
+						break;
+					}
+					case BUFFER_USAGE::INDEX_BUFFER:
+					{
+						flags |= VK_ACCESS_INDEX_READ_BIT;
+						break;
+					}
+					case BUFFER_USAGE::STORAGE_BUFFER:
+					case BUFFER_USAGE::UNIFORM_BUFFER: // fall-thru
+					{
+						flags |= VK_ACCESS_SHADER_READ_BIT;
+						break;
+					}
+					case BUFFER_USAGE::INDIRECT_BUFFER:
+					{
+						TODO(); // No idea what to do here
+						break;
+					}
+					default:
+					{
+						ASSERT_MSG("Failed to calculate resource access flag. Unknown buffer usage %u!", static_cast<u32>(bufferUsage));
+						break;
+					}
+					}
+					break;
+				}
+				case RESOURCE_TYPE::TEXTURE:
+				{
+					switch (usage.attachmentType)
+					{
+					case ATTACHMENT_TYPE::COLOR:
+					{
+						flags |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+						break;
+					}
+					case ATTACHMENT_TYPE::DEPTH:
+					case ATTACHMENT_TYPE::STENCIL: // fall-thru
+					case ATTACHMENT_TYPE::DEPTH_STENCIL: // fall-thru
+					{
+						flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+						break;
+					}
+					case ATTACHMENT_TYPE::RESOLVE:
+					{
+						// Is an *input* resolve texture a logic error?
+						ASSERT_ALWAYS("Cannot calculate access flag for input resolve texture");
+						break;
+					}
+					case ATTACHMENT_TYPE::INVALID:
+					{
+						// Not sure how we got here in the first place
+						ASSERT_ALWAYS("Cannot calculate access flag for input texture with an invalid attachment type!");
+						break;
+					}
+					}
+					break;
+				}
+				case RESOURCE_TYPE::UNIFORM:
+				{
+					flags |= VK_ACCESS_UNIFORM_READ_BIT;
+					break;
+				}
+				default:
+				{
+					ASSERT_MSG("Failed to calculate resource access flag. Unknown resource type %u!", static_cast<u32>(resource.type));
+					break;
+				}
+				}
+			}
+			break;
+		}
+		case RESOURCE_IO::OUTPUT:
+		{
+			if (bindPoint == BIND_POINT::TRANSFER)
+			{
+				flags |= VK_ACCESS_TRANSFER_WRITE_BIT;
+			}
+			else
+			{
+				switch (resource.type)
+				{
+				case RESOURCE_TYPE::BUFFER:
+				{
+					flags |= VK_ACCESS_SHADER_WRITE_BIT;
+					break;
+				}
+				case RESOURCE_TYPE::TEXTURE:
+				{
+					switch (usage.attachmentType)
+					{
+					case ATTACHMENT_TYPE::COLOR:
+					{
+						flags |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						break;
+					}
+					case ATTACHMENT_TYPE::DEPTH:
+					case ATTACHMENT_TYPE::STENCIL: // fall-thru
+					case ATTACHMENT_TYPE::DEPTH_STENCIL: // fall-thru
+					{
+						flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+						break;
+					}
+					case ATTACHMENT_TYPE::RESOLVE:
+					{
+						// Not sure if this is correct
+						flags |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						break;
+					}
+					case ATTACHMENT_TYPE::INVALID:
+					{
+						// Not sure how we got here in the first place
+						ASSERT_ALWAYS("Cannot calculate access flag for input texture with an invalid attachment type!");
+						break;
+					}
+					}
+					break;
+				}
+				case RESOURCE_TYPE::UNIFORM:
+				{
+					// Logic error
+					ASSERT_ALWAYS("Cannot calculate access flag for an output uniform!");
+					break;
+				}
+				default:
+				{
+					ASSERT_MSG("Failed to calculate resource access flag. Unknown resource type %u!", static_cast<u32>(resource.type));
+					break;
+				}
+				}
+				break;
+			}
+			break;
+		}
+		default:
+		{
+			ASSERT_MSG("Failed to calculate resource access flag. Unknown IO type %u!", static_cast<u32>(usage.io));
+			break;
+		}
+		}
+
+		return flags;
+	}
+
+	// TODO - "isSrcFlag" parameter is a temporary band-aid because we don't have any information about which pipeline
+	// stage a resource will be used in. For compute and graphics it's pretty obvious, but for graphics we don't have
+	// any option other than blocking at pipeline start/end depending on this "isSrcFlag" parameter
+	static VkPipelineStageFlags CalculateResourcePipelineStageFlags(BIND_POINT bindPoint, bool isSrcFlag)
+	{
+		VkPipelineStageFlags flags = 0;
+		switch (bindPoint)
+		{
+		case BIND_POINT::GRAPHICS:
+		{
+			// Temporary, refer to above TODO
+			if (isSrcFlag)
+			{
+				flags |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+			}
+			else // isDstFlag
+			{
+				flags |= VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+			}
+			break;
+		}
+		case BIND_POINT::COMPUTE:
+		{
+			flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			break;
+		}
+		case BIND_POINT::TRANSFER:
+		{
+			flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+			break;
+		}
+		default:
+		{
+			ASSERT_ALWAYS("Failed to calculate resource pipeline stage flags. Unknown bind point!");
+		}
+		}
+
+		return flags;
+	}
+
+	static VkImageLayout CalculateResourceImageLayout(const ResourceUsage& usage, BIND_POINT bindPoint)
+	{
+		switch (usage.io)
+		{
+		case RESOURCE_IO::INPUT:
+		{
+			switch (bindPoint)
+			{
+			case BIND_POINT::GRAPHICS:
+			{
+				switch (usage.attachmentType)
+				{
+				case ATTACHMENT_TYPE::DEPTH:
+				case ATTACHMENT_TYPE::DEPTH_STENCIL:
+				case ATTACHMENT_TYPE::STENCIL:
+				{
+					return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+				}
+				default:
+				{
+					return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				}
+				}
+			}
+			case BIND_POINT::COMPUTE:
+			{
+				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			}
+			case BIND_POINT::TRANSFER:
+			{
+				return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			}
+			default:
+			{
+				break;
+			}
+			}
+			break;
+		}
+		case RESOURCE_IO::OUTPUT:
+		{
+			switch (bindPoint)
+			{
+			case BIND_POINT::GRAPHICS:
+			{
+				switch (usage.attachmentType)
+				{
+				case ATTACHMENT_TYPE::COLOR:
+				case ATTACHMENT_TYPE::RESOLVE:
+				{
+					return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				}
+				case ATTACHMENT_TYPE::DEPTH:
+				case ATTACHMENT_TYPE::DEPTH_STENCIL: // fall-thru
+				case ATTACHMENT_TYPE::STENCIL: // fall-thru
+				{
+					return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+				}
+				default:
+				{
+					break;
+				}
+				}
+			}
+			case BIND_POINT::COMPUTE:
+			{
+				return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			}
+			case BIND_POINT::TRANSFER:
+			{
+				return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			}
+			default:
+			{
+				break;
+			}
+			}
+			break;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		ASSERT_ALWAYS("Failed to calculate new image layout. Returning general image layout!");
+		return VK_IMAGE_LAYOUT_GENERAL;
 	}
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -87,145 +387,136 @@ namespace PHX
 
 	void RenderPassVk::SetTextureInput(ITexture* pTexture)
 	{
-		ResourceDesc desc{};
-		desc.name = nullptr; // TODO
-		desc.data = pTexture;
-		desc.io = RESOURCE_IO::INPUT;
-		desc.resourceType = RESOURCE_TYPE::TEXTURE;
-		desc.attachmentType = CalculateAttachmentType(pTexture);
-		desc.storeOp = ATTACHMENT_STORE_OP::IGNORE;
-		desc.loadOp = ATTACHMENT_LOAD_OP::LOAD;
+		ResourceUsage usage{};
+		usage.name = nullptr; // TODO
+		usage.io = RESOURCE_IO::INPUT;
+		usage.passIndex = m_index;
+		usage.attachmentType = CalculateAttachmentType(pTexture);
+		usage.storeOp = ATTACHMENT_STORE_OP::IGNORE;
+		usage.loadOp = ATTACHMENT_LOAD_OP::LOAD;
 
-		const u8 resourceIndex = m_registerResourceCallback(desc);
+		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
 		m_inputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetBufferInput(IBuffer* pBuffer)
 	{
-		ResourceDesc desc{};
-		desc.name = nullptr; // TODO
-		desc.data = pBuffer;
-		desc.io = RESOURCE_IO::INPUT;
-		desc.resourceType = RESOURCE_TYPE::BUFFER;
+		ResourceUsage usage{};
+		usage.name = nullptr; // TODO
+		usage.io = RESOURCE_IO::INPUT;
+		usage.passIndex = m_index;
 
 		// Not a texture resource
-		desc.attachmentType = ATTACHMENT_TYPE::INVALID;
-		desc.storeOp = ATTACHMENT_STORE_OP::INVALID;
-		desc.loadOp = ATTACHMENT_LOAD_OP::INVALID;
+		usage.attachmentType = ATTACHMENT_TYPE::INVALID;
+		usage.storeOp = ATTACHMENT_STORE_OP::INVALID;
+		usage.loadOp = ATTACHMENT_LOAD_OP::INVALID;
 
-		const u8 resourceIndex = m_registerResourceCallback(desc);
+		const u8 resourceIndex = m_registerResourceCallback(pBuffer, RESOURCE_TYPE::BUFFER, usage);
 		m_inputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetUniformInput(IUniformCollection* pUniformCollection)
 	{
 		TODO();
-		ResourceDesc desc{};
-		desc.name = nullptr; // TODO
-		desc.data = pUniformCollection;
-		desc.io = RESOURCE_IO::INPUT;
-		desc.resourceType = RESOURCE_TYPE::UNIFORM;
+		ResourceUsage usage{};
+		usage.name = nullptr; // TODO
+		usage.io = RESOURCE_IO::INPUT;
+		usage.passIndex = m_index;
 
 		// Not a texture resource
-		desc.attachmentType = ATTACHMENT_TYPE::INVALID;
-		desc.storeOp = ATTACHMENT_STORE_OP::INVALID;
-		desc.loadOp = ATTACHMENT_LOAD_OP::INVALID;
+		usage.attachmentType = ATTACHMENT_TYPE::INVALID;
+		usage.storeOp = ATTACHMENT_STORE_OP::INVALID;
+		usage.loadOp = ATTACHMENT_LOAD_OP::INVALID;
 
-		const u8 resourceIndex = m_registerResourceCallback(desc);
+		const u8 resourceIndex = m_registerResourceCallback(pUniformCollection, RESOURCE_TYPE::UNIFORM, usage);
 		m_inputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetColorOutput(ITexture* pTexture)
 	{
-		ResourceDesc desc{};
-		desc.name = nullptr; // TODO
-		desc.data = pTexture;
-		desc.io = RESOURCE_IO::OUTPUT;
-		desc.resourceType = RESOURCE_TYPE::TEXTURE;
-		desc.attachmentType = ATTACHMENT_TYPE::COLOR;
-		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
-		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
+		ResourceUsage usage{};
+		usage.name = nullptr; // TODO
+		usage.io = RESOURCE_IO::OUTPUT;
+		usage.passIndex = m_index;
+		usage.attachmentType = ATTACHMENT_TYPE::COLOR;
+		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
+		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		const u8 resourceIndex = m_registerResourceCallback(desc);
+		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetDepthOutput(ITexture* pTexture)
 	{
-		ResourceDesc desc{};
-		desc.name = "out_depth_tex"; // TODO
-		desc.data = pTexture;
-		desc.io = RESOURCE_IO::OUTPUT;
-		desc.resourceType = RESOURCE_TYPE::TEXTURE;
-		desc.attachmentType = ATTACHMENT_TYPE::DEPTH;
-		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
-		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
+		ResourceUsage usage{};
+		usage.name = "out_depth_tex"; // TODO
+		usage.io = RESOURCE_IO::OUTPUT;
+		usage.passIndex = m_index;
+		usage.attachmentType = ATTACHMENT_TYPE::DEPTH;
+		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
+		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		const u8 resourceIndex = m_registerResourceCallback(desc);
+		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetDepthStencilOutput(ITexture* pTexture)
 	{
 		TODO();
-		ResourceDesc desc{};
-		desc.name = nullptr; // TODO
-		desc.data = pTexture;
-		desc.io = RESOURCE_IO::OUTPUT;
-		desc.resourceType = RESOURCE_TYPE::TEXTURE;
-		desc.attachmentType = ATTACHMENT_TYPE::DEPTH_STENCIL;
-		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
-		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
+		ResourceUsage usage{};
+		usage.name = nullptr; // TODO
+		usage.io = RESOURCE_IO::OUTPUT;
+		usage.passIndex = m_index;
+		usage.attachmentType = ATTACHMENT_TYPE::DEPTH_STENCIL;
+		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
+		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		const u8 resourceIndex = m_registerResourceCallback(desc);
+		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetResolveOutput(ITexture* pTexture)
 	{
 		TODO();
-		ResourceDesc desc{};
-		desc.name = nullptr; // TODO
-		desc.data = pTexture;
-		desc.io = RESOURCE_IO::OUTPUT;
-		desc.resourceType = RESOURCE_TYPE::TEXTURE;
-		desc.attachmentType = ATTACHMENT_TYPE::RESOLVE;
-		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
-		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
+		ResourceUsage usage{};
+		usage.name = nullptr; // TODO
+		usage.io = RESOURCE_IO::OUTPUT;
+		usage.passIndex = m_index;
+		usage.attachmentType = ATTACHMENT_TYPE::RESOLVE;
+		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
+		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		const u8 resourceIndex = m_registerResourceCallback(desc);
+		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetBackbufferOutput(ITexture* pTexture)
 	{
-		ResourceDesc desc{};
-		desc.name = s_pReservedBackbufferName;
-		desc.data = pTexture;
-		desc.io = RESOURCE_IO::OUTPUT;
-		desc.resourceType = RESOURCE_TYPE::TEXTURE;
-		desc.attachmentType = ATTACHMENT_TYPE::COLOR;
-		desc.storeOp = ATTACHMENT_STORE_OP::STORE;
-		desc.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
+		ResourceUsage usage{};
+		usage.name = s_pReservedBackbufferName;
+		usage.io = RESOURCE_IO::OUTPUT;
+		usage.passIndex = m_index;
+		usage.attachmentType = ATTACHMENT_TYPE::COLOR;
+		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
+		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		const u8 resourceIndex = m_registerResourceCallback(desc);
+		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
 	void RenderPassVk::SetBufferOutput(IBuffer* pBuffer)
 	{
-		ResourceDesc desc{};
-		desc.name = nullptr;
-		desc.data = pBuffer;
-		desc.io = RESOURCE_IO::OUTPUT;
-		desc.resourceType = RESOURCE_TYPE::BUFFER;
+		ResourceUsage usage{};
+		usage.name = nullptr;
+		usage.io = RESOURCE_IO::OUTPUT;
+		usage.passIndex = m_index;
 
 		// Not a texture resource
-		desc.attachmentType = ATTACHMENT_TYPE::INVALID;
-		desc.storeOp = ATTACHMENT_STORE_OP::INVALID;
-		desc.loadOp = ATTACHMENT_LOAD_OP::INVALID;
+		usage.attachmentType = ATTACHMENT_TYPE::INVALID;
+		usage.storeOp = ATTACHMENT_STORE_OP::INVALID;
+		usage.loadOp = ATTACHMENT_LOAD_OP::INVALID;
 
-		const u8 resourceIndex = m_registerResourceCallback(desc);
+		const u8 resourceIndex = m_registerResourceCallback(pBuffer, RESOURCE_TYPE::BUFFER, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
@@ -315,18 +606,10 @@ namespace PHX
 		return res;
 	}
 
-	STATUS_CODE RenderGraphVk::EndFrame(ISwapChain* pSwapChain)
+	STATUS_CODE RenderGraphVk::EndFrame()
 	{
-		if (pSwapChain == nullptr)
-		{
-			LogError("Failed to end frame. Swap chain is null!");
-			return STATUS_CODE::ERR_API;
-		}
 
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
-
-		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(pSwapChain);
-		ASSERT_PTR(swapChainVk);
 
 		DeviceContextVk* pDeviceContext = GetDeviceContext();
 		res = pDeviceContext->EndFrame(m_frameIndex);
@@ -340,8 +623,8 @@ namespace PHX
 		m_frameIndex = (m_frameIndex + 1) % m_renderDevice->GetFramesInFlight();
 
 		m_registeredRenderPasses.clear();
-		m_registeredResources.clear();
-		m_resourceDescCache.clear();
+		m_resourceUsages.clear();
+		m_physicalResources.clear();
 
 		return res;
 	}
@@ -350,35 +633,37 @@ namespace PHX
 	{
 		const u32 passIndex = static_cast<u32>(m_registeredRenderPasses.size());
 
-		auto registerResourceFuncPtr = std::bind(&RenderGraphVk::RegisterResource, this, std::placeholders::_1);
+		auto registerResourceFuncPtr = std::bind(&RenderGraphVk::RegisterResource, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 		m_registeredRenderPasses.emplace_back(passName, bindPoint, passIndex, registerResourceFuncPtr);
 		return &m_registeredRenderPasses.back();
 	}
 
-	STATUS_CODE RenderGraphVk::Bake(ISwapChain* pSwapChain, ClearValues* pClearColors, u32 clearColorCount)
+	STATUS_CODE RenderGraphVk::Bake(ClearValues* pClearColors, u32 clearColorCount)
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
-		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(pSwapChain);
-		ASSERT_PTR(swapChainVk);
-
 		// Create the render graph tree using the following steps:
 		// 1. Find the render pass that writes to the back-buffer
-		u32 backbufferRPIndex = FindBackBufferRenderPassIndex();
-		if (backbufferRPIndex == s_invalidRenderPassIndex)
+		u32 finalRPIndex = FindBackBufferRenderPassIndex();
+		if (finalRPIndex == s_invalidRenderPassIndex)
 		{
 			LogError("Failed to bake render graph. No render pass writes to backbuffer!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		RenderPassVk& backbufferRP = m_registeredRenderPasses[backbufferRPIndex];
+		//RenderPassVk& backbufferRP = m_registeredRenderPasses[finalRPIndex];
 		
-		// 2. Once that render pass is found, build render graph by looking at inputs and working up recursively (using breadth-first search)
-		BuildDependencyTree(backbufferRPIndex);
+		// 2. Once that render pass is found, build the dependency tree
+		BuildDependencyTree(finalRPIndex);
 
 		// 3. [TRIMMING] Accumulate all contributing render passes into a separate container for the render graph. This is done so that
 		//               all non-contributing passes are indirectly trimmed
-		// TODO
+		std::vector<u32> activeRenderPassIndices;
+		activeRenderPassIndices.reserve(m_registeredRenderPasses.size());
+
+		FindActivePasses(finalRPIndex, activeRenderPassIndices);
+
+		CalculateResourceBarriers(activeRenderPassIndices);
 
 		// 4. [COMBINATION] Combine as many separate render passes into one for optimal GPU usage
 		// TODO
@@ -387,80 +672,86 @@ namespace PHX
 		// 1. Declare the resources that will get used in the device context
 		// 2. Insert resource barriers and/or perform layout transitions as necessary
 		// 3. Call the execute callback and pass in the device context
-		
-
-		// TODO - Simply dealing with the backbuffer pass for now
-		// Transition the backbuffer resource to PRESENT layout
-		//ResourceDesc& backbufferResourceDesc = backbufferRP.m_outputResources.at(0);
-		//if (backbufferResourceDesc.resourceType == RESOURCE_TYPE::TEXTURE)
-		//{
-		//	ITexture* backbufferResource = static_cast<ITexture*>(backbufferResourceDesc.data);
-		//}
-
-		// for(auto& rp : validRenderPasses)
-
-		//		Get or create render pass (should refer to internal cache)
-		VkRenderPass renderPassVk = CreateRenderPass(backbufferRP);
-		
-		//		Get or create framebuffer from render device (should refer to internal cache)
-		const bool isBackbuffer = true;
-		FramebufferVk* pFramebuffer = CreateFramebuffer(backbufferRP, renderPassVk, isBackbuffer);
-
-		//		Get or create pipeline from render device (should refer to internal cache)
-		PipelineVk* pPipeline = CreatePipeline(backbufferRP, renderPassVk);
+		std::reverse(activeRenderPassIndices.begin(), activeRenderPassIndices.end());
 
 		DeviceContextVk* pDeviceContext = GetDeviceContext();
+		for (u32 activeRenderPassIndex : activeRenderPassIndices)
+		{
+			const RenderPassVk& currRenderPass = m_registeredRenderPasses[activeRenderPassIndex];
 
-		// Look at all input resources and make sure they're in the correct layout
-		//for (const ResourceDesc& inputResource : backbufferRP->m_inputResources)
-		//{
-		//	if (inputResource.resourceType != RESOURCE_TYPE::TEXTURE)
-		//	{
-		//		continue;
-		//	}
+			// Before calling execution callback, insert all barriers required by the render pass
+			res = InsertResourceBarriers(currRenderPass);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to bake render graph. Could not insert dependency barriers!");
+				return res;
+			}
 
-		//	VkImageLayout destLayout = CalculateLayoutForInputImage(inputResource.attachmentType);
-		//	TextureVk* textureVk = static_cast<TextureVk*>(inputResource.data);
-
-		//	// Issue the commands for image layout barriers
-		//	pDeviceContext->TransitionImageLayout(textureVk, destLayout);
-		//}
-
-		//FlushSyncData preRPSyncData{}; // No sync for now
-		//res = pDeviceContext->Flush(QUEUE_TYPE::TRANSFER, preRPSyncData);
-		//if (res != STATUS_CODE::SUCCESS)
-		//{
-		//	LogError("Failed to bake render graph. Device context could not flush image layout transitions!");
-		//	return res;
-		//}
+			switch (currRenderPass.m_bindPoint)
+			{
+				case BIND_POINT::GRAPHICS:
+				{
+					// Get or create render pass (should refer to internal cache)
+					VkRenderPass renderPassVk = CreateRenderPass(currRenderPass);
 		
-		res = pDeviceContext->BeginRenderPass(renderPassVk, pFramebuffer, pClearColors, clearColorCount);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to bake render pass. Device context could not begin render pass!");
-			return res;
-		}
+					// Get or create framebuffer from render device (should refer to internal cache)
+					const bool isBackbuffer = (currRenderPass.m_index == finalRPIndex);
+					FramebufferVk* pFramebuffer = CreateFramebuffer(currRenderPass, renderPassVk, isBackbuffer);
 
-		// Call the main render pass execution callback
-		backbufferRP.m_execCallback(pDeviceContext, pPipeline);
+					// Get or create pipeline from render device (should refer to internal cache)
+					PipelineVk* pPipeline = CreatePipeline(currRenderPass, renderPassVk);
 
-		// Flush any transfer operations requested in the execution callback
-		//FlushSyncData midRPSyncData{}; // No sync for now
-		//res = pDeviceContext->Flush(QUEUE_TYPE::TRANSFER, midRPSyncData);
-		//if (res != STATUS_CODE::SUCCESS)
-		//{
-		//	LogError("Failed to bake render graph. Device context could not flush transfer operations!");
-		//	return res;
-		//}
+					res = pDeviceContext->BeginRenderPass(renderPassVk, pFramebuffer, pClearColors, clearColorCount);
+					if (res != STATUS_CODE::SUCCESS)
+					{
+						LogError("Failed to bake render pass. Device context could not begin render pass!");
+						return res;
+					}
 
-		res = pDeviceContext->EndRenderPass();
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to bake render graph. Device context could not end render pass!");
-			return res;
+					// Call the main render pass execution callback
+					currRenderPass.m_execCallback(pDeviceContext, pPipeline);
+
+					res = pDeviceContext->EndRenderPass();
+					if (res != STATUS_CODE::SUCCESS)
+					{
+						LogError("Failed to bake render graph. Device context could not end render pass!");
+						return res;
+					}
+
+					break;
+				}
+				case BIND_POINT::COMPUTE:
+				{
+					// Get or create pipeline from render device (should refer to internal cache)
+					// NOTE - The render pass isn't used for compute pipeline creation, so it can
+					// be ignored by passing in VK_NULL_HANDLE
+					PipelineVk* pPipeline = CreatePipeline(currRenderPass, VK_NULL_HANDLE);
+
+					currRenderPass.m_execCallback(pDeviceContext, pPipeline);
+
+					break;
+				}
+				case BIND_POINT::TRANSFER:
+				{
+					// NOTE - Transfer-only passes do not use a pipeline
+					currRenderPass.m_execCallback(pDeviceContext, nullptr);
+
+					break;
+				}
+			}
+
 		}
 
 		return res;
+	}
+
+	STATUS_CODE RenderGraphVk::GenerateVisualization(const char* fileName, bool generateIfUnique)
+	{
+		UNUSED(fileName);
+		UNUSED(generateIfUnique);
+		TODO();
+
+		return STATUS_CODE::SUCCESS;
 	}
 
 	VkRenderPass RenderGraphVk::CreateRenderPass(const RenderPassVk& renderPass)
@@ -471,122 +762,228 @@ namespace PHX
 
 		SubpassDescription subpassDesc{};
 		subpassDesc.bindPoint = RG_UTILS::ConvertBindPoint(renderPass.m_bindPoint);
-		subpassDesc.srcStageMask = 0;
-		subpassDesc.dstStageMask = 0;
-		subpassDesc.srcAccessMask = 0;
-		subpassDesc.dstAccessMask = 0;
 
-		for (u32 i = 0; i < m_registeredResources.size(); i++)
+		// Incremented every iteration of TraverseRenderPassOutputs below
+		u32 localResourceIndex = 0;
+
+		TraverseRenderPassOutputs(renderPass.m_index, [&](const RenderResource& outputResource)
 		{
-			// Only consider the render pass's output resources
-			if (!renderPass.m_outputResources.test(i))
+			if (outputResource.type != RESOURCE_TYPE::TEXTURE)
 			{
-				continue;
+				// Ignore any non-texture output resources
+				return;
 			}
 
-			const ResourceDesc& outputResource = m_registeredResources[i];
-			if (outputResource.resourceType != RESOURCE_TYPE::TEXTURE)
-			{
-				continue;
-			}
+			TextureVk* pTexture = static_cast<TextureVk*>(outputResource.data);
+			ASSERT_PTR(pTexture);
 
 			AttachmentDescription attDesc{};
-			attDesc.pTexture = static_cast<TextureVk*>(outputResource.data);
-			attDesc.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED; // TODO
+			attDesc.pTexture = pTexture;
 
-			// TODO - Since we're only dealing with 1 render pass for now, I'll assume that
-			//        the special backbuffer resource will be used as the present resource and
-			//        everything else is a depth buffer resource (since this is only for output resources)
-			if (HashCRC32(outputResource.name) == m_pReservedBackbufferNameCRC)
+			const ResourceUsage* resourceUsage = GetResourceUsageFromPass(renderPass, outputResource.resourceID);
+			if (resourceUsage == nullptr)
 			{
-				attDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+				ASSERT_ALWAYS("Failed to create render pass. Render pass uses physical resource but has no usage for it?");
+				return;
+			}
+
+			// Use the pre-computed barrier information as a sub-pass dependency in this case
+			auto iter = renderPass.m_outputBarriers.find(outputResource.resourceID);
+			if (iter == renderPass.m_outputBarriers.end())
+			{
+				// If we can't find any output barriers and the render pass didn't get trimmed, this
+				// means that it's the backbuffer pass since no other pass depends on it. 
+				// 
+				// We'll make some assumptions about what the resource access and stage masks are 
+				// in this last pass. Not sure what else to do at the moment
+
+				attDesc.initialLayout = pTexture->GetLayout();
+
+				switch (resourceUsage->attachmentType)
+				{
+				case ATTACHMENT_TYPE::COLOR:
+				{
+					attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+					attDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+					if (HashCRC32(resourceUsage->name) == m_pReservedBackbufferNameCRC)
+					{
+						attDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+					}
+
+					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
+
+					subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+					subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+					subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
+					subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+					subpassDesc.colorAttachmentIndices.push_back(localResourceIndex);
+					break;
+				}
+				case ATTACHMENT_TYPE::DEPTH:
+				{
+					attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+					attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
+
+					subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+					subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+					subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+					subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
+					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
+					break;
+				}
+				case ATTACHMENT_TYPE::STENCIL:
+				{
+					attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+					attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+					attDesc.stencilLoadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+					attDesc.stencilStoreOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
+
+					subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+					subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+					subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+					subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
+					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
+					break;
+				}
+				case ATTACHMENT_TYPE::DEPTH_STENCIL:
+				{
+					attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+					attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+					// TODO - Should this be considered a stencil or regular load/store op?
+					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
+
+					subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+					subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+					subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+					subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
+					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
+					break;
+				}
+				case ATTACHMENT_TYPE::RESOLVE:
+				{
+					attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+					attDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
+
+					subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+					subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+					subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
+					subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+					ASSERT_MSG(subpassDesc.resolveAttachmentIndex == -1, "Already assigned the resolve attachment index!");
+					subpassDesc.resolveAttachmentIndex = localResourceIndex;
+					break;
+				}
+				}
 			}
 			else
 			{
-				attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-			}
-			
-			switch (outputResource.attachmentType)
-			{
-			case ATTACHMENT_TYPE::COLOR:
-			{
-				attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
-				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
+				const Barrier& outputBarrier = iter->second;
 
-				subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-				subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-				subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
-				subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				attDesc.initialLayout = pTexture->GetLayout();
+				attDesc.layout = outputBarrier.oldLayout;
+				attDesc.finalLayout = outputBarrier.newLayout;
 
-				subpassDesc.colorAttachmentIndices.push_back(i);
-				break;
-			}
-			case ATTACHMENT_TYPE::DEPTH:
-			{
-				attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; // TODO - Switch to DEPTH_ONLY in Vulkan version 1.2?
-				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
-				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
+				subpassDesc.srcAccessMask = outputBarrier.srcAccessMask;
+				subpassDesc.dstAccessMask = outputBarrier.dstAccessMask;
+				subpassDesc.srcStageMask = outputBarrier.srcStageMask;
+				subpassDesc.dstStageMask = outputBarrier.dstStageMask;
 
-				subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-				subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-				subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-				subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				switch (resourceUsage->attachmentType)
+				{
+				case ATTACHMENT_TYPE::COLOR:
+				{
+					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
 
-				ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
-				subpassDesc.depthStencilAttachmentIndex = i;
-				break;
-			}
-			case ATTACHMENT_TYPE::STENCIL:
-			{
-				attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL; // TODO - Switch to STENCIL_ONLY in Vulkan version 1.2?
-				attDesc.stencilLoadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
-				attDesc.stencilStoreOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
+					//subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+					//subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+					//subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
+					//subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-				subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-				subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-				subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-				subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+					subpassDesc.colorAttachmentIndices.push_back(localResourceIndex);
+					break;
+				}
+				case ATTACHMENT_TYPE::DEPTH:
+				{
+					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
 
-				ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
-				subpassDesc.depthStencilAttachmentIndex = i;
-				break;
-			}
-			case ATTACHMENT_TYPE::DEPTH_STENCIL:
-			{
-				// TODO - Should this be considered a stencil or regular load/store op?
-				attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
-				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
+					//subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+					//subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+					//subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+					//subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-				subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-				subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-				subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-				subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
+					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
+					break;
+				}
+				case ATTACHMENT_TYPE::STENCIL:
+				{
+					attDesc.stencilLoadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+					attDesc.stencilStoreOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
 
-				ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
-				subpassDesc.depthStencilAttachmentIndex = i;
-				break;
-			}
-			case ATTACHMENT_TYPE::RESOLVE:
-			{
-				attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-				attDesc.loadOp = ATT_UTILS::ConvertLoadOp(outputResource.loadOp);
-				attDesc.storeOp = ATT_UTILS::ConvertStoreOp(outputResource.storeOp);
+					//subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+					//subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+					//subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+					//subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-				subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-				subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-				subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
-				subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
+					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
+					break;
+				}
+				case ATTACHMENT_TYPE::DEPTH_STENCIL:
+				{
+					// TODO - Should this be considered a stencil or regular load/store op?
+					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
 
-				ASSERT_MSG(subpassDesc.resolveAttachmentIndex == -1, "Already assigned the resolve attachment index!");
-				subpassDesc.resolveAttachmentIndex = i;
-				break;
-			}
+					//subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+					//subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+					//subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+					//subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
+					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
+					break;
+				}
+				case ATTACHMENT_TYPE::RESOLVE:
+				{
+					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
+
+					//subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+					//subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+					//subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
+					//subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+					ASSERT_MSG(subpassDesc.resolveAttachmentIndex == -1, "Already assigned the resolve attachment index!");
+					subpassDesc.resolveAttachmentIndex = localResourceIndex;
+					break;
+				}
+				}
 			}
 
 			renderPassDesc.attachments.push_back(attDesc);
-		}
+
+			localResourceIndex++;
+		});
 
 		renderPassDesc.subpasses.push_back(subpassDesc); // TODO - Support multiple subpasses
 
@@ -601,18 +998,11 @@ namespace PHX
 
 		u32 maxWidth = 0;
 		u32 maxHeight = 0;
-		for (u32 i = 0; i < m_registeredResources.size(); i++)
+		TraverseRenderPassOutputs(renderPass.m_index, [&](const RenderResource& outputResource)
 		{
-			// Only consider the render pass's output resources
-			if (!renderPass.m_outputResources.test(i))
+			if (outputResource.type != RESOURCE_TYPE::TEXTURE)
 			{
-				continue;
-			}
-
-			ResourceDesc& outputResource = m_registeredResources[i];
-			if (outputResource.resourceType != RESOURCE_TYPE::TEXTURE)
-			{
-				continue;
+				return;
 			}
 
 			TextureVk* pAttachmentTex = static_cast<TextureVk*>(outputResource.data);
@@ -624,21 +1014,29 @@ namespace PHX
 				// TODO - Maybe create crc database and convert crc to string for log message?
 				LogError("Failed to create framebuffer for render pass \"%X\"! Output texture resource does not have a valid texture pointer", renderPass.m_name);
 #endif
-				return nullptr;
+				return;
+			}
+
+			const ResourceUsage* resourceUsage = GetResourceUsageFromPass(renderPass, outputResource.resourceID);
+			if (resourceUsage == nullptr)
+			{
+				ASSERT_ALWAYS("Failed to create framebuffer. Render pass uses physical resource but has no usage for it?");
+				return;
 			}
 
 			FramebufferAttachmentDesc desc;
 			desc.pTexture = static_cast<TextureVk*>(outputResource.data);
 			desc.mipTarget = 0;
-			desc.type = outputResource.attachmentType;
-			desc.storeOp = outputResource.storeOp;
-			desc.loadOp = outputResource.loadOp;
+			desc.type = resourceUsage->attachmentType;
+			desc.storeOp = resourceUsage->storeOp;
+			desc.loadOp = resourceUsage->loadOp;
 
 			attachments.push_back(desc);
 
 			maxWidth = Max(maxWidth, pAttachmentTex->GetWidth());
 			maxHeight = Max(maxHeight, pAttachmentTex->GetHeight());
 		}
+		);
 
 		FramebufferDescription framebufferCI{};
 		framebufferCI.width = maxWidth;
@@ -679,27 +1077,41 @@ namespace PHX
 		return pipeline;
 	}
 
-	u8 RenderGraphVk::RegisterResource(const ResourceDesc& resourceDesc)
+	u8 RenderGraphVk::RegisterResource(void* data, RESOURCE_TYPE type, const ResourceUsage& usage)
 	{
-		u8 resourceIndex = U8_MAX;
+		const u64 resourceID = HashResource(data, type);
+		u8 physicalResourceIndex = U8_MAX;
 
-		// See if the same resource has already been registered
-		auto iter = m_resourceDescCache.find(resourceDesc);
-		if (iter == m_resourceDescCache.end())
+		// Try to find an existing physical resource
+		for (u8 i = 0; i < static_cast<u32>(m_physicalResources.size()); i++)
 		{
-			// Couldn't find a matching resource, so create a new one
-			resourceIndex = static_cast<u8>(m_registeredResources.size());
-			m_registeredResources.push_back(resourceDesc);
-
-			m_resourceDescCache.insert({resourceDesc, resourceIndex});
+			const RenderResource& physicalResource = m_physicalResources[i];
+			if (physicalResource.resourceID == resourceID)
+			{
+				// Found match
+				physicalResourceIndex = i;
+				break;
+			}
 		}
-		else
+		
+		if (physicalResourceIndex == U8_MAX)
 		{
-			// Found existing resource!
-			resourceIndex = static_cast<u8>(iter->second);
+			// Couldn't find existing physical resource, create one instead
+			RenderResource newPhysicalResource{};
+			newPhysicalResource.data = data;
+			newPhysicalResource.resourceID = resourceID;
+			newPhysicalResource.type = type;
+
+			physicalResourceIndex = static_cast<u8>(m_physicalResources.size());
+			m_physicalResources.push_back(newPhysicalResource);
 		}
 
-		return resourceIndex;
+		// Always create new virtual resource
+		ResourceUsage newUsage = usage;
+		newUsage.resourceID = resourceID;
+		m_resourceUsages.push_back(newUsage);
+
+		return physicalResourceIndex;
 	}
 
 	DeviceContextVk* RenderGraphVk::GetDeviceContext() const
@@ -711,35 +1123,25 @@ namespace PHX
 	{
 		u32 backbufferRPIndex = s_invalidRenderPassIndex;
 
-		for (u32 i = 0; i < m_registeredRenderPasses.size(); i++)
+		for (u32 j = 0; j < m_resourceUsages.size(); j++)
 		{
-			// Check if any of the render pass's output resources are the backbuffer
-			const RenderPassVk& renderPass = m_registeredRenderPasses.at(i);
-			for (u32 j = 0; j < m_registeredResources.size(); j++)
+			const ResourceUsage& resourceUsage = m_resourceUsages[j];
+			if (resourceUsage.io != RESOURCE_IO::OUTPUT)
 			{
-				const ResourceDesc& outputResource = m_registeredResources[j];
-				if (!renderPass.m_outputResources.test(j))
-				{
-					continue;
-				}
-
-				if (outputResource.name == nullptr)
-				{
-					continue;
-				}
-
-				// TODO - Optimize. We probably want to store the CRC rather than the raw string
-				const CRC32 outputResourceCRC = HashCRC32(outputResource.name);
-				if (outputResourceCRC == m_pReservedBackbufferNameCRC)
-				{
-					backbufferRPIndex = i;
-					break;
-				}
+				// Only consider output resources
+				continue;
 			}
 
-			if (backbufferRPIndex != s_invalidRenderPassIndex)
+			if (resourceUsage.name == nullptr)
 			{
-				// Found backbuffer render pass index!
+				continue;
+			}
+
+			// TODO - We might want to store the CRC rather than the raw string
+			const CRC32 outputResourceCRC = HashCRC32(resourceUsage.name);
+			if (outputResourceCRC == m_pReservedBackbufferNameCRC)
+			{
+				backbufferRPIndex = resourceUsage.passIndex;
 				break;
 			}
 		}
@@ -749,36 +1151,304 @@ namespace PHX
 
 	void RenderGraphVk::BuildDependencyTree(u32 renderPassIndex)
 	{
-		RenderPassVk& currentRenderPass = m_registeredRenderPasses[renderPassIndex];
+		RenderPassVk& currRenderPass = m_registeredRenderPasses[renderPassIndex];
 
-		// Base case - return if pass has no inputs (or read resources)
-		if (currentRenderPass.m_inputResources.none())
+		// Base cases
+		if (currRenderPass.m_inputResources.none())
+		{
+			return;
+		}
+		if (renderPassIndex >= m_registeredRenderPasses.size())
 		{
 			return;
 		}
 
-		// Starting off with the backbuffer render pass, recursively find all other passes
-		// which write to the input resources
-		for (u32 i = 0; i < static_cast<u32>(m_registeredResources.size()); i++)
+		// Recursively find all other passes EARLIER IN SUBMISSION ORDER which pose an access 
+		// hazard to any of the resources in the current pass. These hazards can be read-after-write (RAW),
+		// write-after-read (WAR) and write-after-write (WAW)
+		for (u32 i = 0; i < renderPassIndex; i++)
 		{
-			const auto& currInputs = currentRenderPass.m_inputResources;
-			if (!currInputs.test(i))
+			// Prevent a render pass from listing itself as a dependency
+			if (renderPassIndex == i)
 			{
 				continue;
 			}
 
-			for (u32 j = 0; j < static_cast<u32>(m_registeredRenderPasses.size()); j++)
+			RenderPassVk& prevRenderPass = m_registeredRenderPasses[i];
+
+			const ResourceIndexBitset rawHazardResources = (prevRenderPass.m_outputResources & currRenderPass.m_inputResources);
+			const ResourceIndexBitset warHazardResources = (prevRenderPass.m_inputResources & currRenderPass.m_outputResources);
+			const ResourceIndexBitset wawHazardResources = (prevRenderPass.m_outputResources & currRenderPass.m_outputResources);
+
+			// Create a new dependency to this previous render pass if any hazards are detected
+			const ResourceIndexBitset hazardResources = (rawHazardResources | warHazardResources | wawHazardResources);
+			const bool isDependencyRP = hazardResources.any();
+			if (isDependencyRP)
 			{
-				RenderPassVk& potentialWriteRP = m_registeredRenderPasses[j];
-				bool isDependencyRP = ((potentialWriteRP.m_outputResources & currInputs) != 0);
-				if (isDependencyRP)
+				DependencyInfo newDependency{};
+				newDependency.renderPass = &prevRenderPass;
+				newDependency.resources = hazardResources;
+				currRenderPass.m_dependencyInfos.push_back(newDependency);
+				BuildDependencyTree(i);
+			}
+		}
+	}
+
+	void RenderGraphVk::FindActivePasses(u32 finalPassIndex, std::vector<u32>& out_activeRenderPasses)
+	{
+		// Traverse dependency tree and tag all passes which contribute to the final pass
+		// Discard any passes which weren't tagged
+		const u32 passCount = static_cast<u32>(m_registeredRenderPasses.size());
+		std::vector<bool> contributesToFinalPass(passCount, false);
+
+		TraverseDependencyTree(finalPassIndex, [&](const RenderPassVk& currRenderPass)
+		{
+			out_activeRenderPasses.push_back(currRenderPass.m_index);
+		});
+	}
+
+	void RenderGraphVk::CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses)
+	{
+		// Traverse the dependency tree from bottom-to-top, and for every dependency:
+		// 1. Find which resource usages caused that dependency
+		// 2. For all those resource usages, generate a barrier. Only generate pipeline barriers for now, and ignore cross-queue synchronization
+		for (u32 activeRenderPassIndex : activeRenderPasses)
+		{
+			RenderPassVk& dstRenderPass = m_registeredRenderPasses[activeRenderPassIndex];
+
+			// Special case for first pass, since that one won't have any upward dependencies
+			if (activeRenderPassIndex == activeRenderPasses.back())
+			{
+				// Traverse input and output resources simultaneously and transition images to the correct layout for this render pass
+				const ResourceIndexBitset IOResources = (dstRenderPass.m_inputResources | dstRenderPass.m_outputResources);
+				TraverseResources(IOResources, [&](const RenderResource& resource)
 				{
-					// Found a dependency. This pass writes to one or more of the current pass's inputs,
-					// so store the dependency in the render pass node
-					currentRenderPass.m_renderPassDependencies.set(renderPassIndex);
-					BuildDependencyTree(i);
+					if (resource.type != RESOURCE_TYPE::TEXTURE)
+					{
+						return;
+					}
+					TextureVk* pTexture = static_cast<TextureVk*>(resource.data);
+					ASSERT_PTR(pTexture);
+
+					const u64& resourceID = resource.resourceID;
+					const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
+					ASSERT_PTR(dstResourceUsage); // Should never be null
+
+					// Only insert barriers if the layout is not compatible with the render passes' usage
+					const VkImageLayout srcLayout = pTexture->GetLayout();
+					const VkImageLayout dstLayout = CalculateResourceImageLayout(*dstResourceUsage, dstRenderPass.m_bindPoint);
+					if (srcLayout != dstLayout)
+					{
+						const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
+
+						Barrier newDstBarrier;
+						newDstBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
+						newDstBarrier.dstAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resource, dstBindPoint);
+						newDstBarrier.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+						newDstBarrier.dstStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, false);
+						newDstBarrier.oldLayout = pTexture->GetLayout(); // Perhaps this is the best way to get info from previous frames?
+						newDstBarrier.newLayout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
+
+						// Add the barrier information to dst pass
+						dstRenderPass.m_inputBarriers.insert({ resourceID, newDstBarrier });
+					}
+				});
+			}
+			else
+			{
+				for (const DependencyInfo& dependencyInfo : dstRenderPass.m_dependencyInfos)
+				{
+					RenderPassVk* srcRenderPass = dependencyInfo.renderPass;
+					TraverseResources(dependencyInfo.resources, [&](const RenderResource& resourceDependency)
+					{
+						// Setup the barrier. In this case the source corresponds to the active source render pass we're
+						// currently in. The destination corresponds to the dependency we're currently looping through
+						const u64& resourceID = resourceDependency.resourceID;
+						const ResourceUsage* srcResourceUsage = GetResourceUsageFromPass(*srcRenderPass, resourceID);
+						ASSERT_PTR(srcResourceUsage); // Should never be null
+						const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
+						ASSERT_PTR(dstResourceUsage); // Should never be null
+
+						const BIND_POINT srcBindPoint = srcRenderPass->m_bindPoint;
+						const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
+
+						Barrier newDstBarrier;
+						newDstBarrier.srcAccessMask = CalculateResourceAccessFlags(*srcResourceUsage, resourceDependency, srcBindPoint);
+						newDstBarrier.dstAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resourceDependency, dstBindPoint);
+						newDstBarrier.srcStageMask = CalculateResourcePipelineStageFlags(srcBindPoint, true);
+						newDstBarrier.dstStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, false);
+
+						if (resourceDependency.type == RESOURCE_TYPE::TEXTURE)
+						{
+							newDstBarrier.oldLayout = CalculateResourceImageLayout(*srcResourceUsage, srcBindPoint);
+							newDstBarrier.newLayout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
+						}
+
+						// Add the barrier information to dst pass
+						dstRenderPass.m_inputBarriers.insert({ resourceID, newDstBarrier });
+
+						// Create a mirror copy of dst barrier and add to src pass
+						Barrier newSrcBarrier = newDstBarrier;
+
+						srcRenderPass->m_outputBarriers.insert({resourceID, newSrcBarrier});
+					});
 				}
 			}
 		}
+	}
+
+	STATUS_CODE RenderGraphVk::InsertResourceBarriers(const RenderPassVk& renderPass)
+	{
+		STATUS_CODE res = STATUS_CODE::SUCCESS;
+		DeviceContextVk* pDeviceContext = GetDeviceContext();
+
+		for (auto& barrierIter : renderPass.m_inputBarriers)
+		{
+			u64 resourceID = barrierIter.first;
+			const Barrier& currBarrier = barrierIter.second;
+
+			const RenderResource* resourceBarrier = GetPhysicalResource(resourceID);
+			ASSERT_PTR(resourceBarrier);
+
+			switch (resourceBarrier->type)
+			{
+			case RESOURCE_TYPE::BUFFER:
+			{
+				BufferVk* pBuffer = static_cast<BufferVk*>(resourceBarrier->data);
+				res = pDeviceContext->InsertBufferMemoryBarrier(
+					pBuffer,
+					currBarrier.srcStageMask,
+					currBarrier.dstStageMask,
+					currBarrier.srcAccessMask,
+					currBarrier.dstAccessMask
+				);
+
+				if (res != STATUS_CODE::SUCCESS)
+				{
+					LogError("Failed to insert dependency barriers. Could not insert buffer memory barrier!");
+					return res;
+				}
+
+				break;
+			}
+			case RESOURCE_TYPE::TEXTURE:
+			{
+				TextureVk* pTexture = static_cast<TextureVk*>(resourceBarrier->data);
+				res = pDeviceContext->InsertImageMemoryBarrier(
+					pTexture,
+					currBarrier.srcStageMask,
+					currBarrier.dstStageMask,
+					currBarrier.srcAccessMask,
+					currBarrier.dstAccessMask,
+					currBarrier.oldLayout,
+					currBarrier.newLayout
+				);
+
+				if (res != STATUS_CODE::SUCCESS)
+				{
+					LogError("Failed to insert dependency barriers. Could not insert image memory barrier!");
+					return res;
+				}
+
+				// Update the texture's internal layout variable so it matches it's actual layout
+				pTexture->SetLayout(currBarrier.newLayout);
+
+				break;
+			}
+			case RESOURCE_TYPE::UNIFORM:
+			{
+				// Is this valid?
+				TODO();
+				break;
+			}
+			}
+		}
+
+		return res;
+	}
+
+	void RenderGraphVk::TraverseDependencyTree(u32 renderPassIndex, TraverseDependenciesCallbackFn callback)
+	{
+		// Depth-first traversal
+		if (renderPassIndex >= static_cast<u32>(m_registeredRenderPasses.size()))
+		{
+			return;
+		}
+
+		const RenderPassVk& currRenderPass = m_registeredRenderPasses[renderPassIndex];
+		if (callback != nullptr)
+		{
+			callback(currRenderPass);
+		}
+
+		for (u32 i = 0; i < static_cast<u32>(currRenderPass.m_dependencyInfos.size()); i++)
+		{
+			const DependencyInfo& dependencyInfo = currRenderPass.m_dependencyInfos[i];
+			ASSERT_PTR(dependencyInfo.renderPass);
+			TraverseDependencyTree(dependencyInfo.renderPass->m_index, callback);
+		}
+	}
+
+	void RenderGraphVk::TraverseResources(const ResourceIndexBitset& resourceBitset, TraverseResourceCallbackFn callback) const
+	{
+		for (u32 i = 0; i < static_cast<u32>(m_physicalResources.size()); i++)
+		{
+			if (resourceBitset.test(i))
+			{
+				const RenderResource& resource = m_physicalResources[i];
+				callback(resource);
+			}
+		}
+	}
+
+	void RenderGraphVk::TraverseRenderPassInputs(u32 renderPassIndex, TraverseResourceCallbackFn callback) const
+	{
+		if (renderPassIndex >= static_cast<u32>(m_registeredRenderPasses.size()))
+		{
+			return;
+		}
+
+		const RenderPassVk& rp = m_registeredRenderPasses[renderPassIndex];
+		TraverseResources(rp.m_inputResources, callback);
+	}
+
+	void RenderGraphVk::TraverseRenderPassOutputs(u32 renderPassIndex, TraverseResourceCallbackFn callback) const
+	{
+		if (renderPassIndex >= static_cast<u32>(m_registeredRenderPasses.size()))
+		{
+			return;
+		}
+
+		const RenderPassVk& rp = m_registeredRenderPasses[renderPassIndex];
+		TraverseResources(rp.m_outputResources, callback);
+	}
+
+	const ResourceUsage* RenderGraphVk::GetResourceUsageFromPass(const RenderPassVk& renderPass, u64 resourceID) const
+	{
+		u32 passIndex = renderPass.m_index;
+		for (u32 i = 0; i < static_cast<u32>(m_resourceUsages.size()); i++)
+		{
+			const ResourceUsage& usage = m_resourceUsages[i];
+			if ((passIndex == usage.passIndex) && (usage.resourceID == resourceID))
+			{
+				return &usage;
+			}
+		}
+
+		return nullptr;
+	}
+
+	const RenderResource* RenderGraphVk::GetPhysicalResource(u64 resourceID) const
+	{
+		for (u32 i = 0; i < static_cast<u32>(m_physicalResources.size()); i++)
+		{
+			const RenderResource& resource = m_physicalResources[i];
+			if (resource.resourceID == resourceID)
+			{
+				return &resource;
+			}
+		}
+
+		return nullptr;
 	}
 }

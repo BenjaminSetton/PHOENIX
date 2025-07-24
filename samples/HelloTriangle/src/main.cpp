@@ -323,14 +323,14 @@ int main(int argc, char** argv)
 			pDeviceContext->Draw(VERTEX_COUNT);
 		});
 
-		result = pRenderGraph->Bake(s_pSwapChain, &clearCol, 1);
+		result = pRenderGraph->Bake(&clearCol, 1);
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to bake render graph - skipping frame!" << std::endl;
 			continue;
 		}
 
-		result = pRenderGraph->EndFrame(s_pSwapChain);
+		result = pRenderGraph->EndFrame();
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to end frame - skipping frame!" << std::endl;

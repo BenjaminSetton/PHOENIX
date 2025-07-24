@@ -41,6 +41,8 @@ private:
 	// Creates uniform collection for all shader resources. Stored result in m_pUniformCollection
 	void CreateUniformCollection();
 
+	void UploadMeshDataToGPU();
+
 private:
 
 	TransformData m_transform;

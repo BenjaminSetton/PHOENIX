@@ -16,7 +16,8 @@ namespace PHX
 	enum class BIND_POINT : u8
 	{
 		GRAPHICS = 0,
-		COMPUTE
+		COMPUTE,
+		TRANSFER
 	};
 
 	class IRenderPass
@@ -53,8 +54,16 @@ namespace PHX
 		virtual ~IRenderGraph() { }
 
 		virtual STATUS_CODE BeginFrame(ISwapChain* pSwapChain) = 0;
-		virtual STATUS_CODE EndFrame(ISwapChain* pSwapChain) = 0;
+		virtual STATUS_CODE EndFrame() = 0;
 		virtual IRenderPass* RegisterPass(const char* passName, BIND_POINT bindPoint) = 0;
-		virtual STATUS_CODE Bake(ISwapChain* pSwapChain, ClearValues* pClearColors, u32 clearColorCount) = 0;
+		virtual STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount) = 0;
+
+		// Generates a visualization of the render graph by creating a .dot file. This file can then be
+		// opened with a graph visualization tool such as GraphViz to examine the graph structure. If
+		// the "generateIfUnique" parameter is set to true, a new file will be written out only if the
+		// structure of the render graph is unique from any other previously-generated visualization. If
+		// set to false, it will generate a new visualization every time the graph is different from the
+		// one generated immediately before
+		virtual STATUS_CODE GenerateVisualization(const char* fileName, bool generateIfUnique = true) = 0;
 	};
 }

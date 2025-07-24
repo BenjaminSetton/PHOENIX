@@ -113,8 +113,8 @@ void TexturedModelSample::Draw()
 		pContext->DrawIndexed(static_cast<u32>(axeAsset->indices.size()));
 	});
 
-	m_pRenderGraph->Bake(m_pSwapChain, clearVals.data(), static_cast<u32>(clearVals.size()));
-	m_pRenderGraph->EndFrame(m_pSwapChain);
+	m_pRenderGraph->Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
+	m_pRenderGraph->EndFrame();
 
 	m_pSwapChain->Present();
 }
@@ -253,28 +253,7 @@ void TexturedModelSample::Init()
 	CreateAssetTextures();
 
 	// Create a new render pass to upload the mesh data to the GPU
-	IRenderPass* pRenderPass = m_pRenderGraph->RegisterPass("MeshDataPass", BIND_POINT::GRAPHICS);
-	pRenderPass->SetBufferOutput(m_pVertexBuffer);
-	pRenderPass->SetBufferOutput(m_pIndexBuffer);
-	for (u32 i = 0; i < m_assetTextures.size(); i++)
-	{
-		ITexture* pCurrAssetTex = m_assetTextures[i];
-		pRenderPass->SetColorOutput(pCurrAssetTex);
-	}
-
-	pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline) 
-	{
-		pContext->CopyDataToBuffer(m_pVertexBuffer, axeAsset->vertices.data(), vBufferSizeBytes);
-		pContext->CopyDataToBuffer(m_pIndexBuffer, axeAsset->indices.data(), iBufferSizeBytes);
-
-		for (u32 i = 0; i < m_assetTextures.size(); i++)
-		{
-			const Texture& texSrc = axeAsset->textures[i];
-			ITexture* texDst = m_assetTextures[i];
-			u64 sizeBytes = (texSrc.size.GetX() * texSrc.size.GetY() * texSrc.bytesPerPixel);
-			pContext->CopyDataToTexture(texDst, texSrc.data, sizeBytes);
-		}
-	});
+	UploadMeshDataToGPU();
 }
 
 void TexturedModelSample::Shutdown()
@@ -380,4 +359,37 @@ void TexturedModelSample::CreateUniformCollection()
 
 	STATUS_CODE phxRes = m_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &m_pUniformCollection);
 	CHECK_PHX_RES(phxRes);
+}
+
+void TexturedModelSample::UploadMeshDataToGPU()
+{
+	IRenderPass* pRenderPass = m_pRenderGraph->RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER);
+	pRenderPass->SetBufferOutput(m_pVertexBuffer);
+	pRenderPass->SetBufferOutput(m_pIndexBuffer);
+	for (u32 i = 0; i < m_assetTextures.size(); i++)
+	{
+		ITexture* pCurrAssetTex = m_assetTextures[i];
+		pRenderPass->SetColorOutput(pCurrAssetTex);
+	}
+
+	pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline)
+	{
+		// Unused
+		(void)pPipeline;
+
+		const AssetType* pAsset = AssetManager::Get().GetAsset(m_assetID);
+		const u64 vBufferSizeBytes = static_cast<u64>(pAsset->vertices.size() * sizeof(AssetVertex));
+		const u64 iBufferSizeBytes = static_cast<u64>(pAsset->indices.size() * sizeof(Common::AssetIndexType));
+
+		pContext->CopyDataToBuffer(m_pVertexBuffer, pAsset->vertices.data(), vBufferSizeBytes);
+		pContext->CopyDataToBuffer(m_pIndexBuffer, pAsset->indices.data(), iBufferSizeBytes);
+
+		for (u32 i = 0; i < m_assetTextures.size(); i++)
+		{
+			const Texture& texSrc = pAsset->textures[i];
+			ITexture* texDst = m_assetTextures[i];
+			u64 sizeBytes = (texSrc.size.GetX() * texSrc.size.GetY() * texSrc.bytesPerPixel);
+			pContext->CopyDataToTexture(texDst, texSrc.data, sizeBytes);
+		}
+	});
 }

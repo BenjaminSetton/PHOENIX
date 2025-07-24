@@ -12,18 +12,46 @@
 
 namespace PHX
 {
-	static constexpr u32 MAX_REGISTERED_RESOURCES = 256;
+	static constexpr u8 MAX_REGISTERED_RESOURCES = U8_MAX;
+
+	// Forward declarations
+	class DeviceContextVk;
+	class RenderDeviceVk;
+	class RenderGraphVk;
+	class RenderPassVk;
 
 	// Callback used by the render pass class to register resources into
 	// the render graph. The render graph owns the resources, and once
 	// they're registered this function will return the resource index
-	// that should then be cached in the render pass's input/output bitsets
-	typedef std::function<u8(const ResourceDesc&)> RegisterResourceCallbackFn;
+	// that should then be cached in the render pass's input/output bitsets.
+	// Parameters are the data (void*), resource type (RESOURCE_TYPE), and 
+	// resource usage (ResourceUsage)
+	typedef std::function<u8(void*, RESOURCE_TYPE, const ResourceUsage&)> RegisterResourceCallbackFn;
 
-	// Forward declarations
-	class RenderDeviceVk;
-	class RenderGraphVk;
-	class DeviceContextVk;
+	// Called for every render pass touched when traversing the dependency tree
+	typedef std::function<void(const RenderPassVk&)> TraverseDependenciesCallbackFn;
+
+	// Called for every resource touched while traversing a resource bitset
+	typedef std::function<void(const RenderResource&)> TraverseResourceCallbackFn;
+
+	typedef std::bitset<MAX_REGISTERED_RESOURCES> ResourceIndexBitset;
+
+	struct Barrier
+	{
+		VkPipelineStageFlags srcStageMask;
+		VkPipelineStageFlags dstStageMask;
+		VkAccessFlags srcAccessMask;
+		VkAccessFlags dstAccessMask;
+
+		VkImageLayout oldLayout; // Only for images, ignored for buffers
+		VkImageLayout newLayout; // Only for images, ignored for buffers
+	};
+
+	struct DependencyInfo
+	{
+		RenderPassVk* renderPass = nullptr;
+		ResourceIndexBitset resources;
+	};
 
 	class RenderPassVk : public IRenderPass
 	{
@@ -62,18 +90,30 @@ namespace PHX
 		const char* m_debugName;
 #endif
 
-		std::bitset<MAX_REGISTERED_RESOURCES> m_inputResources;
-		std::bitset<MAX_REGISTERED_RESOURCES> m_outputResources;
-		ExecuteRenderPassCallbackFn m_execCallback;
-		RegisterResourceCallbackFn m_registerResourceCallback;
-		u32 m_index;
+		ResourceIndexBitset m_inputResources;					// Physical resource indices which this pass reads from
+		ResourceIndexBitset m_outputResources;					// Physical resources indices which this pass writes to
+		ExecuteRenderPassCallbackFn m_execCallback;				// Execution callback called by the render graph if all validation checks are passed
+		RegisterResourceCallbackFn m_registerResourceCallback;	// Callback used to register resources into the render graph
+		u32 m_index;											// Index of the render pass in the context of the render graph
 
 		// TODO - Consider using union?
 		GraphicsPipelineDesc graphicsDesc;
 		ComputePipelineDesc computeDesc;
 		BIND_POINT m_bindPoint;
 
-		std::bitset<MAX_REGISTERED_RESOURCES> m_renderPassDependencies;
+		std::vector<DependencyInfo> m_dependencyInfos;
+
+		// Maps a physical resource ID to it's barrier. These barriers guard the inputs to this render
+		// pass against all dependencies' outputs depending on usage. All src flags correspond to a dependent 
+		// resource, and all dst flags correspond to an input resource in this pass. For any given barrier, 
+		// the src/dst flags are all related to the same physical resource, but the usage is different between 
+		// the dependency and this pass.
+		std::unordered_map<u64, Barrier> m_inputBarriers;
+
+		// Maps a physical resource ID to it's barrier. Same concept as m_inputBarriers above, except
+		// that this holds barrier information for all outputs in this pass. This is useful when creating
+		// render passes, since the finalLayout of an image must be specified during subpass creation.
+		std::unordered_map<u64, Barrier> m_outputBarriers;
 	};
 
 	class RenderGraphVk : public IRenderGraph
@@ -84,27 +124,42 @@ namespace PHX
 		~RenderGraphVk() override;
 
 		STATUS_CODE BeginFrame(ISwapChain* pSwapChain) override;
-		STATUS_CODE EndFrame(ISwapChain* pSwapChain) override;
+		STATUS_CODE EndFrame() override;
 		IRenderPass* RegisterPass(const char* passName, BIND_POINT bindPoint) override;
-		STATUS_CODE Bake(ISwapChain* pSwapChain, ClearValues* pClearColors, u32 clearColorCount) override;
+		STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount) override;
+		STATUS_CODE GenerateVisualization(const char* fileName, bool generateIfUnique) override;
 
 	private:
 
 		VkRenderPass CreateRenderPass(const RenderPassVk& renderPass);
 		FramebufferVk* CreateFramebuffer(const RenderPassVk& renderPass, VkRenderPass renderPassVk, bool isBackBuffer);
 		PipelineVk* CreatePipeline(const RenderPassVk& renderPass, VkRenderPass renderPassVk);
-		u8 RegisterResource(const ResourceDesc& resourceDesc);
+		u8 RegisterResource(void* data, RESOURCE_TYPE type, const ResourceUsage& usage);
 
 		DeviceContextVk* GetDeviceContext() const;
 		u32 FindBackBufferRenderPassIndex();
 
-		void BuildDependencyTree(u32 backbufferRPIndex);
+		void BuildDependencyTree(u32 finalPassIndex);
+		void FindActivePasses(u32 finalPassIndex, std::vector<u32>& out_activeRenderPasses);
+		void CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses);
+
+		STATUS_CODE InsertResourceBarriers(const RenderPassVk& renderPass);
+
+		void TraverseDependencyTree(u32 renderPassIndex, TraverseDependenciesCallbackFn callback);
+
+		void TraverseResources(const ResourceIndexBitset& resourceBitset, TraverseResourceCallbackFn callback) const;
+		void TraverseRenderPassInputs(u32 renderPassIndex, TraverseResourceCallbackFn callback) const;
+		void TraverseRenderPassOutputs(u32 renderPassIndex, TraverseResourceCallbackFn callback) const;
+
+		// Returns ResourceUsage* if found, nullptr otherwise
+		const ResourceUsage* GetResourceUsageFromPass(const RenderPassVk& renderPass, u64 resourceID) const;
+		const RenderResource* GetPhysicalResource(u64 resourceID) const;
 
 	private:
 
 		std::vector<RenderPassVk> m_registeredRenderPasses;
-		std::vector<ResourceDesc> m_registeredResources;
-		std::unordered_map<u64, u32> m_resourceDescCache; // TODO - Aliased resouce map/cache? We must determine when a resource is being aliased (e.g. one pass uses it as texture input, while another uses it as texture output)
+		std::vector<ResourceUsage> m_resourceUsages;
+		std::vector<RenderResource> m_physicalResources;
 		RenderDeviceVk* m_renderDevice;
 
 		// One device context per frame in flight

@@ -240,6 +240,143 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	STATUS_CODE DeviceContextVk::CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes)
+	{
+		if (data == nullptr)
+		{
+			LogError("Failed to copy data to buffer. Data pointer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		if (sizeBytes <= 0)
+		{
+			LogError("Failed to copy data to buffer. Size is 0!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		BufferVk* bufferVk = static_cast<BufferVk*>(pBuffer);
+		if (bufferVk == nullptr)
+		{
+			LogError("Failed to copy data to buffer. Buffer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		STATUS_CODE res = STATUS_CODE::SUCCESS;
+
+		if (ShouldUseDirectMemoryMapping(bufferVk->GetUsage()))
+		{
+			// Copy to memory directly, no need to go through a staging buffer
+			bufferVk->CopyToMappedData(data, sizeBytes);
+		}
+		else
+		{
+			// All other buffers must copy to staging buffer and then issue
+			// a transfer command to copy the data over to the GPU
+			BufferCreateInfo stagingBufferCI{}; // Buffer usage is unused in this case
+			stagingBufferCI.sizeBytes = sizeBytes;
+			StagingBufferVk stagingBuffer(m_pRenderDevice, stagingBufferCI);
+			if (!stagingBuffer.IsValid())
+			{
+				LogError("Failed to copy data to buffer. Could not create staging buffer!");
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+
+			VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+			const QUEUE_TYPE transferQueueType = QUEUE_TYPE::TRANSFER;
+
+			res = GetOrCreateCommandBuffer(transferQueueType, true, cmdBuffer);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to copy data to buffer! Command buffer creation failed");
+				return res;
+			}
+
+			res = stagingBuffer.CopyData(data, sizeBytes);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to copy data to staging buffer!");
+				return res;
+			}
+
+			// Copy from staging buffer to GPU buffer
+			VkBufferCopy copyRegion{};
+			copyRegion.srcOffset = 0; // Optional
+			copyRegion.dstOffset = 0; // Optional
+			copyRegion.size = sizeBytes;
+			vkCmdCopyBuffer(cmdBuffer, stagingBuffer.GetBuffer(), bufferVk->GetBuffer(), 1, &copyRegion);
+		}
+
+		return res;
+	}
+
+	STATUS_CODE DeviceContextVk::CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes)
+	{
+		if (pTexture == nullptr)
+		{
+			LogError("Failed to copy data to texture. Texture pointer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		if (data == nullptr)
+		{
+			LogError("Failed to copy data to texture. Data pointer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		if (sizeBytes <= 0)
+		{
+			LogError("Failed to copy data to texture. Size in bytes is 0!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		STATUS_CODE res;
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		const QUEUE_TYPE transferQueueType = QUEUE_TYPE::TRANSFER;
+		TextureVk* textureVk = static_cast<TextureVk*>(pTexture);
+		ASSERT_PTR(textureVk);
+
+		res = GetOrCreateCommandBuffer(transferQueueType, true, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to copy data to texture! Command buffer creation failed");
+			return res;
+		}
+
+		// Create a staging buffer and copy data into staging buffer
+		BufferCreateInfo stagingBufferCI{}; // Buffer usage is unused in this case
+		stagingBufferCI.sizeBytes = sizeBytes;
+		StagingBufferVk stagingBuffer(m_pRenderDevice, stagingBufferCI);
+		if (!stagingBuffer.IsValid())
+		{
+			LogError("Failed to copy data to texture. Could not create staging buffer!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		res = stagingBuffer.CopyData(data, sizeBytes);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to copy data to texture! Could not copy data into staging buffer");
+			return res;
+		}
+
+		VkBufferImageCopy copyRegion{};
+		copyRegion.bufferOffset = 0;
+		copyRegion.bufferRowLength = 0;
+		copyRegion.bufferImageHeight = 0;
+
+		copyRegion.imageSubresource.aspectMask = TEX_UTILS::ConvertAspectFlags(textureVk->GetAspectFlags());
+		copyRegion.imageSubresource.mipLevel = 0; // TODO - Expose as parameter when mip levels are implemented
+		copyRegion.imageSubresource.baseArrayLayer = 0;
+		copyRegion.imageSubresource.layerCount = textureVk->GetArrayLayers();
+
+		copyRegion.imageOffset = { 0, 0, 0 };
+		copyRegion.imageExtent = { textureVk->GetWidth(), textureVk->GetHeight(), 1 };
+
+		vkCmdCopyBufferToImage(cmdBuffer, stagingBuffer.GetBuffer(), textureVk->GetBaseImage(), textureVk->GetLayout(), 1, &copyRegion);
+
+		return STATUS_CODE::SUCCESS;
+	}
+
 	STATUS_CODE DeviceContextVk::BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex)
 	{
 		if (m_pRenderDevice == VK_NULL_HANDLE)
@@ -450,201 +587,153 @@ namespace PHX
 	}
 
 	// TODO - Expose transition details as function parameters rather than assuming src/dst stages and access masks
-	STATUS_CODE DeviceContextVk::TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout, VkCommandBuffer cmdBuffer)
+	//STATUS_CODE DeviceContextVk::TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout, VkCommandBuffer cmdBuffer)
+	//{
+	//	VkPipelineStageFlags sourceStage;
+	//	VkPipelineStageFlags destinationStage;
+	//	VkImageMemoryBarrier imageBarrier;
+
+	//	const QUEUE_TYPE queue = QUEUE_TYPE::TRANSFER;
+
+	//	// If false is returned, Current layout is the same as destination, nothing more to do
+	//	if (pTexture->FillTransitionLayoutInfo(destinationLayout, sourceStage, destinationStage, imageBarrier))
+	//	{
+	//		bool createdOwnCommandBuffer = false;
+
+	//		// Attempt to reuse existing transfer cmd buffer, if none is provided
+	//		if (cmdBuffer == VK_NULL_HANDLE)
+	//		{
+	//			STATUS_CODE res = GetOrCreateCommandBuffer(queue, true, cmdBuffer);
+	//			if (res != STATUS_CODE::SUCCESS)
+	//			{
+	//				LogError("Failed to transition image layout. Could not retrive or create a valid command buffer!");
+	//				return res;
+	//			}
+
+	//			createdOwnCommandBuffer = true;
+	//		}
+
+	//		if (createdOwnCommandBuffer)
+	//		{
+	//			VkCommandBufferBeginInfo beginInfo{};
+	//			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	//			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+	//			vkBeginCommandBuffer(cmdBuffer, &beginInfo);
+	//		}
+
+	//		vkCmdPipelineBarrier(
+	//			cmdBuffer,
+	//			sourceStage,
+	//			destinationStage,
+	//			0,
+	//			0, nullptr, // No memory barriers
+	//			0, nullptr, // No buffer barriers
+	//			1, &imageBarrier
+	//		);
+
+	//		if (createdOwnCommandBuffer)
+	//		{
+	//			vkEndCommandBuffer(cmdBuffer);
+	//		}
+
+	//		pTexture->SetLayout(destinationLayout);
+
+	//		return STATUS_CODE::SUCCESS;
+	//	}
+
+	//	return STATUS_CODE::SUCCESS;
+	//}
+
+	STATUS_CODE DeviceContextVk::InsertImageMemoryBarrier(TextureVk* pTexture, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldLayout, VkImageLayout newLayout)
 	{
-		VkPipelineStageFlags sourceStage;
-		VkPipelineStageFlags destinationStage;
-		VkImageMemoryBarrier imageBarrier;
-
-		const QUEUE_TYPE queue = QUEUE_TYPE::TRANSFER;
-
-		// If false is returned, Current layout is the same as destination, nothing more to do
-		if (pTexture->FillTransitionLayoutInfo(destinationLayout, sourceStage, destinationStage, imageBarrier))
+		if (pTexture == nullptr)
 		{
-			bool createdOwnCommandBuffer = false;
-
-			// Attempt to reuse existing transfer cmd buffer, if none is provided
-			if (cmdBuffer == VK_NULL_HANDLE)
-			{
-				STATUS_CODE res = GetOrCreateCommandBuffer(queue, true, cmdBuffer);
-				if (res != STATUS_CODE::SUCCESS)
-				{
-					LogError("Failed to transition image layout. Could not retrive or create a valid command buffer!");
-					return res;
-				}
-
-				createdOwnCommandBuffer = true;
-			}
-
-			if (createdOwnCommandBuffer)
-			{
-				VkCommandBufferBeginInfo beginInfo{};
-				beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-				beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-				vkBeginCommandBuffer(cmdBuffer, &beginInfo);
-			}
-
-			vkCmdPipelineBarrier(
-				cmdBuffer,
-				sourceStage,
-				destinationStage,
-				0,
-				0, nullptr, // No memory barriers
-				0, nullptr, // No buffer barriers
-				1, &imageBarrier
-			);
-
-			if (createdOwnCommandBuffer)
-			{
-				vkEndCommandBuffer(cmdBuffer);
-			}
-
-			pTexture->SetLayout(destinationLayout);
-
-			return STATUS_CODE::SUCCESS;
+			LogError("Failed to insert image memory barrier. Texture pointer is null!");
+			return STATUS_CODE::ERR_API;
 		}
+
+		VkCommandBuffer cmdBuffer;
+		const QUEUE_TYPE queue = QUEUE_TYPE::TRANSFER;
+		STATUS_CODE res = GetOrCreateCommandBuffer(queue, true, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to insert image memory barrier. Could not retrive or create a valid command buffer!");
+			return res;
+		}
+
+		VkImageMemoryBarrier imageBarrier;
+		imageBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		imageBarrier.pNext = nullptr;
+		imageBarrier.oldLayout = oldLayout;
+		imageBarrier.newLayout = newLayout;
+		imageBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		imageBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		imageBarrier.image = pTexture->GetBaseImage();
+		imageBarrier.subresourceRange.aspectMask = TEX_UTILS::ConvertAspectFlags(pTexture->GetAspectFlags());
+		imageBarrier.subresourceRange.baseMipLevel = 0;
+		imageBarrier.subresourceRange.levelCount = pTexture->GetMipLevels();
+		imageBarrier.subresourceRange.baseArrayLayer = 0;
+		imageBarrier.subresourceRange.layerCount = pTexture->GetArrayLayers();
+		imageBarrier.srcAccessMask = srcAccessMask;
+		imageBarrier.dstAccessMask = dstAccessMask;
+
+		vkCmdPipelineBarrier(
+			cmdBuffer,
+			srcStageMask,
+			dstStageMask,
+			0,
+			0, nullptr, // No memory barriers
+			0, nullptr, // No buffer barriers
+			1, &imageBarrier
+		);
 
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes)
+	STATUS_CODE DeviceContextVk::InsertBufferMemoryBarrier(BufferVk* pBuffer, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask)
 	{
-		STATUS_CODE res = STATUS_CODE::SUCCESS;
-
-		BufferVk* bufferVk = static_cast<BufferVk*>(pBuffer);
-		if (bufferVk == nullptr)
+		if (pBuffer == nullptr)
 		{
-			LogError("Failed to copy data to buffer! Buffer is null");
+			LogError("Failed to insert buffer memory barrier. Buffer pointer is null!");
 			return STATUS_CODE::ERR_API;
 		}
 
-		if (ShouldUseDirectMemoryMapping(bufferVk->GetUsage()))
-		{
-			// Copy to memory directly, no need to go through a staging buffer
-			bufferVk->CopyToMappedData(data, sizeBytes);
-		}
-		else
-		{
-			// All other buffers must copy to staging buffer and then issue
-			// a transfer command to copy the data over to the GPU
-			BufferCreateInfo stagingBufferCI{}; // Buffer usage is unused in this case
-			stagingBufferCI.sizeBytes = sizeBytes;
-			StagingBufferVk stagingBuffer(m_pRenderDevice, stagingBufferCI);
-			if (!stagingBuffer.IsValid())
-			{
-				LogError("Failed to copy data to buffer. Could not create staging buffer!");
-				return STATUS_CODE::ERR_INTERNAL;
-			}
-
-			VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-			const QUEUE_TYPE transferQueueType = QUEUE_TYPE::TRANSFER;
-
-			res = GetOrCreateCommandBuffer(transferQueueType, true, cmdBuffer);
-			if (res != STATUS_CODE::SUCCESS)
-			{
-				LogError("Failed to copy data to buffer! Command buffer creation failed");
-				return res;
-			}
-
-			res = stagingBuffer.CopyData(data, sizeBytes);
-			if (res != STATUS_CODE::SUCCESS)
-			{
-				LogError("Failed to copy data to staging buffer!");
-				return res;
-			}
-
-			// Copy from staging buffer to GPU buffer
-			VkBufferCopy copyRegion{};
-			copyRegion.srcOffset = 0; // Optional
-			copyRegion.dstOffset = 0; // Optional
-			copyRegion.size = sizeBytes;
-			vkCmdCopyBuffer(cmdBuffer, stagingBuffer.GetBuffer(), bufferVk->GetBuffer(), 1, &copyRegion);
-		}
-
-		return res;
-	}
-
-	STATUS_CODE DeviceContextVk::CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes)
-	{
-		if (pTexture == nullptr)
-		{
-			LogError("Failed to copy data to texture. Texture pointer is null!");
-			return STATUS_CODE::ERR_API;
-		}
-
-		if (data == nullptr)
-		{
-			LogError("Failed to copy data to texture. Data pointer is null!");
-			return STATUS_CODE::ERR_API;
-		}
-
-		if (sizeBytes <= 0)
-		{
-			LogError("Failed to copy data to texture. Size in bytes is 0!");
-			return STATUS_CODE::ERR_API;
-		}
-
-		STATUS_CODE res;
-		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-		const QUEUE_TYPE transferQueueType = QUEUE_TYPE::TRANSFER;
-		TextureVk* textureVk = static_cast<TextureVk*>(pTexture);
-		ASSERT_PTR(textureVk);
-
-		res = GetOrCreateCommandBuffer(transferQueueType, true, cmdBuffer);
+		VkCommandBuffer cmdBuffer;
+		const QUEUE_TYPE queue = QUEUE_TYPE::TRANSFER;
+		STATUS_CODE res = GetOrCreateCommandBuffer(queue, true, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
 		{
-			LogError("Failed to copy data to texture! Command buffer creation failed");
+			LogError("Failed to insert buffer memory barrier. Could not retrive or create a valid command buffer!");
 			return res;
 		}
 
-		// Create a staging buffer and copy data into staging buffer
-		BufferCreateInfo stagingBufferCI{}; // Buffer usage is unused in this case
-		stagingBufferCI.sizeBytes = sizeBytes;
-		StagingBufferVk stagingBuffer(m_pRenderDevice, stagingBufferCI);
-		if (!stagingBuffer.IsValid())
-		{
-			LogError("Failed to copy data to texture. Could not create staging buffer!");
-			return STATUS_CODE::ERR_INTERNAL;
-		}
+		VkBufferMemoryBarrier bufferBarrier;
+		bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+		bufferBarrier.pNext = nullptr;
+		bufferBarrier.srcAccessMask = srcAccessMask;
+		bufferBarrier.dstAccessMask = dstAccessMask;
+		bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		bufferBarrier.buffer = pBuffer->GetBuffer();
+		bufferBarrier.offset = 0;
+		bufferBarrier.size = pBuffer->GetAllocatedSize();
 
-		res = stagingBuffer.CopyData(data, sizeBytes);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to copy data to texture! Could not copy data into staging buffer");
-			return res;
-		}
-
-		// Transition layout to TRANSFER_DST
-		res = TransitionImageLayout(textureVk, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, cmdBuffer);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to copy data to texture! Could not transition image layout to TRANSFER_DST_OPTIMAL!");
-			return res;
-		}
-
-		VkBufferImageCopy copyRegion{};
-		copyRegion.bufferOffset = 0;
-		copyRegion.bufferRowLength = 0;
-		copyRegion.bufferImageHeight = 0;
-
-		copyRegion.imageSubresource.aspectMask = TEX_UTILS::ConvertAspectFlags(textureVk->GetAspectFlags());
-		copyRegion.imageSubresource.mipLevel = 0; // TODO - Expose as parameter when mip levels are implemented
-		copyRegion.imageSubresource.baseArrayLayer = 0;
-		copyRegion.imageSubresource.layerCount = textureVk->GetArrayLayers();
-
-		copyRegion.imageOffset = { 0, 0, 0 };
-		copyRegion.imageExtent = { textureVk->GetWidth(), textureVk->GetHeight(), 1 };
-
-		vkCmdCopyBufferToImage(cmdBuffer, stagingBuffer.GetBuffer(), textureVk->GetBaseImage(), textureVk->GetLayout(), 1, &copyRegion);
+		vkCmdPipelineBarrier(
+			cmdBuffer,
+			srcStageMask,
+			dstStageMask,
+			0,
+			0, nullptr, // No memory barriers
+			1, &bufferBarrier,
+			0, nullptr	// No image barriers
+		);
 
 		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE DeviceContextVk::GetOrCreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer)
 	{
-		ASSERT_MSG(out_cmdBuffer == VK_NULL_HANDLE, "Called GetOrCreateCommandBuffer() but out_cmdBuffer is not null?");
-
 		if (m_pRenderDevice == nullptr)
 		{
 			LogError("Failed to create command buffer. Render device is null!");
@@ -686,8 +775,6 @@ namespace PHX
 			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 			beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT; // TODO - Determine how to use correct value
 			vkBeginCommandBuffer(cmdBuffer, &beginInfo);
-
-			out_cmdBuffer = cmdBuffer;
 		}
 
 		out_cmdBuffer = cmdBuffer;
