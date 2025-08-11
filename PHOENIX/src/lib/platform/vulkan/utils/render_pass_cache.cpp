@@ -180,10 +180,10 @@ namespace PHX
 			LogDebug("\t- Color attachment count:   %u", subpassDescVk.colorAttachmentCount);
 			LogDebug("\t- Depth/stencil attachment: %u", subpassDescVk.pDepthStencilAttachment == nullptr ? 0 : 1);
 			LogDebug("\t- Resolve attachment count: %u", subpassDescVk.pResolveAttachments == nullptr ? 0 : 1);
-			LogDebug("\t- Src stage mask:           %u", subpassDepVk.srcStageMask);
-			LogDebug("\t- Dst stage mask:           %u", subpassDepVk.dstStageMask);
-			LogDebug("\t- Src access mask:          %u", subpassDepVk.srcAccessMask);
-			LogDebug("\t- Dst access mask:          %u", subpassDepVk.dstAccessMask);
+			LogDebug("\t- Src access mask:          %s", string_VkAccessFlags(subpassDepVk.srcAccessMask).c_str());
+			LogDebug("\t- Dst access mask:          %s", string_VkAccessFlags(subpassDepVk.dstAccessMask).c_str());
+			LogDebug("\t- Src stage mask:           %s", string_VkPipelineStageFlags(subpassDepVk.srcStageMask).c_str());
+			LogDebug("\t- Dst stage mask:           %s", string_VkPipelineStageFlags(subpassDepVk.dstStageMask).c_str());
 		}
 
 		// If the above fails, is renderPass still VK_NULL_HANDLE?

@@ -21,6 +21,7 @@
 namespace PHX
 {
 	static const char* s_pReservedBackbufferName = "INTERNAL_backbuffer";
+	static const char* s_pReservedDepthBufferName = "INTERNAL_depthbuffer";
 	static constexpr u32 s_invalidRenderPassIndex = U32_MAX;
 
 	static u64 HashResource(void* data, const RESOURCE_TYPE& type)
@@ -30,6 +31,19 @@ namespace PHX
 		HashCombine(seed, data);
 
 		return static_cast<u64>(seed);
+	}
+
+	static QUEUE_TYPE ConvertBindPointToQueueType(BIND_POINT bindPoint)
+	{
+		switch (bindPoint)
+		{
+		case BIND_POINT::COMPUTE:  return QUEUE_TYPE::COMPUTE;
+		case BIND_POINT::GRAPHICS: return QUEUE_TYPE::GRAPHICS;
+		case BIND_POINT::TRANSFER: return QUEUE_TYPE::TRANSFER;
+		}
+
+		ASSERT_ALWAYS("Failed to convert bind point to queue type!");
+		return QUEUE_TYPE::GRAPHICS;
 	}
 
 	static ATTACHMENT_TYPE CalculateAttachmentType(ITexture* pTexture)
@@ -236,25 +250,84 @@ namespace PHX
 		return flags;
 	}
 
-	// TODO - "isSrcFlag" parameter is a temporary band-aid because we don't have any information about which pipeline
-	// stage a resource will be used in. For compute and graphics it's pretty obvious, but for graphics we don't have
-	// any option other than blocking at pipeline start/end depending on this "isSrcFlag" parameter
-	static VkPipelineStageFlags CalculateResourcePipelineStageFlags(BIND_POINT bindPoint, bool isSrcFlag)
+	static VkPipelineStageFlags CalculateResourcePipelineStageFlags(BIND_POINT bindPoint, VkAccessFlags accessFlag, bool isSrcFlag)
 	{
+		if (accessFlag == 0)
+		{
+			return (isSrcFlag ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+		}
+
 		VkPipelineStageFlags flags = 0;
 		switch (bindPoint)
 		{
 		case BIND_POINT::GRAPHICS:
 		{
-			// Temporary, refer to above TODO
-			if (isSrcFlag)
+			switch (accessFlag)
 			{
-				flags |= VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-			}
-			else // isDstFlag
+			case VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT:
+			case VK_ACCESS_INDEX_READ_BIT:
 			{
-				flags |= VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+				flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
+				break;
 			}
+			case VK_ACCESS_UNIFORM_READ_BIT:
+			{
+				// TODO - Determine proper shader stage
+				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+				break;
+			}
+			case VK_ACCESS_INPUT_ATTACHMENT_READ_BIT:
+			{
+				flags |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+				break;
+			}
+			case VK_ACCESS_SHADER_READ_BIT:
+			case VK_ACCESS_SHADER_WRITE_BIT:
+			{
+				// TODO - Determine proper shader stage
+				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+				break;
+			}
+			case VK_ACCESS_COLOR_ATTACHMENT_READ_BIT:
+			{
+				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+				break;
+			}
+			case VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT:
+			{
+				flags |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				break;
+			}
+			case VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT:
+			{
+				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
+				break;
+			}
+			case VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT:
+			{
+				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
+				break;
+			}
+			case VK_ACCESS_TRANSFER_READ_BIT:
+			case VK_ACCESS_TRANSFER_WRITE_BIT:
+			{
+				ASSERT_ALWAYS("Transfer access flags shouldn't be handled in graphics bind point");
+				break;
+			}
+			case VK_ACCESS_HOST_READ_BIT:
+			case VK_ACCESS_HOST_WRITE_BIT:
+			{
+				flags |= VK_PIPELINE_STAGE_HOST_BIT;
+				break;
+			}
+			case VK_ACCESS_MEMORY_READ_BIT:
+			case VK_ACCESS_MEMORY_WRITE_BIT:
+			{
+				// Not sure if these flags are good, assuming worst-case scenario
+				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+			}
+			}
+
 			break;
 		}
 		case BIND_POINT::COMPUTE:
@@ -449,7 +522,7 @@ namespace PHX
 	void RenderPassVk::SetDepthOutput(ITexture* pTexture)
 	{
 		ResourceUsage usage{};
-		usage.name = "out_depth_tex"; // TODO
+		usage.name = s_pReservedDepthBufferName; // HACK - Assuming all depth writes are for the depth buffer
 		usage.io = RESOURCE_IO::OUTPUT;
 		usage.passIndex = m_index;
 		usage.attachmentType = ATTACHMENT_TYPE::DEPTH;
@@ -543,7 +616,8 @@ namespace PHX
 
 	//--------------------------------------------------------------------------------------------
 
-	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_frameIndex(0), m_pReservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)), m_deviceContexts()
+	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_deviceContexts(), m_frameIndex(0), 
+		m_reservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName))
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -608,7 +682,6 @@ namespace PHX
 
 	STATUS_CODE RenderGraphVk::EndFrame()
 	{
-
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
 		DeviceContextVk* pDeviceContext = GetDeviceContext();
@@ -718,6 +791,10 @@ namespace PHX
 						return res;
 					}
 
+					// Update the layout of the render pass' textures to reflect the implicit 
+					// layout transition from the render pass
+					UpdateTextureLayouts(activeRenderPassIndex);
+
 					break;
 				}
 				case BIND_POINT::COMPUTE:
@@ -739,7 +816,6 @@ namespace PHX
 					break;
 				}
 			}
-
 		}
 
 		return res;
@@ -797,100 +873,102 @@ namespace PHX
 				// We'll make some assumptions about what the resource access and stage masks are 
 				// in this last pass. Not sure what else to do at the moment
 
-				attDesc.initialLayout = pTexture->GetLayout();
+				//attDesc.initialLayout = pTexture->GetLayout();
 
-				switch (resourceUsage->attachmentType)
-				{
-				case ATTACHMENT_TYPE::COLOR:
-				{
-					attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-					attDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-					if (HashCRC32(resourceUsage->name) == m_pReservedBackbufferNameCRC)
-					{
-						attDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-					}
+				//switch (resourceUsage->attachmentType)
+				//{
+				//case ATTACHMENT_TYPE::COLOR:
+				//{
+				//	attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				//	attDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				//	if (HashCRC32(resourceUsage->name) == m_pReservedBackbufferNameCRC)
+				//	{
+				//		attDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+				//	}
 
-					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
-					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
+				//	attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+				//	attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
 
-					subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-					subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-					subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
-					subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				//	subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+				//	subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+				//	subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
+				//	subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-					subpassDesc.colorAttachmentIndices.push_back(localResourceIndex);
-					break;
-				}
-				case ATTACHMENT_TYPE::DEPTH:
-				{
-					attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-					attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+				//	subpassDesc.colorAttachmentIndices.push_back(localResourceIndex);
+				//	break;
+				//}
+				//case ATTACHMENT_TYPE::DEPTH:
+				//{
+				//	attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+				//	attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
-					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
+				//	attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+				//	attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
 
-					subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-					subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-					subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-					subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				//	subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+				//	subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+				//	subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				//	subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
-					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
-					break;
-				}
-				case ATTACHMENT_TYPE::STENCIL:
-				{
-					attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-					attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+				//	ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
+				//	subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
+				//	break;
+				//}
+				//case ATTACHMENT_TYPE::STENCIL:
+				//{
+				//	attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+				//	attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-					attDesc.stencilLoadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
-					attDesc.stencilStoreOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
+				//	attDesc.stencilLoadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+				//	attDesc.stencilStoreOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
 
-					subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-					subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-					subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-					subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				//	subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+				//	subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+				//	subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				//	subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
-					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
-					break;
-				}
-				case ATTACHMENT_TYPE::DEPTH_STENCIL:
-				{
-					attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-					attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+				//	ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
+				//	subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
+				//	break;
+				//}
+				//case ATTACHMENT_TYPE::DEPTH_STENCIL:
+				//{
+				//	attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+				//	attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
-					// TODO - Should this be considered a stencil or regular load/store op?
-					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
-					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
+				//	// TODO - Should this be considered a stencil or regular load/store op?
+				//	attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+				//	attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
 
-					subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-					subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-					subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-					subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				//	subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
+				//	subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
+				//	subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+				//	subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
-					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
-					break;
-				}
-				case ATTACHMENT_TYPE::RESOLVE:
-				{
-					attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-					attDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				//	ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
+				//	subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
+				//	break;
+				//}
+				//case ATTACHMENT_TYPE::RESOLVE:
+				//{
+				//	attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				//	attDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
-					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
+				//	attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
+				//	attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
 
-					subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-					subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-					subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
-					subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				//	subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+				//	subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
+				//	subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
+				//	subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-					ASSERT_MSG(subpassDesc.resolveAttachmentIndex == -1, "Already assigned the resolve attachment index!");
-					subpassDesc.resolveAttachmentIndex = localResourceIndex;
-					break;
-				}
-				}
+				//	ASSERT_MSG(subpassDesc.resolveAttachmentIndex == -1, "Already assigned the resolve attachment index!");
+				//	subpassDesc.resolveAttachmentIndex = localResourceIndex;
+				//	break;
+				//}
+				//}
+					
+				ASSERT_ALWAYS("Failed to find output barrier for render pass?");
 			}
 			else
 			{
@@ -900,10 +978,10 @@ namespace PHX
 				attDesc.layout = outputBarrier.oldLayout;
 				attDesc.finalLayout = outputBarrier.newLayout;
 
-				subpassDesc.srcAccessMask = outputBarrier.srcAccessMask;
-				subpassDesc.dstAccessMask = outputBarrier.dstAccessMask;
-				subpassDesc.srcStageMask = outputBarrier.srcStageMask;
-				subpassDesc.dstStageMask = outputBarrier.dstStageMask;
+				subpassDesc.srcAccessMask |= outputBarrier.srcAccessMask;
+				subpassDesc.dstAccessMask |= outputBarrier.dstAccessMask;
+				subpassDesc.srcStageMask |= outputBarrier.srcStageMask;
+				subpassDesc.dstStageMask |= outputBarrier.dstStageMask;
 
 				switch (resourceUsage->attachmentType)
 				{
@@ -911,11 +989,6 @@ namespace PHX
 				{
 					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
 					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
-
-					//subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-					//subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-					//subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
-					//subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
 					subpassDesc.colorAttachmentIndices.push_back(localResourceIndex);
 					break;
@@ -925,11 +998,6 @@ namespace PHX
 					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
 					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
 
-					//subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-					//subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-					//subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-					//subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
 					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
 					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
 					break;
@@ -938,11 +1006,6 @@ namespace PHX
 				{
 					attDesc.stencilLoadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
 					attDesc.stencilStoreOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
-
-					//subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-					//subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-					//subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-					//subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
 					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
 					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
@@ -954,11 +1017,6 @@ namespace PHX
 					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
 					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
 
-					//subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-					//subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-					//subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-					//subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
 					ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
 					subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
 					break;
@@ -967,11 +1025,6 @@ namespace PHX
 				{
 					attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
 					attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
-
-					//subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-					//subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-					//subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
-					//subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
 					ASSERT_MSG(subpassDesc.resolveAttachmentIndex == -1, "Already assigned the resolve attachment index!");
 					subpassDesc.resolveAttachmentIndex = localResourceIndex;
@@ -1139,7 +1192,7 @@ namespace PHX
 
 			// TODO - We might want to store the CRC rather than the raw string
 			const CRC32 outputResourceCRC = HashCRC32(resourceUsage.name);
-			if (outputResourceCRC == m_pReservedBackbufferNameCRC)
+			if (outputResourceCRC == m_reservedBackbufferNameCRC)
 			{
 				backbufferRPIndex = resourceUsage.passIndex;
 				break;
@@ -1216,10 +1269,65 @@ namespace PHX
 		{
 			RenderPassVk& dstRenderPass = m_registeredRenderPasses[activeRenderPassIndex];
 
-			// Special case for first pass, since that one won't have any upward dependencies
-			if (activeRenderPassIndex == activeRenderPasses.back())
+			// Special case for first and last passes in submission order, since dependencies won't fill out
+			// their input/output dependencies respectively
+			const bool isFirst = (activeRenderPassIndex == activeRenderPasses.back());
+			const bool isLast = (activeRenderPassIndex == activeRenderPasses[0]);
+			if (isLast)
 			{
-				// Traverse input and output resources simultaneously and transition images to the correct layout for this render pass
+				TraverseRenderPassOutputs(dstRenderPass.m_index, [&](const RenderResource& resource)
+				{
+					if (resource.type != RESOURCE_TYPE::TEXTURE)
+					{
+						return;
+					}
+
+					const u64& resourceID = resource.resourceID;
+					const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
+					ASSERT_PTR(dstResourceUsage); // Should never be null
+
+					// Special cases for backbuffer (presentation engine) and depth buffer
+					CRC32 dstResourceCRC = HashCRC32(dstResourceUsage->name);
+					const bool isBackBufferResource = (dstResourceCRC == m_reservedBackbufferNameCRC);
+					const bool isDepthBufferResource = (dstResourceCRC == m_reservedDepthBufferNameCRC);
+
+					TextureVk* pTexture = static_cast<TextureVk*>(resource.data);
+					ASSERT_PTR(pTexture);
+
+					const VkImageLayout layout = CalculateResourceImageLayout(*dstResourceUsage, dstRenderPass.m_bindPoint);
+					const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
+
+					Barrier newDstBarrier;
+					if (isBackBufferResource)
+					{
+						newDstBarrier.oldLayout = layout;
+						newDstBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+						// NOTE - Presentation engine is external and doesn't require an access mask, but if the backbuffer
+						//        is cleared (from loadOp) we must still sync the clear operation. As a result, we'll set
+						//        the dst flags to COLOR_ATTACHMENT-related write operations to be safe
+						newDstBarrier.srcAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resource, dstBindPoint);
+						newDstBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						newDstBarrier.srcStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.srcAccessMask, true);
+						newDstBarrier.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+					}
+					else if (isDepthBufferResource)
+					{
+						newDstBarrier.oldLayout = layout;
+						newDstBarrier.newLayout = layout;
+
+						newDstBarrier.srcAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resource, dstBindPoint);
+						newDstBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+						newDstBarrier.srcStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.srcAccessMask, true);
+						newDstBarrier.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+					}
+
+					dstRenderPass.m_outputBarriers.insert({ resourceID, newDstBarrier });
+				});
+			}
+			else if (isFirst)
+			{
+				// Transition all resources used in the first pass to the correct layout, from whatever they were in the previous frame
 				const ResourceIndexBitset IOResources = (dstRenderPass.m_inputResources | dstRenderPass.m_outputResources);
 				TraverseResources(IOResources, [&](const RenderResource& resource)
 				{
@@ -1245,54 +1353,47 @@ namespace PHX
 						newDstBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
 						newDstBarrier.dstAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resource, dstBindPoint);
 						newDstBarrier.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-						newDstBarrier.dstStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, false);
-						newDstBarrier.oldLayout = pTexture->GetLayout(); // Perhaps this is the best way to get info from previous frames?
-						newDstBarrier.newLayout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
+						newDstBarrier.dstStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.dstAccessMask, false);
+						newDstBarrier.oldLayout = srcLayout;
+						newDstBarrier.newLayout = dstLayout;
 
-						// Add the barrier information to dst pass
 						dstRenderPass.m_inputBarriers.insert({ resourceID, newDstBarrier });
 					}
 				});
 			}
-			else
+
+			for (const DependencyInfo& dependencyInfo : dstRenderPass.m_dependencyInfos)
 			{
-				for (const DependencyInfo& dependencyInfo : dstRenderPass.m_dependencyInfos)
+				RenderPassVk* srcRenderPass = dependencyInfo.renderPass;
+				TraverseResources(dependencyInfo.resources, [&](const RenderResource& resourceDependency)
 				{
-					RenderPassVk* srcRenderPass = dependencyInfo.renderPass;
-					TraverseResources(dependencyInfo.resources, [&](const RenderResource& resourceDependency)
+					// Setup the barrier. In this case the source corresponds to the active source render pass we're
+					// currently in. The destination corresponds to the dependency we're currently looping through
+					const u64& resourceID = resourceDependency.resourceID;
+					const ResourceUsage* srcResourceUsage = GetResourceUsageFromPass(*srcRenderPass, resourceID);
+					ASSERT_PTR(srcResourceUsage); // Should never be null
+					const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
+					ASSERT_PTR(dstResourceUsage); // Should never be null
+
+					const BIND_POINT srcBindPoint = srcRenderPass->m_bindPoint;
+					const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
+
+					Barrier newDstBarrier;
+					newDstBarrier.srcAccessMask = CalculateResourceAccessFlags(*srcResourceUsage, resourceDependency, srcBindPoint);
+					newDstBarrier.dstAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resourceDependency, dstBindPoint);
+					newDstBarrier.srcStageMask = CalculateResourcePipelineStageFlags(srcBindPoint, newDstBarrier.srcAccessMask, true);
+					newDstBarrier.dstStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.dstAccessMask, false);
+
+					if (resourceDependency.type == RESOURCE_TYPE::TEXTURE)
 					{
-						// Setup the barrier. In this case the source corresponds to the active source render pass we're
-						// currently in. The destination corresponds to the dependency we're currently looping through
-						const u64& resourceID = resourceDependency.resourceID;
-						const ResourceUsage* srcResourceUsage = GetResourceUsageFromPass(*srcRenderPass, resourceID);
-						ASSERT_PTR(srcResourceUsage); // Should never be null
-						const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
-						ASSERT_PTR(dstResourceUsage); // Should never be null
+						newDstBarrier.oldLayout = CalculateResourceImageLayout(*srcResourceUsage, srcBindPoint);
+						newDstBarrier.newLayout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
+					}
 
-						const BIND_POINT srcBindPoint = srcRenderPass->m_bindPoint;
-						const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
-
-						Barrier newDstBarrier;
-						newDstBarrier.srcAccessMask = CalculateResourceAccessFlags(*srcResourceUsage, resourceDependency, srcBindPoint);
-						newDstBarrier.dstAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resourceDependency, dstBindPoint);
-						newDstBarrier.srcStageMask = CalculateResourcePipelineStageFlags(srcBindPoint, true);
-						newDstBarrier.dstStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, false);
-
-						if (resourceDependency.type == RESOURCE_TYPE::TEXTURE)
-						{
-							newDstBarrier.oldLayout = CalculateResourceImageLayout(*srcResourceUsage, srcBindPoint);
-							newDstBarrier.newLayout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
-						}
-
-						// Add the barrier information to dst pass
-						dstRenderPass.m_inputBarriers.insert({ resourceID, newDstBarrier });
-
-						// Create a mirror copy of dst barrier and add to src pass
-						Barrier newSrcBarrier = newDstBarrier;
-
-						srcRenderPass->m_outputBarriers.insert({resourceID, newSrcBarrier});
-					});
-				}
+					// Add the barrier information to both src and dst pass
+					dstRenderPass.m_inputBarriers.insert({ resourceID, newDstBarrier });
+					srcRenderPass->m_outputBarriers.insert({ resourceID, newDstBarrier });
+				});
 			}
 		}
 	}
@@ -1317,6 +1418,7 @@ namespace PHX
 				BufferVk* pBuffer = static_cast<BufferVk*>(resourceBarrier->data);
 				res = pDeviceContext->InsertBufferMemoryBarrier(
 					pBuffer,
+					ConvertBindPointToQueueType(renderPass.m_bindPoint),
 					currBarrier.srcStageMask,
 					currBarrier.dstStageMask,
 					currBarrier.srcAccessMask,
@@ -1336,6 +1438,7 @@ namespace PHX
 				TextureVk* pTexture = static_cast<TextureVk*>(resourceBarrier->data);
 				res = pDeviceContext->InsertImageMemoryBarrier(
 					pTexture,
+					ConvertBindPointToQueueType(renderPass.m_bindPoint),
 					currBarrier.srcStageMask,
 					currBarrier.dstStageMask,
 					currBarrier.srcAccessMask,
@@ -1440,6 +1543,7 @@ namespace PHX
 
 	const RenderResource* RenderGraphVk::GetPhysicalResource(u64 resourceID) const
 	{
+		// TODO - Replace lookup with a map
 		for (u32 i = 0; i < static_cast<u32>(m_physicalResources.size()); i++)
 		{
 			const RenderResource& resource = m_physicalResources[i];
@@ -1450,5 +1554,23 @@ namespace PHX
 		}
 
 		return nullptr;
+	}
+
+	void RenderGraphVk::UpdateTextureLayouts(u32 renderPassIndex)
+	{
+		RenderPassVk& renderPass = m_registeredRenderPasses[renderPassIndex];
+		for (const auto& iter : renderPass.m_outputBarriers)
+		{
+			u64 resourceID = iter.first;
+			const Barrier& barrierInfo = iter.second;
+
+			const RenderResource* resource = GetPhysicalResource(resourceID);
+			ASSERT_PTR(resource);
+
+			TextureVk* textureResource = static_cast<TextureVk*>(resource->data);
+			ASSERT_PTR(textureResource);
+
+			textureResource->SetLayout(barrierInfo.newLayout);
+		}
 	}
 }

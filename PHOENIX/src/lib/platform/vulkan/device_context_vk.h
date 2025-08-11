@@ -12,6 +12,7 @@
 namespace PHX
 {
 	// Forward declarations
+	class StagingBufferVk;
 	class SwapChainVk;
 
 	using CommandBufferList = std::vector<VkCommandBuffer>;
@@ -61,6 +62,7 @@ namespace PHX
 
 		STATUS_CODE InsertImageMemoryBarrier(
 			TextureVk* pTexture,
+			QUEUE_TYPE queueType,
 			VkPipelineStageFlags srcStageMask, 
 			VkPipelineStageFlags dstStageMask, 
 			VkAccessFlags srcAccessMask, 
@@ -71,6 +73,7 @@ namespace PHX
 
 		STATUS_CODE InsertBufferMemoryBarrier(
 			BufferVk* pBuffer,
+			QUEUE_TYPE queueType,
 			VkPipelineStageFlags srcStageMask,
 			VkPipelineStageFlags dstStageMask,
 			VkAccessFlags srcAccessMask,
@@ -79,28 +82,28 @@ namespace PHX
 
 	private:
 
-		STATUS_CODE GetOrCreateCommandBuffer(QUEUE_TYPE type, bool isPrimaryCmdBuffer, VkCommandBuffer& out_cmdBuffer);
-
-		void FreeCommandBuffer(VkCommandBuffer cmdBuffer, QUEUE_TYPE queueType);
-		void FreeCachedCommandBuffers();
-		void FreeSecondaryCommandBuffers();
-
-		VkCommandBuffer GetLastCommandBuffer(QUEUE_TYPE queueType);
+		STATUS_CODE GetOrCreateCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer);
+		void DeallocateCommandBuffers();
 
 		// Returns the queue type from the pipeline bind point. May return invalid result in the form of QUEUE_TYPE::COUNT!
 		QUEUE_TYPE GetQueueTypeFromPipelineBindPoint(VkPipelineBindPoint vkBindPoint);
 
 		STATUS_CODE FlushInternal(QUEUE_TYPE queueType, const VkCommandBuffer* pCommandBuffers, u32 commandBufferCount, const FlushSyncData& syncData);
 
+		StagingBufferVk* CreateStagingBuffer(const BufferCreateInfo& createInfo);
+		void DestroyStagingBuffers();
+
 	private:
 
 		RenderDeviceVk* m_pRenderDevice;
 
-		// Primary graphics command buffer, allocated from graphics command pool
-		VkCommandBuffer m_primaryCmdBuffer;
-
 		// Stores all command buffers from all supported queues
 		std::array<CommandBufferList, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_cmdBuffers;
+
+		// Cache the staging buffers used in the current frame. Since staging buffer are RAII objects, they must
+		// live outside the scope of the functions that create them at least until the commands that reference
+		// the buffers are executed
+		std::vector<StagingBufferVk*> m_stagingBuffers;
 
 		bool m_wasWorkSubmitted;
 	};

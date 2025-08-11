@@ -58,7 +58,6 @@ layout(set = 1, binding = 0) uniform sampler2D diffuseSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D metallicSampler;
 layout(set = 1, binding = 3) uniform sampler2D roughnessSampler;
-layout(set = 1, binding = 4) uniform sampler2D lightmapSampler;
 
 layout(location = 0) out vec4 outColor;
 
@@ -163,9 +162,6 @@ vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness)
 
 void main()
 {
-    outColor = vec4(inUV, 0.0, 1.0);
-    return;
-
     // NORMAL MAP
     vec3 normal = texture(normalSampler, inUV).rgb;
     normal = normal * 2.0 - 1.0;
@@ -174,7 +170,7 @@ void main()
 
     // BASE VECTORS
     vec3 cameraPos = vec3(0.0f, 1.0f, -7.0f); // TODO - Replace hard-coded camera position
-    vec3 light = -normalize(vec3(0.4, -0.75, 1.0));
+    vec3 light = -normalize(vec3(0.0, 0.0, 1.0));
     vec3 view = normalize(cameraPos - inWorldPosition);
     vec3 halfVector = normalize(light + view);
     vec3 albedo = texture(diffuseSampler, inUV).rgb;
@@ -216,7 +212,6 @@ void main()
     ////
 
     vec3 ambient = vec3(0.1);
-
     pbrColor += ambient;
 
     outColor = vec4( pbrColor, 1.0 );

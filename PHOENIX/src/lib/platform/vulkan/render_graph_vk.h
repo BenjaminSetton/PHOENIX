@@ -155,6 +155,10 @@ namespace PHX
 		const ResourceUsage* GetResourceUsageFromPass(const RenderPassVk& renderPass, u64 resourceID) const;
 		const RenderResource* GetPhysicalResource(u64 resourceID) const;
 
+		// Updates the render pass' textures to whatever layout they were implicitly transitioned to
+		// by the render pass dependency. This information is stored in the output barriers
+		void UpdateTextureLayouts(u32 renderPassIndex);
+
 	private:
 
 		std::vector<RenderPassVk> m_registeredRenderPasses;
@@ -167,6 +171,7 @@ namespace PHX
 
 		u32 m_frameIndex;
 
-		const CRC32 m_pReservedBackbufferNameCRC;
+		const CRC32 m_reservedBackbufferNameCRC;
+		const CRC32 m_reservedDepthBufferNameCRC;
 	};
 }

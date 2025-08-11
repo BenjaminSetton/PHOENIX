@@ -56,7 +56,6 @@ namespace PHX
 
 		VkImageLayout GetLayout() const;
 		void SetLayout(VkImageLayout layout); // Used when device context adds transition commands to command buffer
-		//bool FillTransitionLayoutInfo(VkImageLayout destinationLayout, VkPipelineStageFlags& out_sourceStage, VkPipelineStageFlags& out_destinationStage, VkImageMemoryBarrier& out_barrier);
 
 		VkSampler GetSampler() const;
 
