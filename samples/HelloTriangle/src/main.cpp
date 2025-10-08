@@ -312,7 +312,7 @@ int main(int argc, char** argv)
 			// Update test UBO
 			test.time += elapsedSeconds.count();
 			pDeviceContext->CopyDataToBuffer(uniformBuffer, &test, sizeof(TestUBO));
-			pUniforms->QueueBufferUpdate(0, 0, 0, uniformBuffer);
+			pUniforms->QueueBufferUpdate(uniformBuffer, 0, 0, 0);
 			pUniforms->FlushUpdateQueue();
 
 			pDeviceContext->BindPipeline(pPipeline);

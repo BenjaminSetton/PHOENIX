@@ -292,7 +292,7 @@ int main(int argc, char** argv)
 
 			// Update the transform uniform data
 			pContext->CopyDataToBuffer(pUniformBuffer, &transform, sizeof(TransformData));
-			pUniformCollection->QueueBufferUpdate(0, 0, 0, pUniformBuffer);
+			pUniformCollection->QueueBufferUpdate(pUniformBuffer, 0, 0, 0);
 			pUniformCollection->FlushUpdateQueue();
 			pContext->BindUniformCollection(pUniformCollection, pPipeline);
 

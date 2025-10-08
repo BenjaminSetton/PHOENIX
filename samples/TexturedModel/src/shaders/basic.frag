@@ -59,6 +59,11 @@ layout(set = 1, binding = 1) uniform sampler2D normalSampler;
 layout(set = 1, binding = 2) uniform sampler2D metallicSampler;
 layout(set = 1, binding = 3) uniform sampler2D roughnessSampler;
 
+layout(set = 2, binding = 0) uniform CameraData
+{
+    vec3 cameraPos;
+} cameraData;
+
 layout(location = 0) out vec4 outColor;
 
 const float PI = 3.14159265359;
@@ -169,8 +174,8 @@ void main()
     ////
 
     // BASE VECTORS
-    vec3 cameraPos = vec3(0.0f, 1.0f, -7.0f); // TODO - Replace hard-coded camera position
-    vec3 light = -normalize(vec3(0.0, 0.0, 1.0));
+    vec3 cameraPos = cameraData.cameraPos;
+    vec3 light = -normalize(vec3(0.0, 0.0, -1.0));
     vec3 view = normalize(cameraPos - inWorldPosition);
     vec3 halfVector = normalize(light + view);
     vec3 albedo = texture(diffuseSampler, inUV).rgb;

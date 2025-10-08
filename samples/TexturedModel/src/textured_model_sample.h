@@ -13,6 +13,11 @@ struct TransformData
 	glm::mat4 projMat;
 };
 
+struct CameraData
+{
+	glm::vec3 cameraPos;
+};
+
 enum class PBRTextureType
 {
 
@@ -51,7 +56,8 @@ private:
 
 	PHX::ITexture* m_pDepthBuffer;
 	PHX::IUniformCollection* m_pUniformCollection;
-	PHX::IBuffer* m_pUniformBuffer;
+	PHX::IBuffer* m_pTransformBuffer;
+	PHX::IBuffer* m_pCameraBuffer;
 	PHX::IBuffer* m_pVertexBuffer;
 	PHX::IBuffer* m_pIndexBuffer;
 

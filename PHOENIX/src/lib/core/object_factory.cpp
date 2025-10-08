@@ -28,21 +28,6 @@ namespace PHX
 			{
 				return CoreVk::Get().Initialize(pWindow);
 			}
-			case GRAPHICS_API::OPENGL:
-			{
-				TODO();
-				break;
-			}
-			case GRAPHICS_API::DX11:
-			{
-				TODO();
-				break;
-			}
-			case GRAPHICS_API::DX12:
-			{
-				TODO();
-				break;
-			}
 			}
 
 			// Nothing was created
@@ -66,21 +51,6 @@ namespace PHX
 			case GRAPHICS_API::VULKAN:
 			{
 				return new RenderDeviceVk(createInfo);
-			}
-			case GRAPHICS_API::OPENGL:
-			{
-				TODO();
-				break;
-			}
-			case GRAPHICS_API::DX11:
-			{
-				TODO();
-				break;
-			}
-			case GRAPHICS_API::DX12:
-			{
-				TODO();
-				break;
 			}
 			}
 

@@ -7,13 +7,14 @@
 #include "textured_model_sample.h"
 
 #include "../../common/src/utils/shader_utils.h"
+#include "../../common/src/camera/freefly_camera.h"
 #include "asset_loader.h"
 
 using namespace PHX;
 
 #define CHECK_PHX_RES(phxRes) if(phxRes != PHX::STATUS_CODE::SUCCESS) { return; }
 
-static TransformData InitializeTransform(glm::vec3 initialCameraPos, float FOV, float aspectRatio, float scale)
+static TransformData InitializeTransform(const Common::BaseCamera* pCamera, float FOV, float aspectRatio, float scale)
 {
 	TransformData data;
 
@@ -22,10 +23,16 @@ static TransformData InitializeTransform(glm::vec3 initialCameraPos, float FOV, 
 	data.worldMat = glm::scale(data.worldMat, glm::vec3(scale));
 
 	// View (toward -Z)
-	glm::vec3 eye = initialCameraPos;
-	glm::vec3 center = { 0.0f, 0.0f, -1.0f };
-	glm::vec3 up = { 0.0f, 1.0f, 0.0f };
-	data.viewMat = glm::inverse(glm::lookAt(eye, center, up));
+	if (pCamera != nullptr)
+	{
+		data.viewMat = pCamera->GetViewMatrix();
+	}
+	else
+	{
+		glm::vec3 defaultEye = { 0.0f, 0.0f, 0.0f };
+		glm::vec3 defaultCenter = { 0.0f, 0.0f, 1.0f };
+		data.viewMat = glm::lookAt(defaultEye, defaultCenter, { 0.0f, 1.0f, 0.0f });
+	}
 
 	// Perspective
 	data.projMat = glm::perspective(FOV, aspectRatio, 0.01f, 1000.0f);
@@ -34,8 +41,8 @@ static TransformData InitializeTransform(glm::vec3 initialCameraPos, float FOV, 
 }
 
 TexturedModelSample::TexturedModelSample() : m_transform(), m_pipelineDesc(), 
-	m_pDepthBuffer(nullptr), m_pUniformCollection(nullptr), m_pUniformBuffer(nullptr), m_pVertexBuffer(nullptr), 
-	m_pIndexBuffer(nullptr), m_assetID(Common::INVALID_ASSET_HANDLE)
+	m_pDepthBuffer(nullptr), m_pUniformCollection(nullptr), m_pTransformBuffer(nullptr), m_pCameraBuffer(nullptr),
+	m_pVertexBuffer(nullptr), m_pIndexBuffer(nullptr), m_assetID(Common::INVALID_ASSET_HANDLE)
 {
 	Init();
 }
@@ -47,6 +54,12 @@ TexturedModelSample::~TexturedModelSample()
 
 bool TexturedModelSample::Update(float dt)
 {
+	// Update the asset's transform
+	//m_transform.worldMat = glm::rotate(m_transform.worldMat, 0.01f, { 0.0f, -1.0f, 0.0f });
+
+	// Get the new view matrix from the camera
+	m_transform.viewMat = m_pCamera->GetViewMatrix();
+
 	return BaseSample::Update(dt);
 }
 
@@ -75,9 +88,6 @@ void TexturedModelSample::Draw()
 
 	m_pRenderGraph->BeginFrame(m_pSwapChain);
 
-	// Update the cube's transform
-	m_transform.worldMat = glm::rotate(m_transform.worldMat, 0.01f, { 0.0f, -1.0f, 0.0f });
-
 	// Setup a new render pass for PBR
 	IRenderPass* pRenderPass = m_pRenderGraph->RegisterPass("PBRPass", BIND_POINT::GRAPHICS);
 	pRenderPass->SetBackbufferOutput(m_pSwapChain->GetCurrentImage());
@@ -93,15 +103,21 @@ void TexturedModelSample::Draw()
 	pRenderPass->SetPipelineDescription(m_pipelineDesc);
 	pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline)
 	{
-		// Uniform collection
-		pContext->CopyDataToBuffer(m_pUniformBuffer, &m_transform, sizeof(TransformData));
-		m_pUniformCollection->QueueBufferUpdate(0, 0, 0, m_pUniformBuffer);
+		// Uniform collection updates
+		pContext->CopyDataToBuffer(m_pTransformBuffer, &m_transform, sizeof(TransformData));
+		m_pUniformCollection->QueueBufferUpdate(m_pTransformBuffer, 0, 0, 0);
 
 		for (u32 i = 0; i < m_assetTextures.size(); i++)
 		{
 			ITexture* pCurrTex = m_assetTextures[i];
-			m_pUniformCollection->QueueImageUpdate(1, i, 0, pCurrTex);
+			m_pUniformCollection->QueueImageUpdate(pCurrTex, 1, i, 0);
 		}
+
+		CameraData cameraData{};
+		cameraData.cameraPos = m_pCamera->GetPosition();
+		pContext->CopyDataToBuffer(m_pCameraBuffer, &cameraData, sizeof(CameraData));
+		m_pUniformCollection->QueueBufferUpdate(m_pCameraBuffer, 2, 0, 0);
+
 		m_pUniformCollection->FlushUpdateQueue();
 
 		// Draw commands
@@ -219,17 +235,29 @@ void TexturedModelSample::Init()
 		},
 	};
 
+	// Create a new freefly camera
+	const float cameraSpeed = 4.0f;
+	const float cameraSensitivity = 0.2f;
+	m_pCamera = new Common::FreeflyCamera(cameraSpeed, cameraSensitivity);
+
 	// TRANSFORMS + UNIFORM BUFFER
-	glm::vec3 initialCameraPos = { 0.0f, 1.0f, -7.0f };
-	float fov = 45.0f;
-	float aspectRatio = static_cast<float>(m_pWindow->GetCurrentWidth()) / m_pWindow->GetCurrentHeight();
-	m_transform = InitializeTransform(initialCameraPos, fov, aspectRatio, 0.005f);
+	const float fov = 45.0f;
+	const float aspectRatio = static_cast<float>(m_pWindow->GetCurrentWidth()) / m_pWindow->GetCurrentHeight();
+	const float scale = 0.005f;
+	m_transform = InitializeTransform(m_pCamera, fov, aspectRatio, scale);
 
-	BufferCreateInfo uniformBufferCI{};
-	uniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
-	uniformBufferCI.sizeBytes = sizeof(TransformData);
+	BufferCreateInfo transformUniformBufferCI{};
+	transformUniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	transformUniformBufferCI.sizeBytes = sizeof(TransformData);
 
-	phxRes = m_pRenderDevice->AllocateBuffer(uniformBufferCI, &m_pUniformBuffer);
+	phxRes = m_pRenderDevice->AllocateBuffer(transformUniformBufferCI, &m_pTransformBuffer);
+	CHECK_PHX_RES(phxRes);
+
+	BufferCreateInfo cameraUniformBufferCI{};
+	cameraUniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	cameraUniformBufferCI.sizeBytes = sizeof(CameraData);
+
+	phxRes = m_pRenderDevice->AllocateBuffer(cameraUniformBufferCI, &m_pCameraBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// UNIFORM DATA
@@ -270,11 +298,15 @@ void TexturedModelSample::Shutdown()
 	}
 	m_shaders.clear();
 
-	m_pRenderDevice->DeallocateBuffer(&m_pUniformBuffer);
+	m_pRenderDevice->DeallocateBuffer(&m_pCameraBuffer);
+	m_pRenderDevice->DeallocateBuffer(&m_pTransformBuffer);
 	m_pRenderDevice->DeallocateBuffer(&m_pIndexBuffer);
 	m_pRenderDevice->DeallocateBuffer(&m_pVertexBuffer);
 	m_pRenderDevice->DeallocateUniformCollection(&m_pUniformCollection);
 	m_pRenderDevice->DeallocateTexture(&m_pDepthBuffer);
+
+	delete m_pCamera;
+	m_pCamera = nullptr;
 }
 
 void TexturedModelSample::CreateAssetTextures()
@@ -347,10 +379,22 @@ void TexturedModelSample::CreateUniformCollection()
 	texUniformDataGroup.uniformArray = texUniforms.data();
 	texUniformDataGroup.uniformArrayCount = static_cast<u32>(texUniforms.size());
 
-	std::array<UniformDataGroup, 2> dataGroups =
+	// SET 2
+	UniformData cameraUniformData;
+	cameraUniformData.binding = 0;
+	cameraUniformData.shaderStage = SHADER_STAGE::FRAGMENT;
+	cameraUniformData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
+
+	UniformDataGroup cameraDataGroup;
+	cameraDataGroup.set = 2;
+	cameraDataGroup.uniformArray = &cameraUniformData;
+	cameraDataGroup.uniformArrayCount = 1;
+
+	std::array<UniformDataGroup, 3> dataGroups =
 	{
 		transformDataGroup,
-		texUniformDataGroup
+		texUniformDataGroup,
+		cameraDataGroup
 	};
 
 	UniformCollectionCreateInfo uniformCollectionCI{};

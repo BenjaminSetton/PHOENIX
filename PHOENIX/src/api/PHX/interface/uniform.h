@@ -27,9 +27,9 @@ namespace PHX
 		virtual const UniformDataGroup* GetGroup(u32 groupIndex) const = 0;
 		virtual UniformDataGroup* GetGroup(u32 groupIndex) = 0;
 
-		// Updating uniform functions
-		virtual STATUS_CODE QueueBufferUpdate(u32 set, u32 binding, u32 offset, IBuffer* pBuffer) = 0;
-		virtual STATUS_CODE QueueImageUpdate(u32 set, u32 binding, u32 imageViewIndex, ITexture* pTexture) = 0;
+		// Queue a buffer update. A size of U64_MAX is used to indicate a "whole buffer" update
+		virtual STATUS_CODE QueueBufferUpdate(IBuffer* pBuffer, u32 set, u32 binding, u64 offset, u64 size = U64_MAX) = 0;
+		virtual STATUS_CODE QueueImageUpdate(ITexture* pTexture, u32 set, u32 binding, u32 imageViewIndex) = 0;
 		virtual STATUS_CODE FlushUpdateQueue() = 0;
 	};
 }

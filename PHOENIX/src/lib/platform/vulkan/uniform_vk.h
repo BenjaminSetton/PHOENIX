@@ -21,8 +21,8 @@ namespace PHX
 		const UniformDataGroup* GetGroup(u32 groupIndex) const override;
 		UniformDataGroup* GetGroup(u32 groupIndex) override;
 
-		STATUS_CODE QueueBufferUpdate(u32 set, u32 binding, u32 offset, IBuffer* pBuffer) override;
-		STATUS_CODE QueueImageUpdate(u32 set, u32 binding, u32 imageViewIndex, ITexture* pTexture) override;
+		STATUS_CODE QueueBufferUpdate(IBuffer* pBuffer, u32 set, u32 binding, u64 offset, u64 size) override;
+		STATUS_CODE QueueImageUpdate(ITexture* pTexture, u32 set, u32 binding, u32 imageViewIndex) override;
 		STATUS_CODE FlushUpdateQueue() override;
 
 		const VkDescriptorSet* GetDescriptorSets() const;

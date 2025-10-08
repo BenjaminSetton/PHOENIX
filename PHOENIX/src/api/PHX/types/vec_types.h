@@ -126,16 +126,16 @@ namespace PHX
 
 	// Template type aliases
 	using Vec2f = VecT<float, 2>;
-	using Vec2i = VecT<i32, 2>;
-	using Vec2u = VecT<u32, 2>;
+	using Vec2i = VecT<i32  , 2>;
+	using Vec2u = VecT<u32  , 2>;
 
 	using Vec3f = VecT<float, 3>;
-	using Vec3i = VecT<i32, 3>;
-	using Vec3u = VecT<u32, 3>;
+	using Vec3i = VecT<i32  , 3>;
+	using Vec3u = VecT<u32  , 3>;
 
 	using Vec4f = VecT<float, 4>;
-	using Vec4i = VecT<i32, 4>;
-	using Vec4u = VecT<u32, 4>;
+	using Vec4i = VecT<i32  , 4>;
+	using Vec4u = VecT<u32  , 4>;
 }
 
 #define DEFINE_HASH_2D_VEC(vecType, T)                        \
@@ -167,6 +167,7 @@ template<> struct hash<vecType> {                             \
 		return finalHash;                                     \
 	}                                                         \
 };
+
 // Template specialization to allow vector types to be used in std containers thru std::hash
 namespace std
 {

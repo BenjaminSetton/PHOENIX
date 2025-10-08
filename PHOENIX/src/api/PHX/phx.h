@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PHX/types/integral_types.h"
+#include "PHX/types/key_codes.h"
 #include "PHX/types/settings.h"
 #include "PHX/types/shader_desc.h"
 #include "PHX/types/status_code.h"

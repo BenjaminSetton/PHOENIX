@@ -143,10 +143,10 @@ namespace PHX
 		return &(m_uniformGroups.at(groupIndex));
 	}
 
-	STATUS_CODE UniformCollectionVk::QueueBufferUpdate(u32 set, u32 binding, u32 offset, IBuffer* pBuffer)
+	STATUS_CODE UniformCollectionVk::QueueBufferUpdate(IBuffer* pBuffer, u32 set, u32 binding, u64 offset, u64 size)
 	{
 		BufferVk* bufferVk = static_cast<BufferVk*>(pBuffer);
-		if (bufferVk == nullptr)
+		if ((bufferVk == nullptr) || (bufferVk->GetBuffer() == nullptr))
 		{
 			LogError("Failed to queue buffer update! Buffer is null");
 			return STATUS_CODE::ERR_API;
@@ -158,13 +158,42 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		if ((size != U64_MAX) && (size > bufferVk->GetSize()))
+		{
+			LogWarning("Attempting to queue buffer update with size of %u, while the buffer's size is %u", size, bufferVk->GetSize());
+		}
+
+		// Warn about any overlapping queued updates
+		for (u32 i = 0; i < m_writeBufferInfo.size(); i++)
+		{
+			const VkDescriptorBufferInfo& currBufferUpdateInfo = m_writeBufferInfo[i];
+			if (currBufferUpdateInfo.buffer != bufferVk->GetBuffer())
+			{
+				// Only consider updates to the same buffer
+				continue;
+			}
+
+			const u64 currWindowStart = currBufferUpdateInfo.offset;
+			const u64 currWindowEnd = currBufferUpdateInfo.offset + currBufferUpdateInfo.range;
+
+			const u64 queuedWindowStart = offset;
+			const u64 queuedWindowEnd = offset + size;
+			if ((queuedWindowStart >= currWindowStart && queuedWindowStart <= currWindowEnd) ||
+				(queuedWindowEnd >= currWindowStart && queuedWindowEnd <= currWindowEnd))
+			{
+				LogWarning("Found overlapping buffer update to the same buffer %p. Ranges: [%u-%u], [%u-%u]", currBufferUpdateInfo.buffer, 
+					queuedWindowStart, queuedWindowEnd, currWindowStart, currWindowEnd);
+			}
+		}
+
 		VkDescriptorSet vkDescSet = m_descriptorSets.at(set);
+		u64 range = (size == U64_MAX) ? bufferVk->GetSize() : size;
 
 		m_writeBufferInfo.push_back({});
 		VkDescriptorBufferInfo& bufferInfo = m_writeBufferInfo.back();
 		bufferInfo.buffer = bufferVk->GetBuffer();
 		bufferInfo.offset = offset;
-		bufferInfo.range = bufferVk->GetSize();
+		bufferInfo.range = range;
 
 		VkWriteDescriptorSet writeDescSet{};
 		writeDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -179,7 +208,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE UniformCollectionVk::QueueImageUpdate(u32 set, u32 binding, u32 imageViewIndex, ITexture* pTexture)
+	STATUS_CODE UniformCollectionVk::QueueImageUpdate(ITexture* pTexture, u32 set, u32 binding, u32 imageViewIndex)
 	{
 		TextureVk* textureVk = static_cast<TextureVk*>(pTexture);
 		if (textureVk == nullptr)

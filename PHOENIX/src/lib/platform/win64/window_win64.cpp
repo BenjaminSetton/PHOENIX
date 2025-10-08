@@ -1,6 +1,7 @@
 
 #include <stdio.h> // vsprintf_s
 #include <stdarg.h> // va_start, va_end
+#include <unordered_map>
 
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <glfw/glfw3.h> // GLFWwindow
@@ -16,10 +17,120 @@
 
 #include "../../utils/logger.h"
 #include "../../utils/sanity.h"
+#include "PHX/types/key_codes.h"
+#include "PHX/types/mouse_codes.h"
 
 namespace PHX
 {
-	static void Global_OnWindowResized(GLFWwindow* window, i32 newWidth, i32 newHeight)
+	static constexpr u32 MAX_WINDOW_TITLE_SIZE = 256;
+
+	static const std::unordered_map<int, KeyCode> s_KeyCodeMappings =
+	{
+		// Numbers
+		{ GLFW_KEY_0, KeyCode::KEY_0 },
+		{ GLFW_KEY_1, KeyCode::KEY_1 },
+		{ GLFW_KEY_2, KeyCode::KEY_2 },
+		{ GLFW_KEY_3, KeyCode::KEY_3 },
+		{ GLFW_KEY_4, KeyCode::KEY_4 },
+		{ GLFW_KEY_5, KeyCode::KEY_5 },
+		{ GLFW_KEY_6, KeyCode::KEY_6 },
+		{ GLFW_KEY_7, KeyCode::KEY_7 },
+		{ GLFW_KEY_8, KeyCode::KEY_8 },
+		{ GLFW_KEY_9, KeyCode::KEY_9 },
+
+		// Letters
+		{ GLFW_KEY_A, KeyCode::KEY_A },
+		{ GLFW_KEY_B, KeyCode::KEY_B },
+		{ GLFW_KEY_C, KeyCode::KEY_C },
+		{ GLFW_KEY_D, KeyCode::KEY_D },
+		{ GLFW_KEY_E, KeyCode::KEY_E },
+		{ GLFW_KEY_F, KeyCode::KEY_F },
+		{ GLFW_KEY_G, KeyCode::KEY_G },
+		{ GLFW_KEY_H, KeyCode::KEY_H },
+		{ GLFW_KEY_I, KeyCode::KEY_I },
+		{ GLFW_KEY_J, KeyCode::KEY_J },
+		{ GLFW_KEY_K, KeyCode::KEY_K },
+		{ GLFW_KEY_L, KeyCode::KEY_L },
+		{ GLFW_KEY_M, KeyCode::KEY_M },
+		{ GLFW_KEY_N, KeyCode::KEY_N },
+		{ GLFW_KEY_O, KeyCode::KEY_O },
+		{ GLFW_KEY_P, KeyCode::KEY_P },
+		{ GLFW_KEY_Q, KeyCode::KEY_Q },
+		{ GLFW_KEY_R, KeyCode::KEY_R },
+		{ GLFW_KEY_S, KeyCode::KEY_S },
+		{ GLFW_KEY_T, KeyCode::KEY_T },
+		{ GLFW_KEY_U, KeyCode::KEY_U },
+		{ GLFW_KEY_V, KeyCode::KEY_V },
+		{ GLFW_KEY_W, KeyCode::KEY_W },
+		{ GLFW_KEY_X, KeyCode::KEY_X },
+		{ GLFW_KEY_Y, KeyCode::KEY_Y },
+		{ GLFW_KEY_Z, KeyCode::KEY_Z },
+
+		// Utility keys
+		//	KEY_OSKEY,
+		{ GLFW_KEY_LEFT_SHIFT   , KeyCode::KEY_LSHIFT      },
+		{ GLFW_KEY_RIGHT_SHIFT  , KeyCode::KEY_RSHIFT      },
+		{ GLFW_KEY_LEFT_CONTROL , KeyCode::KEY_LCTRL       },
+		{ GLFW_KEY_RIGHT_CONTROL, KeyCode::KEY_RCTRL       },
+		{ GLFW_KEY_SPACE        , KeyCode::KEY_SPACEBAR    },
+		{ GLFW_KEY_LEFT_ALT     , KeyCode::KEY_LALT        },
+		{ GLFW_KEY_RIGHT_ALT    , KeyCode::KEY_RALT        },
+		{ GLFW_KEY_TAB          , KeyCode::KEY_TAB         },
+		{ GLFW_KEY_CAPS_LOCK    , KeyCode::KEY_CAPS        },
+		{ GLFW_KEY_ENTER        , KeyCode::KEY_ENTER       },
+		{ GLFW_KEY_BACKSPACE    , KeyCode::KEY_BACKSPACE   },
+		{ GLFW_KEY_ESCAPE       , KeyCode::KEY_ESC         },
+		{ GLFW_KEY_HOME         , KeyCode::KEY_HOME        },
+		{ GLFW_KEY_END          , KeyCode::KEY_END         },
+		{ GLFW_KEY_INSERT       , KeyCode::KEY_INSERT      },
+		{ GLFW_KEY_DELETE       , KeyCode::KEY_DELETE      },
+		{ GLFW_KEY_PAGE_UP      , KeyCode::KEY_PGUP        },
+		{ GLFW_KEY_PAGE_DOWN    , KeyCode::KEY_PGDOWN      },
+		{ GLFW_KEY_LEFT         , KeyCode::KEY_LEFT_ARROW  },
+		{ GLFW_KEY_RIGHT        , KeyCode::KEY_RIGHT_ARROW },
+		{ GLFW_KEY_UP           , KeyCode::KEY_UP_ARROW    },
+		{ GLFW_KEY_DOWN         , KeyCode::KEY_DOWN_ARROW  },
+
+		// Special characters
+		//	KEY_TILDA,
+		//	KEY_HYPHEN,
+		{ GLFW_KEY_EQUAL        , KeyCode::KEY_EQUALS         },
+		{ GLFW_KEY_LEFT_BRACKET , KeyCode::KEY_LSQUAREBRACKET },
+		{ GLFW_KEY_RIGHT_BRACKET, KeyCode::KEY_RSQUAREBRACKET },
+		{ GLFW_KEY_BACKSLASH    , KeyCode::KEY_BACKSLASH      },
+		{ GLFW_KEY_SLASH        , KeyCode::KEY_FORWARDSLASH   },
+		{ GLFW_KEY_SEMICOLON    , KeyCode::KEY_SEMICOLON      },
+		{ GLFW_KEY_APOSTROPHE   , KeyCode::KEY_APOSTROPHE     },
+		{ GLFW_KEY_COMMA        , KeyCode::KEY_COMMA          },
+		{ GLFW_KEY_PERIOD       , KeyCode::KEY_PERIOD         },
+
+		// Function keys
+		{ GLFW_KEY_F1 , KeyCode::KEY_F1  },
+		{ GLFW_KEY_F2 , KeyCode::KEY_F2  },
+		{ GLFW_KEY_F3 , KeyCode::KEY_F3  },
+		{ GLFW_KEY_F4 , KeyCode::KEY_F4  },
+		{ GLFW_KEY_F5 , KeyCode::KEY_F5  },
+		{ GLFW_KEY_F6 , KeyCode::KEY_F6  },
+		{ GLFW_KEY_F7 , KeyCode::KEY_F7  },
+		{ GLFW_KEY_F8 , KeyCode::KEY_F8  },
+		{ GLFW_KEY_F9 , KeyCode::KEY_F9  },
+		{ GLFW_KEY_F10, KeyCode::KEY_F10 },
+		{ GLFW_KEY_F11, KeyCode::KEY_F11 },
+		{ GLFW_KEY_F12, KeyCode::KEY_F12 },
+
+	};
+
+	static const std::unordered_map<int, MouseButtonCode> s_MouseButtonCodeMappings =
+	{
+		{ GLFW_MOUSE_BUTTON_LEFT  , MouseButtonCode::MOUSE_LMB     },
+		{ GLFW_MOUSE_BUTTON_MIDDLE, MouseButtonCode::MOUSE_MMB     },
+		{ GLFW_MOUSE_BUTTON_RIGHT , MouseButtonCode::MOUSE_RMB     },
+		{ GLFW_MOUSE_BUTTON_1     , MouseButtonCode::MOUSE_BUTTON1 },
+		{ GLFW_MOUSE_BUTTON_2     , MouseButtonCode::MOUSE_BUTTON2 },
+		{ GLFW_MOUSE_BUTTON_3     , MouseButtonCode::MOUSE_BUTTON3 },
+	};
+
+	static void Global_OnWindowResized(GLFWwindow* window, int newWidth, int newHeight)
 	{
 		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
 		userPointer->OnWindowResizedCallback(static_cast<u32>(newWidth), static_cast<u32>(newHeight));
@@ -58,6 +169,31 @@ namespace PHX
 
 		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
 		userPointer->OnWindowMaximizedCallback(bWasMaximized);
+	}
+
+	static void Global_OnKeyEvent(GLFWwindow* window, int key, int scancode, int action, int mods)
+	{
+		UNUSED(mods);
+
+		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		userPointer->OnWindowKeyEventCallback(key, scancode, action);
+	}
+
+	static void Global_OnMouseMoved(GLFWwindow* window, double xpos, double ypos)
+	{
+		const float newX = static_cast<float>(xpos);
+		const float newY = static_cast<float>(ypos);
+
+		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		userPointer->OnMouseMovedCallback(newX, newY);
+	}
+
+	static void Global_OnMouseButtonEvent(GLFWwindow* window, int button, int action, int mods)
+	{
+		UNUSED(mods);
+
+		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		userPointer->OnMouseButtonEvent(button, action);
 	}
 
 	static u32 ConvertGLFWCursorTypeToInternal(CURSOR_TYPE cursorType)
@@ -111,6 +247,9 @@ namespace PHX
 		glfwSetWindowFocusCallback(m_handle, Global_OnWindowFocusChanged);
 		glfwSetWindowIconifyCallback(m_handle, Global_OnWindowMinimized);
 		glfwSetWindowMaximizeCallback(m_handle, Global_OnWindowMaximized);
+		glfwSetCursorPosCallback(m_handle, Global_OnMouseMoved);
+		glfwSetMouseButtonCallback(m_handle, Global_OnMouseButtonEvent);
+		glfwSetKeyCallback(m_handle, Global_OnKeyEvent);
 
 		// Take the user's desired position and add it to the top-left coordinate to account for the menu bar
 		int windowTop, windowLeft;
@@ -271,9 +410,107 @@ namespace PHX
 		settings.windowMaximizedCallback(m_isMaximized);
 	}
 
+	void WindowWin64::OnWindowKeyEventCallback(int key, int scancode, int action)
+	{
+		UNUSED(scancode);
+
+		auto& settings = GetSettings();
+
+		auto iter = s_KeyCodeMappings.find(key);
+		if (iter == s_KeyCodeMappings.end())
+		{
+			ASSERT_ALWAYS("Failed to convert from GLFW scancode to PHX::KeyCode!");
+			return;
+		}
+
+		KeyCode convertedKeyCode = iter->second;
+		switch (action)
+		{
+		case GLFW_RELEASE:
+		{
+			if (settings.windowKeyUpCallback != nullptr)
+			{
+				settings.windowKeyUpCallback(convertedKeyCode);
+			}
+			break;
+		}
+		case GLFW_PRESS:
+		{
+			if (settings.windowKeyDownCallback != nullptr)
+			{
+				settings.windowKeyDownCallback(convertedKeyCode);
+			}
+			break;
+		}
+		case GLFW_REPEAT:
+		{
+			if (settings.windowKeyRepeatCallback != nullptr)
+			{
+				settings.windowKeyRepeatCallback(convertedKeyCode);
+			}
+			break;
+		}
+		default:
+		{
+			ASSERT_ALWAYS("Received window key event with an unsupported action");
+		}
+		}
+	}
+
+	void WindowWin64::OnMouseMovedCallback(float newX, float newY)
+	{
+		auto& settings = GetSettings();
+		if (settings.mouseMovedCallback != nullptr)
+		{
+			settings.mouseMovedCallback(newX, newY);
+		}
+	}
+
+	void WindowWin64::OnMouseButtonEvent(int button, int action)
+	{
+		auto& settings = GetSettings();
+
+		auto iter = s_MouseButtonCodeMappings.find(button);
+		if (iter == s_MouseButtonCodeMappings.end())
+		{
+			ASSERT_ALWAYS("Failed to convert from GLFW button to PHX::MouseButtonCode!");
+			return;
+		}
+
+		const MouseButtonCode mouseButton = iter->second;
+		switch (action)
+		{
+		case GLFW_RELEASE:
+		{
+			if (settings.windowMouseButtonUpCallback != nullptr)
+			{
+				settings.windowMouseButtonUpCallback(mouseButton);
+			}
+			break;
+		}
+		case GLFW_PRESS:
+		{
+			if (settings.windowMouseButtonDownCallback != nullptr)
+			{
+				settings.windowMouseButtonDownCallback(mouseButton);
+			}
+			break;
+		}
+		case GLFW_REPEAT:
+		{
+			// Ignoring for now
+			break;
+		}
+		default:
+		{
+			break;
+		}
+		}
+	}
+
 	void WindowWin64::SetWindowTitle(const char* format, ...)
 	{
-		static char buffer[100];
+		static char buffer[MAX_WINDOW_TITLE_SIZE];
 		va_list va;
 		va_start(va, format);
 		vsprintf_s(buffer, format, va);

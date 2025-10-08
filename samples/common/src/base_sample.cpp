@@ -1,5 +1,9 @@
 
+#include <iostream> // TEMP
+
 #include "base_sample.h"
+
+#include "input_manager.h"
 
 #define CHECK_PHX_RES(phxRes) if(phxRes != PHX::STATUS_CODE::SUCCESS) { return; }
 
@@ -34,7 +38,7 @@ namespace Common
 	}
 
 	BaseSample::BaseSample() : 
-		m_pWindow(nullptr), m_pSwapChain(nullptr), m_pRenderDevice(nullptr), m_pRenderGraph(nullptr)
+		m_pWindow(nullptr), m_pSwapChain(nullptr), m_pRenderDevice(nullptr), m_pRenderGraph(nullptr), m_pCamera(nullptr)
 	{
 		Init();
 	}
@@ -49,14 +53,21 @@ namespace Common
 		CreateWindow();
 
 		Settings settings{};
-		settings.backendAPI = GRAPHICS_API::VULKAN;
-		settings.enableValidation = true;
-		settings.logCallback = nullptr;
-		settings.swapChainOutdatedCallback = OnSwapChainOutdatedCallback;
-		settings.windowFocusChangedCallback = OnWindowFocusChangedCallback;
-		settings.windowMaximizedCallback = OnWindowMaximizedCallback;
-		settings.windowMinimizedCallback = OnWindowMinimizedCallback;
-		settings.windowResizedCallback = OnWindowResizedCallback;
+		settings.backendAPI                    = GRAPHICS_API::VULKAN;
+		settings.logCallback                   = nullptr;
+		settings.enableValidation              = true;
+		settings.swapChainOutdatedCallback     = OnSwapChainOutdatedCallback;
+		settings.windowFocusChangedCallback    = OnWindowFocusChangedCallback;
+		settings.windowMaximizedCallback       = OnWindowMaximizedCallback;
+		settings.windowMinimizedCallback       = OnWindowMinimizedCallback;
+		settings.windowResizedCallback         = OnWindowResizedCallback;
+		settings.windowKeyDownCallback         = [=](KeyCode keycode) { this->OnKeyDown(keycode); };
+		settings.windowKeyUpCallback           = [=](KeyCode keycode) { this->OnKeyUp(keycode); };
+		settings.mouseMovedCallback            = [=](float newX, float newY) { this->OnMouseMoved(newX, newY); };
+		settings.windowMouseButtonDownCallback = [=](MouseButtonCode mouseButton) { this->OnMouseButtonDown(mouseButton); };
+		settings.windowMouseButtonUpCallback   = [=](MouseButtonCode mouseButton) { this->OnMouseButtonUp(mouseButton); };
+		settings.windowKeyRepeatCallback       = nullptr;
+
 		STATUS_CODE phxRes = PHX::Initialize(settings, m_pWindow);
 		CHECK_PHX_RES(phxRes);
 
@@ -76,6 +87,14 @@ namespace Common
 	bool BaseSample::Update(float dt)
 	{
 		m_pWindow->Update(dt);
+
+		InputManager::GetInstance().Update();
+
+		if (m_pCamera != nullptr)
+		{
+			m_pCamera->Update(dt);
+		}
+
 		return m_pWindow->ShouldClose();
 	}
 
@@ -152,5 +171,33 @@ namespace Common
 		{
 			m_pRenderDevice->DeallocateRenderGraph(&m_pRenderGraph);
 		}
+	}
+
+	void BaseSample::OnKeyDown(PHX::KeyCode keycode)
+	{
+		//std::cout << "Received key down: " << static_cast<int>(keycode) << std::endl;
+		InputManager::GetInstance().SetKeyCode(keycode, true);
+	}
+
+	void BaseSample::OnKeyUp(PHX::KeyCode keycode)
+	{
+		//std::cout << "Received key up: " << static_cast<int>(keycode) << std::endl;
+		InputManager::GetInstance().SetKeyCode(keycode, false);
+	}
+
+	void BaseSample::OnMouseButtonDown(PHX::MouseButtonCode mouseButton)
+	{
+		InputManager::GetInstance().SetMouseButton(mouseButton, true);
+	}
+
+	void BaseSample::OnMouseButtonUp(PHX::MouseButtonCode mouseButton)
+	{
+		InputManager::GetInstance().SetMouseButton(mouseButton, false);
+	}
+
+	void BaseSample::OnMouseMoved(float newX, float newY)
+	{
+		//std::cout << "Received mouse pos: " << newX << ", " << newY << std::endl;
+		InputManager::GetInstance().SetMousePosition(newX, newY);
 	}
 }

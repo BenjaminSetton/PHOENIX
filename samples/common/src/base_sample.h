@@ -2,6 +2,9 @@
 
 #include <PHX/phx.h>
 
+#include "camera/base_camera.h"
+#include "input_manager.h"
+
 namespace Common
 {
 	class BaseSample
@@ -40,6 +43,14 @@ namespace Common
 		PHX::IRenderDevice* m_pRenderDevice;
 		PHX::IRenderGraph* m_pRenderGraph;
 
+		BaseCamera* m_pCamera;
+
 	private:
+
+		void OnKeyDown(PHX::KeyCode keycode);
+		void OnKeyUp(PHX::KeyCode keycode);
+		void OnMouseButtonDown(PHX::MouseButtonCode mouseButton);
+		void OnMouseButtonUp(PHX::MouseButtonCode mouseButton);
+		void OnMouseMoved(float newX, float newY);
 	};
 }

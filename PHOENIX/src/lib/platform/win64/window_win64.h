@@ -33,6 +33,10 @@ namespace PHX
 		void OnWindowFocusChangedCallback(bool inFocus);
 		void OnWindowMinimizedCallback(bool wasIconified);
 		void OnWindowMaximizedCallback(bool wasMaximized);
+		void OnWindowKeyEventCallback(int key, int scancode, int action);
+
+		void OnMouseMovedCallback(float newX, float newY);
+		void OnMouseButtonEvent(int button, int action);
 
 		void SetWindowTitle(const char* format, ...) override;
 

@@ -9,7 +9,7 @@ int main(int argc, char** argv)
 	(void)argv;
 
 	TexturedModelSample sample;
-	while(!sample.Update(0.0f))
+	while(!sample.Update(0.016f))
 	{
 		sample.Draw();
 	}
