@@ -263,7 +263,19 @@ int main(int argc, char** argv)
 		clearDepth
 	};
 
-	bool updatedMeshBufferData = false;
+	// Upload mesh to GPU
+	IRenderPass* pMeshUploadPass = pRenderGraph->RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER);
+	pMeshUploadPass->SetBufferOutput(pVertexBuffer);
+	pMeshUploadPass->SetBufferOutput(pIndexBuffer);
+
+	pMeshUploadPass->SetExecuteCallback([pVertexBuffer, pIndexBuffer, cubeAsset, vBufferSizeBytes, iBufferSizeBytes](IDeviceContext* pContext, IPipeline* pPipeline)
+	{
+		// Unused
+		(void)pPipeline;
+
+		pContext->CopyDataToBuffer(pVertexBuffer, cubeAsset->vertices.data(), vBufferSizeBytes);
+		pContext->CopyDataToBuffer(pIndexBuffer, cubeAsset->indices.data(), iBufferSizeBytes);
+	});
 
 	// MAIN LOOP
 	while(!pWindow->ShouldClose())
@@ -277,19 +289,13 @@ int main(int argc, char** argv)
 		transform.worldMat = glm::rotate(transform.worldMat, 0.02f, { 1.0f, 0.0f, 0.0f });
 		
 		IRenderPass* pRenderPass = pRenderGraph->RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS);
+		pRenderPass->SetBufferInput(pVertexBuffer);
+		pRenderPass->SetBufferInput(pIndexBuffer);
 		pRenderPass->SetBackbufferOutput(pSwapChain->GetCurrentImage());
 		pRenderPass->SetDepthOutput(pDepthBuffer);
 		pRenderPass->SetPipelineDescription(pipelineDesc);
 		pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline)
 		{
-			if (!updatedMeshBufferData)
-			{
-				pContext->CopyDataToBuffer(pVertexBuffer, cubeAsset->vertices.data(), vBufferSizeBytes);
-				pContext->CopyDataToBuffer(pIndexBuffer, cubeAsset->indices.data(), iBufferSizeBytes);
-
-				updatedMeshBufferData = true;
-			}
-
 			// Update the transform uniform data
 			pContext->CopyDataToBuffer(pUniformBuffer, &transform, sizeof(TransformData));
 			pUniformCollection->QueueBufferUpdate(pUniformBuffer, 0, 0, 0);

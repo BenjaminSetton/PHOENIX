@@ -266,8 +266,19 @@ int main(int argc, char** argv)
 	pipelineDesc.cullMode = PHX::CULL_MODE::NONE;
 	pipelineDesc.pUniformCollection = pUniforms;
 
+	// Upload mesh to GPU
+	IRenderPass* pRenderPass = pRenderGraph->RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER);
+	pRenderPass->SetBufferOutput(vBuffer);
+
+	pRenderPass->SetExecuteCallback([vBuffer](IDeviceContext* pContext, IPipeline* pPipeline)
+	{
+		// Unused
+		(void)pPipeline;
+
+		pContext->CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * 3);
+	});
+
 	// CORE LOOP
-	bool updatedMeshBufferData = false;
 	int i = 0;
 	std::chrono::duration<float> frameBudgetMs(1.0f / 60.0f); // 60FPS
 	auto timeStart = std::chrono::high_resolution_clock::now();
@@ -298,17 +309,11 @@ int main(int argc, char** argv)
 
 		ITexture* backbufferTex = s_pSwapChain->GetCurrentImage();
 		IRenderPass* newPass = pRenderGraph->RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS);
+		newPass->SetBufferInput(vBuffer);
 		newPass->SetBackbufferOutput(backbufferTex);
 		newPass->SetPipelineDescription(pipelineDesc);
 		newPass->SetExecuteCallback([&](IDeviceContext* pDeviceContext, IPipeline* pPipeline)
 		{
-			if (!updatedMeshBufferData)
-			{
-				pDeviceContext->CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * VERTEX_COUNT);
-
-				updatedMeshBufferData = true;
-			}
-
 			// Update test UBO
 			test.time += elapsedSeconds.count();
 			pDeviceContext->CopyDataToBuffer(uniformBuffer, &test, sizeof(TestUBO));
