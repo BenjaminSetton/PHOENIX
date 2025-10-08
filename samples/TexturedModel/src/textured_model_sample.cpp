@@ -194,9 +194,18 @@ void TexturedModelSample::Init()
 
 	// SHADERS
 	IShader* pVertShader = Common::AllocateShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, m_pRenderDevice);
-	m_shaders.push_back(pVertShader);
+	if (pVertShader == nullptr)
+	{
+		return;
+	}
 
 	IShader* pFragShader = Common::AllocateShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, m_pRenderDevice);
+	if (pFragShader == nullptr)
+	{
+		return;
+	}
+
+	m_shaders.push_back(pVertShader);
 	m_shaders.push_back(pFragShader);
 
 	// TODO - Replace with data from vertex shader reflection
