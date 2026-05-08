@@ -175,13 +175,11 @@ namespace Common
 
 	void BaseSample::OnKeyDown(PHX::KeyCode keycode)
 	{
-		//std::cout << "Received key down: " << static_cast<int>(keycode) << std::endl;
 		InputManager::GetInstance().SetKeyCode(keycode, true);
 	}
 
 	void BaseSample::OnKeyUp(PHX::KeyCode keycode)
 	{
-		//std::cout << "Received key up: " << static_cast<int>(keycode) << std::endl;
 		InputManager::GetInstance().SetKeyCode(keycode, false);
 	}
 
@@ -197,7 +195,6 @@ namespace Common
 
 	void BaseSample::OnMouseMoved(float newX, float newY)
 	{
-		//std::cout << "Received mouse pos: " << newX << ", " << newY << std::endl;
 		InputManager::GetInstance().SetMousePosition(newX, newY);
 	}
 }

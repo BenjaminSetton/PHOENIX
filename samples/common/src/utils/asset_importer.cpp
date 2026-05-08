@@ -164,7 +164,7 @@ namespace Common
 						std::filesystem::path textureFilePath = std::filesystem::path(texturePath.data);
 						std::filesystem::path textureName = textureFilePath.filename();
 						std::filesystem::path assetFilePath = std::filesystem::path(filePath).parent_path();
-						std::filesystem::path textureSourceFilePath = (assetFilePath / textureName);
+						std::filesystem::path textureSourceFilePath = (assetFilePath / textureFilePath);
 
 						// Load the image using stb_image
 						std::string textureSourceFilePathStr = textureSourceFilePath.string();
