@@ -573,6 +573,8 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
 		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
+		// TODO - Mark this resource as backbuffer
+
 		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}

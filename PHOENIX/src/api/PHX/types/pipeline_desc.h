@@ -4,7 +4,6 @@
 #include "input_attribute.h"
 #include "PHX/interface/shader.h"
 #include "PHX/interface/uniform.h"
-#include "pipeline_desc.h"
 #include "shader_desc.h"
 #include "texture_desc.h"
 #include "vec_types.h"

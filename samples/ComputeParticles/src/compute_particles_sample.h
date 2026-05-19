@@ -4,7 +4,7 @@
 
 struct Particle
 {
-
+	// TODO - Add glm dependency
 };
 
 class ComputeParticlesSample : public Common::BaseSample
