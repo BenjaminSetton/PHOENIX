@@ -264,7 +264,7 @@ int main(int argc, char** argv)
 	pipelineDesc.ppShaders = shaders.data();
 	pipelineDesc.shaderCount = static_cast<u32>(shaders.size());
 	pipelineDesc.cullMode = PHX::CULL_MODE::NONE;
-	pipelineDesc.pUniformCollection = pUniforms;
+	pipelineDesc.uniformCollection = pUniforms;
 
 	// Upload mesh to GPU
 	IRenderPass* pRenderPass = pRenderGraph->RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER);

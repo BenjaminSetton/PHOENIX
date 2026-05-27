@@ -21,6 +21,7 @@
 #include "render_device_vk.h"
 
 #include "buffer_vk.h"
+#include "core/handle/handle_accessor.h"
 #include "core_vk.h"
 #include "device_context_vk.h"
 #include "pipeline_vk.h"
@@ -31,7 +32,6 @@
 #include "uniform_vk.h"
 #include "utils/logger.h"
 #include "utils/queue_family_indices.h"
-#include "utils/sanity.h"
 #include "utils/swap_chain_helpers.h"
 
 namespace PHX
@@ -154,6 +154,12 @@ namespace PHX
 			vkDestroyCommandPool(m_logicalDevice, pool, nullptr);
 		}
 		m_commandPools.clear();
+
+		// Destroy resources
+		m_textures.clear();
+		m_buffers.clear();
+		m_uniformCollections.clear();
+		// TODO - Double check ref counts for uniform collection. Also make sure ref count of 1 for buffers and textures is sensible
 		
 		// Destroy descriptor pool
 		vkDestroyDescriptorPool(m_logicalDevice, m_descriptorPool, nullptr);
@@ -187,27 +193,69 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateBuffer(const BufferCreateInfo& createInfo, IBuffer** out_buffer)
+	STATUS_CODE RenderDeviceVk::AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle)
 	{
-		*out_buffer = new BufferVk(this, createInfo);
-		return STATUS_CODE::SUCCESS; 
+		BufferVk* pBuffer = new BufferVk(this, createInfo);
+		if (pBuffer == nullptr)
+		{
+			LogError("Failed to allocate buffer. Memory allocation failed!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+		m_buffers.push_back(pBuffer);
+		
+		pBuffer->IncrementRefCount();
+		HandleAccessor::PopulateHandle(handle, this, static_cast<u32>(m_buffers.size() - 1), 0u);
+		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, ITexture** out_texture)
+	STATUS_CODE RenderDeviceVk::AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& texture)
 	{
-		*out_texture = new TextureVk(this, baseCreateInfo, viewCreateInfo, samplerCreateInfo);
+		TextureVk* pTexture = new TextureVk(this, baseCreateInfo, viewCreateInfo, samplerCreateInfo);
+		if (pTexture == nullptr)
+		{
+			LogError("Failed to allocate texture. Memory allocation failed!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+		m_textures.push_back(pTexture);
+
+		pTexture->IncrementRefCount();
+		HandleAccessor::PopulateHandle(texture, this, static_cast<u32>(m_textures.size() - 1), 0u);
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE RenderDeviceVk::AllocateSwapchainTexture(const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView, TextureHandle& handle)
+	{
+		TextureVk* pTexture = new TextureVk(this, baseCreateInfo, imageView);
+		if (pTexture == nullptr)
+		{
+			LogError("Failed to allocate swapchain texture. Memory allocation failed!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+		m_textures.push_back(pTexture);
+
+		pTexture->IncrementRefCount();
+		HandleAccessor::PopulateHandle(handle, this, static_cast<u32>(m_textures.size() - 1), 0u);
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE RenderDeviceVk::AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& uniformCollection)
+	{
+		UniformCollectionVk* pUniformCollection = new UniformCollectionVk(this, createInfo);
+		if (pUniformCollection == nullptr)
+		{
+			LogError("Failed to allocate uniform collection. Memory allocation failed!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+		m_uniformCollections.push_back(pUniformCollection);
+
+		pUniformCollection->IncrementRefCount();
+		HandleAccessor::PopulateHandle(uniformCollection, this, static_cast<u32>(m_uniformCollections.size() - 1), 0u);
 		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE RenderDeviceVk::AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)
 	{
 		*out_shader = new ShaderVk(this, createInfo);
-		return STATUS_CODE::SUCCESS;
-	}
-
-	STATUS_CODE RenderDeviceVk::AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, IUniformCollection** out_uniformCollection)
-	{
-		*out_uniformCollection = new UniformCollectionVk(this, createInfo);
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -226,14 +274,32 @@ namespace PHX
 		SAFE_DEL(*pRenderGraph);
 	}
 
-	void RenderDeviceVk::DeallocateBuffer(IBuffer** pBuffer)
+	void RenderDeviceVk::DeallocateResource(const Handle& handle)
 	{
-		SAFE_DEL(*pBuffer);
-	}
-
-	void RenderDeviceVk::DeallocateTexture(ITexture** pTexture)
-	{
-		SAFE_DEL(*pTexture);
+		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
+		switch (handleType)
+		{
+		case HANDLE_TYPE::BUFFER:
+		{
+			DeallocateResource_Helper<BufferHandle, BufferVk>(m_buffers, handle);
+			break;
+		}
+		case HANDLE_TYPE::TEXTURE:
+		{
+			DeallocateResource_Helper<TextureHandle, TextureVk>(m_textures, handle);
+			break;
+		}
+		case HANDLE_TYPE::UNIFORM:
+		{
+			DeallocateResource_Helper<UniformCollectionHandle, UniformCollectionVk>(m_uniformCollections, handle);
+			break;
+		}
+		default:
+		{
+			ASSERT_ALWAYS("Failed to deallocate resource. Unrecognized handle type!");
+			break;
+		}
+		}
 	}
 
 	void RenderDeviceVk::DeallocateShader(IShader** pShader)
@@ -241,14 +307,99 @@ namespace PHX
 		SAFE_DEL(*pShader);
 	}
 
-	void RenderDeviceVk::DeallocateUniformCollection(IUniformCollection** pUniformCollection)
-	{
-		SAFE_DEL(*pUniformCollection);
-	}
-
 	u32 RenderDeviceVk::GetFramesInFlight() const
 	{
 		return m_framesInFlight;
+	}
+
+	ITexture* RenderDeviceVk::ResolveHandle(const TextureHandle& handle)
+	{
+		const u32 index = HandleAccessor::GetIndex(handle);
+		if (index >= static_cast<u32>(m_textures.size()))
+		{
+			return nullptr;
+		}
+		// TODO - Check generation
+
+		return m_textures[index];
+	}
+
+	IBuffer* RenderDeviceVk::ResolveHandle(const BufferHandle& handle)
+	{
+		const u32 index = HandleAccessor::GetIndex(handle);
+		if (index >= static_cast<u32>(m_buffers.size()))
+		{
+			return nullptr;
+		}
+		// TODO - Check generation
+
+		return m_buffers[index];
+	}
+
+	IUniformCollection* RenderDeviceVk::ResolveHandle(const UniformCollectionHandle& handle)
+	{
+		const u32 index = HandleAccessor::GetIndex(handle);
+		if (index >= static_cast<u32>(m_uniformCollections.size()))
+		{
+			return nullptr;
+		}
+		// TODO - Check generation
+
+		return m_uniformCollections[index];
+	}
+
+	void RenderDeviceVk::IncrementRefCount(const Handle& handle)
+	{
+		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
+		switch (handleType)
+		{
+		case HANDLE_TYPE::BUFFER:
+		{
+			IncrementRefCount_Helper<BufferHandle, IBuffer>(handle);
+			break;
+		}
+		case HANDLE_TYPE::TEXTURE:
+		{
+			IncrementRefCount_Helper<TextureHandle, ITexture>(handle);
+			break;
+		}
+		case HANDLE_TYPE::UNIFORM:
+		{
+			IncrementRefCount_Helper<UniformCollectionHandle, IUniformCollection>(handle);
+			break;
+		}
+		default:
+		{
+			ASSERT_ALWAYS("Failed to increment ref count. Unrecognized handle type!");
+		}
+		}
+	}
+
+	void RenderDeviceVk::DecrementRefCount(const Handle& handle)
+	{
+		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
+		switch (handleType)
+		{
+		case HANDLE_TYPE::BUFFER:
+		{
+			DecrementRefCount_Helper<BufferHandle, IBuffer>(handle);
+			break;
+		}
+		case HANDLE_TYPE::TEXTURE:
+		{
+			DecrementRefCount_Helper<TextureHandle, ITexture>(handle);
+			break;
+		}
+		case HANDLE_TYPE::UNIFORM:
+		{
+			DecrementRefCount_Helper<UniformCollectionHandle, IUniformCollection>(handle);
+			break;
+		}
+		default:
+		{
+			ASSERT_ALWAYS("Failed to decrement ref count. Unrecognized handle type!");
+		}
+		}
 	}
 
 	FramebufferVk* RenderDeviceVk::CreateFramebuffer(const FramebufferDescription& desc)

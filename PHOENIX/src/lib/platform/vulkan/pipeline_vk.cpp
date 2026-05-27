@@ -77,7 +77,7 @@ namespace PHX
 
 		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
 
-		m_layout = CreatePipelineLayout(logicalDevice, createInfo.pUniformCollection);
+		m_layout = CreatePipelineLayout(logicalDevice, createInfo.uniformCollection);
 		if (m_layout == VK_NULL_HANDLE)
 		{
 			return STATUS_CODE::ERR_INTERNAL;
@@ -193,7 +193,7 @@ namespace PHX
 
 		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
 
-		m_layout = CreatePipelineLayout(logicalDevice, createInfo.pUniformCollection);
+		m_layout = CreatePipelineLayout(logicalDevice, createInfo.uniformCollection);
 		if (m_layout == VK_NULL_HANDLE)
 		{
 			return STATUS_CODE::ERR_INTERNAL;
@@ -249,14 +249,14 @@ namespace PHX
 		}
 
 		// Check set and binding numbers against device limits, if applicable
-		if (createInfo.pUniformCollection != nullptr)
+		if (createInfo.uniformCollection.IsValid())
 		{
 			const u32 maxBoundDescriptors = m_pRenderDevice->GetDeviceProperties().limits.maxBoundDescriptorSets;
-			const u32 groupCount = createInfo.pUniformCollection->GetGroupCount();
+			const u32 groupCount = createInfo.uniformCollection.GetGroupCount();
 
 			for (u32 i = 0; i < groupCount; i++)
 			{
-				const UniformDataGroup* const dataGroup = createInfo.pUniformCollection->GetGroup(i);
+				const UniformDataGroup* const dataGroup = createInfo.uniformCollection.GetGroup(i);
 				const u32 dataGroupSetNumber = dataGroup->set;
 				if (dataGroupSetNumber > maxBoundDescriptors)
 				{
@@ -295,14 +295,14 @@ namespace PHX
 		}
 
 		// Check set and binding numbers against device limits, if applicable
-		if (createInfo.pUniformCollection != nullptr)
+		if (createInfo.uniformCollection.IsValid())
 		{
 			const u32 maxBoundDescriptors = m_pRenderDevice->GetDeviceProperties().limits.maxBoundDescriptorSets;
-			const u32 groupCount = createInfo.pUniformCollection->GetGroupCount();
+			const u32 groupCount = createInfo.uniformCollection.GetGroupCount();
 
 			for (u32 i = 0; i < groupCount; i++)
 			{
-				const UniformDataGroup* const dataGroup = createInfo.pUniformCollection->GetGroup(i);
+				const UniformDataGroup* const dataGroup = createInfo.uniformCollection.GetGroup(i);
 				const u32 dataGroupSetNumber = dataGroup->set;
 				if (dataGroupSetNumber > maxBoundDescriptors)
 				{
@@ -332,13 +332,13 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	VkPipelineLayout PipelineVk::CreatePipelineLayout(VkDevice logicalDevice, IUniformCollection* pUniformCollection)
+	VkPipelineLayout PipelineVk::CreatePipelineLayout(VkDevice logicalDevice, UniformCollectionHandle uniformCollection)
 	{
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-		if (pUniformCollection != nullptr)
+		if (uniformCollection.IsValid())
 		{
 			// TODO - Add support for push constants
-			UniformCollectionVk* pUniformCollectionVk = static_cast<UniformCollectionVk*>(pUniformCollection);
+			UniformCollectionVk* pUniformCollectionVk = static_cast<UniformCollectionVk*>(m_pRenderDevice->ResolveHandle(uniformCollection));
 			pipelineLayoutInfo = PopulatePipelineLayoutCreateInfo(pUniformCollectionVk->GetDescriptorSetLayouts(), pUniformCollectionVk->GetDescriptorSetLayoutCount(), nullptr, 0);
 		}
 		else

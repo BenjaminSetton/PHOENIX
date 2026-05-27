@@ -244,7 +244,7 @@ int main(int argc, char** argv)
 	pipelineDesc.shaderCount = static_cast<u32>(shaders.size());
 	pipelineDesc.pInputAttributes = inputAttributes.data();
 	pipelineDesc.attributeCount = static_cast<u32>(inputAttributes.size());
-	pipelineDesc.pUniformCollection = pUniformCollection;
+	pipelineDesc.uniformCollection = pUniformCollection;
 	pipelineDesc.enableDepthTest = true;
 	pipelineDesc.enableDepthWrite = true;
 

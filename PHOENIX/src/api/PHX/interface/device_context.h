@@ -21,9 +21,9 @@ namespace PHX
 
 		virtual ~IDeviceContext() { }
 
-		virtual STATUS_CODE BindVertexBuffer(IBuffer* pVertexBuffer) = 0;
-		virtual STATUS_CODE BindMesh(IBuffer* pVertexBuffer, IBuffer* pIndexBuffer) = 0;
-		virtual STATUS_CODE BindUniformCollection(IUniformCollection* pUniformCollection, IPipeline* pPipeline) = 0;
+		virtual STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer) = 0;
+		virtual STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer) = 0;
+		virtual STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection, IPipeline* pPipeline) = 0;
 		virtual STATUS_CODE BindPipeline(IPipeline* pPipeline) = 0; // TODO - Switch over to render graph?
 		virtual STATUS_CODE SetViewport(Vec2u size, Vec2u offset) = 0;
 		virtual STATUS_CODE SetScissor(Vec2u size, Vec2u offset) = 0;
@@ -34,7 +34,7 @@ namespace PHX
 
 		virtual STATUS_CODE Dispatch(Vec3u dimensions) = 0;
 
-		virtual STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) = 0;
-		virtual STATUS_CODE CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes) = 0;
+		virtual STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) = 0;
+		virtual STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes) = 0;
 	};
 }

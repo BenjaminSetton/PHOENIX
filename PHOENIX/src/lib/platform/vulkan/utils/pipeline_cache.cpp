@@ -83,14 +83,14 @@ namespace PHX
 		HashCombine(seed, desc.depthBoundsRange);
 
 		// Uniform collection
-		if (desc.pUniformCollection != nullptr)
+		if (desc.uniformCollection.IsValid())
 		{
-			const u32 uniformGroupCount = desc.pUniformCollection->GetGroupCount();
+			const u32 uniformGroupCount = desc.uniformCollection.GetGroupCount();
 			HashCombine(seed, uniformGroupCount);
 
 			for (u32 i = 0; i < uniformGroupCount; i++)
 			{
-				const UniformDataGroup& currUniformGroup = *(desc.pUniformCollection->GetGroup(i));
+				const UniformDataGroup& currUniformGroup = *(desc.uniformCollection.GetGroup(i));
 				const u32 uniformArrayCount = currUniformGroup.uniformArrayCount;
 
 				HashCombine(seed, currUniformGroup.set);
@@ -142,14 +142,14 @@ namespace PHX
 		}
 
 		// Uniform collection
-		if (desc.pUniformCollection != nullptr)
+		if (desc.uniformCollection.IsValid())
 		{
-			const u32 uniformGroupCount = desc.pUniformCollection->GetGroupCount();
+			const u32 uniformGroupCount = desc.uniformCollection.GetGroupCount();
 			HashCombine(seed, uniformGroupCount);
 
 			for (u32 i = 0; i < uniformGroupCount; i++)
 			{
-				const UniformDataGroup& currUniformGroup = *(desc.pUniformCollection->GetGroup(i));
+				const UniformDataGroup& currUniformGroup = *(desc.uniformCollection.GetGroup(i));
 				const u32 uniformArrayCount = currUniformGroup.uniformArrayCount;
 
 				HashCombine(seed, currUniformGroup.set);

@@ -3,12 +3,13 @@
 #include "PHX/types/integral_types.h"
 #include "PHX/types/status_code.h"
 
+#include "PHX/interface/texture.h"
+
 namespace PHX
 {
 	// Forward declarations
 	class IRenderDevice;
 	class IWindow;
-	class ITexture;
 
 	struct SwapChainCreateInfo
 	{
@@ -23,7 +24,7 @@ namespace PHX
 
 		virtual ~ISwapChain() { }
 
-		virtual ITexture* GetCurrentImage() const = 0;
+		virtual TextureHandle GetCurrentImage() const = 0;
 		virtual u32 GetImageCount() const = 0;
 		virtual u32 GetCurrentImageIndex() const = 0;
 		virtual STATUS_CODE Present() = 0;

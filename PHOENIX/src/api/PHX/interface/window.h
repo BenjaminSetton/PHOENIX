@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../types/integral_types.h"
-#include "../types/vec_types.h"
+#include "PHX/types/integral_types.h"
+#include "PHX/types/vec_types.h"
 
 namespace PHX
 {

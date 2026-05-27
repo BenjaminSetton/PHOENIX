@@ -41,8 +41,8 @@ static TransformData InitializeTransform(const Common::BaseCamera* pCamera, floa
 }
 
 TexturedModelSample::TexturedModelSample() : m_transform(), m_pipelineDesc(), 
-	m_pDepthBuffer(nullptr), m_pUniformCollection(nullptr), m_pTransformBuffer(nullptr), m_pCameraBuffer(nullptr),
-	m_pVertexBuffer(nullptr), m_pIndexBuffer(nullptr), m_assetID(Common::INVALID_ASSET_HANDLE)
+	m_depthBuffer(), m_uniformCollection(), m_transformBuffer(), m_cameraBuffer(),
+	m_vertexBuffer(), m_indexBuffer(), m_assetID(Common::INVALID_ASSET_HANDLE)
 {
 	Init();
 }
@@ -91,38 +91,38 @@ void TexturedModelSample::Draw()
 	// Setup a new render pass for PBR
 	IRenderPass* pRenderPass = m_pRenderGraph->RegisterPass("PBRPass", BIND_POINT::GRAPHICS);
 	pRenderPass->SetBackbufferOutput(m_pSwapChain->GetCurrentImage());
-	pRenderPass->SetDepthOutput(m_pDepthBuffer);
+	pRenderPass->SetDepthOutput(m_depthBuffer);
 
-	for (ITexture* assetTex : m_assetTextures)
+	for (TextureHandle assetTex : m_assetTextures)
 	{
 		pRenderPass->SetTextureInput(assetTex);
 	}
-	pRenderPass->SetBufferInput(m_pVertexBuffer);
-	pRenderPass->SetBufferInput(m_pIndexBuffer);
+	pRenderPass->SetBufferInput(m_vertexBuffer);
+	pRenderPass->SetBufferInput(m_indexBuffer);
 
 	pRenderPass->SetPipelineDescription(m_pipelineDesc);
 	pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline)
 	{
 		// Uniform collection updates
-		pContext->CopyDataToBuffer(m_pTransformBuffer, &m_transform, sizeof(TransformData));
-		m_pUniformCollection->QueueBufferUpdate(m_pTransformBuffer, 0, 0, 0);
+		pContext->CopyDataToBuffer(m_transformBuffer, &m_transform, sizeof(TransformData));
+		m_uniformCollection.QueueBufferUpdate(m_transformBuffer, 0, 0, 0);
 
 		for (u32 i = 0; i < m_assetTextures.size(); i++)
 		{
-			ITexture* pCurrTex = m_assetTextures[i];
-			m_pUniformCollection->QueueImageUpdate(pCurrTex, 1, i, 0);
+			TextureHandle currTex = m_assetTextures[i];
+			m_uniformCollection.QueueImageUpdate(currTex, 1, i, 0);
 		}
 
 		CameraData cameraData{};
 		cameraData.cameraPos = m_pCamera->GetPosition();
-		pContext->CopyDataToBuffer(m_pCameraBuffer, &cameraData, sizeof(CameraData));
-		m_pUniformCollection->QueueBufferUpdate(m_pCameraBuffer, 2, 0, 0);
+		pContext->CopyDataToBuffer(m_cameraBuffer, &cameraData, sizeof(CameraData));
+		m_uniformCollection.QueueBufferUpdate(m_cameraBuffer, 2, 0, 0);
 
-		m_pUniformCollection->FlushUpdateQueue();
+		m_uniformCollection.FlushUpdateQueue();
 
 		// Draw commands
-		pContext->BindUniformCollection(m_pUniformCollection, pPipeline);
-		pContext->BindMesh(m_pVertexBuffer, m_pIndexBuffer);
+		pContext->BindUniformCollection(m_uniformCollection, pPipeline);
+		pContext->BindMesh(m_vertexBuffer, m_indexBuffer);
 		pContext->BindPipeline(pPipeline);
 		pContext->SetScissor({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
 		pContext->SetViewport({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
@@ -155,7 +155,7 @@ void TexturedModelSample::Init()
 	vBufferCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
 	vBufferCI.sizeBytes = vBufferSizeBytes;
 
-	phxRes = m_pRenderDevice->AllocateBuffer(vBufferCI, &m_pVertexBuffer);
+	phxRes = m_pRenderDevice->AllocateBuffer(vBufferCI, m_vertexBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// INDEX BUFFER
@@ -165,7 +165,7 @@ void TexturedModelSample::Init()
 	iBufferCI.bufferUsage = BUFFER_USAGE::INDEX_BUFFER;
 	iBufferCI.sizeBytes = iBufferSizeBytes;
 
-	phxRes = m_pRenderDevice->AllocateBuffer(iBufferCI, &m_pIndexBuffer);
+	phxRes = m_pRenderDevice->AllocateBuffer(iBufferCI, m_indexBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// DEPTH BUFFER
@@ -189,7 +189,7 @@ void TexturedModelSample::Init()
 	depthBufferSamplerCI.minificationFilter = FILTER_MODE::NEAREST;
 	depthBufferSamplerCI.samplerMipMapFilter = FILTER_MODE::NEAREST;
 
-	phxRes = m_pRenderDevice->AllocateTexture(depthBufferBaseCI, depthBufferViewCI, depthBufferSamplerCI, &m_pDepthBuffer);
+	phxRes = m_pRenderDevice->AllocateTexture(depthBufferBaseCI, depthBufferViewCI, depthBufferSamplerCI, m_depthBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// SHADERS
@@ -259,14 +259,14 @@ void TexturedModelSample::Init()
 	transformUniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
 	transformUniformBufferCI.sizeBytes = sizeof(TransformData);
 
-	phxRes = m_pRenderDevice->AllocateBuffer(transformUniformBufferCI, &m_pTransformBuffer);
+	phxRes = m_pRenderDevice->AllocateBuffer(transformUniformBufferCI, m_transformBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	BufferCreateInfo cameraUniformBufferCI{};
 	cameraUniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
 	cameraUniformBufferCI.sizeBytes = sizeof(CameraData);
 
-	phxRes = m_pRenderDevice->AllocateBuffer(cameraUniformBufferCI, &m_pCameraBuffer);
+	phxRes = m_pRenderDevice->AllocateBuffer(cameraUniformBufferCI, m_cameraBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// UNIFORM DATA
@@ -282,7 +282,7 @@ void TexturedModelSample::Init()
 	m_pipelineDesc.shaderCount = static_cast<u32>(m_shaders.size());
 	m_pipelineDesc.pInputAttributes = m_inputAttributes.data();
 	m_pipelineDesc.attributeCount = static_cast<u32>(m_inputAttributes.size());
-	m_pipelineDesc.pUniformCollection = m_pUniformCollection;
+	m_pipelineDesc.uniformCollection = m_uniformCollection;
 	m_pipelineDesc.enableDepthTest = true;
 	m_pipelineDesc.enableDepthWrite = true;
 
@@ -295,10 +295,10 @@ void TexturedModelSample::Init()
 
 void TexturedModelSample::Shutdown()
 {
-	for (ITexture* pAssetTex : m_assetTextures)
+	/*for (TextureHandle pAssetTex : m_assetTextures)
 	{
-		m_pRenderDevice->DeallocateTexture(&pAssetTex);
-	}
+		m_pRenderDevice->DeallocateTexture(pAssetTex);
+	}*/
 	m_assetTextures.clear();
 
 	for (IShader* pShader : m_shaders)
@@ -307,12 +307,12 @@ void TexturedModelSample::Shutdown()
 	}
 	m_shaders.clear();
 
-	m_pRenderDevice->DeallocateBuffer(&m_pCameraBuffer);
-	m_pRenderDevice->DeallocateBuffer(&m_pTransformBuffer);
-	m_pRenderDevice->DeallocateBuffer(&m_pIndexBuffer);
-	m_pRenderDevice->DeallocateBuffer(&m_pVertexBuffer);
-	m_pRenderDevice->DeallocateUniformCollection(&m_pUniformCollection);
-	m_pRenderDevice->DeallocateTexture(&m_pDepthBuffer);
+	/*m_pRenderDevice->DeallocateBuffer(m_cameraBuffer);
+	m_pRenderDevice->DeallocateBuffer(m_transformBuffer);
+	m_pRenderDevice->DeallocateBuffer(m_indexBuffer);
+	m_pRenderDevice->DeallocateBuffer(m_vertexBuffer);
+	m_pRenderDevice->DeallocateUniformCollection(m_uniformCollection);
+	m_pRenderDevice->DeallocateTexture(m_depthBuffer);*/
 
 	delete m_pCamera;
 	m_pCamera = nullptr;
@@ -350,8 +350,8 @@ void TexturedModelSample::CreateAssetTextures()
 		samplerCI.minificationFilter = FILTER_MODE::LINEAR;
 		samplerCI.samplerMipMapFilter = FILTER_MODE::LINEAR;
 
-		ITexture* pAssetTex = nullptr;
-		STATUS_CODE res = m_pRenderDevice->AllocateTexture(baseCI, viewCI, samplerCI, &pAssetTex);
+		TextureHandle pAssetTex;
+		STATUS_CODE res = m_pRenderDevice->AllocateTexture(baseCI, viewCI, samplerCI, pAssetTex);
 		CHECK_PHX_RES(res);
 
 		m_assetTextures.push_back(pAssetTex);
@@ -410,18 +410,18 @@ void TexturedModelSample::CreateUniformCollection()
 	uniformCollectionCI.dataGroups = dataGroups.data();
 	uniformCollectionCI.groupCount = static_cast<u32>(dataGroups.size());
 
-	STATUS_CODE phxRes = m_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &m_pUniformCollection);
+	STATUS_CODE phxRes = m_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, m_uniformCollection);
 	CHECK_PHX_RES(phxRes);
 }
 
 void TexturedModelSample::UploadMeshDataToGPU()
 {
 	IRenderPass* pRenderPass = m_pRenderGraph->RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER);
-	pRenderPass->SetBufferOutput(m_pVertexBuffer);
-	pRenderPass->SetBufferOutput(m_pIndexBuffer);
+	pRenderPass->SetBufferOutput(m_vertexBuffer);
+	pRenderPass->SetBufferOutput(m_indexBuffer);
 	for (u32 i = 0; i < m_assetTextures.size(); i++)
 	{
-		ITexture* pCurrAssetTex = m_assetTextures[i];
+		TextureHandle pCurrAssetTex = m_assetTextures[i];
 		pRenderPass->SetColorOutput(pCurrAssetTex);
 	}
 
@@ -434,13 +434,13 @@ void TexturedModelSample::UploadMeshDataToGPU()
 		const u64 vBufferSizeBytes = static_cast<u64>(pAsset->vertices.size() * sizeof(AssetVertex));
 		const u64 iBufferSizeBytes = static_cast<u64>(pAsset->indices.size() * sizeof(Common::AssetIndexType));
 
-		pContext->CopyDataToBuffer(m_pVertexBuffer, pAsset->vertices.data(), vBufferSizeBytes);
-		pContext->CopyDataToBuffer(m_pIndexBuffer, pAsset->indices.data(), iBufferSizeBytes);
+		pContext->CopyDataToBuffer(m_vertexBuffer, pAsset->vertices.data(), vBufferSizeBytes);
+		pContext->CopyDataToBuffer(m_indexBuffer, pAsset->indices.data(), iBufferSizeBytes);
 
 		for (u32 i = 0; i < m_assetTextures.size(); i++)
 		{
 			const Texture& texSrc = pAsset->textures[i];
-			ITexture* texDst = m_assetTextures[i];
+			TextureHandle texDst = m_assetTextures[i];
 			u64 sizeBytes = (texSrc.size.GetX() * texSrc.size.GetY() * texSrc.bytesPerPixel);
 			pContext->CopyDataToTexture(texDst, texSrc.data, sizeBytes);
 		}

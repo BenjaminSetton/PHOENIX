@@ -116,7 +116,7 @@ namespace PHX
 		DestroySwapChain();
 	}
 
-	ITexture* SwapChainVk::GetCurrentImage() const
+	TextureHandle SwapChainVk::GetCurrentImage() const
 	{
 		return m_images[m_currImageIndex];
 	}
@@ -358,7 +358,9 @@ namespace PHX
 		m_images.reserve(m_imageCount);
 		for (u32 i = 0; i < m_imageCount; i++)
 		{
-			m_images.push_back(new TextureVk(pRenderDevice, texBaseCI, imageViews.at(i)));
+			TextureHandle texture;
+			STATUS_CODE res = pRenderDevice->AllocateSwapchainTexture(texBaseCI, imageViews.at(i), texture);
+			m_images.push_back(texture);
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -377,11 +379,7 @@ namespace PHX
 			vkDestroySwapchainKHR(m_renderDevice->GetLogicalDevice(), m_swapChain, nullptr);
 		}
 
-		for (u32 i = 0; i < m_images.size(); i++)
-		{
-			ITexture* image = m_images[i];
-			m_renderDevice->DeallocateTexture(&image);
-		}
+		// TextureHandle is ref-counted, no need to manually clean up
 		m_images.clear();
 	}
 

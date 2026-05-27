@@ -27,17 +27,17 @@ namespace PHX
 		virtual ~IRenderPass() { }
 
 		// Inputs
-		virtual void SetTextureInput(ITexture* pTexture) = 0;
-		virtual void SetBufferInput(IBuffer* pBuffer) = 0;							// Not sure if I want to keep this
-		virtual void SetUniformInput(IUniformCollection* pUniformCollection) = 0;	// Not sure if I want to keep this
+		virtual void SetTextureInput(TextureHandle texture) = 0;
+		virtual void SetBufferInput(BufferHandle buffer) = 0;							// Not sure if I want to keep this
+		virtual void SetUniformInput(UniformCollectionHandle uniformCollection) = 0;	// Not sure if I want to keep this
 			 
 		// Outputs
-		virtual void SetColorOutput(ITexture* pTexture) = 0;
-		virtual void SetDepthOutput(ITexture* pTexture) = 0;
-		virtual void SetDepthStencilOutput(ITexture* pTexture) = 0;
-		virtual void SetResolveOutput(ITexture* pTexture) = 0;
-		virtual void SetBackbufferOutput(ITexture* pTexture) = 0;
-		virtual void SetBufferOutput(IBuffer* pBuffer) = 0;
+		virtual void SetColorOutput(TextureHandle handle) = 0;
+		virtual void SetDepthOutput(TextureHandle handle) = 0;
+		virtual void SetDepthStencilOutput(TextureHandle handle) = 0;
+		virtual void SetResolveOutput(TextureHandle handle) = 0;
+		virtual void SetBackbufferOutput(TextureHandle handle) = 0;
+		virtual void SetBufferOutput(BufferHandle handle) = 0;
 
 		// Pipeline data
 		virtual void SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc) = 0;

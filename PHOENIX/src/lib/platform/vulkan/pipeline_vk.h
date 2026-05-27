@@ -30,7 +30,7 @@ namespace PHX
 		STATUS_CODE VerifyCreateInfo(const GraphicsPipelineDesc& createInfo);
 		STATUS_CODE VerifyCreateInfo(const ComputePipelineDesc& createInfo);
 
-		VkPipelineLayout CreatePipelineLayout(VkDevice logicalDevice, IUniformCollection* pUniformCollection);
+		VkPipelineLayout CreatePipelineLayout(VkDevice logicalDevice, UniformCollectionHandle uniformCollection);
 
 	private:
 

@@ -12,7 +12,8 @@ project "PHOENIX"
 	files
 	{
 		"src/**.h",
-		"src/**.cpp"
+		"src/**.cpp",
+		"src/**.inl"
 	}
 	
 	-- For library includes, I'll list the most specific include directories first. Not sure if

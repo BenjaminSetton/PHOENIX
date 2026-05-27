@@ -37,9 +37,9 @@ namespace PHX
 		DeallocateCommandBuffers();
 	}
 
-	STATUS_CODE DeviceContextVk::BindVertexBuffer(IBuffer* pVertexBuffer)
+	STATUS_CODE DeviceContextVk::BindVertexBuffer(BufferHandle vertexBuffer)
 	{
-		BufferVk* vBufferVk = static_cast<BufferVk*>(pVertexBuffer);
+		BufferVk* vBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(vertexBuffer));
 		if (vBufferVk == nullptr)
 		{
 			LogError("Failed to bind vertex buffer! Vertex buffer is null");
@@ -54,23 +54,23 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		VkBuffer vertexBuffer = vBufferVk->GetBuffer();
+		VkBuffer vkBuffer = vBufferVk->GetBuffer();
 		VkDeviceSize offset = vBufferVk->GetOffset();
 
-		vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vertexBuffer, &offset);
+		vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vkBuffer, &offset);
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::BindMesh(IBuffer* pVertexBuffer, IBuffer* pIndexBuffer)
+	STATUS_CODE DeviceContextVk::BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer)
 	{
-		BufferVk* vBufferVk = static_cast<BufferVk*>(pVertexBuffer);
+		BufferVk* vBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(vertexBuffer));
 		if (vBufferVk == nullptr)
 		{
 			LogError("Failed to bind mesh! Vertex buffer is null");
 			return STATUS_CODE::ERR_API;
 		}
 
-		BufferVk* iBufferVk = static_cast<BufferVk*>(pIndexBuffer);
+		BufferVk* iBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(indexBuffer));
 		if (iBufferVk == nullptr)
 		{
 			LogError("Failed to bind mesh! Index buffer is null");
@@ -85,17 +85,18 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		VkBuffer vertexBuffer = vBufferVk->GetBuffer();
+		VkBuffer vkBuffer = vBufferVk->GetBuffer();
 		VkDeviceSize offset = vBufferVk->GetOffset();
 
-		vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vertexBuffer, &offset);
+		vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vkBuffer, &offset);
 		vkCmdBindIndexBuffer(cmdBuffer, iBufferVk->GetBuffer(), 0, VK_INDEX_TYPE_UINT32); // TODO - Support a range of sizes for index types?
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::BindUniformCollection(IUniformCollection* pUniformCollection, IPipeline* pPipeline)
+	STATUS_CODE DeviceContextVk::BindUniformCollection(UniformCollectionHandle uniformCollection, IPipeline* pPipeline)
 	{
-		if (pUniformCollection == nullptr)
+		UniformCollectionVk* uniformCollectionVk = static_cast<UniformCollectionVk*>(m_pRenderDevice->ResolveHandle(uniformCollection));
+		if (uniformCollectionVk == nullptr)
 		{
 			LogWarning("Attempting to bind uniform collection but the uniform collection is null!");
 			return STATUS_CODE::SUCCESS;
@@ -126,9 +127,6 @@ namespace PHX
 			LogError("Failed to bind uniform collection! Could not get or create command buffer");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
-
-		UniformCollectionVk* uniformCollectionVk = static_cast<UniformCollectionVk*>(pUniformCollection);
-		ASSERT_PTR(uniformCollectionVk);
 
 		vkCmdBindDescriptorSets(cmdBuffer, pipelineVk->GetBindPoint(), pipelineVk->GetLayout(), 0, uniformCollectionVk->GetDescriptorSetCount(), uniformCollectionVk->GetDescriptorSets(), 0, nullptr);
 
@@ -273,7 +271,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes)
+	STATUS_CODE DeviceContextVk::CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes)
 	{
 		if (data == nullptr)
 		{
@@ -287,7 +285,7 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
-		BufferVk* bufferVk = static_cast<BufferVk*>(pBuffer);
+		BufferVk* bufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(buffer));
 		if (bufferVk == nullptr)
 		{
 			LogError("Failed to copy data to buffer. Buffer is null!");
@@ -342,9 +340,10 @@ namespace PHX
 		return res;
 	}
 
-	STATUS_CODE DeviceContextVk::CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes)
+	STATUS_CODE DeviceContextVk::CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes)
 	{
-		if (pTexture == nullptr)
+		TextureVk* textureVk = static_cast<TextureVk*>(m_pRenderDevice->ResolveHandle(texture));
+		if (textureVk == nullptr)
 		{
 			LogError("Failed to copy data to texture. Texture pointer is null!");
 			return STATUS_CODE::ERR_API;
@@ -365,8 +364,6 @@ namespace PHX
 		STATUS_CODE res;
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		const QUEUE_TYPE transferQueueType = QUEUE_TYPE::TRANSFER;
-		TextureVk* textureVk = static_cast<TextureVk*>(pTexture);
-		ASSERT_PTR(textureVk);
 
 		res = GetOrCreateCommandBuffer(transferQueueType, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)

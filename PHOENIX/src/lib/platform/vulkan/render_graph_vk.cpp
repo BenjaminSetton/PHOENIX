@@ -4,9 +4,11 @@
 #include "render_graph_vk.h"
 
 #include "buffer_vk.h"
+#include "core/handle/handle_accessor.h"
 #include "device_context_vk.h"
 #include "render_device_vk.h"
 #include "swap_chain_vk.h"
+#include "texture_vk.h"
 #include "utils/attachment_type_converter.h"
 #include "utils/cache_utils.h"
 #include "utils/logger.h"
@@ -14,7 +16,7 @@
 #include "utils/render_graph_type_converter.h"
 #include "utils/sanity.h"
 
-// Most of the implementation details were taken from the following sources:
+// Render graph inspired from:
 // https://poniesandlight.co.uk/reflect/island_rendergraph_1/
 //
 
@@ -24,11 +26,12 @@ namespace PHX
 	static const char* s_pReservedDepthBufferName = "INTERNAL_depthbuffer";
 	static constexpr u32 s_invalidRenderPassIndex = U32_MAX;
 
-	static u64 HashResource(void* data, const RESOURCE_TYPE& type)
+	static u64 HashResource(Handle resource, const RESOURCE_TYPE& type)
 	{
 		size_t seed = 0;
+		HashCombine(seed, HandleAccessor::GetIndex(resource));
+		HashCombine(seed, HandleAccessor::GetGeneration(resource));
 		HashCombine(seed, type);
-		HashCombine(seed, data);
 
 		return static_cast<u64>(seed);
 	}
@@ -46,9 +49,9 @@ namespace PHX
 		return QUEUE_TYPE::GRAPHICS;
 	}
 
-	static ATTACHMENT_TYPE CalculateAttachmentType(ITexture* pTexture)
+	static ATTACHMENT_TYPE CalculateAttachmentType(TextureHandle handle)
 	{
-		AspectTypeFlags aspectFlags = pTexture->GetAspectFlags();
+		AspectTypeFlags aspectFlags = handle.GetAspectFlags();
 		switch (aspectFlags)
 		{
 		case ASPECT_TYPE_FLAG_COLOR:                              return ATTACHMENT_TYPE::COLOR;
@@ -97,11 +100,7 @@ namespace PHX
 				{
 				case RESOURCE_TYPE::BUFFER:
 				{
-					// Determine whether this access is for vertex, index or storage buffer
-					BufferVk* pBuffer = static_cast<BufferVk*>(resource.data);
-					ASSERT_PTR(pBuffer); // Should never be null, otherwise no point in doing any of this work
-
-					const BUFFER_USAGE bufferUsage = pBuffer->GetUsage();
+					const BUFFER_USAGE bufferUsage = usage.bufferUsage;
 					switch (bufferUsage)
 					{
 					case BUFFER_USAGE::VERTEX_BUFFER:
@@ -458,37 +457,38 @@ namespace PHX
 		m_outputResources.reset();
 	}
 
-	void RenderPassVk::SetTextureInput(ITexture* pTexture)
+	void RenderPassVk::SetTextureInput(TextureHandle texture)
 	{
 		ResourceUsage usage{};
 		usage.name = nullptr; // TODO
 		usage.io = RESOURCE_IO::INPUT;
 		usage.passIndex = m_index;
-		usage.attachmentType = CalculateAttachmentType(pTexture);
+		usage.attachmentType = CalculateAttachmentType(texture);
 		usage.storeOp = ATTACHMENT_STORE_OP::IGNORE;
 		usage.loadOp = ATTACHMENT_LOAD_OP::LOAD;
 
-		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
+		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_inputResources.set(resourceIndex);
 	}
 
-	void RenderPassVk::SetBufferInput(IBuffer* pBuffer)
+	void RenderPassVk::SetBufferInput(BufferHandle buffer)
 	{
 		ResourceUsage usage{};
 		usage.name = nullptr; // TODO
 		usage.io = RESOURCE_IO::INPUT;
 		usage.passIndex = m_index;
+		usage.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER; // Not sure if this is correct
 
 		// Not a texture resource
 		usage.attachmentType = ATTACHMENT_TYPE::INVALID;
 		usage.storeOp = ATTACHMENT_STORE_OP::INVALID;
 		usage.loadOp = ATTACHMENT_LOAD_OP::INVALID;
 
-		const u8 resourceIndex = m_registerResourceCallback(pBuffer, RESOURCE_TYPE::BUFFER, usage);
+		const u8 resourceIndex = m_registerResourceCallback(buffer, RESOURCE_TYPE::BUFFER, usage);
 		m_inputResources.set(resourceIndex);
 	}
 
-	void RenderPassVk::SetUniformInput(IUniformCollection* pUniformCollection)
+	void RenderPassVk::SetUniformInput(UniformCollectionHandle uniformCollection)
 	{
 		TODO();
 		ResourceUsage usage{};
@@ -501,11 +501,11 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::INVALID;
 		usage.loadOp = ATTACHMENT_LOAD_OP::INVALID;
 
-		const u8 resourceIndex = m_registerResourceCallback(pUniformCollection, RESOURCE_TYPE::UNIFORM, usage);
+		const u8 resourceIndex = m_registerResourceCallback(uniformCollection, RESOURCE_TYPE::UNIFORM, usage);
 		m_inputResources.set(resourceIndex);
 	}
 
-	void RenderPassVk::SetColorOutput(ITexture* pTexture)
+	void RenderPassVk::SetColorOutput(TextureHandle texture)
 	{
 		ResourceUsage usage{};
 		usage.name = nullptr; // TODO
@@ -515,11 +515,11 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
 		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
+		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
-	void RenderPassVk::SetDepthOutput(ITexture* pTexture)
+	void RenderPassVk::SetDepthOutput(TextureHandle texture)
 	{
 		ResourceUsage usage{};
 		usage.name = s_pReservedDepthBufferName; // HACK - Assuming all depth writes are for the depth buffer
@@ -529,11 +529,11 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
 		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
+		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
-	void RenderPassVk::SetDepthStencilOutput(ITexture* pTexture)
+	void RenderPassVk::SetDepthStencilOutput(TextureHandle texture)
 	{
 		TODO();
 		ResourceUsage usage{};
@@ -544,11 +544,11 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
 		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
+		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
-	void RenderPassVk::SetResolveOutput(ITexture* pTexture)
+	void RenderPassVk::SetResolveOutput(TextureHandle texture)
 	{
 		TODO();
 		ResourceUsage usage{};
@@ -559,11 +559,11 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
 		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
+		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
-	void RenderPassVk::SetBackbufferOutput(ITexture* pTexture)
+	void RenderPassVk::SetBackbufferOutput(TextureHandle texture)
 	{
 		ResourceUsage usage{};
 		usage.name = s_pReservedBackbufferName;
@@ -575,23 +575,24 @@ namespace PHX
 
 		// TODO - Mark this resource as backbuffer
 
-		const u8 resourceIndex = m_registerResourceCallback(pTexture, RESOURCE_TYPE::TEXTURE, usage);
+		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
-	void RenderPassVk::SetBufferOutput(IBuffer* pBuffer)
+	void RenderPassVk::SetBufferOutput(BufferHandle buffer)
 	{
 		ResourceUsage usage{};
 		usage.name = nullptr;
 		usage.io = RESOURCE_IO::OUTPUT;
 		usage.passIndex = m_index;
+		usage.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER; // Not sure if this is correct
 
 		// Not a texture resource
 		usage.attachmentType = ATTACHMENT_TYPE::INVALID;
 		usage.storeOp = ATTACHMENT_STORE_OP::INVALID;
 		usage.loadOp = ATTACHMENT_LOAD_OP::INVALID;
 
-		const u8 resourceIndex = m_registerResourceCallback(pBuffer, RESOURCE_TYPE::BUFFER, usage);
+		const u8 resourceIndex = m_registerResourceCallback(buffer, RESOURCE_TYPE::BUFFER, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
@@ -627,15 +628,15 @@ namespace PHX
 			return;
 		}
 
-		m_renderDevice = pRenderDevice;
+		m_pRenderDevice = pRenderDevice;
 
-		const u32 framesInFlight = m_renderDevice->GetFramesInFlight();
+		const u32 framesInFlight = m_pRenderDevice->GetFramesInFlight();
 		m_deviceContexts.reserve(framesInFlight);
 
 		for (u32 i = 0; i < framesInFlight; i++)
 		{
 			IDeviceContext* pDeviceContext = nullptr;
-			STATUS_CODE res = m_renderDevice->AllocateDeviceContext({}, &pDeviceContext);
+			STATUS_CODE res = m_pRenderDevice->AllocateDeviceContext({}, &pDeviceContext);
 			if (res != STATUS_CODE::SUCCESS)
 			{
 				LogError("Failed to construct render graph. Device context creation failed!");
@@ -653,7 +654,7 @@ namespace PHX
 		for (DeviceContextVk* deviceContextVk : m_deviceContexts)
 		{
 			IDeviceContext* pDeviceContext = static_cast<IDeviceContext*>(deviceContextVk);
-			m_renderDevice->DeallocateDeviceContext(&pDeviceContext);
+			m_pRenderDevice->DeallocateDeviceContext(&pDeviceContext);
 		}
 		m_deviceContexts.clear();
 	}
@@ -695,7 +696,7 @@ namespace PHX
 		}
 
 		// Now that all the work has been done for the current frame, move onto the next one
-		m_frameIndex = (m_frameIndex + 1) % m_renderDevice->GetFramesInFlight();
+		m_frameIndex = (m_frameIndex + 1) % m_pRenderDevice->GetFramesInFlight();
 
 		m_registeredRenderPasses.clear();
 		m_resourceUsages.clear();
@@ -852,7 +853,7 @@ namespace PHX
 				return;
 			}
 
-			TextureVk* pTexture = static_cast<TextureVk*>(outputResource.data);
+			TextureVk* pTexture = ResolveTexture(outputResource);
 			ASSERT_PTR(pTexture);
 
 			AttachmentDescription attDesc{};
@@ -1042,7 +1043,7 @@ namespace PHX
 
 		renderPassDesc.subpasses.push_back(subpassDesc); // TODO - Support multiple subpasses
 
-		VkRenderPass renderPassVk = m_renderDevice->CreateRenderPass(renderPassDesc);
+		VkRenderPass renderPassVk = m_pRenderDevice->CreateRenderPass(renderPassDesc);
 		return renderPassVk;
 	}
 
@@ -1060,7 +1061,7 @@ namespace PHX
 				return;
 			}
 
-			TextureVk* pAttachmentTex = static_cast<TextureVk*>(outputResource.data);
+			TextureVk* pAttachmentTex = ResolveTexture(outputResource);
 			if (pAttachmentTex == nullptr)
 			{
 #if defined(PHX_DEBUG)
@@ -1080,7 +1081,7 @@ namespace PHX
 			}
 
 			FramebufferAttachmentDesc desc;
-			desc.pTexture = static_cast<TextureVk*>(outputResource.data);
+			desc.pTexture = ResolveTexture(outputResource);
 			desc.mipTarget = 0;
 			desc.type = resourceUsage->attachmentType;
 			desc.storeOp = resourceUsage->storeOp;
@@ -1101,7 +1102,7 @@ namespace PHX
 		framebufferCI.attachmentCount = static_cast<u32>(attachments.size());
 		framebufferCI.renderPass = renderPassVk;
 		framebufferCI.isBackbuffer = isBackBuffer;
-		FramebufferVk* pFramebuffer = m_renderDevice->CreateFramebuffer(framebufferCI);
+		FramebufferVk* pFramebuffer = m_pRenderDevice->CreateFramebuffer(framebufferCI);
 		return pFramebuffer;
 	}
 
@@ -1114,12 +1115,12 @@ namespace PHX
 		{
 		case BIND_POINT::GRAPHICS:
 		{
-			pipeline = m_renderDevice->CreateGraphicsPipeline(renderPass.graphicsDesc, renderPassVk);
+			pipeline = m_pRenderDevice->CreateGraphicsPipeline(renderPass.graphicsDesc, renderPassVk);
 			break;
 		}
 		case BIND_POINT::COMPUTE:
 		{
-			pipeline = m_renderDevice->CreateComputePipeline(renderPass.computeDesc);
+			pipeline = m_pRenderDevice->CreateComputePipeline(renderPass.computeDesc);
 			break;
 		}
 		default:
@@ -1132,9 +1133,9 @@ namespace PHX
 		return pipeline;
 	}
 
-	u8 RenderGraphVk::RegisterResource(void* data, RESOURCE_TYPE type, const ResourceUsage& usage)
+	u8 RenderGraphVk::RegisterResource(Handle resource, RESOURCE_TYPE type, const ResourceUsage& usage)
 	{
-		const u64 resourceID = HashResource(data, type);
+		const u64 resourceID = HashResource(resource, type);
 		u8 physicalResourceIndex = U8_MAX;
 
 		// Try to find an existing physical resource
@@ -1152,8 +1153,9 @@ namespace PHX
 		if (physicalResourceIndex == U8_MAX)
 		{
 			// Couldn't find existing physical resource, create one instead
+			// TODO - Defer physical resource creation until baking?
 			RenderResource newPhysicalResource{};
-			newPhysicalResource.data = data;
+			newPhysicalResource.handle = resource;
 			newPhysicalResource.resourceID = resourceID;
 			newPhysicalResource.type = type;
 
@@ -1161,7 +1163,7 @@ namespace PHX
 			m_physicalResources.push_back(newPhysicalResource);
 		}
 
-		// Always create new virtual resource
+		// Create logical resource
 		ResourceUsage newUsage = usage;
 		newUsage.resourceID = resourceID;
 		m_resourceUsages.push_back(newUsage);
@@ -1293,9 +1295,6 @@ namespace PHX
 					const bool isBackBufferResource = (dstResourceCRC == m_reservedBackbufferNameCRC);
 					const bool isDepthBufferResource = (dstResourceCRC == m_reservedDepthBufferNameCRC);
 
-					TextureVk* pTexture = static_cast<TextureVk*>(resource.data);
-					ASSERT_PTR(pTexture);
-
 					const VkImageLayout layout = CalculateResourceImageLayout(*dstResourceUsage, dstRenderPass.m_bindPoint);
 					const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
 
@@ -1337,7 +1336,7 @@ namespace PHX
 					{
 						return;
 					}
-					TextureVk* pTexture = static_cast<TextureVk*>(resource.data);
+					TextureVk* pTexture = ResolveTexture(resource);
 					ASSERT_PTR(pTexture);
 
 					const u64& resourceID = resource.resourceID;
@@ -1417,7 +1416,7 @@ namespace PHX
 			{
 			case RESOURCE_TYPE::BUFFER:
 			{
-				BufferVk* pBuffer = static_cast<BufferVk*>(resourceBarrier->data);
+				BufferVk* pBuffer = ResolveBuffer(*resourceBarrier);
 				res = pDeviceContext->InsertBufferMemoryBarrier(
 					pBuffer,
 					ConvertBindPointToQueueType(renderPass.m_bindPoint),
@@ -1437,7 +1436,7 @@ namespace PHX
 			}
 			case RESOURCE_TYPE::TEXTURE:
 			{
-				TextureVk* pTexture = static_cast<TextureVk*>(resourceBarrier->data);
+				TextureVk* pTexture = ResolveTexture(*resourceBarrier);
 				res = pDeviceContext->InsertImageMemoryBarrier(
 					pTexture,
 					ConvertBindPointToQueueType(renderPass.m_bindPoint),
@@ -1569,10 +1568,28 @@ namespace PHX
 			const RenderResource* resource = GetPhysicalResource(resourceID);
 			ASSERT_PTR(resource);
 
-			TextureVk* textureResource = static_cast<TextureVk*>(resource->data);
+			TextureVk* textureResource = ResolveTexture(*resource);
 			ASSERT_PTR(textureResource);
 
 			textureResource->SetLayout(barrierInfo.newLayout);
 		}
+	}
+
+	TextureVk* RenderGraphVk::ResolveTexture(const RenderResource& resource)
+	{
+		ASSERT_MSG(resource.type == RESOURCE_TYPE::TEXTURE, "Failed to resolve resource into texture. Resource is not a texture type!");
+
+		const TextureHandle handle = static_cast<TextureHandle>(resource.handle);
+		TextureVk* pTexture = static_cast<TextureVk*>(m_pRenderDevice->ResolveHandle(handle));
+		return pTexture;
+	}
+
+	BufferVk* RenderGraphVk::ResolveBuffer(const RenderResource& resource)
+	{
+		ASSERT_MSG(resource.type == RESOURCE_TYPE::BUFFER, "Failed to resolve resource into buffer. Resource is not a buffer type!");
+
+		const BufferHandle handle = static_cast<const BufferHandle>(resource.handle);
+		BufferVk* pBuffer = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(handle));
+		return pBuffer;
 	}
 }

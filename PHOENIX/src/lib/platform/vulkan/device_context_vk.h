@@ -33,9 +33,9 @@ namespace PHX
 		DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo);
 		~DeviceContextVk();
 
-		STATUS_CODE BindVertexBuffer(IBuffer* pVertexBuffer) override;
-		STATUS_CODE BindMesh(IBuffer* pVertexBuffer, IBuffer* pIndexBuffer) override;
-		STATUS_CODE BindUniformCollection(IUniformCollection* pUniformCollection, IPipeline* pPipeline) override;
+		STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer) override;
+		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer) override;
+		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection, IPipeline* pPipeline) override;
 		STATUS_CODE BindPipeline(IPipeline* pPipeline) override;
 		STATUS_CODE SetViewport(Vec2u size, Vec2u offset) override;
 		STATUS_CODE SetScissor(Vec2u size, Vec2u offset) override;
@@ -46,8 +46,8 @@ namespace PHX
 
 		STATUS_CODE Dispatch(Vec3u dimensions) override;
 
-		STATUS_CODE CopyDataToBuffer(IBuffer* pBuffer, const void* data, u64 sizeBytes) override;
-		STATUS_CODE CopyDataToTexture(ITexture* pTexture, const void* data, u64 sizeBytes) override;
+		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) override;
+		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes) override;
 
 		STATUS_CODE BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex);
 		STATUS_CODE EndFrame(u32 frameIndex);

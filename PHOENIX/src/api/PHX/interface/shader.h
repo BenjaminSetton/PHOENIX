@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../types/integral_types.h"
-#include "../types/shader_desc.h"
+#include "PHX/types/integral_types.h"
+#include "PHX/types/shader_desc.h"
 
 namespace PHX
 {

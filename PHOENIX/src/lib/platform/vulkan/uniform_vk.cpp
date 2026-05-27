@@ -34,7 +34,7 @@ namespace PHX
 			return;
 		}
 
-		m_renderDevice = pRenderDevice;
+		m_pRenderDevice = pRenderDevice;
 
 		// Copy the uniform data to internal cache
 		CacheUniformGroupData(createInfo.dataGroups, createInfo.groupCount);
@@ -113,7 +113,7 @@ namespace PHX
 
 		for (auto& setLayout : m_descriptorSetLayouts)
 		{
-			vkDestroyDescriptorSetLayout(m_renderDevice->GetLogicalDevice(), setLayout, nullptr);
+			vkDestroyDescriptorSetLayout(m_pRenderDevice->GetLogicalDevice(), setLayout, nullptr);
 		}
 		m_descriptorSetLayouts.clear();
 	}
@@ -143,9 +143,9 @@ namespace PHX
 		return &(m_uniformGroups.at(groupIndex));
 	}
 
-	STATUS_CODE UniformCollectionVk::QueueBufferUpdate(IBuffer* pBuffer, u32 set, u32 binding, u64 offset, u64 size)
+	STATUS_CODE UniformCollectionVk::QueueBufferUpdate(BufferHandle buffer, u32 set, u32 binding, u64 offset, u64 size)
 	{
-		BufferVk* bufferVk = static_cast<BufferVk*>(pBuffer);
+		BufferVk* bufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(buffer));
 		if ((bufferVk == nullptr) || (bufferVk->GetBuffer() == nullptr))
 		{
 			LogError("Failed to queue buffer update! Buffer is null");
@@ -208,9 +208,9 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE UniformCollectionVk::QueueImageUpdate(ITexture* pTexture, u32 set, u32 binding, u32 imageViewIndex)
+	STATUS_CODE UniformCollectionVk::QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex)
 	{
-		TextureVk* textureVk = static_cast<TextureVk*>(pTexture);
+		TextureVk* textureVk = static_cast<TextureVk*>(m_pRenderDevice->ResolveHandle(texture));
 		if (textureVk == nullptr)
 		{
 			LogError("Failed to queue image update! Texture is null");
@@ -264,7 +264,7 @@ namespace PHX
 
 	STATUS_CODE UniformCollectionVk::FlushUpdateQueue()
 	{
-		if (m_renderDevice == nullptr)
+		if (m_pRenderDevice == nullptr)
 		{
 			LogError("Failed to flush update queue! Render device is null");
 			return STATUS_CODE::ERR_INTERNAL;
@@ -276,7 +276,7 @@ namespace PHX
 			return STATUS_CODE::SUCCESS;
 		}
 
-		vkUpdateDescriptorSets(m_renderDevice->GetLogicalDevice(), static_cast<u32>(m_descriptorWrites.size()), m_descriptorWrites.data(), 0, nullptr);
+		vkUpdateDescriptorSets(m_pRenderDevice->GetLogicalDevice(), static_cast<u32>(m_descriptorWrites.size()), m_descriptorWrites.data(), 0, nullptr);
 
 		m_descriptorWrites.clear();
 		m_writeImageInfo.clear();

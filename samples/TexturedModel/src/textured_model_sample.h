@@ -54,18 +54,18 @@ private:
 
 	PHX::GraphicsPipelineDesc m_pipelineDesc;
 
-	PHX::ITexture* m_pDepthBuffer;
-	PHX::IUniformCollection* m_pUniformCollection;
-	PHX::IBuffer* m_pTransformBuffer;
-	PHX::IBuffer* m_pCameraBuffer;
-	PHX::IBuffer* m_pVertexBuffer;
-	PHX::IBuffer* m_pIndexBuffer;
+	PHX::TextureHandle m_depthBuffer;
+	PHX::UniformCollectionHandle m_uniformCollection;
+	PHX::BufferHandle m_transformBuffer;
+	PHX::BufferHandle m_cameraBuffer;
+	PHX::BufferHandle m_vertexBuffer;
+	PHX::BufferHandle m_indexBuffer;
 
 	std::vector<PHX::IShader*> m_shaders;
 
 	std::vector<PHX::InputAttribute> m_inputAttributes;
 
-	std::vector<PHX::ITexture*> m_assetTextures;
+	std::vector<PHX::TextureHandle> m_assetTextures;
 
 	Common::AssetHandle m_assetID;
 

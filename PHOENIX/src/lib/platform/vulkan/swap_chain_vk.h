@@ -16,7 +16,7 @@ namespace PHX
 		explicit SwapChainVk(RenderDeviceVk* pRenderDevice, const SwapChainCreateInfo& createInfo);
 		~SwapChainVk();
 
-		ITexture* GetCurrentImage() const override;
+		TextureHandle GetCurrentImage() const override;
 		u32 GetImageCount() const override;
 		u32 GetCurrentImageIndex() const override;
 		STATUS_CODE Present() override;
@@ -46,7 +46,7 @@ namespace PHX
 		VkFormat m_format;
 		u32 m_width;
 		u32 m_height;
-		std::vector<TextureVk*> m_images;
+		std::vector<TextureHandle> m_images;
 		u32 m_currImageIndex;
 		u32 m_imageCount;
 		bool m_isVSyncEnabled;

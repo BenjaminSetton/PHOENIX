@@ -21,6 +21,20 @@ namespace PHX
 
 	////////////////////////////////////////////////////////////////////////////////
 
+	static bool CanHandlesBeUsedForComparison(Handle A, Handle B)
+	{
+		return !(A.IsValid() ^ B.IsValid());
+	}
+
+	////////////////////////////////////////////////////////////////////////////////
+
+	static bool AreHandlesValid(Handle A, Handle B)
+	{
+		return (A.IsValid() && B.IsValid());
+	}
+
+	////////////////////////////////////////////////////////////////////////////////
+
 	// Returns true if both shaders are null, or if both shaders are not null but their
 	// contents are equal. Returns false in all other cases
 	static bool AreShadersEqual(const IShader* pShaderA, const IShader* pShaderB)
@@ -41,17 +55,17 @@ namespace PHX
 
 	////////////////////////////////////////////////////////////////////////////////
 
-	static bool AreUniformsEqual(const IUniformCollection* pUniformsA, const IUniformCollection* pUniformsB)
+	static bool AreUniformsEqual(UniformCollectionHandle uniformsA, UniformCollectionHandle uniformsB)
 	{
-		if (!CanPointersBeUsedForComparison(pUniformsA, pUniformsB))
+		if (!CanHandlesBeUsedForComparison(uniformsA, uniformsB))
 		{
 			return false;
 		}
 
-		if (ArePointersNotNull(pUniformsA, pUniformsB))
+		if (AreHandlesValid(uniformsA, uniformsB))
 		{
-			const u32 thisGroupCount = pUniformsA->GetGroupCount();
-			const u32 otherGroupCount = pUniformsB->GetGroupCount();
+			const u32 thisGroupCount = uniformsA.GetGroupCount();
+			const u32 otherGroupCount = uniformsB.GetGroupCount();
 			if (thisGroupCount != otherGroupCount)
 			{
 				return false;
@@ -59,8 +73,8 @@ namespace PHX
 
 			for (u32 i = 0; i < thisGroupCount; i++)
 			{
-				const UniformDataGroup& thisDataGroup = *(pUniformsA->GetGroup(i));
-				const UniformDataGroup& otherDataGroup = *(pUniformsB->GetGroup(i));
+				const UniformDataGroup& thisDataGroup = *(uniformsA.GetGroup(i));
+				const UniformDataGroup& otherDataGroup = *(uniformsB.GetGroup(i));
 				if (!(thisDataGroup == otherDataGroup))
 				{
 					return false;
@@ -127,7 +141,7 @@ namespace PHX
 		}
 
 		// UNIFORMS
-		bool uniformsEqual = AreUniformsEqual(pUniformCollection, other.pUniformCollection);
+		bool uniformsEqual = AreUniformsEqual(uniformCollection, other.uniformCollection);
 
 		// At this point we know shaders are equal because it's been checked, so simply
 		// check for uniforms being equal
@@ -160,13 +174,13 @@ namespace PHX
 		}
 
 		// UNIFORMS
-		if (!CanPointersBeUsedForComparison(pUniformCollection, other.pUniformCollection))
+		if (!CanHandlesBeUsedForComparison(uniformCollection, other.uniformCollection))
 		{
 			return false;
 		}
 
-		if (ArePointersNotNull(pUniformCollection, other.pUniformCollection) && 
-			!AreUniformsEqual(pUniformCollection, other.pUniformCollection))
+		if (AreHandlesValid(uniformCollection, other.uniformCollection) && 
+			!AreUniformsEqual(uniformCollection, other.uniformCollection))
 		{
 			return false;
 		}
@@ -175,11 +189,11 @@ namespace PHX
 		GraphicsPipelineDesc copyA = *this;
 		GraphicsPipelineDesc copyB = other;
 
-		copyA.pUniformCollection = nullptr;
+		copyA.uniformCollection = INVALID_HANDLE;
 		copyA.ppShaders = nullptr;
 		copyA.shaderCount = 0;
 
-		copyB.pUniformCollection = nullptr;
+		copyB.uniformCollection = INVALID_HANDLE;
 		copyB.ppShaders = nullptr;
 		copyB.shaderCount = 0;
 

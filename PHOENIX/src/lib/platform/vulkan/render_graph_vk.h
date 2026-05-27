@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "framebuffer_vk.h"
+#include "PHX/interface/handle.h"
 #include "PHX/interface/render_graph.h"
 #include "pipeline_vk.h"
 #include "utils/crc32.h"
@@ -19,14 +20,16 @@ namespace PHX
 	class RenderDeviceVk;
 	class RenderGraphVk;
 	class RenderPassVk;
+	class TextureVk;
+	class BufferVk;
 
 	// Callback used by the render pass class to register resources into
 	// the render graph. The render graph owns the resources, and once
 	// they're registered this function will return the resource index
 	// that should then be cached in the render pass's input/output bitsets.
-	// Parameters are the data (void*), resource type (RESOURCE_TYPE), and 
+	// Parameters are the handle (Handle), resource type (RESOURCE_TYPE), and 
 	// resource usage (ResourceUsage)
-	typedef std::function<u8(void*, RESOURCE_TYPE, const ResourceUsage&)> RegisterResourceCallbackFn;
+	typedef std::function<u8(Handle, RESOURCE_TYPE, const ResourceUsage&)> RegisterResourceCallbackFn;
 
 	// Called for every render pass touched when traversing the dependency tree
 	typedef std::function<void(const RenderPassVk&)> TraverseDependenciesCallbackFn;
@@ -63,17 +66,17 @@ namespace PHX
 		~RenderPassVk() override;
 
 		// Inputs
-		void SetTextureInput(ITexture* pTexture) override;
-		void SetBufferInput(IBuffer* pBuffer) override; // Not sure if I want to keep this
-		void SetUniformInput(IUniformCollection* pUniformCollection) override; // Not sure if I want to keep this
+		void SetTextureInput(TextureHandle texture) override;
+		void SetBufferInput(BufferHandle buffer) override; // Not sure if I want to keep this
+		void SetUniformInput(UniformCollectionHandle uniformCollection) override; // Not sure if I want to keep this
 
 		// Outputs
-		void SetColorOutput(ITexture* pTexture) override;
-		void SetDepthOutput(ITexture* pTexture) override;
-		void SetDepthStencilOutput(ITexture* pTexture) override;
-		void SetResolveOutput(ITexture* pTexture) override;
-		void SetBackbufferOutput(ITexture* pTexture) override;
-		void SetBufferOutput(IBuffer* pBuffer) override;
+		void SetColorOutput(TextureHandle texture) override;
+		void SetDepthOutput(TextureHandle texture) override;
+		void SetDepthStencilOutput(TextureHandle texture) override;
+		void SetResolveOutput(TextureHandle texture) override;
+		void SetBackbufferOutput(TextureHandle texture) override;
+		void SetBufferOutput(BufferHandle buffer) override;
 
 		// Pipeline
 		void SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc) override;
@@ -134,7 +137,7 @@ namespace PHX
 		VkRenderPass CreateRenderPass(const RenderPassVk& renderPass);
 		FramebufferVk* CreateFramebuffer(const RenderPassVk& renderPass, VkRenderPass renderPassVk, bool isBackBuffer);
 		PipelineVk* CreatePipeline(const RenderPassVk& renderPass, VkRenderPass renderPassVk);
-		u8 RegisterResource(void* data, RESOURCE_TYPE type, const ResourceUsage& usage);
+		u8 RegisterResource(Handle resource, RESOURCE_TYPE type, const ResourceUsage& usage);
 
 		DeviceContextVk* GetDeviceContext() const;
 		u32 FindBackBufferRenderPassIndex();
@@ -159,12 +162,15 @@ namespace PHX
 		// by the render pass dependency. This information is stored in the output barriers
 		void UpdateTextureLayouts(u32 renderPassIndex);
 
+		TextureVk* ResolveTexture(const RenderResource& resource);
+		BufferVk* ResolveBuffer(const RenderResource& resource);
+
 	private:
 
 		std::vector<RenderPassVk> m_registeredRenderPasses;
 		std::vector<ResourceUsage> m_resourceUsages;
 		std::vector<RenderResource> m_physicalResources;
-		RenderDeviceVk* m_renderDevice;
+		RenderDeviceVk* m_pRenderDevice;
 
 		// One device context per frame in flight
 		std::vector<DeviceContextVk*> m_deviceContexts;

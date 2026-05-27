@@ -1,7 +1,11 @@
 #pragma once
 
-#include "../types/integral_types.h"
-#include "../types/texture_desc.h"
+#include "PHX/types/integral_types.h"
+#include "PHX/types/texture_desc.h"
+
+#include "PHX/interface/handle.h"
+
+#include "PHX/interface/ref.h" // TODO - Move to lib
 
 namespace PHX
 {
@@ -37,7 +41,37 @@ namespace PHX
 		float maxAnisotropy                 = 1.0f;
 	};
 
-	class ITexture
+	struct TextureHandle : public Handle
+	{
+		TextureHandle();
+		TextureHandle(const Handle& other); // Needed for down-casting from Handle?
+		~TextureHandle();
+		TextureHandle(const TextureHandle& other);
+		TextureHandle& operator=(const TextureHandle& other);
+		TextureHandle(TextureHandle&& other) noexcept;
+
+		void CopyFrom(TextureHandle other);
+		u32 GetWidth() const;
+		u32 GetHeight() const;
+		BASE_FORMAT GetFormat() const;
+		u32 GetArrayLayers() const;
+		u32 GetMipLevels() const;
+		SAMPLE_COUNT GetSampleCount() const;
+		AspectTypeFlags GetAspectFlags() const;
+		VIEW_TYPE GetViewType() const;
+		VIEW_SCOPE GetViewScope() const;
+		FILTER_MODE GetMinificationFilter() const;
+		FILTER_MODE GetMagnificationFilter() const;
+		SAMPLER_ADDRESS_MODE GetSamplerAddressMode() const;
+		FILTER_MODE GetSamplerFilter() const;
+		bool IsAnisotropicFilteringEnabled() const;
+		float GetAnisotropyLevel() const;
+		bool IsDepthTexture() const;
+		bool HasStencilComponent() const;
+	};
+
+	// TODO - Move to lib
+	class ITexture : public RefCounted
 	{
 	public:
 
