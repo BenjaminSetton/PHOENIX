@@ -155,11 +155,11 @@ namespace PHX
 		}
 		m_commandPools.clear();
 
-		// Destroy resources
+		// Clear resources
 		m_textures.clear();
 		m_buffers.clear();
 		m_uniformCollections.clear();
-		// TODO - Double check ref counts for uniform collection. Also make sure ref count of 1 for buffers and textures is sensible
+		m_deviceContexts.clear();
 		
 		// Destroy descriptor pool
 		vkDestroyDescriptorPool(m_logicalDevice, m_descriptorPool, nullptr);
@@ -178,12 +178,6 @@ namespace PHX
 	STATUS_CODE RenderDeviceVk::AllocateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain)
 	{
 		*out_swapChain = new SwapChainVk(this, createInfo);
-		return STATUS_CODE::SUCCESS;
-	}
-
-	STATUS_CODE RenderDeviceVk::AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext)
-	{
-		*out_deviceContext = new DeviceContextVk(this, createInfo);
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -264,11 +258,6 @@ namespace PHX
 		SAFE_DEL(*pSwapChain);
 	}
 
-	void RenderDeviceVk::DeallocateDeviceContext(IDeviceContext** pDeviceContext)
-	{
-		SAFE_DEL(*pDeviceContext);
-	}
-
 	void RenderDeviceVk::DeallocateRenderGraph(IRenderGraph** pRenderGraph)
 	{
 		SAFE_DEL(*pRenderGraph);
@@ -312,6 +301,21 @@ namespace PHX
 		return m_framesInFlight;
 	}
 
+	STATUS_CODE RenderDeviceVk::AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext)
+	{
+		DeviceContextVk* pContext = new DeviceContextVk(this, createInfo);
+		if (pContext == nullptr)
+		{
+			LogError("Failed to allocate device context. Memory allocation failed!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+		m_deviceContexts.push_back(pContext);
+
+		pContext->IncrementRefCount();
+		HandleAccessor::PopulateHandle(deviceContext, this, static_cast<u32>(m_deviceContexts.size() - 1), 0u);
+		return STATUS_CODE::SUCCESS;
+	}
+
 	ITexture* RenderDeviceVk::ResolveHandle(const TextureHandle& handle)
 	{
 		const u32 index = HandleAccessor::GetIndex(handle);
@@ -348,6 +352,18 @@ namespace PHX
 		return m_uniformCollections[index];
 	}
 
+	IDeviceContext* RenderDeviceVk::ResolveHandle(const DeviceContextHandle& handle)
+	{
+		const u32 index = HandleAccessor::GetIndex(handle);
+		if (index >= static_cast<u32>(m_deviceContexts.size()))
+		{
+			return nullptr;
+		}
+		// TODO - Check generation
+
+		return m_deviceContexts[index];
+	}
+
 	void RenderDeviceVk::IncrementRefCount(const Handle& handle)
 	{
 		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
@@ -366,6 +382,11 @@ namespace PHX
 		case HANDLE_TYPE::UNIFORM:
 		{
 			IncrementRefCount_Helper<UniformCollectionHandle, IUniformCollection>(handle);
+			break;
+		}
+		case HANDLE_TYPE::DEVICE_CONTEXT:
+		{
+			IncrementRefCount_Helper<DeviceContextHandle, IDeviceContext>(handle);
 			break;
 		}
 		default:
@@ -393,6 +414,11 @@ namespace PHX
 		case HANDLE_TYPE::UNIFORM:
 		{
 			DecrementRefCount_Helper<UniformCollectionHandle, IUniformCollection>(handle);
+			break;
+		}
+		case HANDLE_TYPE::DEVICE_CONTEXT:
+		{
+			DecrementRefCount_Helper<DeviceContextHandle, IDeviceContext>(handle);
 			break;
 		}
 		default:

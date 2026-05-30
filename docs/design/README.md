@@ -89,7 +89,6 @@ The library must contain minimal dependencies to make it as easy as possible to 
 - Vulkan SDK
 - VMA (Vulkan Memory Allocator)
 - glslc (shader compilation library)
-- Python
 
 # Coding conventions
 - **NAMESPACES**: Everything inside the PHOENIX library must be inside the PHX namespace, and all namespace declarations must follow the upper-case *snake_case* convention. E.g. `namespace OBJECT_FACTORY { ... }`
@@ -106,6 +105,9 @@ The library must contain minimal dependencies to make it as easy as possible to 
 - **MEMBER VARIABLES**: All member variables must follow the *camelCase* naming convention. They must also be pre-pended with "m_". E.g. `bool m_isEnabled;`
 - **CONST CORRECTNESS**: The library must be as const-correct as possible. This means marking pointers/references as const when they must NOT be mutated, as well as marking member functions as const when they must NOT modify the object state. Loose variables by value may be marked as const for extra precaution, but this is not required.
 - **INCLUDE ORDER**: The include files must be written in this order, where every every category (or block) is in alphabetical order. (1) Any included file that is *not* from the library code, must be included with angle braces (< and >), and *must* be included before any other files. (2) In cases where the "parent" header file is being included in a cpp file, it must be listed as it's own category after non-library includes. (3) Any other included header files must be added in their own category and must come last.
+
+# Handles
+Handles are a core part of this library. All API objects given to the client are handles, which include limited functionality (compared to lib-only IObject pointers) and are ref-counted as well. This serves two purposes: lifetime management and API limitation. The client is never in charge of managing the lifetime of API objects. All that's necessary is creating them through the render device. Internally, all handles end up calling into the render device to resolve the handle into a IObject pointer which, if successful, will be called into to fulfill the functions' purpose.
 
 # Render graph
 The render graph system is designed to stream-line the process of managing and optimizing render passes, as well as their dependencies. Certain modern APIs, such as Vulkan and DirectX 12, require render pass resources to be manually synchronized to avoid undefined read/write behaviors. This functionality is passed onto the client because it allows them to optimize by minimizing the barriers to reduce pipeline stalls and squeeze out as much performance as possible. Older APIs, such as OpenGL, handle this under the hood for ease of use. In order for PHX to implement both kinds of APIs, the render graph system must handle this resource synchronization under the hood. Since this system is used to synchronize all render passes as well as their dependencies, it means that the system also has global knowledge of _all_ the render passes submitted per frame. This allows the render graph to perform other useful things outside of synchronizing resources, such as re-arranging the render passes to run as many of them in parallel as possible, trimming render passes that do not directly or indirectly contribute to the final image, and optimizing resource usage to minimize memory usage on the GPU. 

@@ -49,13 +49,14 @@ namespace PHX
 		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) override;
 		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes) override;
 
-		STATUS_CODE BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex);
+		STATUS_CODE BeginFrame(ISwapChain* pSwapChain, u32 frameIndex);
 		STATUS_CODE EndFrame(u32 frameIndex);
-
-		STATUS_CODE Flush(QUEUE_TYPE queueType, const FlushSyncData& syncData);
 
 		STATUS_CODE BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount);
 		STATUS_CODE EndRenderPass();
+
+		STATUS_CODE Flush(QUEUE_TYPE queueType, const FlushSyncData& syncData);
+
 
 		// TODO - Have the transition details exposed as function parameters rather than assuming src/dst stages and access masks
 		//STATUS_CODE TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout, VkCommandBuffer cmdBuffer = VK_NULL_HANDLE);

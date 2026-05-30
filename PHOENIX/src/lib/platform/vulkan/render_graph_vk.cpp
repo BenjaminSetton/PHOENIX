@@ -619,8 +619,9 @@ namespace PHX
 
 	//--------------------------------------------------------------------------------------------
 
-	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_deviceContexts(), m_frameIndex(0), 
-		m_reservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName))
+	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pRenderDevice(nullptr), m_deviceContextHandles(), 
+		m_frameIndex(0), m_reservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)),
+		m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName))
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -631,32 +632,21 @@ namespace PHX
 		m_pRenderDevice = pRenderDevice;
 
 		const u32 framesInFlight = m_pRenderDevice->GetFramesInFlight();
-		m_deviceContexts.reserve(framesInFlight);
-
 		for (u32 i = 0; i < framesInFlight; i++)
 		{
-			IDeviceContext* pDeviceContext = nullptr;
-			STATUS_CODE res = m_pRenderDevice->AllocateDeviceContext({}, &pDeviceContext);
+			DeviceContextHandle deviceContext;
+			STATUS_CODE res = m_pRenderDevice->AllocateDeviceContext({}, deviceContext);
 			if (res != STATUS_CODE::SUCCESS)
 			{
 				LogError("Failed to construct render graph. Device context creation failed!");
 				return;
 			}
-
-			DeviceContextVk* pDeviceContextVk = static_cast<DeviceContextVk*>(pDeviceContext);
-			ASSERT_PTR(pDeviceContextVk);
-			m_deviceContexts.push_back(pDeviceContextVk);
+			m_deviceContextHandles.push_back(deviceContext);
 		}
 	}
 
 	RenderGraphVk::~RenderGraphVk()
 	{
-		for (DeviceContextVk* deviceContextVk : m_deviceContexts)
-		{
-			IDeviceContext* pDeviceContext = static_cast<IDeviceContext*>(deviceContextVk);
-			m_pRenderDevice->DeallocateDeviceContext(&pDeviceContext);
-		}
-		m_deviceContexts.clear();
 	}
 
 	STATUS_CODE RenderGraphVk::BeginFrame(ISwapChain* pSwapChain)
@@ -672,7 +662,7 @@ namespace PHX
 		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(pSwapChain);
 		ASSERT_PTR(swapChainVk);
 
-		DeviceContextVk* pDeviceContext = GetDeviceContext();
+		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetDeviceContext());
 		res = pDeviceContext->BeginFrame(swapChainVk, m_frameIndex);
 		if (res != STATUS_CODE::SUCCESS)
 		{
@@ -687,7 +677,7 @@ namespace PHX
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
-		DeviceContextVk* pDeviceContext = GetDeviceContext();
+		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetDeviceContext());
 		res = pDeviceContext->EndFrame(m_frameIndex);
 		if (res != STATUS_CODE::SUCCESS)
 		{
@@ -750,7 +740,9 @@ namespace PHX
 		// 3. Call the execute callback and pass in the device context
 		std::reverse(activeRenderPassIndices.begin(), activeRenderPassIndices.end());
 
-		DeviceContextVk* pDeviceContext = GetDeviceContext();
+		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetDeviceContext());
+		DeviceContextHandle deviceContext = GetDeviceContextHandle();
+
 		for (u32 activeRenderPassIndex : activeRenderPassIndices)
 		{
 			const RenderPassVk& currRenderPass = m_registeredRenderPasses[activeRenderPassIndex];
@@ -784,8 +776,8 @@ namespace PHX
 						return res;
 					}
 
-					// Call the main render pass execution callback
-					currRenderPass.m_execCallback(pDeviceContext, pPipeline);
+					// Call the main render pass execution callback with a device context handle, since it's client-facing
+					currRenderPass.m_execCallback(deviceContext, pPipeline);
 
 					res = pDeviceContext->EndRenderPass();
 					if (res != STATUS_CODE::SUCCESS)
@@ -807,14 +799,14 @@ namespace PHX
 					// be ignored by passing in VK_NULL_HANDLE
 					PipelineVk* pPipeline = CreatePipeline(currRenderPass, VK_NULL_HANDLE);
 
-					currRenderPass.m_execCallback(pDeviceContext, pPipeline);
+					currRenderPass.m_execCallback(deviceContext, pPipeline);
 
 					break;
 				}
 				case BIND_POINT::TRANSFER:
 				{
 					// NOTE - Transfer-only passes do not use a pipeline
-					currRenderPass.m_execCallback(pDeviceContext, nullptr);
+					currRenderPass.m_execCallback(deviceContext, nullptr);
 
 					break;
 				}
@@ -831,6 +823,25 @@ namespace PHX
 		TODO();
 
 		return STATUS_CODE::SUCCESS;
+	}
+
+	IDeviceContext* RenderGraphVk::GetDeviceContext()
+	{
+		if (m_frameIndex >= m_deviceContextHandles.size())
+		{
+			// This should never happen!
+			ASSERT_ALWAYS("Failed to get device context at index %u. Index is out of bounds!");
+			return nullptr;
+		}
+
+		DeviceContextHandle deviceContext = m_deviceContextHandles[m_frameIndex];
+		return m_pRenderDevice->ResolveHandle(deviceContext);
+	}
+
+	DeviceContextHandle RenderGraphVk::GetDeviceContextHandle()
+	{
+		ASSERT(m_frameIndex < m_deviceContextHandles.size());
+		return m_deviceContextHandles[m_frameIndex];
 	}
 
 	VkRenderPass RenderGraphVk::CreateRenderPass(const RenderPassVk& renderPass)
@@ -1171,11 +1182,6 @@ namespace PHX
 		return physicalResourceIndex;
 	}
 
-	DeviceContextVk* RenderGraphVk::GetDeviceContext() const
-	{
-		return m_deviceContexts[m_frameIndex];
-	}
-
 	u32 RenderGraphVk::FindBackBufferRenderPassIndex()
 	{
 		u32 backbufferRPIndex = s_invalidRenderPassIndex;
@@ -1402,7 +1408,7 @@ namespace PHX
 	STATUS_CODE RenderGraphVk::InsertResourceBarriers(const RenderPassVk& renderPass)
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
-		DeviceContextVk* pDeviceContext = GetDeviceContext();
+		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetDeviceContext());
 
 		for (auto& barrierIter : renderPass.m_inputBarriers)
 		{

@@ -132,6 +132,9 @@ namespace PHX
 		STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount) override;
 		STATUS_CODE GenerateVisualization(const char* fileName, bool generateIfUnique) override;
 
+		IDeviceContext* GetDeviceContext() override;
+		DeviceContextHandle GetDeviceContextHandle() override;
+
 	private:
 
 		VkRenderPass CreateRenderPass(const RenderPassVk& renderPass);
@@ -139,7 +142,6 @@ namespace PHX
 		PipelineVk* CreatePipeline(const RenderPassVk& renderPass, VkRenderPass renderPassVk);
 		u8 RegisterResource(Handle resource, RESOURCE_TYPE type, const ResourceUsage& usage);
 
-		DeviceContextVk* GetDeviceContext() const;
 		u32 FindBackBufferRenderPassIndex();
 
 		void BuildDependencyTree(u32 finalPassIndex);
@@ -172,8 +174,7 @@ namespace PHX
 		std::vector<RenderResource> m_physicalResources;
 		RenderDeviceVk* m_pRenderDevice;
 
-		// One device context per frame in flight
-		std::vector<DeviceContextVk*> m_deviceContexts;
+		std::vector<DeviceContextHandle> m_deviceContextHandles;
 
 		u32 m_frameIndex;
 

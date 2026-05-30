@@ -101,10 +101,10 @@ void TexturedModelSample::Draw()
 	pRenderPass->SetBufferInput(m_indexBuffer);
 
 	pRenderPass->SetPipelineDescription(m_pipelineDesc);
-	pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline)
+	pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext, IPipeline* pPipeline)
 	{
 		// Uniform collection updates
-		pContext->CopyDataToBuffer(m_transformBuffer, &m_transform, sizeof(TransformData));
+		deviceContext.CopyDataToBuffer(m_transformBuffer, &m_transform, sizeof(TransformData));
 		m_uniformCollection.QueueBufferUpdate(m_transformBuffer, 0, 0, 0);
 
 		for (u32 i = 0; i < m_assetTextures.size(); i++)
@@ -115,18 +115,18 @@ void TexturedModelSample::Draw()
 
 		CameraData cameraData{};
 		cameraData.cameraPos = m_pCamera->GetPosition();
-		pContext->CopyDataToBuffer(m_cameraBuffer, &cameraData, sizeof(CameraData));
+		deviceContext.CopyDataToBuffer(m_cameraBuffer, &cameraData, sizeof(CameraData));
 		m_uniformCollection.QueueBufferUpdate(m_cameraBuffer, 2, 0, 0);
 
 		m_uniformCollection.FlushUpdateQueue();
 
 		// Draw commands
-		pContext->BindUniformCollection(m_uniformCollection, pPipeline);
-		pContext->BindMesh(m_vertexBuffer, m_indexBuffer);
-		pContext->BindPipeline(pPipeline);
-		pContext->SetScissor({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
-		pContext->SetViewport({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
-		pContext->DrawIndexed(static_cast<u32>(axeAsset->indices.size()));
+		deviceContext.BindUniformCollection(m_uniformCollection, pPipeline);
+		deviceContext.BindMesh(m_vertexBuffer, m_indexBuffer);
+		deviceContext.BindPipeline(pPipeline);
+		deviceContext.SetScissor({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
+		deviceContext.SetViewport({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
+		deviceContext.DrawIndexed(static_cast<u32>(axeAsset->indices.size()));
 	});
 
 	m_pRenderGraph->Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
@@ -425,7 +425,7 @@ void TexturedModelSample::UploadMeshDataToGPU()
 		pRenderPass->SetColorOutput(pCurrAssetTex);
 	}
 
-	pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline)
+	pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext, IPipeline* pPipeline)
 	{
 		// Unused
 		(void)pPipeline;
@@ -434,15 +434,15 @@ void TexturedModelSample::UploadMeshDataToGPU()
 		const u64 vBufferSizeBytes = static_cast<u64>(pAsset->vertices.size() * sizeof(AssetVertex));
 		const u64 iBufferSizeBytes = static_cast<u64>(pAsset->indices.size() * sizeof(Common::AssetIndexType));
 
-		pContext->CopyDataToBuffer(m_vertexBuffer, pAsset->vertices.data(), vBufferSizeBytes);
-		pContext->CopyDataToBuffer(m_indexBuffer, pAsset->indices.data(), iBufferSizeBytes);
+		deviceContext.CopyDataToBuffer(m_vertexBuffer, pAsset->vertices.data(), vBufferSizeBytes);
+		deviceContext.CopyDataToBuffer(m_indexBuffer, pAsset->indices.data(), iBufferSizeBytes);
 
 		for (u32 i = 0; i < m_assetTextures.size(); i++)
 		{
 			const Texture& texSrc = pAsset->textures[i];
 			TextureHandle texDst = m_assetTextures[i];
 			u64 sizeBytes = (texSrc.size.GetX() * texSrc.size.GetY() * texSrc.bytesPerPixel);
-			pContext->CopyDataToTexture(texDst, texSrc.data, sizeBytes);
+			deviceContext.CopyDataToTexture(texDst, texSrc.data, sizeBytes);
 		}
 	});
 }

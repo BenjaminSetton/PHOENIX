@@ -11,7 +11,7 @@
 
 namespace PHX
 {
-	typedef std::function<void(IDeviceContext* pContext, IPipeline* pPipeline)> ExecuteRenderPassCallbackFn;
+	typedef std::function<void(DeviceContextHandle deviceContext, IPipeline* pPipeline)> ExecuteRenderPassCallbackFn;
 
 	enum class BIND_POINT : u8
 	{
@@ -65,5 +65,10 @@ namespace PHX
 		// set to false, it will generate a new visualization every time the graph is different from the
 		// one generated immediately before
 		virtual STATUS_CODE GenerateVisualization(const char* fileName, bool generateIfUnique = true) = 0;
+
+		// LIB-ONLY FUNCTIONS - THESE WILL NOT BE PUBLIC ONCE THIS IS MOVED TO LIB SIDE
+
+		virtual IDeviceContext* GetDeviceContext() = 0; // Used lib-only
+		virtual DeviceContextHandle GetDeviceContextHandle() = 0; // Used to pass to client in exec callback
 	};
 }

@@ -8,6 +8,9 @@
 #include "PHX/types/status_code.h"
 #include "PHX/types/vec_types.h"
 
+#include "PHX/interface/handle.h"
+#include "PHX/interface/ref.h"
+
 namespace PHX
 {
 	struct DeviceContextCreateInfo
@@ -15,7 +18,33 @@ namespace PHX
 		// command pool
 	};
 
-	class IDeviceContext
+	struct DeviceContextHandle : public Handle
+	{
+		DeviceContextHandle();
+		DeviceContextHandle(const Handle& other);
+		~DeviceContextHandle();
+		DeviceContextHandle(const DeviceContextHandle& other);
+		DeviceContextHandle& operator=(const DeviceContextHandle& other);
+		DeviceContextHandle(DeviceContextHandle&& other) noexcept;
+
+		STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer);
+		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer);
+		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection, IPipeline* pPipeline);
+		STATUS_CODE BindPipeline(IPipeline* pPipeline);
+		STATUS_CODE SetViewport(Vec2u size, Vec2u offset);
+		STATUS_CODE SetScissor(Vec2u size, Vec2u offset);
+
+		STATUS_CODE Draw(u32 vertexCount);
+		STATUS_CODE DrawIndexed(u32 indexCount);
+		STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount);
+
+		STATUS_CODE Dispatch(Vec3u dimensions);
+
+		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes);
+		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes);
+	};
+
+	class IDeviceContext : public RefCounted
 	{
 	public:
 

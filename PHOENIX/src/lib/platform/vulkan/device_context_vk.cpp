@@ -408,9 +408,9 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex)
+	STATUS_CODE DeviceContextVk::BeginFrame(ISwapChain* pSwapChain, u32 frameIndex)
 	{
-		if (m_pRenderDevice == VK_NULL_HANDLE)
+		if (m_pRenderDevice == nullptr)
 		{
 			LogError("Failed to begin frame! Render device is null");
 			return STATUS_CODE::ERR_INTERNAL;

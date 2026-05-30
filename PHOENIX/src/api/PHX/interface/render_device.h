@@ -22,6 +22,8 @@ namespace PHX
 		u32 framesInFlight							= 2;
 	};
 
+	// TODO - Create handle
+
 	class IRenderDevice
 	{
 	public:
@@ -33,7 +35,6 @@ namespace PHX
 
 		// Allocations
 		virtual STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain)																									= 0;
-		virtual STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext)																					= 0; // TODO - REMOVE
 		virtual STATUS_CODE AllocateRenderGraph(IRenderGraph** out_renderGraph)																																		= 0;
 		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)																												= 0;
 		
@@ -43,19 +44,23 @@ namespace PHX
 
 		// Deallocations
 		virtual void DeallocateSwapChain(ISwapChain** out_swapChain)						= 0;
-		virtual void DeallocateDeviceContext(IDeviceContext** pDeviceContext)				= 0;
 		virtual void DeallocateRenderGraph(IRenderGraph** pRenderGraph)						= 0;
 		virtual void DeallocateShader(IShader** pShader)									= 0; 
 
 		virtual void DeallocateResource(const Handle& handle)								= 0;
 
+		// LIB-ONLY FUNCTIONS BELOW - THIS WILL BE SPLIT OUT PROPERLY ONCE THE HANDLE FOR THE RENDER DEVICE IS CREATED
+
 		// Getters
 		virtual u32 GetFramesInFlight() const = 0;
+
+		virtual STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext)																					= 0;
 
 		// Handles
 		virtual ITexture* ResolveHandle(const TextureHandle& handle) = 0;
 		virtual IBuffer* ResolveHandle(const BufferHandle& handle) = 0;
 		virtual IUniformCollection* ResolveHandle(const UniformCollectionHandle& handle) = 0;
+		virtual IDeviceContext* ResolveHandle(const DeviceContextHandle& handle) = 0;
 
 		virtual void IncrementRefCount(const Handle& handle) = 0;
 		virtual void DecrementRefCount(const Handle& handle) = 0;

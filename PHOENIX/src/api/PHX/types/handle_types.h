@@ -7,6 +7,7 @@ namespace PHX
 		BUFFER = 0,
 		TEXTURE,
 		UNIFORM,
+		DEVICE_CONTEXT,
 
 		COUNT,
 		INVALID

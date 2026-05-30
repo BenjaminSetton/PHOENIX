@@ -19,6 +19,7 @@ namespace PHX
 	// Forward declarations
 	class TextureVk;
 	class BufferVk;
+	class DeviceContextVk;
 	class UniformCollectionVk;
 
 	class RenderDeviceVk : public IRenderDevice
@@ -31,7 +32,6 @@ namespace PHX
 		const char* GetDeviceName() const;
 
 		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain) override;
-		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, IDeviceContext** out_deviceContext) override; // TODO - REMOVE
 		STATUS_CODE AllocateRenderGraph(IRenderGraph** out_renderGraph) override;
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader) override;
 		
@@ -39,9 +39,8 @@ namespace PHX
 		STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& handle) override;
 		STATUS_CODE AllocateSwapchainTexture(const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView, TextureHandle& handle);
 		STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& uniformCollection) override;
-
+		
 		void DeallocateSwapChain(ISwapChain** pSwapChain) override;
-		void DeallocateDeviceContext(IDeviceContext** pDeviceContext) override;
 		void DeallocateRenderGraph(IRenderGraph** pRenderGraph) override;
 		void DeallocateShader(IShader** pShader) override;
 
@@ -63,10 +62,13 @@ namespace PHX
 
 		u32 GetFramesInFlight() const override;
 
+		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext) override;
+
 		// Handles
 		ITexture* ResolveHandle(const TextureHandle& handle) override;
 		IBuffer* ResolveHandle(const BufferHandle& handle) override;
 		IUniformCollection* ResolveHandle(const UniformCollectionHandle& handle) override;
+		IDeviceContext* ResolveHandle(const DeviceContextHandle& handle) override;
 
 		void IncrementRefCount(const Handle& handle) override;
 		void DecrementRefCount(const Handle& handle) override;
@@ -182,5 +184,6 @@ namespace PHX
 		std::vector<TextureVk*> m_textures;
 		std::vector<BufferVk*> m_buffers;
 		std::vector<UniformCollectionVk*> m_uniformCollections;
+		std::vector<DeviceContextVk*> m_deviceContexts;
 	};
 }
