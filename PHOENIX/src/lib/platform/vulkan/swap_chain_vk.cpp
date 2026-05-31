@@ -360,6 +360,7 @@ namespace PHX
 		{
 			TextureHandle texture;
 			STATUS_CODE res = pRenderDevice->AllocateSwapchainTexture(texBaseCI, imageViews.at(i), texture);
+			ASSERT_MSG(res == STATUS_CODE::SUCCESS, "Failed to allocate swapchain texture!");
 			m_images.push_back(texture);
 		}
 

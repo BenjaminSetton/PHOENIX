@@ -101,7 +101,7 @@ void TexturedModelSample::Draw()
 	pRenderPass->SetBufferInput(m_indexBuffer);
 
 	pRenderPass->SetPipelineDescription(m_pipelineDesc);
-	pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext, IPipeline* pPipeline)
+	pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
 		// Uniform collection updates
 		deviceContext.CopyDataToBuffer(m_transformBuffer, &m_transform, sizeof(TransformData));
@@ -121,9 +121,8 @@ void TexturedModelSample::Draw()
 		m_uniformCollection.FlushUpdateQueue();
 
 		// Draw commands
-		deviceContext.BindUniformCollection(m_uniformCollection, pPipeline);
+		deviceContext.BindUniformCollection(m_uniformCollection);
 		deviceContext.BindMesh(m_vertexBuffer, m_indexBuffer);
-		deviceContext.BindPipeline(pPipeline);
 		deviceContext.SetScissor({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
 		deviceContext.SetViewport({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
 		deviceContext.DrawIndexed(static_cast<u32>(axeAsset->indices.size()));
@@ -425,11 +424,8 @@ void TexturedModelSample::UploadMeshDataToGPU()
 		pRenderPass->SetColorOutput(pCurrAssetTex);
 	}
 
-	pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext, IPipeline* pPipeline)
+	pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
-		// Unused
-		(void)pPipeline;
-
 		const AssetType* pAsset = AssetManager::Get().GetAsset(m_assetID);
 		const u64 vBufferSizeBytes = static_cast<u64>(pAsset->vertices.size() * sizeof(AssetVertex));
 		const u64 iBufferSizeBytes = static_cast<u64>(pAsset->indices.size() * sizeof(Common::AssetIndexType));

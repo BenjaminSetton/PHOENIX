@@ -115,5 +115,28 @@ namespace PHX
 			LogError("Failed to convert attribute input rate to VkVertexInputRate");
 			return VK_VERTEX_INPUT_RATE_MAX_ENUM;
 		}
+
+		VkPipelineBindPoint ConvertBindPoint(BIND_POINT bindPoint)
+		{
+			switch (bindPoint)
+			{
+			case BIND_POINT::GRAPHICS:
+			{
+				return VK_PIPELINE_BIND_POINT_GRAPHICS;
+			}
+			case BIND_POINT::COMPUTE:
+			{
+				return VK_PIPELINE_BIND_POINT_COMPUTE;
+			}
+			case BIND_POINT::TRANSFER: // No valid conversion
+			default:
+			{
+				break;
+			}
+			}
+
+			LogError("Failed to convert bind point to VkPipelineBindPoint");
+			return VK_PIPELINE_BIND_POINT_MAX_ENUM;
+		}
 	}
 }

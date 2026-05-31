@@ -759,14 +759,14 @@ namespace PHX
 			{
 				case BIND_POINT::GRAPHICS:
 				{
-					// Get or create render pass (should refer to internal cache)
+					// Get or create render pass (refers to internal cache)
 					VkRenderPass renderPassVk = CreateRenderPass(currRenderPass);
 		
-					// Get or create framebuffer from render device (should refer to internal cache)
+					// Get or create framebuffer from render device (refers to internal cache)
 					const bool isBackbuffer = (currRenderPass.m_index == finalRPIndex);
 					FramebufferVk* pFramebuffer = CreateFramebuffer(currRenderPass, renderPassVk, isBackbuffer);
 
-					// Get or create pipeline from render device (should refer to internal cache)
+					// Get or create pipeline from render device (refers to internal cache)
 					PipelineVk* pPipeline = CreatePipeline(currRenderPass, renderPassVk);
 
 					res = pDeviceContext->BeginRenderPass(renderPassVk, pFramebuffer, pClearColors, clearColorCount);
@@ -777,7 +777,9 @@ namespace PHX
 					}
 
 					// Call the main render pass execution callback with a device context handle, since it's client-facing
-					currRenderPass.m_execCallback(deviceContext, pPipeline);
+					pDeviceContext->SetContextualPipeline(pPipeline);
+					currRenderPass.m_execCallback(deviceContext);
+					pDeviceContext->ResetContextualPipeline();
 
 					res = pDeviceContext->EndRenderPass();
 					if (res != STATUS_CODE::SUCCESS)
@@ -794,19 +796,21 @@ namespace PHX
 				}
 				case BIND_POINT::COMPUTE:
 				{
-					// Get or create pipeline from render device (should refer to internal cache)
+					// Get or create pipeline from render device (refes to internal cache)
 					// NOTE - The render pass isn't used for compute pipeline creation, so it can
 					// be ignored by passing in VK_NULL_HANDLE
 					PipelineVk* pPipeline = CreatePipeline(currRenderPass, VK_NULL_HANDLE);
 
-					currRenderPass.m_execCallback(deviceContext, pPipeline);
+					pDeviceContext->SetContextualPipeline(pPipeline);
+					currRenderPass.m_execCallback(deviceContext);
+					pDeviceContext->ResetContextualPipeline();
 
 					break;
 				}
 				case BIND_POINT::TRANSFER:
 				{
-					// NOTE - Transfer-only passes do not use a pipeline
-					currRenderPass.m_execCallback(deviceContext, nullptr);
+					// Transfer-only passes do not use a pipeline
+					currRenderPass.m_execCallback(deviceContext);
 
 					break;
 				}

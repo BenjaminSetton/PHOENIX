@@ -11,7 +11,7 @@
 
 namespace PHX
 {
-	typedef std::function<void(DeviceContextHandle deviceContext, IPipeline* pPipeline)> ExecuteRenderPassCallbackFn;
+	typedef std::function<void(DeviceContextHandle deviceContext)> ExecuteRenderPassCallbackFn;
 
 	enum class BIND_POINT : u8
 	{

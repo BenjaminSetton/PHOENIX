@@ -13,14 +13,14 @@
 #include "utils/sanity.h"
 #include "utils/staging_buffer.h"
 #include "utils/texture_type_converter.h"
+#include "utils/pipeline_type_converter.h"
 
 #define VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, msg) if(cmdBuffer == VK_NULL_HANDLE) { LogError(msg); return STATUS_CODE::ERR_INTERNAL; }
 
 namespace PHX
 {
-
 	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo) :
-		m_cmdBuffers(), m_wasWorkSubmitted(true)
+		m_cmdBuffers(), m_wasWorkSubmitted(true), m_contextualPipeline(nullptr)
 	{
 		UNUSED(createInfo);
 
@@ -93,30 +93,25 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::BindUniformCollection(UniformCollectionHandle uniformCollection, IPipeline* pPipeline)
+	STATUS_CODE DeviceContextVk::BindUniformCollection(UniformCollectionHandle uniformCollection)
 	{
 		UniformCollectionVk* uniformCollectionVk = static_cast<UniformCollectionVk*>(m_pRenderDevice->ResolveHandle(uniformCollection));
 		if (uniformCollectionVk == nullptr)
 		{
-			LogWarning("Attempting to bind uniform collection but the uniform collection is null!");
-			return STATUS_CODE::SUCCESS;
-		}
-
-		if (pPipeline == nullptr)
-		{
-			// Pipeline object is required to bind uniform collection if the latter is not null
-			LogError("Failed to bind uniform collection! Pipeline is null");
+			LogError("Attempting to bind uniform collection but the uniform collection is invalid!");
 			return STATUS_CODE::ERR_API;
 		}
 
-		PipelineVk* pipelineVk = static_cast<PipelineVk*>(pPipeline);
-		ASSERT_PTR(pipelineVk);
-
-		VkPipelineBindPoint vkBindPoint = pipelineVk->GetBindPoint();
-		QUEUE_TYPE cmdQueueType = GetQueueTypeFromPipelineBindPoint(vkBindPoint);
+		if (m_contextualPipeline == nullptr)
+		{
+			LogError("Failed to bind uniform collection. Pipeline is null!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+		
+		QUEUE_TYPE cmdQueueType = GetQueueTypeFromBindPoint(m_contextualPipeline->GetBindPoint());
 		if (cmdQueueType == QUEUE_TYPE::COUNT)
 		{
-			LogError("Failed to bind uniform collection. Pipeline has a VkPipelineBindPoint (%u) that's not graphics or compute!", static_cast<u32>(vkBindPoint));
+			LogError("Failed to bind uniform collection. Could not convert from bind point %u to queue type!", static_cast<u32>(m_contextualPipeline->GetBindPoint()));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
@@ -128,40 +123,9 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		vkCmdBindDescriptorSets(cmdBuffer, pipelineVk->GetBindPoint(), pipelineVk->GetLayout(), 0, uniformCollectionVk->GetDescriptorSetCount(), uniformCollectionVk->GetDescriptorSets(), 0, nullptr);
+		// TODO - Consider switching to a contextual pipeline object instead of just the bind point, mainly because of GetLayout() below
+		vkCmdBindDescriptorSets(cmdBuffer, m_contextualPipeline->GetBindPoint(), m_contextualPipeline->GetLayout(), 0, uniformCollectionVk->GetDescriptorSetCount(), uniformCollectionVk->GetDescriptorSets(), 0, nullptr);
 
-		return STATUS_CODE::SUCCESS;
-	}
-
-	STATUS_CODE DeviceContextVk::BindPipeline(IPipeline* pPipeline)
-	{
-		if (pPipeline == nullptr)
-		{
-			LogWarning("Attempting to bind pipeline but the pipeline is null!");
-			return STATUS_CODE::ERR_API;
-		}
-
-		PipelineVk* pipelineVk = static_cast<PipelineVk*>(pPipeline);
-		ASSERT_PTR(pipelineVk);
-
-		// Determine whether we're trying to bind a graphics or compute pipeline
-		VkPipelineBindPoint vkBindPoint = pipelineVk->GetBindPoint();
-		QUEUE_TYPE cmdQueueType = GetQueueTypeFromPipelineBindPoint(vkBindPoint);
-		if (cmdQueueType == QUEUE_TYPE::COUNT)
-		{
-			LogError("Failed to bind pipeline. Pipeline has a VkPipelineBindPoint (%u) that's not graphics or compute!", static_cast<u32>(vkBindPoint));
-			return STATUS_CODE::ERR_INTERNAL;
-		}
-
-		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
-		STATUS_CODE res = GetOrCreateCommandBuffer(cmdQueueType, cmdBuffer);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to bind pipeline! Could not get or create command buffer");
-			return STATUS_CODE::ERR_INTERNAL;
-		}
-
-		vkCmdBindPipeline(cmdBuffer, vkBindPoint, pipelineVk->GetPipeline());
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -748,10 +712,10 @@ namespace PHX
 		}
 	}
 
-	QUEUE_TYPE DeviceContextVk::GetQueueTypeFromPipelineBindPoint(VkPipelineBindPoint vkBindPoint)
+	QUEUE_TYPE DeviceContextVk::GetQueueTypeFromBindPoint(VkPipelineBindPoint bindPoint)
 	{
 		QUEUE_TYPE cmdQueueType = QUEUE_TYPE::COUNT;
-		switch (vkBindPoint)
+		switch (bindPoint)
 		{
 		case VK_PIPELINE_BIND_POINT_GRAPHICS:
 		{
@@ -820,5 +784,41 @@ namespace PHX
 			delete m_stagingBuffers[i];
 		}
 		m_stagingBuffers.clear();
+	}
+
+	STATUS_CODE DeviceContextVk::SetContextualPipeline(PipelineVk* pPipeline)
+	{
+		if (pPipeline == nullptr)
+		{
+			LogWarning("Failed to bind pipeline. Pipeline is null!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		// Command buffer
+		QUEUE_TYPE cmdQueueType = GetQueueTypeFromBindPoint(pPipeline->GetBindPoint());
+		if (cmdQueueType == QUEUE_TYPE::COUNT)
+		{
+			LogError("Failed to bind pipeline. Could not convert from bind point %u to queue type!", static_cast<u32>(pPipeline->GetBindPoint()));
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		STATUS_CODE res = GetOrCreateCommandBuffer(cmdQueueType, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to bind pipeline! Could not get or create command buffer");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		vkCmdBindPipeline(cmdBuffer, pPipeline->GetBindPoint(), pPipeline->GetPipeline());
+
+		// Cache the contextual pipeline so other calls can reference it. This should be cleared in ResetContextualPipeline
+		m_contextualPipeline = pPipeline;
+		return STATUS_CODE::SUCCESS;
+	}
+
+	void DeviceContextVk::ResetContextualPipeline()
+	{
+		m_contextualPipeline = nullptr;
 	}
 }

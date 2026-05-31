@@ -29,8 +29,7 @@ namespace PHX
 
 		STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer);
 		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer);
-		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection, IPipeline* pPipeline);
-		STATUS_CODE BindPipeline(IPipeline* pPipeline);
+		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection);
 		STATUS_CODE SetViewport(Vec2u size, Vec2u offset);
 		STATUS_CODE SetScissor(Vec2u size, Vec2u offset);
 
@@ -44,6 +43,7 @@ namespace PHX
 		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes);
 	};
 
+	// TODO - Move to lib
 	class IDeviceContext : public RefCounted
 	{
 	public:
@@ -52,8 +52,7 @@ namespace PHX
 
 		virtual STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer) = 0;
 		virtual STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer) = 0;
-		virtual STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection, IPipeline* pPipeline) = 0;
-		virtual STATUS_CODE BindPipeline(IPipeline* pPipeline) = 0; // TODO - Switch over to render graph?
+		virtual STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection) = 0;
 		virtual STATUS_CODE SetViewport(Vec2u size, Vec2u offset) = 0;
 		virtual STATUS_CODE SetScissor(Vec2u size, Vec2u offset) = 0;
 

@@ -35,8 +35,7 @@ namespace PHX
 
 		STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer) override;
 		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer) override;
-		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection, IPipeline* pPipeline) override;
-		STATUS_CODE BindPipeline(IPipeline* pPipeline) override;
+		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection) override;
 		STATUS_CODE SetViewport(Vec2u size, Vec2u offset) override;
 		STATUS_CODE SetScissor(Vec2u size, Vec2u offset) override;
 
@@ -49,6 +48,13 @@ namespace PHX
 		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) override;
 		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes) override;
 
+		// This is called by the current render pass during baking, so that the device context
+		// is aware of the pipeline contextually and can use it directly. This is different
+		// from the previous approach that sent the client a pipeline object, which the
+		// client had to pass back in
+		STATUS_CODE SetContextualPipeline(PipelineVk* pPipeline);
+		void ResetContextualPipeline();
+
 		STATUS_CODE BeginFrame(ISwapChain* pSwapChain, u32 frameIndex);
 		STATUS_CODE EndFrame(u32 frameIndex);
 
@@ -56,7 +62,6 @@ namespace PHX
 		STATUS_CODE EndRenderPass();
 
 		STATUS_CODE Flush(QUEUE_TYPE queueType, const FlushSyncData& syncData);
-
 
 		// TODO - Have the transition details exposed as function parameters rather than assuming src/dst stages and access masks
 		//STATUS_CODE TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout, VkCommandBuffer cmdBuffer = VK_NULL_HANDLE);
@@ -86,8 +91,10 @@ namespace PHX
 		STATUS_CODE GetOrCreateCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer);
 		void DeallocateCommandBuffers();
 
-		// Returns the queue type from the pipeline bind point. May return invalid result in the form of QUEUE_TYPE::COUNT!
-		QUEUE_TYPE GetQueueTypeFromPipelineBindPoint(VkPipelineBindPoint vkBindPoint);
+
+		// TODO - MOVE TO UTILS!
+		// Returns the queue type from the bind point. May return invalid result in the form of QUEUE_TYPE::COUNT!
+		QUEUE_TYPE GetQueueTypeFromBindPoint(VkPipelineBindPoint bindPoint);
 
 		STATUS_CODE FlushInternal(QUEUE_TYPE queueType, const VkCommandBuffer* pCommandBuffers, u32 commandBufferCount, const FlushSyncData& syncData);
 
@@ -107,5 +114,7 @@ namespace PHX
 		std::vector<StagingBufferVk*> m_stagingBuffers;
 
 		bool m_wasWorkSubmitted;
+
+		PipelineVk* m_contextualPipeline;
 	};
 }

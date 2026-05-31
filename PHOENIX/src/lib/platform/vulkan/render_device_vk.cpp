@@ -283,6 +283,11 @@ namespace PHX
 			DeallocateResource_Helper<UniformCollectionHandle, UniformCollectionVk>(m_uniformCollections, handle);
 			break;
 		}
+		case HANDLE_TYPE::DEVICE_CONTEXT:
+		{
+			DeallocateResource_Helper<DeviceContextHandle, DeviceContextVk>(m_deviceContexts, handle);
+			break;
+		}
 		default:
 		{
 			ASSERT_ALWAYS("Failed to deallocate resource. Unrecognized handle type!");

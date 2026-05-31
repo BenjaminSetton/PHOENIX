@@ -60,27 +60,15 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	STATUS_CODE DeviceContextHandle::BindUniformCollection(UniformCollectionHandle uniformCollection, IPipeline* pPipeline)
+	STATUS_CODE DeviceContextHandle::BindUniformCollection(UniformCollectionHandle uniformCollection)
 	{
 		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
-			return pContext->BindUniformCollection(uniformCollection, pPipeline);
+			return pContext->BindUniformCollection(uniformCollection);
 		}
 
 		LogError("Failed to bind uniform collection. Could not resolve device context handle!");
-		return STATUS_CODE::ERR_INTERNAL;
-	}
-
-	STATUS_CODE DeviceContextHandle::BindPipeline(IPipeline* pPipeline)
-	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
-		if (pContext != nullptr)
-		{
-			return pContext->BindPipeline(pPipeline);
-		}
-
-		LogError("Failed to bind pipeline. Could not resolve device context handle!");
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 

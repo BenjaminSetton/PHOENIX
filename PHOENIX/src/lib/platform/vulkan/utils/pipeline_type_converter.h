@@ -4,6 +4,7 @@
 
 #include "PHX/types/input_attribute.h"
 #include "PHX/types/pipeline_desc.h"
+#include "PHX/interface/render_graph.h"
 
 namespace PHX
 {
@@ -16,5 +17,6 @@ namespace PHX
 		VkCompareOp ConvertCompareOp(COMPARE_OP compareOp);
 		VkStencilOp ConvertStencilOp(STENCIL_OP stencilOp);
 		VkVertexInputRate ConvertInputRate(VERTEX_INPUT_RATE inputRate);
+		VkPipelineBindPoint ConvertBindPoint(BIND_POINT bindPoint);
 	}
 }
