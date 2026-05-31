@@ -186,8 +186,8 @@ int main(int argc, char** argv)
 	uniformCollectionCI.dataGroups = &uniformDataGroup;
 	uniformCollectionCI.groupCount = 1;
 
-	IUniformCollection* pUniforms = nullptr;
-	result = s_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &pUniforms);
+	UniformCollectionHandle uniforms;
+	result = s_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, uniforms);
 	if (result != PHX::STATUS_CODE::SUCCESS)
 	{
 		return -1;
@@ -198,8 +198,8 @@ int main(int argc, char** argv)
 	bufferCI.bufferUsage = PHX::BUFFER_USAGE::VERTEX_BUFFER;
 	bufferCI.sizeBytes = sizeof(SimpleVertexType) * VERTEX_COUNT; // Triangle!
 
-	IBuffer* vBuffer = nullptr;
-	result = s_pRenderDevice->AllocateBuffer(bufferCI, &vBuffer);
+	BufferHandle vBuffer;
+	result = s_pRenderDevice->AllocateBuffer(bufferCI, vBuffer);
 	if (result != STATUS_CODE::SUCCESS)
 	{
 		return -1;
@@ -218,8 +218,8 @@ int main(int argc, char** argv)
 	uniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
 	uniformBufferCI.sizeBytes = sizeof(TestUBO);
 
-	IBuffer* uniformBuffer = nullptr;
-	result = s_pRenderDevice->AllocateBuffer(uniformBufferCI, &uniformBuffer);
+	BufferHandle uniformBuffer;
+	result = s_pRenderDevice->AllocateBuffer(uniformBufferCI, uniformBuffer);
 	if (result != STATUS_CODE::SUCCESS)
 	{
 		return -1;
@@ -264,18 +264,15 @@ int main(int argc, char** argv)
 	pipelineDesc.ppShaders = shaders.data();
 	pipelineDesc.shaderCount = static_cast<u32>(shaders.size());
 	pipelineDesc.cullMode = PHX::CULL_MODE::NONE;
-	pipelineDesc.uniformCollection = pUniforms;
+	pipelineDesc.uniformCollection = uniforms;
 
 	// Upload mesh to GPU
 	IRenderPass* pRenderPass = pRenderGraph->RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER);
 	pRenderPass->SetBufferOutput(vBuffer);
 
-	pRenderPass->SetExecuteCallback([vBuffer](IDeviceContext* pContext, IPipeline* pPipeline)
+	pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
-		// Unused
-		(void)pPipeline;
-
-		pContext->CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * 3);
+		deviceContext.CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * 3);
 	});
 
 	// CORE LOOP
@@ -307,25 +304,24 @@ int main(int argc, char** argv)
 			continue;
 		}
 
-		ITexture* backbufferTex = s_pSwapChain->GetCurrentImage();
+		TextureHandle backbufferTex = s_pSwapChain->GetCurrentImage();
 		IRenderPass* newPass = pRenderGraph->RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS);
 		newPass->SetBufferInput(vBuffer);
 		newPass->SetBackbufferOutput(backbufferTex);
 		newPass->SetPipelineDescription(pipelineDesc);
-		newPass->SetExecuteCallback([&](IDeviceContext* pDeviceContext, IPipeline* pPipeline)
+		newPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
 		{
 			// Update test UBO
 			test.time += elapsedSeconds.count();
-			pDeviceContext->CopyDataToBuffer(uniformBuffer, &test, sizeof(TestUBO));
-			pUniforms->QueueBufferUpdate(uniformBuffer, 0, 0, 0);
-			pUniforms->FlushUpdateQueue();
+			deviceContext.CopyDataToBuffer(uniformBuffer, &test, sizeof(TestUBO));
+			uniforms.QueueBufferUpdate(uniformBuffer, 0, 0, 0);
+			uniforms.FlushUpdateQueue();
 
-			pDeviceContext->BindPipeline(pPipeline);
-			pDeviceContext->BindUniformCollection(pUniforms, pPipeline);
-			pDeviceContext->BindVertexBuffer(vBuffer);
-			pDeviceContext->SetScissor({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
-			pDeviceContext->SetViewport({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
-			pDeviceContext->Draw(VERTEX_COUNT);
+			deviceContext.BindUniformCollection(uniforms);
+			deviceContext.BindVertexBuffer(vBuffer);
+			deviceContext.SetScissor({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
+			deviceContext.SetViewport({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
+			deviceContext.Draw(VERTEX_COUNT);
 		});
 
 		result = pRenderGraph->Bake(&clearCol, 1);
@@ -363,12 +359,9 @@ int main(int argc, char** argv)
 
 	// Clean up
 	s_pRenderDevice->DeallocateRenderGraph(&pRenderGraph);
-	s_pRenderDevice->DeallocateBuffer(&uniformBuffer);
-	s_pRenderDevice->DeallocateBuffer(&vBuffer);
 	s_pRenderDevice->DeallocateSwapChain(&s_pSwapChain);
 	s_pRenderDevice->DeallocateShader(&pVertShader);
 	s_pRenderDevice->DeallocateShader(&pFragShader);
-	s_pRenderDevice->DeallocateUniformCollection(&pUniforms);
 
 	// Clean up core objects
 	DestroyRenderDevice(&s_pRenderDevice);

@@ -130,8 +130,8 @@ int main(int argc, char** argv)
 	vBufferCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
 	vBufferCI.sizeBytes = vBufferSizeBytes;
 
-	IBuffer* pVertexBuffer = nullptr;
-	phxRes = pRenderDevice->AllocateBuffer(vBufferCI, &pVertexBuffer);
+	BufferHandle vertexBuffer;
+	phxRes = pRenderDevice->AllocateBuffer(vBufferCI, vertexBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// INDEX BUFFER
@@ -141,8 +141,8 @@ int main(int argc, char** argv)
 	iBufferCI.bufferUsage = BUFFER_USAGE::INDEX_BUFFER;
 	iBufferCI.sizeBytes = iBufferSizeBytes;
 
-	IBuffer* pIndexBuffer = nullptr;
-	phxRes = pRenderDevice->AllocateBuffer(iBufferCI, &pIndexBuffer);
+	BufferHandle indexBuffer;
+	phxRes = pRenderDevice->AllocateBuffer(iBufferCI, indexBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// RENDER GRAPH
@@ -171,8 +171,8 @@ int main(int argc, char** argv)
 	depthBufferSamplerCI.minificationFilter = FILTER_MODE::NEAREST;
 	depthBufferSamplerCI.samplerMipMapFilter = FILTER_MODE::NEAREST;
 
-	ITexture* pDepthBuffer = nullptr;
-	phxRes = pRenderDevice->AllocateTexture(depthBufferBaseCI, depthBufferViewCI, depthBufferSamplerCI, &pDepthBuffer);
+	TextureHandle depthBuffer;
+	phxRes = pRenderDevice->AllocateTexture(depthBufferBaseCI, depthBufferViewCI, depthBufferSamplerCI, depthBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// SHADERS
@@ -211,8 +211,8 @@ int main(int argc, char** argv)
 	uniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
 	uniformBufferCI.sizeBytes = sizeof(TransformData);
 
-	IBuffer* pUniformBuffer = nullptr;
-	phxRes = pRenderDevice->AllocateBuffer(uniformBufferCI, &pUniformBuffer);
+	BufferHandle uniformBuffer;
+	phxRes = pRenderDevice->AllocateBuffer(uniformBufferCI, uniformBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	UniformData uniformData;
@@ -229,8 +229,8 @@ int main(int argc, char** argv)
 	uniformCollectionCI.dataGroups = &dataGroup;
 	uniformCollectionCI.groupCount = 1;
 
-	IUniformCollection* pUniformCollection = nullptr;
-	phxRes = pRenderDevice->AllocateUniformCollection(uniformCollectionCI, &pUniformCollection);
+	UniformCollectionHandle uniformCollection;
+	phxRes = pRenderDevice->AllocateUniformCollection(uniformCollectionCI, uniformCollection);
 	CHECK_PHX_RES(phxRes);
 
 	// GRAPHICS PIPELINE
@@ -244,7 +244,7 @@ int main(int argc, char** argv)
 	pipelineDesc.shaderCount = static_cast<u32>(shaders.size());
 	pipelineDesc.pInputAttributes = inputAttributes.data();
 	pipelineDesc.attributeCount = static_cast<u32>(inputAttributes.size());
-	pipelineDesc.uniformCollection = pUniformCollection;
+	pipelineDesc.uniformCollection = uniformCollection;
 	pipelineDesc.enableDepthTest = true;
 	pipelineDesc.enableDepthWrite = true;
 
@@ -265,16 +265,13 @@ int main(int argc, char** argv)
 
 	// Upload mesh to GPU
 	IRenderPass* pMeshUploadPass = pRenderGraph->RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER);
-	pMeshUploadPass->SetBufferOutput(pVertexBuffer);
-	pMeshUploadPass->SetBufferOutput(pIndexBuffer);
+	pMeshUploadPass->SetBufferOutput(vertexBuffer);
+	pMeshUploadPass->SetBufferOutput(indexBuffer);
 
-	pMeshUploadPass->SetExecuteCallback([pVertexBuffer, pIndexBuffer, cubeAsset, vBufferSizeBytes, iBufferSizeBytes](IDeviceContext* pContext, IPipeline* pPipeline)
+	pMeshUploadPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
-		// Unused
-		(void)pPipeline;
-
-		pContext->CopyDataToBuffer(pVertexBuffer, cubeAsset->vertices.data(), vBufferSizeBytes);
-		pContext->CopyDataToBuffer(pIndexBuffer, cubeAsset->indices.data(), iBufferSizeBytes);
+		deviceContext.CopyDataToBuffer(vertexBuffer, cubeAsset->vertices.data(), vBufferSizeBytes);
+		deviceContext.CopyDataToBuffer(indexBuffer, cubeAsset->indices.data(), iBufferSizeBytes);
 	});
 
 	// MAIN LOOP
@@ -289,24 +286,23 @@ int main(int argc, char** argv)
 		transform.worldMat = glm::rotate(transform.worldMat, 0.02f, { 1.0f, 0.0f, 0.0f });
 		
 		IRenderPass* pRenderPass = pRenderGraph->RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS);
-		pRenderPass->SetBufferInput(pVertexBuffer);
-		pRenderPass->SetBufferInput(pIndexBuffer);
+		pRenderPass->SetBufferInput(vertexBuffer);
+		pRenderPass->SetBufferInput(indexBuffer);
 		pRenderPass->SetBackbufferOutput(pSwapChain->GetCurrentImage());
-		pRenderPass->SetDepthOutput(pDepthBuffer);
+		pRenderPass->SetDepthOutput(depthBuffer);
 		pRenderPass->SetPipelineDescription(pipelineDesc);
-		pRenderPass->SetExecuteCallback([&](IDeviceContext* pContext, IPipeline* pPipeline)
+		pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
 		{
 			// Update the transform uniform data
-			pContext->CopyDataToBuffer(pUniformBuffer, &transform, sizeof(TransformData));
-			pUniformCollection->QueueBufferUpdate(pUniformBuffer, 0, 0, 0);
-			pUniformCollection->FlushUpdateQueue();
-			pContext->BindUniformCollection(pUniformCollection, pPipeline);
+			deviceContext.CopyDataToBuffer(uniformBuffer, &transform, sizeof(TransformData));
+			uniformCollection.QueueBufferUpdate(uniformBuffer, 0, 0, 0);
+			uniformCollection.FlushUpdateQueue();
+			deviceContext.BindUniformCollection(uniformCollection);
 
-			pContext->BindMesh(pVertexBuffer, pIndexBuffer);
-			pContext->BindPipeline(pPipeline);
-			pContext->SetScissor( { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 } );
-			pContext->SetViewport( { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 } );
-			pContext->DrawIndexed(static_cast<u32>(cubeAsset->indices.size()));
+			deviceContext.BindMesh(vertexBuffer, indexBuffer);
+			deviceContext.SetScissor( { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 } );
+			deviceContext.SetViewport( { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 } );
+			deviceContext.DrawIndexed(static_cast<u32>(cubeAsset->indices.size()));
 		});
 
 		pRenderGraph->Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
@@ -315,11 +311,7 @@ int main(int argc, char** argv)
 		pSwapChain->Present();
 	}
 
-	pRenderDevice->DeallocateBuffer(&pUniformBuffer);
-	pRenderDevice->DeallocateBuffer(&pIndexBuffer);
-	pRenderDevice->DeallocateBuffer(&pVertexBuffer);
-	pRenderDevice->DeallocateUniformCollection(&pUniformCollection);
-	pRenderDevice->DeallocateTexture(&pDepthBuffer);
+	// Cleanup
 	pRenderDevice->DeallocateShader(&pVertShader);
 	pRenderDevice->DeallocateShader(&pFragShader);
 	pRenderDevice->DeallocateSwapChain(&pSwapChain);
