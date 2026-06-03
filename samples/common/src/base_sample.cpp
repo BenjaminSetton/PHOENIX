@@ -38,7 +38,7 @@ namespace Common
 	}
 
 	BaseSample::BaseSample() : 
-		m_pWindow(nullptr), m_pSwapChain(nullptr), m_pRenderDevice(nullptr), m_renderGraph(), m_pCamera(nullptr)
+		m_pWindow(nullptr), m_pRenderDevice(nullptr), m_swapChain(), m_renderGraph(), m_pCamera(nullptr)
 	{
 		Init();
 	}
@@ -78,7 +78,6 @@ namespace Common
 
 	void BaseSample::Shutdown()
 	{
-		DestroySwapChain();
 		DestroyRenderDevice();
 		DestroyWindow();
 	}
@@ -117,11 +116,8 @@ namespace Common
 		swapChainCI.width = m_pWindow->GetCurrentWidth();
 		swapChainCI.height = m_pWindow->GetCurrentHeight();
 
-		ISwapChain* pSwapChain = nullptr;
-		STATUS_CODE phxRes = m_pRenderDevice->AllocateSwapChain(swapChainCI, &pSwapChain);
+		STATUS_CODE phxRes = m_pRenderDevice->AllocateSwapChain(swapChainCI, m_swapChain);
 		CHECK_PHX_RES(phxRes);
-
-		m_pSwapChain = pSwapChain;
 	}
 
 	void BaseSample::CreateRenderDevice()
@@ -146,14 +142,6 @@ namespace Common
 	void BaseSample::DestroyWindow()
 	{
 		PHX::DestroyWindow(&m_pWindow);
-	}
-
-	void BaseSample::DestroySwapChain()
-	{
-		if (m_pRenderDevice != nullptr)
-		{
-			m_pRenderDevice->DeallocateSwapChain(&m_pSwapChain);
-		}
 	}
 
 	void BaseSample::DestroyRenderDevice()

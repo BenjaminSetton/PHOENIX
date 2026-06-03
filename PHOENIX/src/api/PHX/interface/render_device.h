@@ -34,18 +34,14 @@ namespace PHX
 		virtual const char* GetDeviceName() const = 0;
 
 		// Allocations
-		virtual STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain)																									= 0;
-				
 		virtual STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& buffer)																												= 0;
 		virtual STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& texture)	= 0;
 		virtual STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& uniformCollection)																	= 0;
 		virtual STATUS_CODE AllocateRenderGraph(RenderGraphHandle& renderGraph)																																		= 0;
 		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader)																												= 0;
+		virtual STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain)																									= 0;
 
-		// Deallocations
-		virtual void DeallocateSwapChain(ISwapChain** out_swapChain)						= 0;
-
-		virtual void DeallocateResource(const Handle& handle)								= 0;
+		virtual void DeallocateResource(const Handle& handle)																																						= 0;
 
 		// LIB-ONLY FUNCTIONS BELOW - THIS WILL BE SPLIT OUT PROPERLY ONCE THE HANDLE FOR THE RENDER DEVICE IS CREATED
 
@@ -62,6 +58,7 @@ namespace PHX
 		virtual IRenderGraph* ResolveHandle(const RenderGraphHandle& handle) = 0;
 		virtual IRenderPass* ResolveHandle(const RenderPassHandle& handle) = 0;
 		virtual IShader* ResolveHandle(const ShaderHandle& handle) = 0;
+		virtual ISwapChain* ResolveHandle(const SwapChainHandle& handle) = 0;
 
 		virtual void IncrementRefCount(const Handle& handle) = 0;
 		virtual void DecrementRefCount(const Handle& handle) = 0;

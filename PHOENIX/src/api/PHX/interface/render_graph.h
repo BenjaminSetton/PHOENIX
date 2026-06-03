@@ -50,7 +50,7 @@ namespace PHX
 	{
 		DECLARE_HANDLE(RenderGraphHandle)
 
-		STATUS_CODE BeginFrame(ISwapChain* pSwapChain);
+		STATUS_CODE BeginFrame(SwapChainHandle swapChain);
 		STATUS_CODE EndFrame();
 		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass);
 		STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount);
@@ -101,7 +101,7 @@ namespace PHX
 
 		virtual ~IRenderGraph() { }
 
-		virtual STATUS_CODE BeginFrame(ISwapChain* pSwapChain) = 0;
+		virtual STATUS_CODE BeginFrame(SwapChainHandle swapChain) = 0;
 		virtual STATUS_CODE EndFrame() = 0;
 		virtual STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) = 0;
 		virtual STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount) = 0;

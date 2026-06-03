@@ -5,12 +5,10 @@
 
 #include "PHX/interface/texture.h"
 
+#include "PHX/interface/ref.h" // TODO - Move to lib
+
 namespace PHX
 {
-	// Forward declarations
-	class IRenderDevice;
-	class IWindow;
-
 	struct SwapChainCreateInfo
 	{
 		u32 width                   = 1920;
@@ -18,7 +16,19 @@ namespace PHX
 		bool enableVSync            = false;
 	};
 
-	class ISwapChain
+	struct SwapChainHandle : public Handle
+	{
+		DECLARE_HANDLE(SwapChainHandle)
+
+		TextureHandle GetCurrentImage() const;
+		u32 GetImageCount() const;
+		u32 GetCurrentImageIndex() const;
+		STATUS_CODE Present();
+		void Resize(u32 newWidth, u32 newHeight);
+	};
+
+	// TODO - Move to lib
+	class ISwapChain : public RefCounted
 	{
 	public:
 

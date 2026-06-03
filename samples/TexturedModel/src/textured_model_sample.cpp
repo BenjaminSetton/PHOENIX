@@ -88,14 +88,14 @@ void TexturedModelSample::Draw()
 		clearDepth
 	};
 
-	m_renderGraph.BeginFrame(m_pSwapChain);
+	m_renderGraph.BeginFrame(m_swapChain);
 
 	// Setup a new render pass for PBRPass
 	RenderPassHandle renderPass;
 	phxRes = m_renderGraph.RegisterPass("PBRPass", BIND_POINT::GRAPHICS, renderPass);
 	CHECK_PHX_RES(phxRes);
 
-	renderPass.SetBackbufferOutput(m_pSwapChain->GetCurrentImage());
+	renderPass.SetBackbufferOutput(m_swapChain.GetCurrentImage());
 	renderPass.SetDepthOutput(m_depthBuffer);
 
 	for (TextureHandle assetTex : m_assetTextures)
@@ -136,7 +136,7 @@ void TexturedModelSample::Draw()
 	m_renderGraph.Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
 	m_renderGraph.EndFrame();
 
-	m_pSwapChain->Present();
+	m_swapChain.Present();
 }
 
 void TexturedModelSample::Init()

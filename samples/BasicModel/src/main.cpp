@@ -119,8 +119,8 @@ int main(int argc, char** argv)
 	swapChainCI.width = pWindow->GetCurrentWidth();
 	swapChainCI.height = pWindow->GetCurrentHeight();
 
-	ISwapChain* pSwapChain = nullptr;
-	phxRes = pRenderDevice->AllocateSwapChain(swapChainCI, &pSwapChain);
+	SwapChainHandle swapChain;
+	phxRes = pRenderDevice->AllocateSwapChain(swapChainCI, swapChain);
 	CHECK_PHX_RES(phxRes);
 
 	// VERTEX BUFFER
@@ -290,7 +290,7 @@ int main(int argc, char** argv)
 	{
 		pWindow->Update(0);
 
-		renderGraph.BeginFrame(pSwapChain);
+		renderGraph.BeginFrame(swapChain);
 
 		// Update the cube's transform
 		transform.worldMat = glm::rotate(transform.worldMat, 0.02f, { 0.0f, -1.0f, 0.0f });
@@ -302,7 +302,7 @@ int main(int argc, char** argv)
 
 		renderPass.SetBufferInput(vertexBuffer);
 		renderPass.SetBufferInput(indexBuffer);
-		renderPass.SetBackbufferOutput(pSwapChain->GetCurrentImage());
+		renderPass.SetBackbufferOutput(swapChain.GetCurrentImage());
 		renderPass.SetDepthOutput(depthBuffer);
 		renderPass.SetPipelineDescription(pipelineDesc);
 		renderPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
@@ -322,11 +322,8 @@ int main(int argc, char** argv)
 		renderGraph.Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
 		renderGraph.EndFrame();
 
-		pSwapChain->Present();
+		swapChain.Present();
 	}
-
-	// Cleanup
-	pRenderDevice->DeallocateSwapChain(&pSwapChain);
 
 	PHX::DestroyWindow(&pWindow);
 	PHX::DestroyRenderDevice(&pRenderDevice);

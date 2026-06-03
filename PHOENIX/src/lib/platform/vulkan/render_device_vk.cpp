@@ -81,7 +81,7 @@ namespace PHX
 
 	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
 		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_descriptorPool(VK_NULL_HANDLE),
-		m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_pRenderGraph(nullptr)
+		m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_pRenderGraph(nullptr)
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
@@ -176,12 +176,6 @@ namespace PHX
 		return m_physicalDeviceProperties.deviceName;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain)
-	{
-		*out_swapChain = new SwapChainVk(this, createInfo);
-		return STATUS_CODE::SUCCESS;
-	}
-
 	STATUS_CODE RenderDeviceVk::AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle)
 	{
 		BufferVk* pBuffer = new BufferVk(this, createInfo);
@@ -274,9 +268,19 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	void RenderDeviceVk::DeallocateSwapChain(ISwapChain** pSwapChain)
+	STATUS_CODE RenderDeviceVk::AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain)
 	{
-		SAFE_DEL(*pSwapChain);
+		SwapChainVk* pSwapChain = new SwapChainVk(this, createInfo);
+		if (pSwapChain == nullptr)
+		{
+			LogError("Failed to allocate swap chain. Memory allocation failed!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+		m_swapChains.push_back(pSwapChain);
+
+		pSwapChain->IncrementRefCount();
+		HandleAccessor::PopulateHandle(swapChain, this, static_cast<u32>(m_swapChains.size() - 1), 0u);
+		return STATUS_CODE::SUCCESS;
 	}
 
 	void RenderDeviceVk::DeallocateResource(const Handle& handle)
@@ -317,6 +321,11 @@ namespace PHX
 		case HANDLE_TYPE::SHADER:
 		{
 			DeallocateResource_Helper<ShaderHandle, ShaderVk>(m_shaders, handle);
+			break;
+		}
+		case HANDLE_TYPE::SWAP_CHAIN:
+		{
+			DeallocateResource_Helper<SwapChainHandle, SwapChainVk>(m_swapChains, handle);
 			break;
 		}
 		default:
@@ -424,6 +433,18 @@ namespace PHX
 		return m_shaders[index];
 	}
 
+	ISwapChain* RenderDeviceVk::ResolveHandle(const SwapChainHandle& handle)
+	{
+		const u32 index = HandleAccessor::GetIndex(handle);
+		if (index >= static_cast<u32>(m_swapChains.size()))
+		{
+			return nullptr;
+		}
+		// TODO - Check generation
+
+		return m_swapChains[index];
+	}
+
 	void RenderDeviceVk::IncrementRefCount(const Handle& handle)
 	{
 		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
@@ -463,6 +484,11 @@ namespace PHX
 		case HANDLE_TYPE::SHADER:
 		{
 			IncrementRefCount_Helper<ShaderHandle, IShader>(handle);
+			break;
+		}
+		case HANDLE_TYPE::SWAP_CHAIN:
+		{
+			IncrementRefCount_Helper<SwapChainHandle, ISwapChain>(handle);
 			break;
 		}
 		default:
@@ -512,6 +538,11 @@ namespace PHX
 		case HANDLE_TYPE::SHADER:
 		{
 			DecrementRefCount_Helper<ShaderHandle, IShader>(handle);
+			break;
+		}
+		case HANDLE_TYPE::SWAP_CHAIN:
+		{
+			DecrementRefCount_Helper<SwapChainHandle, ISwapChain>(handle);
 			break;
 		}
 		default:

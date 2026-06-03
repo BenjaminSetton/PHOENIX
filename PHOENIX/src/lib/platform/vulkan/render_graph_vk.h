@@ -126,7 +126,7 @@ namespace PHX
 		RenderGraphVk(RenderDeviceVk* pRenderDevice);
 		~RenderGraphVk() override;
 
-		STATUS_CODE BeginFrame(ISwapChain* pSwapChain) override;
+		STATUS_CODE BeginFrame(SwapChainHandle swapChain) override;
 		STATUS_CODE EndFrame() override;
 		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) override;
 		STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount) override;

@@ -177,12 +177,12 @@ namespace PHX
 	{
 	}
 	
-	STATUS_CODE RenderGraphHandle::BeginFrame(ISwapChain* pSwapChain)
+	STATUS_CODE RenderGraphHandle::BeginFrame(SwapChainHandle swapChain)
 	{
 		IRenderGraph* pGraph = m_pRenderDevice->ResolveHandle(*this);
 		if (pGraph != nullptr)
 		{
-			return pGraph->BeginFrame(pSwapChain);
+			return pGraph->BeginFrame(swapChain);
 		}
 
 		ASSERT_ALWAYS("Failed to begin frame. Could not resolve render graph handle!");

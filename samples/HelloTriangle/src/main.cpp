@@ -34,7 +34,7 @@ struct TestUBO
 // Ugly, but easier for demo's sake
 static PHX::IWindow* s_pWindow = nullptr;
 static PHX::IRenderDevice* s_pRenderDevice = nullptr;
-static PHX::ISwapChain* s_pSwapChain = nullptr;
+static PHX::SwapChainHandle s_swapChain;
 
 void LogCallback(const char* msg, PHX::LOG_TYPE severity)
 {
@@ -72,7 +72,7 @@ void LogCallback(const char* msg, PHX::LOG_TYPE severity)
 
 void OnWindowResizedCallback(PHX::u32 newWidth, PHX::u32 newHeight)
 {
-	s_pSwapChain->Resize(newWidth, newHeight);
+	s_swapChain.Resize(newWidth, newHeight);
 }
 
 void OnWindowFocusChangedCallback(bool inFocus)
@@ -149,7 +149,7 @@ int main(int argc, char** argv)
 	swapChainCI.width = s_pWindow->GetCurrentWidth();
 	swapChainCI.height = s_pWindow->GetCurrentHeight();
 
-	result = s_pRenderDevice->AllocateSwapChain(swapChainCI, &s_pSwapChain);
+	result = s_pRenderDevice->AllocateSwapChain(swapChainCI, s_swapChain);
 	if (result != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create swap chain
@@ -302,14 +302,14 @@ int main(int argc, char** argv)
 		s_pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_pRenderDevice->GetDeviceName(), i, elapsedMs.count(), 1.0f / elapsedSeconds.count());
 
 		// Draw operations
-		result = renderGraph.BeginFrame(s_pSwapChain);
+		result = renderGraph.BeginFrame(s_swapChain);
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to begin frame - skipping frame!" << std::endl;
 			continue;
 		}
 
-		TextureHandle backbufferTex = s_pSwapChain->GetCurrentImage();
+		TextureHandle backbufferTex = s_swapChain.GetCurrentImage();
 		RenderPassHandle newPass;
 		result = renderGraph.RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS, newPass);
 		if (result != PHX::STATUS_CODE::SUCCESS)
@@ -350,7 +350,7 @@ int main(int argc, char** argv)
 			continue;
 		}
 
-		result = s_pSwapChain->Present();
+		result = s_swapChain.Present();
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to present frame - skipping frame!" << std::endl;
@@ -369,10 +369,7 @@ int main(int argc, char** argv)
 		i++;
 	}
 
-	// Clean up
-	s_pRenderDevice->DeallocateSwapChain(&s_pSwapChain);
-
 	// Clean up core objects
-	DestroyRenderDevice(&s_pRenderDevice);
-	DestroyWindow(&s_pWindow);
+	PHX::DestroyRenderDevice(&s_pRenderDevice);
+	PHX::DestroyWindow(&s_pWindow);
 }

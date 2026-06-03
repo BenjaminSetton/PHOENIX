@@ -11,6 +11,7 @@ namespace PHX
 		RENDER_PASS,
 		RENDER_GRAPH,
 		SHADER,
+		SWAP_CHAIN,
 
 		COUNT,
 		INVALID

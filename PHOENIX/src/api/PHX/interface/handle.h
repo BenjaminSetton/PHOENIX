@@ -51,5 +51,6 @@ namespace PHX
 	HandleType& operator=(const HandleType& other);	\
 	HandleType(HandleType&& other) noexcept;
 
+	// Move to cpp? Prefer functions (e.g. IsValid()) instead of direct reference
 	static const Handle INVALID_HANDLE;
 }

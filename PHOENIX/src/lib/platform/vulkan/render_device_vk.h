@@ -23,6 +23,7 @@ namespace PHX
 	class TextureVk;
 	class UniformCollectionVk;
 	class ShaderVk;
+	class SwapChainVk;
 
 	class RenderDeviceVk : public IRenderDevice
 	{
@@ -32,8 +33,6 @@ namespace PHX
 		~RenderDeviceVk() override;
 
 		const char* GetDeviceName() const;
-
-		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain) override;
 		
 		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle) override;
 		STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& handle) override;
@@ -41,8 +40,7 @@ namespace PHX
 		STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& uniformCollection) override;
 		STATUS_CODE AllocateRenderGraph(RenderGraphHandle& renderGraph) override;
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader) override;
-
-		void DeallocateSwapChain(ISwapChain** pSwapChain) override;
+		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain) override;
 
 		void DeallocateResource(const Handle& handle) override;
 
@@ -72,6 +70,7 @@ namespace PHX
 		IRenderGraph* ResolveHandle(const RenderGraphHandle& handle) override;
 		IRenderPass* ResolveHandle(const RenderPassHandle& handle) override;
 		IShader* ResolveHandle(const ShaderHandle& handle) override;
+		ISwapChain* ResolveHandle(const SwapChainHandle& handle) override;
 
 		void IncrementRefCount(const Handle& handle) override;
 		void DecrementRefCount(const Handle& handle) override;
@@ -189,6 +188,7 @@ namespace PHX
 		std::vector<UniformCollectionVk*> m_uniformCollections;
 		std::vector<DeviceContextVk*> m_deviceContexts;
 		std::vector<ShaderVk*> m_shaders;
+		std::vector<SwapChainVk*> m_swapChains; // Possibly support multiple windows?
 		RenderGraphVk* m_pRenderGraph;
 	};
 }

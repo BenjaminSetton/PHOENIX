@@ -649,17 +649,17 @@ namespace PHX
 	{
 	}
 
-	STATUS_CODE RenderGraphVk::BeginFrame(ISwapChain* pSwapChain)
+	STATUS_CODE RenderGraphVk::BeginFrame(SwapChainHandle swapChain)
 	{
-		if (pSwapChain == nullptr)
+		if (!swapChain.IsValid())
 		{
-			LogError("Failed to begin frame. Swap chain is null!");
+			LogError("Failed to begin frame. Swap chain handle is invalid!");
 			return STATUS_CODE::ERR_API;
 		}
 
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
-		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(pSwapChain);
+		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(m_pRenderDevice->ResolveHandle(swapChain));
 		ASSERT_PTR(swapChainVk);
 
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetDeviceContext());
