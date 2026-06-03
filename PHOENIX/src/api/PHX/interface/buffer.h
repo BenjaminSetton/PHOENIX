@@ -18,12 +18,7 @@ namespace PHX
 
 	struct BufferHandle : public Handle
 	{
-		BufferHandle();
-		BufferHandle(const Handle& base); // Needed for down-casting from Handle?
-		~BufferHandle();
-		BufferHandle(const BufferHandle& other);
-		BufferHandle& operator=(const BufferHandle& other);
-		BufferHandle(BufferHandle&& other) noexcept;
+		DECLARE_HANDLE(BufferHandle)
 
 		BUFFER_USAGE GetUsage() const;
 		u64 GetSize() const;

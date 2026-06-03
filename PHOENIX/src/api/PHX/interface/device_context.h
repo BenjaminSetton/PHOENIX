@@ -20,12 +20,7 @@ namespace PHX
 
 	struct DeviceContextHandle : public Handle
 	{
-		DeviceContextHandle();
-		DeviceContextHandle(const Handle& other);
-		~DeviceContextHandle();
-		DeviceContextHandle(const DeviceContextHandle& other);
-		DeviceContextHandle& operator=(const DeviceContextHandle& other);
-		DeviceContextHandle(DeviceContextHandle&& other) noexcept;
+		DECLARE_HANDLE(DeviceContextHandle)
 
 		STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer);
 		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer);

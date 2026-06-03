@@ -71,6 +71,8 @@ void TexturedModelSample::Draw()
 		return;
 	}
 
+	STATUS_CODE phxRes;
+
 	ClearValues clearColor{};
 	clearColor.color.color = Vec4f(0.5f, 0.75f, 0.98f, 1.0f);
 	clearColor.useClearColor = true;
@@ -86,22 +88,25 @@ void TexturedModelSample::Draw()
 		clearDepth
 	};
 
-	m_pRenderGraph->BeginFrame(m_pSwapChain);
+	m_renderGraph.BeginFrame(m_pSwapChain);
 
-	// Setup a new render pass for PBR
-	IRenderPass* pRenderPass = m_pRenderGraph->RegisterPass("PBRPass", BIND_POINT::GRAPHICS);
-	pRenderPass->SetBackbufferOutput(m_pSwapChain->GetCurrentImage());
-	pRenderPass->SetDepthOutput(m_depthBuffer);
+	// Setup a new render pass for PBRPass
+	RenderPassHandle renderPass;
+	phxRes = m_renderGraph.RegisterPass("PBRPass", BIND_POINT::GRAPHICS, renderPass);
+	CHECK_PHX_RES(phxRes);
+
+	renderPass.SetBackbufferOutput(m_pSwapChain->GetCurrentImage());
+	renderPass.SetDepthOutput(m_depthBuffer);
 
 	for (TextureHandle assetTex : m_assetTextures)
 	{
-		pRenderPass->SetTextureInput(assetTex);
+		renderPass.SetTextureInput(assetTex);
 	}
-	pRenderPass->SetBufferInput(m_vertexBuffer);
-	pRenderPass->SetBufferInput(m_indexBuffer);
+	renderPass.SetBufferInput(m_vertexBuffer);
+	renderPass.SetBufferInput(m_indexBuffer);
 
-	pRenderPass->SetPipelineDescription(m_pipelineDesc);
-	pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
+	renderPass.SetPipelineDescription(m_pipelineDesc);
+	renderPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
 		// Uniform collection updates
 		deviceContext.CopyDataToBuffer(m_transformBuffer, &m_transform, sizeof(TransformData));
@@ -128,8 +133,8 @@ void TexturedModelSample::Draw()
 		deviceContext.DrawIndexed(static_cast<u32>(axeAsset->indices.size()));
 	});
 
-	m_pRenderGraph->Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
-	m_pRenderGraph->EndFrame();
+	m_renderGraph.Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
+	m_renderGraph.EndFrame();
 
 	m_pSwapChain->Present();
 }
@@ -415,16 +420,19 @@ void TexturedModelSample::CreateUniformCollection()
 
 void TexturedModelSample::UploadMeshDataToGPU()
 {
-	IRenderPass* pRenderPass = m_pRenderGraph->RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER);
-	pRenderPass->SetBufferOutput(m_vertexBuffer);
-	pRenderPass->SetBufferOutput(m_indexBuffer);
+	RenderPassHandle renderPass;
+	STATUS_CODE phxRes = m_renderGraph.RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER, renderPass);
+	CHECK_PHX_RES(phxRes);
+
+	renderPass.SetBufferOutput(m_vertexBuffer);
+	renderPass.SetBufferOutput(m_indexBuffer);
 	for (u32 i = 0; i < m_assetTextures.size(); i++)
 	{
 		TextureHandle pCurrAssetTex = m_assetTextures[i];
-		pRenderPass->SetColorOutput(pCurrAssetTex);
+		renderPass.SetColorOutput(pCurrAssetTex);
 	}
 
-	pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
+	renderPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
 		const AssetType* pAsset = AssetManager::Get().GetAsset(m_assetID);
 		const u64 vBufferSizeBytes = static_cast<u64>(pAsset->vertices.size() * sizeof(AssetVertex));

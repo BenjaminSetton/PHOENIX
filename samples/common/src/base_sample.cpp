@@ -38,7 +38,7 @@ namespace Common
 	}
 
 	BaseSample::BaseSample() : 
-		m_pWindow(nullptr), m_pSwapChain(nullptr), m_pRenderDevice(nullptr), m_pRenderGraph(nullptr), m_pCamera(nullptr)
+		m_pWindow(nullptr), m_pSwapChain(nullptr), m_pRenderDevice(nullptr), m_renderGraph(), m_pCamera(nullptr)
 	{
 		Init();
 	}
@@ -78,7 +78,6 @@ namespace Common
 
 	void BaseSample::Shutdown()
 	{
-		DestroyRenderGraph();
 		DestroySwapChain();
 		DestroyRenderDevice();
 		DestroyWindow();
@@ -140,11 +139,8 @@ namespace Common
 
 	void BaseSample::CreateRenderGraph()
 	{
-		IRenderGraph* pRenderGraph = nullptr;
-		STATUS_CODE phxRes = m_pRenderDevice->AllocateRenderGraph(&pRenderGraph);
+		STATUS_CODE phxRes = m_pRenderDevice->AllocateRenderGraph(m_renderGraph);
 		CHECK_PHX_RES(phxRes);
-
-		m_pRenderGraph = pRenderGraph;
 	}
 
 	void BaseSample::DestroyWindow()
@@ -163,14 +159,6 @@ namespace Common
 	void BaseSample::DestroyRenderDevice()
 	{
 		PHX::DestroyRenderDevice(&m_pRenderDevice);
-	}
-
-	void BaseSample::DestroyRenderGraph()
-	{
-		if (m_pRenderDevice != nullptr)
-		{
-			m_pRenderDevice->DeallocateRenderGraph(&m_pRenderGraph);
-		}
 	}
 
 	void BaseSample::OnKeyDown(PHX::KeyCode keycode)

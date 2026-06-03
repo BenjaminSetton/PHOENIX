@@ -80,7 +80,8 @@ namespace PHX
 	//-----------------------------------------------------------------------------------//
 
 	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
-		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_descriptorPool(VK_NULL_HANDLE)
+		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_descriptorPool(VK_NULL_HANDLE),
+		m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_pRenderGraph(nullptr)
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
@@ -181,12 +182,6 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateRenderGraph(IRenderGraph** out_renderGraph)
-	{
-		*out_renderGraph = new RenderGraphVk(this);
-		return STATUS_CODE::SUCCESS;
-	}
-
 	STATUS_CODE RenderDeviceVk::AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle)
 	{
 		BufferVk* pBuffer = new BufferVk(this, createInfo);
@@ -247,6 +242,23 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	STATUS_CODE RenderDeviceVk::AllocateRenderGraph(RenderGraphHandle& renderGraph)
+	{
+		if (m_pRenderGraph == nullptr)
+		{
+			m_pRenderGraph = new RenderGraphVk(this);
+			if (m_pRenderGraph == nullptr)
+			{
+				LogError("Failed to allocate render graph. Memory allocation failed!");
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+		}
+
+		m_pRenderGraph->IncrementRefCount();
+		HandleAccessor::PopulateHandle(renderGraph, this, 0u, 0u);
+		return STATUS_CODE::SUCCESS;
+	}
+
 	STATUS_CODE RenderDeviceVk::AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)
 	{
 		*out_shader = new ShaderVk(this, createInfo);
@@ -256,11 +268,6 @@ namespace PHX
 	void RenderDeviceVk::DeallocateSwapChain(ISwapChain** pSwapChain)
 	{
 		SAFE_DEL(*pSwapChain);
-	}
-
-	void RenderDeviceVk::DeallocateRenderGraph(IRenderGraph** pRenderGraph)
-	{
-		SAFE_DEL(*pRenderGraph);
 	}
 
 	void RenderDeviceVk::DeallocateResource(const Handle& handle)
@@ -286,6 +293,16 @@ namespace PHX
 		case HANDLE_TYPE::DEVICE_CONTEXT:
 		{
 			DeallocateResource_Helper<DeviceContextHandle, DeviceContextVk>(m_deviceContexts, handle);
+			break;
+		}
+		case HANDLE_TYPE::RENDER_GRAPH:
+		{
+			SAFE_DEL(m_pRenderGraph);
+			break;
+		}
+		case HANDLE_TYPE::RENDER_PASS:
+		{
+			// Render graph manages render passes; they're cleared every frame, no need to explicitly deallocate
 			break;
 		}
 		default:
@@ -369,6 +386,23 @@ namespace PHX
 		return m_deviceContexts[index];
 	}
 
+	IRenderGraph* RenderDeviceVk::ResolveHandle(const RenderGraphHandle& handle)
+	{
+		const u32 index = HandleAccessor::GetIndex(handle);
+		ASSERT_MSG(index == 0, "Invalid render graph handle. Only one graph should be allocated!");
+		return m_pRenderGraph;
+	}
+
+	IRenderPass* RenderDeviceVk::ResolveHandle(const RenderPassHandle& handle)
+	{
+		if (m_pRenderGraph == nullptr)
+		{
+			return nullptr;
+		}
+
+		return m_pRenderGraph->ResolveHandle(handle);
+	}
+
 	void RenderDeviceVk::IncrementRefCount(const Handle& handle)
 	{
 		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
@@ -394,9 +428,21 @@ namespace PHX
 			IncrementRefCount_Helper<DeviceContextHandle, IDeviceContext>(handle);
 			break;
 		}
+		case HANDLE_TYPE::RENDER_GRAPH:
+		{
+			IncrementRefCount_Helper<RenderGraphHandle, IRenderGraph>(handle);
+			break;
+		}
+		case HANDLE_TYPE::RENDER_PASS:
+		{
+			// Keep ref count?
+			IncrementRefCount_Helper<RenderPassHandle, IRenderPass>(handle);
+			break;
+		}
 		default:
 		{
 			ASSERT_ALWAYS("Failed to increment ref count. Unrecognized handle type!");
+			break;
 		}
 		}
 	}
@@ -426,9 +472,21 @@ namespace PHX
 			DecrementRefCount_Helper<DeviceContextHandle, IDeviceContext>(handle);
 			break;
 		}
+		case HANDLE_TYPE::RENDER_GRAPH:
+		{
+			DecrementRefCount_Helper<RenderGraphHandle, IRenderGraph>(handle);
+			break;
+		}
+		case HANDLE_TYPE::RENDER_PASS:
+		{
+			// Keep ref count?
+			DecrementRefCount_Helper<RenderPassHandle, IRenderPass>(handle);
+			break;
+		}
 		default:
 		{
 			ASSERT_ALWAYS("Failed to decrement ref count. Unrecognized handle type!");
+			break;
 		}
 		}
 	}

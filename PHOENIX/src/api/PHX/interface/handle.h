@@ -42,5 +42,13 @@ namespace PHX
 		HANDLE_TYPE m_type;
 	};
 
+#define DECLARE_HANDLE(HandleType)					\
+	HandleType();									\
+	HandleType(const Handle& other);				\
+	~HandleType();									\
+	HandleType(const HandleType& other);			\
+	HandleType& operator=(const HandleType& other);	\
+	HandleType(HandleType&& other) noexcept;
+
 	static const Handle INVALID_HANDLE;
 }

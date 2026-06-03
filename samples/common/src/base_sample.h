@@ -34,14 +34,13 @@ namespace Common
 		virtual void DestroyWindow();
 		virtual void DestroySwapChain();
 		virtual void DestroyRenderDevice();
-		virtual void DestroyRenderGraph();
 
 	protected:
 
 		PHX::IWindow* m_pWindow;
 		PHX::ISwapChain* m_pSwapChain;
 		PHX::IRenderDevice* m_pRenderDevice;
-		PHX::IRenderGraph* m_pRenderGraph;
+		PHX::RenderGraphHandle m_renderGraph;
 
 		BaseCamera* m_pCamera;
 

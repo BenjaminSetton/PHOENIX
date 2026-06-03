@@ -4,6 +4,7 @@
 
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
+#include "PHX/interface/handle.h"
 #include "PHX/interface/swap_chain.h"
 #include "PHX/interface/texture.h"
 #include "PHX/interface/uniform.h"
@@ -20,7 +21,54 @@ namespace PHX
 		TRANSFER
 	};
 
-	class IRenderPass
+	struct RenderPassHandle : public Handle
+	{
+		DECLARE_HANDLE(RenderPassHandle)
+
+		// Inputs
+		void SetTextureInput(TextureHandle texture);
+		void SetBufferInput(BufferHandle buffer);							// Not sure if I want to keep this
+		void SetUniformInput(UniformCollectionHandle uniformCollection);	// Not sure if I want to keep this
+
+		// Outputs
+		void SetColorOutput(TextureHandle texture);
+		void SetDepthOutput(TextureHandle texture);
+		void SetDepthStencilOutput(TextureHandle texture);
+		void SetResolveOutput(TextureHandle texture);
+		void SetBackbufferOutput(TextureHandle texture);
+		void SetBufferOutput(BufferHandle buffer);
+
+		// Pipeline data
+		void SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc);
+		void SetPipelineDescription(const ComputePipelineDesc& computePipelineDesc);
+
+		// Callbacks
+		void SetExecuteCallback(ExecuteRenderPassCallbackFn callback);
+	};
+
+	struct RenderGraphHandle : public Handle
+	{
+		DECLARE_HANDLE(RenderGraphHandle)
+
+		STATUS_CODE BeginFrame(ISwapChain* pSwapChain);
+		STATUS_CODE EndFrame();
+		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass);
+		STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount);
+
+		// Generates a visualization of the render graph by creating a .dot file. This file can then be
+		// opened with a graph visualization tool such as GraphViz to examine the graph structure. If
+		// the "generateIfUnique" parameter is set to true, a new file will be written out only if the
+		// structure of the render graph is unique from any other previously-generated visualization. If
+		// set to false, it will generate a new visualization every time the graph is different from the
+		// one generated immediately before
+		STATUS_CODE GenerateVisualization(const char* fileName, bool generateIfUnique = true);
+	};
+
+	///////////////////////////////////////////////////////////////////////////////////////////////////////
+	//
+	//	TODO - MOVE TO LIB
+
+	class IRenderPass : public RefCounted
 	{
 	public:
 
@@ -47,7 +95,7 @@ namespace PHX
 		virtual void SetExecuteCallback(ExecuteRenderPassCallbackFn callback) = 0;
 	};
 
-	class IRenderGraph
+	class IRenderGraph : public RefCounted
 	{
 	public:
 
@@ -55,7 +103,7 @@ namespace PHX
 
 		virtual STATUS_CODE BeginFrame(ISwapChain* pSwapChain) = 0;
 		virtual STATUS_CODE EndFrame() = 0;
-		virtual IRenderPass* RegisterPass(const char* passName, BIND_POINT bindPoint) = 0;
+		virtual STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) = 0;
 		virtual STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount) = 0;
 
 		// Generates a visualization of the render graph by creating a .dot file. This file can then be
@@ -70,5 +118,7 @@ namespace PHX
 
 		virtual IDeviceContext* GetDeviceContext() = 0; // Used lib-only
 		virtual DeviceContextHandle GetDeviceContextHandle() = 0; // Used to pass to client in exec callback
+
+		virtual IRenderPass* ResolveHandle(const RenderPassHandle& handle) = 0;
 	};
 }

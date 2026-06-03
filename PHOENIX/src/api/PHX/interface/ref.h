@@ -13,6 +13,9 @@ namespace PHX
 
 		RefCounted();
 		~RefCounted();
+		RefCounted(const RefCounted& other);
+		RefCounted& operator=(const RefCounted& other);
+		RefCounted(RefCounted&& other) noexcept;
 
 		i32 GetRefCount() const;
 		void IncrementRefCount();

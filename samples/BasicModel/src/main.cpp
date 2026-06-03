@@ -146,8 +146,8 @@ int main(int argc, char** argv)
 	CHECK_PHX_RES(phxRes);
 
 	// RENDER GRAPH
-	IRenderGraph* pRenderGraph = nullptr;
-	phxRes = pRenderDevice->AllocateRenderGraph(&pRenderGraph);
+	RenderGraphHandle renderGraph;
+	phxRes = pRenderDevice->AllocateRenderGraph(renderGraph);
 	CHECK_PHX_RES(phxRes);
 
 	// DEPTH BUFFER
@@ -264,11 +264,13 @@ int main(int argc, char** argv)
 	};
 
 	// Upload mesh to GPU
-	IRenderPass* pMeshUploadPass = pRenderGraph->RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER);
-	pMeshUploadPass->SetBufferOutput(vertexBuffer);
-	pMeshUploadPass->SetBufferOutput(indexBuffer);
+	RenderPassHandle meshUploadPass;
+	phxRes = renderGraph.RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER, meshUploadPass);
+	CHECK_PHX_RES(phxRes);
 
-	pMeshUploadPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
+	meshUploadPass.SetBufferOutput(vertexBuffer);
+	meshUploadPass.SetBufferOutput(indexBuffer);
+	meshUploadPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
 		deviceContext.CopyDataToBuffer(vertexBuffer, cubeAsset->vertices.data(), vBufferSizeBytes);
 		deviceContext.CopyDataToBuffer(indexBuffer, cubeAsset->indices.data(), iBufferSizeBytes);
@@ -279,19 +281,22 @@ int main(int argc, char** argv)
 	{
 		pWindow->Update(0);
 
-		pRenderGraph->BeginFrame(pSwapChain);
+		renderGraph.BeginFrame(pSwapChain);
 
 		// Update the cube's transform
 		transform.worldMat = glm::rotate(transform.worldMat, 0.02f, { 0.0f, -1.0f, 0.0f });
 		transform.worldMat = glm::rotate(transform.worldMat, 0.02f, { 1.0f, 0.0f, 0.0f });
 		
-		IRenderPass* pRenderPass = pRenderGraph->RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS);
-		pRenderPass->SetBufferInput(vertexBuffer);
-		pRenderPass->SetBufferInput(indexBuffer);
-		pRenderPass->SetBackbufferOutput(pSwapChain->GetCurrentImage());
-		pRenderPass->SetDepthOutput(depthBuffer);
-		pRenderPass->SetPipelineDescription(pipelineDesc);
-		pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
+		RenderPassHandle renderPass;
+		phxRes = renderGraph.RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS, renderPass);
+		CHECK_PHX_RES(phxRes);
+
+		renderPass.SetBufferInput(vertexBuffer);
+		renderPass.SetBufferInput(indexBuffer);
+		renderPass.SetBackbufferOutput(pSwapChain->GetCurrentImage());
+		renderPass.SetDepthOutput(depthBuffer);
+		renderPass.SetPipelineDescription(pipelineDesc);
+		renderPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 		{
 			// Update the transform uniform data
 			deviceContext.CopyDataToBuffer(uniformBuffer, &transform, sizeof(TransformData));
@@ -305,8 +310,8 @@ int main(int argc, char** argv)
 			deviceContext.DrawIndexed(static_cast<u32>(cubeAsset->indices.size()));
 		});
 
-		pRenderGraph->Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
-		pRenderGraph->EndFrame();
+		renderGraph.Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
+		renderGraph.EndFrame();
 
 		pSwapChain->Present();
 	}

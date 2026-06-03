@@ -226,8 +226,8 @@ int main(int argc, char** argv)
 	}
 
 	// RENDER GRAPH
-	IRenderGraph* pRenderGraph = nullptr;
-	result = s_pRenderDevice->AllocateRenderGraph(&pRenderGraph);
+	RenderGraphHandle renderGraph;
+	result = s_pRenderDevice->AllocateRenderGraph(renderGraph);
 	if (result != PHX::STATUS_CODE::SUCCESS)
 	{
 		return -1;
@@ -267,10 +267,15 @@ int main(int argc, char** argv)
 	pipelineDesc.uniformCollection = uniforms;
 
 	// Upload mesh to GPU
-	IRenderPass* pRenderPass = pRenderGraph->RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER);
-	pRenderPass->SetBufferOutput(vBuffer);
+	RenderPassHandle renderPass;
+	result = renderGraph.RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER, renderPass);
+	if (result != PHX::STATUS_CODE::SUCCESS)
+	{
+		return -1;
+	}
 
-	pRenderPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
+	renderPass.SetBufferOutput(vBuffer);
+	renderPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
 		deviceContext.CopyDataToBuffer(vBuffer, &triVerts, sizeof(SimpleVertexType) * 3);
 	});
@@ -297,7 +302,7 @@ int main(int argc, char** argv)
 		s_pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_pRenderDevice->GetDeviceName(), i, elapsedMs.count(), 1.0f / elapsedSeconds.count());
 
 		// Draw operations
-		result = pRenderGraph->BeginFrame(s_pSwapChain);
+		result = renderGraph.BeginFrame(s_pSwapChain);
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to begin frame - skipping frame!" << std::endl;
@@ -305,11 +310,18 @@ int main(int argc, char** argv)
 		}
 
 		TextureHandle backbufferTex = s_pSwapChain->GetCurrentImage();
-		IRenderPass* newPass = pRenderGraph->RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS);
-		newPass->SetBufferInput(vBuffer);
-		newPass->SetBackbufferOutput(backbufferTex);
-		newPass->SetPipelineDescription(pipelineDesc);
-		newPass->SetExecuteCallback([&](DeviceContextHandle deviceContext)
+		RenderPassHandle newPass;
+		result = renderGraph.RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS, newPass);
+		if (result != PHX::STATUS_CODE::SUCCESS)
+		{
+			std::cout << "Failed to register new pass - skipping frame!" << std::endl;
+			continue;
+		}
+
+		newPass.SetBufferInput(vBuffer);
+		newPass.SetBackbufferOutput(backbufferTex);
+		newPass.SetPipelineDescription(pipelineDesc);
+		newPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 		{
 			// Update test UBO
 			test.time += elapsedSeconds.count();
@@ -324,14 +336,14 @@ int main(int argc, char** argv)
 			deviceContext.Draw(VERTEX_COUNT);
 		});
 
-		result = pRenderGraph->Bake(&clearCol, 1);
+		result = renderGraph.Bake(&clearCol, 1);
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to bake render graph - skipping frame!" << std::endl;
 			continue;
 		}
 
-		result = pRenderGraph->EndFrame();
+		result = renderGraph.EndFrame();
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to end frame - skipping frame!" << std::endl;
@@ -358,7 +370,6 @@ int main(int argc, char** argv)
 	}
 
 	// Clean up
-	s_pRenderDevice->DeallocateRenderGraph(&pRenderGraph);
 	s_pRenderDevice->DeallocateSwapChain(&s_pSwapChain);
 	s_pRenderDevice->DeallocateShader(&pVertShader);
 	s_pRenderDevice->DeallocateShader(&pFragShader);

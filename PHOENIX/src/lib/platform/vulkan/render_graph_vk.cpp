@@ -695,13 +695,17 @@ namespace PHX
 		return res;
 	}
 
-	IRenderPass* RenderGraphVk::RegisterPass(const char* passName, BIND_POINT bindPoint)
+	STATUS_CODE RenderGraphVk::RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass)
 	{
 		const u32 passIndex = static_cast<u32>(m_registeredRenderPasses.size());
 
 		auto registerResourceFuncPtr = std::bind(&RenderGraphVk::RegisterResource, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 		m_registeredRenderPasses.emplace_back(passName, bindPoint, passIndex, registerResourceFuncPtr);
-		return &m_registeredRenderPasses.back();
+
+		RenderPassVk& passVk = m_registeredRenderPasses.back();
+		passVk.IncrementRefCount();
+		HandleAccessor::PopulateHandle(renderPass, m_pRenderDevice, static_cast<u32>(m_registeredRenderPasses.size() - 1), 0u);
+		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE RenderGraphVk::Bake(ClearValues* pClearColors, u32 clearColorCount)
@@ -846,6 +850,18 @@ namespace PHX
 	{
 		ASSERT(m_frameIndex < m_deviceContextHandles.size());
 		return m_deviceContextHandles[m_frameIndex];
+	}
+
+	IRenderPass* RenderGraphVk::ResolveHandle(const RenderPassHandle& handle)
+	{
+		const u32 index = HandleAccessor::GetIndex(handle);
+		if (index >= static_cast<u32>(m_registeredRenderPasses.size()))
+		{
+			return nullptr;
+		}
+		// TODO - Check generation
+
+		return &m_registeredRenderPasses[index];
 	}
 
 	VkRenderPass RenderGraphVk::CreateRenderPass(const RenderPassVk& renderPass)

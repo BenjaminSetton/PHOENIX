@@ -35,16 +35,15 @@ namespace PHX
 
 		// Allocations
 		virtual STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain)																									= 0;
-		virtual STATUS_CODE AllocateRenderGraph(IRenderGraph** out_renderGraph)																																		= 0;
 		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)																												= 0;
 		
 		virtual STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& buffer)																												= 0;
 		virtual STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& texture)	= 0;
 		virtual STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& uniformCollection)																	= 0;
+		virtual STATUS_CODE AllocateRenderGraph(RenderGraphHandle& renderGraph)																																		= 0;
 
 		// Deallocations
 		virtual void DeallocateSwapChain(ISwapChain** out_swapChain)						= 0;
-		virtual void DeallocateRenderGraph(IRenderGraph** pRenderGraph)						= 0;
 		virtual void DeallocateShader(IShader** pShader)									= 0; 
 
 		virtual void DeallocateResource(const Handle& handle)								= 0;
@@ -61,6 +60,8 @@ namespace PHX
 		virtual IBuffer* ResolveHandle(const BufferHandle& handle) = 0;
 		virtual IUniformCollection* ResolveHandle(const UniformCollectionHandle& handle) = 0;
 		virtual IDeviceContext* ResolveHandle(const DeviceContextHandle& handle) = 0;
+		virtual IRenderGraph* ResolveHandle(const RenderGraphHandle& handle) = 0;
+		virtual IRenderPass* ResolveHandle(const RenderPassHandle& handle) = 0;
 
 		virtual void IncrementRefCount(const Handle& handle) = 0;
 		virtual void DecrementRefCount(const Handle& handle) = 0;

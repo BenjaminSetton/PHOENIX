@@ -128,12 +128,14 @@ namespace PHX
 
 		STATUS_CODE BeginFrame(ISwapChain* pSwapChain) override;
 		STATUS_CODE EndFrame() override;
-		IRenderPass* RegisterPass(const char* passName, BIND_POINT bindPoint) override;
+		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) override;
 		STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount) override;
 		STATUS_CODE GenerateVisualization(const char* fileName, bool generateIfUnique) override;
 
 		IDeviceContext* GetDeviceContext() override;
 		DeviceContextHandle GetDeviceContextHandle() override;
+
+		IRenderPass* ResolveHandle(const RenderPassHandle& handle) override;
 
 	private:
 

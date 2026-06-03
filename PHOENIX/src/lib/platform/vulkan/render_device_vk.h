@@ -17,9 +17,10 @@
 namespace PHX
 {
 	// Forward declarations
-	class TextureVk;
 	class BufferVk;
 	class DeviceContextVk;
+	class RenderGraphVk;
+	class TextureVk;
 	class UniformCollectionVk;
 
 	class RenderDeviceVk : public IRenderDevice
@@ -32,16 +33,15 @@ namespace PHX
 		const char* GetDeviceName() const;
 
 		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, ISwapChain** out_swapChain) override;
-		STATUS_CODE AllocateRenderGraph(IRenderGraph** out_renderGraph) override;
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader) override;
 		
 		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle) override;
 		STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& handle) override;
 		STATUS_CODE AllocateSwapchainTexture(const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView, TextureHandle& handle);
 		STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& uniformCollection) override;
-		
+		STATUS_CODE AllocateRenderGraph(RenderGraphHandle& renderGraph) override;
+
 		void DeallocateSwapChain(ISwapChain** pSwapChain) override;
-		void DeallocateRenderGraph(IRenderGraph** pRenderGraph) override;
 		void DeallocateShader(IShader** pShader) override;
 
 		void DeallocateResource(const Handle& handle) override;
@@ -69,6 +69,8 @@ namespace PHX
 		IBuffer* ResolveHandle(const BufferHandle& handle) override;
 		IUniformCollection* ResolveHandle(const UniformCollectionHandle& handle) override;
 		IDeviceContext* ResolveHandle(const DeviceContextHandle& handle) override;
+		IRenderGraph* ResolveHandle(const RenderGraphHandle& handle) override;
+		IRenderPass* ResolveHandle(const RenderPassHandle& handle) override;
 
 		void IncrementRefCount(const Handle& handle) override;
 		void DecrementRefCount(const Handle& handle) override;
@@ -185,5 +187,6 @@ namespace PHX
 		std::vector<BufferVk*> m_buffers;
 		std::vector<UniformCollectionVk*> m_uniformCollections;
 		std::vector<DeviceContextVk*> m_deviceContexts;
+		RenderGraphVk* m_pRenderGraph;
 	};
 }
