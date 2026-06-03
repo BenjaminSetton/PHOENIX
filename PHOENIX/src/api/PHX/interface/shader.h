@@ -2,6 +2,8 @@
 
 #include "PHX/types/integral_types.h"
 #include "PHX/types/shader_desc.h"
+#include "PHX/interface/handle.h"
+#include "PHX/interface/ref.h" // TODO - Move to lib
 
 namespace PHX
 {
@@ -13,7 +15,17 @@ namespace PHX
 		ShaderReflectionData reflectionData;
 	};
 
-	class IShader
+	struct ShaderHandle : public Handle
+	{
+		DECLARE_HANDLE(ShaderHandle)
+
+		SHADER_STAGE GetStage() const;
+		const ShaderReflectionData& GetReflectionData() const;
+	};
+
+
+	// TODO - Move to lib
+	class IShader : public RefCounted
 	{
 	public:
 

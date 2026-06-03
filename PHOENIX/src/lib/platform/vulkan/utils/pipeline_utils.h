@@ -11,7 +11,7 @@
 namespace PHX
 {
 	// Forward declarations
-	class IShader;
+	class ShaderVk;
 	struct InputAttribute;
 
 	VkVertexInputBindingDescription         PopulateInputBindingDescription(InputAttribute* pAttributes, u32 attributeCount, u32 inputBinding, VERTEX_INPUT_RATE inputRate);
@@ -27,7 +27,7 @@ namespace PHX
 	VkPipelineColorBlendStateCreateInfo     PopulateColorBlendStateCreateInfo(const VkPipelineColorBlendAttachmentState* attachments, u32 blendAttachmentCount);
 	VkPipelineDepthStencilStateCreateInfo   PopulateDepthStencilStateCreateInfo(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp, VkBool32 depthBoundsTestEnable, Vec2f depthBoundsRange, VkBool32 stencilTestEnable, StencilOpState stencilFront, StencilOpState stencilBack);
 	VkPipelineLayoutCreateInfo              PopulatePipelineLayoutCreateInfo(const VkDescriptorSetLayout* setLayouts, u32 setLayoutCount, const VkPushConstantRange* pushConstantRanges, u32 pushConstantCount);
-	VkPipelineShaderStageCreateInfo         PopulateShaderCreateInfo(const IShader* pShader);
+	VkPipelineShaderStageCreateInfo         PopulateShaderCreateInfo(const ShaderVk* pShader);
 	VkViewport                              PopulateViewportInfo(Vec2u viewportSize, Vec2f depthRange);
 	VkRect2D                                PopulateScissorInfo(Vec2u scissorOffset, Vec2u scissorExtent);
 

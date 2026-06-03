@@ -6,6 +6,7 @@
 
 #include "framebuffer_vk.h"
 #include "render_device_vk.h"
+#include "shader_vk.h"
 #include "uniform_vk.h"
 #include "utils/logger.h"
 #include "utils/pipeline_type_converter.h"
@@ -88,7 +89,8 @@ namespace PHX
 		shaderStages.reserve(createInfo.shaderCount);
 		for (u32 i = 0; i < createInfo.shaderCount; i++)
 		{
-			shaderStages.emplace_back(PopulateShaderCreateInfo(createInfo.ppShaders[i]));
+			ShaderVk* pShader = static_cast<ShaderVk*>(m_pRenderDevice->ResolveHandle(createInfo.pShaders[i]));
+			shaderStages.emplace_back(PopulateShaderCreateInfo(pShader));
 		}
 
 		// Vertex input layout
@@ -199,10 +201,12 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		ShaderVk* pShader = static_cast<ShaderVk*>(m_pRenderDevice->ResolveHandle(createInfo.shader));
+
 		VkComputePipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
 		pipelineInfo.layout = m_layout;
-		pipelineInfo.stage = PopulateShaderCreateInfo(createInfo.pShader);
+		pipelineInfo.stage = PopulateShaderCreateInfo(pShader);
 
 		VkResult res = vkCreateComputePipelines(logicalDevice, cache, 1, &pipelineInfo, nullptr, &m_pipeline);
 		if (res != VK_SUCCESS)
@@ -227,7 +231,7 @@ namespace PHX
 			LogError("Failed to create graphics pipeline! Input attributes are null");
 			return STATUS_CODE::ERR_API;
 		}
-		if (createInfo.ppShaders == nullptr)
+		if (createInfo.pShaders == nullptr)
 		{
 			LogError("Failed to create graphics pipeline! Shaders array is null");
 			return STATUS_CODE::ERR_API;
@@ -240,10 +244,10 @@ namespace PHX
 
 		for (u32 i = 0; i < createInfo.shaderCount; i++)
 		{
-			const IShader* pShader = createInfo.ppShaders[i];
-			if (pShader == nullptr)
+			ShaderHandle currShader = createInfo.pShaders[i];
+			if (currShader == INVALID_HANDLE)
 			{
-				LogError("Failed to create graphics pipeline! Shader at index %u is null", i);
+				LogError("Failed to create graphics pipeline. Shader handle at index %u is invalid!", i);
 				return STATUS_CODE::ERR_API;
 			}
 		}
@@ -288,9 +292,9 @@ namespace PHX
 
 	STATUS_CODE PipelineVk::VerifyCreateInfo(const ComputePipelineDesc& createInfo)
 	{
-		if (createInfo.pShader == nullptr)
+		if (createInfo.shader == INVALID_HANDLE)
 		{
-			LogError("Failed to create compute pipeline! Shader is null");
+			LogError("Failed to create compute pipeline! Shader handle is invalid");
 			return STATUS_CODE::ERR_API;
 		}
 

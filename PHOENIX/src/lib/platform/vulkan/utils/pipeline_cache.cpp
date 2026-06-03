@@ -111,17 +111,17 @@ namespace PHX
 		}
 
 		// Shader info
-		if (desc.ppShaders != nullptr)
+		if (desc.pShaders != nullptr)
 		{
 			const u32 shaderCount = desc.shaderCount;
 			HashCombine(seed, shaderCount);
 
 			for (u32 i = 0; i < shaderCount; i++)
 			{
-				IShader* currShader = desc.ppShaders[i];
-				if (currShader != nullptr)
+				ShaderHandle currShader = desc.pShaders[i];
+				if (currShader != INVALID_HANDLE)
 				{
-					HashCombine(seed, currShader->GetStage());
+					HashCombine(seed, currShader.GetStage());
 				}
 			}
 		}
@@ -136,9 +136,9 @@ namespace PHX
 		size_t seed = 0;
 
 		// Shader info
-		if (desc.pShader != nullptr)
+		if (desc.shader != INVALID_HANDLE)
 		{
-			HashCombine(seed, desc.pShader->GetStage());
+			HashCombine(seed, desc.shader.GetStage());
 		}
 
 		// Uniform collection

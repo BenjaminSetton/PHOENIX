@@ -149,7 +149,7 @@ int main(int argc, char** argv)
 	swapChainCI.width = s_pWindow->GetCurrentWidth();
 	swapChainCI.height = s_pWindow->GetCurrentHeight();
 
-	s_pRenderDevice->AllocateSwapChain(swapChainCI, &s_pSwapChain);
+	result = s_pRenderDevice->AllocateSwapChain(swapChainCI, &s_pSwapChain);
 	if (result != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create swap chain
@@ -158,15 +158,15 @@ int main(int argc, char** argv)
 
 	// SHADERS
 	std::string vertShaderName("../src/shaders/vertex_sample.vert");
-	IShader* pVertShader = Common::AllocateShader(vertShaderName, SHADER_STAGE::VERTEX, s_pRenderDevice);
-	if (pVertShader == nullptr)
+	ShaderHandle vertShader;
+	if (!Common::AllocateShader(vertShaderName, SHADER_STAGE::VERTEX, s_pRenderDevice, vertShader))
 	{
 		return -1;
 	}
 
 	std::string fragShaderName("../src/shaders/fragment_sample.frag");
-	IShader* pFragShader = Common::AllocateShader(fragShaderName, SHADER_STAGE::FRAGMENT, s_pRenderDevice);
-	if (pFragShader == nullptr)
+	ShaderHandle fragShader;
+	if (!Common::AllocateShader(fragShaderName, SHADER_STAGE::FRAGMENT, s_pRenderDevice, fragShader))
 	{
 		return -1;
 	}
@@ -250,10 +250,10 @@ int main(int argc, char** argv)
 		},
 	};
 
-	std::array<IShader*, 2> shaders =
+	std::array<ShaderHandle, 2> shaders =
 	{
-		pVertShader,
-		pFragShader
+		vertShader,
+		fragShader
 	};
 
 	GraphicsPipelineDesc pipelineDesc{};
@@ -261,7 +261,7 @@ int main(int argc, char** argv)
 	pipelineDesc.pInputAttributes = inputAttributes.data();
 	pipelineDesc.attributeCount = static_cast<u32>(inputAttributes.size());
 	pipelineDesc.viewportSize = { s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() };
-	pipelineDesc.ppShaders = shaders.data();
+	pipelineDesc.pShaders = shaders.data();
 	pipelineDesc.shaderCount = static_cast<u32>(shaders.size());
 	pipelineDesc.cullMode = PHX::CULL_MODE::NONE;
 	pipelineDesc.uniformCollection = uniforms;
@@ -371,8 +371,6 @@ int main(int argc, char** argv)
 
 	// Clean up
 	s_pRenderDevice->DeallocateSwapChain(&s_pSwapChain);
-	s_pRenderDevice->DeallocateShader(&pVertShader);
-	s_pRenderDevice->DeallocateShader(&pFragShader);
 
 	// Clean up core objects
 	DestroyRenderDevice(&s_pRenderDevice);

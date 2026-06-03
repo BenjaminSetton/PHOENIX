@@ -222,7 +222,7 @@ namespace PHX
 		return pipelineLayoutInfo;
 	}
 
-	VkPipelineShaderStageCreateInfo PopulateShaderCreateInfo(const IShader* pShader)
+	VkPipelineShaderStageCreateInfo PopulateShaderCreateInfo(const ShaderVk* pShader)
 	{
 		VkPipelineShaderStageCreateInfo shaderStageInfo{};
 		shaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -230,10 +230,8 @@ namespace PHX
 
 		if (pShader != nullptr)
 		{
-			const ShaderVk* pShaderVk = dynamic_cast<const ShaderVk*>(pShader);
-
-			shaderStageInfo.stage = SHADER_UTILS::ConvertShaderStage(pShaderVk->GetStage());
-			shaderStageInfo.module = pShaderVk->GetShaderModule();
+			shaderStageInfo.stage = SHADER_UTILS::ConvertShaderStage(pShader->GetStage());
+			shaderStageInfo.module = pShader->GetShaderModule();
 		}
 
 		return shaderStageInfo;

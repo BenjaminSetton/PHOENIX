@@ -24,6 +24,7 @@ namespace PHX
 		Handle(Handle&& other) noexcept;
 
 		bool operator==(const Handle& other) const;
+		bool operator!=(const Handle& other) const;
 
 		bool IsValid() const;
 

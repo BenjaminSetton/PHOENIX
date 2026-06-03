@@ -61,7 +61,7 @@ private:
 	PHX::BufferHandle m_vertexBuffer;
 	PHX::BufferHandle m_indexBuffer;
 
-	std::vector<PHX::IShader*> m_shaders;
+	std::vector<PHX::ShaderHandle> m_shaders;
 
 	std::vector<PHX::InputAttribute> m_inputAttributes;
 

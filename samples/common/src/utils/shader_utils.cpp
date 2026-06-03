@@ -7,7 +7,7 @@
 
 namespace Common
 {
-	PHX::IShader* AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::IRenderDevice* pRenderDevice)
+	bool AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::IRenderDevice* pRenderDevice, PHX::ShaderHandle& shader)
 	{
 		PHX::STATUS_CODE result = PHX::STATUS_CODE::SUCCESS;
 
@@ -15,7 +15,7 @@ namespace Common
 		shaderFile.open(shaderName, std::ios::in);
 		if (!shaderFile.is_open())
 		{
-			return nullptr;
+			return false;
 		}
 		std::stringstream buffer;
 		buffer << shaderFile.rdbuf();
@@ -31,7 +31,7 @@ namespace Common
 		result = CompileShader(shaderSrc, shaderRes);
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
-			return nullptr;
+			return false;
 		}
 
 		PHX::ShaderCreateInfo shaderCI{};
@@ -40,13 +40,13 @@ namespace Common
 		shaderCI.stage = stage;
 		shaderCI.reflectionData = shaderRes.reflectionData;
 
-		PHX::IShader* pShader = nullptr;
-		result = pRenderDevice->AllocateShader(shaderCI, &pShader);
+		result = pRenderDevice->AllocateShader(shaderCI, shader);
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
-			return nullptr;
+			return false;
 		}
 
-		return pShader;
+		// Success
+		return true;
 	}
 }

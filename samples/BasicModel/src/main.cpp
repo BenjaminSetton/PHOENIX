@@ -176,13 +176,22 @@ int main(int argc, char** argv)
 	CHECK_PHX_RES(phxRes);
 
 	// SHADERS
-	IShader* pVertShader = Common::AllocateShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, pRenderDevice);
-	IShader* pFragShader = Common::AllocateShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, pRenderDevice);
-
-	std::array<IShader*, 2> shaders =
+	ShaderHandle vertShader;
+	if (!Common::AllocateShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, pRenderDevice, vertShader))
 	{
-		pVertShader,
-		pFragShader
+		return -1;
+	}
+
+	ShaderHandle fragShader;
+	if (!Common::AllocateShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, pRenderDevice, fragShader))
+	{
+		return -1;
+	}
+
+	std::array<ShaderHandle, 2> shaders =
+	{
+		vertShader,
+		fragShader
 	};
 
 	std::vector<InputAttribute> inputAttributes =
@@ -240,7 +249,7 @@ int main(int argc, char** argv)
 	pipelineDesc.polygonMode = POLYGON_MODE::FILL;
 	pipelineDesc.topology = PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
 	pipelineDesc.cullMode = CULL_MODE::FRONT;
-	pipelineDesc.ppShaders = shaders.data();
+	pipelineDesc.pShaders = shaders.data();
 	pipelineDesc.shaderCount = static_cast<u32>(shaders.size());
 	pipelineDesc.pInputAttributes = inputAttributes.data();
 	pipelineDesc.attributeCount = static_cast<u32>(inputAttributes.size());
@@ -317,12 +326,10 @@ int main(int argc, char** argv)
 	}
 
 	// Cleanup
-	pRenderDevice->DeallocateShader(&pVertShader);
-	pRenderDevice->DeallocateShader(&pFragShader);
 	pRenderDevice->DeallocateSwapChain(&pSwapChain);
 
-	DestroyWindow(&pWindow);
-	DestroyRenderDevice(&pRenderDevice);
+	PHX::DestroyWindow(&pWindow);
+	PHX::DestroyRenderDevice(&pRenderDevice);
 
 	return 0;
 }

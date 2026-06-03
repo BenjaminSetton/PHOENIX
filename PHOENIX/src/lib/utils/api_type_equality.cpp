@@ -37,17 +37,17 @@ namespace PHX
 
 	// Returns true if both shaders are null, or if both shaders are not null but their
 	// contents are equal. Returns false in all other cases
-	static bool AreShadersEqual(const IShader* pShaderA, const IShader* pShaderB)
+	static bool AreShadersEqual(ShaderHandle A, ShaderHandle B)
 	{
-		if (!CanPointersBeUsedForComparison(pShaderA, pShaderB))
+		if (!CanHandlesBeUsedForComparison(A, B))
 		{
 			return false;
 		}
 
 		bool shadersEqual = true;
-		if (ArePointersNotNull(pShaderA, pShaderB))
+		if (AreHandlesValid(A, B))
 		{
-			shadersEqual = (pShaderA->GetStage() == pShaderB->GetStage());
+			shadersEqual = (A.GetStage() == B.GetStage());
 		}
 
 		return shadersEqual;
@@ -134,7 +134,7 @@ namespace PHX
 	bool ComputePipelineDesc::operator==(const ComputePipelineDesc& other) const
 	{
 		// SHADERS
-		bool shadersEqual = AreShadersEqual(pShader, other.pShader);
+		bool shadersEqual = AreShadersEqual(shader, other.shader);
 		if (!shadersEqual)
 		{
 			return false;
@@ -160,14 +160,14 @@ namespace PHX
 
 		for (u32 i = 0; i < shaderCount; i++)
 		{
-			const IShader* pShaderA = ppShaders[i];
-			const IShader* pShaderB = other.ppShaders[i];
-			if (!CanPointersBeUsedForComparison(pShaderA, pShaderB))
+			ShaderHandle shaderA = pShaders[i];
+			ShaderHandle shaderB = other.pShaders[i];
+			if (!CanHandlesBeUsedForComparison(shaderA, shaderB))
 			{
 				return false;
 			}
 
-			if (ArePointersNotNull(pShaderA, pShaderB) && !AreShadersEqual(pShaderA, pShaderB))
+			if (AreHandlesValid(shaderA, shaderB) && !AreShadersEqual(shaderA, shaderB))
 			{
 				return false;
 			}
@@ -190,11 +190,11 @@ namespace PHX
 		GraphicsPipelineDesc copyB = other;
 
 		copyA.uniformCollection = INVALID_HANDLE;
-		copyA.ppShaders = nullptr;
+		copyA.pShaders = nullptr;
 		copyA.shaderCount = 0;
 
 		copyB.uniformCollection = INVALID_HANDLE;
-		copyB.ppShaders = nullptr;
+		copyB.pShaders = nullptr;
 		copyB.shaderCount = 0;
 
 		const int cmpResult = memcmp(&copyA, &copyB, sizeof(GraphicsPipelineDesc));

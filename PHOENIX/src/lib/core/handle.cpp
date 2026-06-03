@@ -81,6 +81,11 @@ namespace PHX
 		return IsSame(*this, other);
 	}
 
+	bool Handle::operator!=(const Handle& other) const
+	{
+		return !(Handle::operator==(other));
+	}
+
 	bool Handle::IsValid() const
 	{
 		return !IsSame(*this, INVALID_HANDLE);

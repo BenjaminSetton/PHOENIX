@@ -197,20 +197,20 @@ void TexturedModelSample::Init()
 	CHECK_PHX_RES(phxRes);
 
 	// SHADERS
-	IShader* pVertShader = Common::AllocateShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, m_pRenderDevice);
-	if (pVertShader == nullptr)
+	ShaderHandle vertShader;
+	if (!Common::AllocateShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, m_pRenderDevice, vertShader))
 	{
 		return;
 	}
 
-	IShader* pFragShader = Common::AllocateShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, m_pRenderDevice);
-	if (pFragShader == nullptr)
+	ShaderHandle fragShader;
+	if (!Common::AllocateShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, m_pRenderDevice, fragShader))
 	{
 		return;
 	}
 
-	m_shaders.push_back(pVertShader);
-	m_shaders.push_back(pFragShader);
+	m_shaders.push_back(vertShader);
+	m_shaders.push_back(fragShader);
 
 	// TODO - Replace with data from vertex shader reflection
 	// INPUT ATTRIBUTES
@@ -282,7 +282,7 @@ void TexturedModelSample::Init()
 	m_pipelineDesc.polygonMode = POLYGON_MODE::FILL;
 	m_pipelineDesc.topology = PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
 	m_pipelineDesc.cullMode = CULL_MODE::FRONT;
-	m_pipelineDesc.ppShaders = m_shaders.data();
+	m_pipelineDesc.pShaders = m_shaders.data();
 	m_pipelineDesc.shaderCount = static_cast<u32>(m_shaders.size());
 	m_pipelineDesc.pInputAttributes = m_inputAttributes.data();
 	m_pipelineDesc.attributeCount = static_cast<u32>(m_inputAttributes.size());
@@ -299,24 +299,8 @@ void TexturedModelSample::Init()
 
 void TexturedModelSample::Shutdown()
 {
-	/*for (TextureHandle pAssetTex : m_assetTextures)
-	{
-		m_pRenderDevice->DeallocateTexture(pAssetTex);
-	}*/
 	m_assetTextures.clear();
-
-	for (IShader* pShader : m_shaders)
-	{
-		m_pRenderDevice->DeallocateShader(&pShader);
-	}
 	m_shaders.clear();
-
-	/*m_pRenderDevice->DeallocateBuffer(m_cameraBuffer);
-	m_pRenderDevice->DeallocateBuffer(m_transformBuffer);
-	m_pRenderDevice->DeallocateBuffer(m_indexBuffer);
-	m_pRenderDevice->DeallocateBuffer(m_vertexBuffer);
-	m_pRenderDevice->DeallocateUniformCollection(m_uniformCollection);
-	m_pRenderDevice->DeallocateTexture(m_depthBuffer);*/
 
 	delete m_pCamera;
 	m_pCamera = nullptr;

@@ -90,7 +90,7 @@ namespace PHX
 
 	struct ComputePipelineDesc
 	{
-		IShader* pShader							= nullptr;
+		ShaderHandle shader							= INVALID_HANDLE;
 		UniformCollectionHandle uniformCollection	= INVALID_HANDLE;
 
 		////////
@@ -154,7 +154,7 @@ namespace PHX
 		UniformCollectionHandle uniformCollection	= INVALID_HANDLE;
 
 		// Shader create info
-		IShader** ppShaders							= nullptr;
+		ShaderHandle* pShaders						= nullptr;
 		u32 shaderCount								= 0;
 
 		////////

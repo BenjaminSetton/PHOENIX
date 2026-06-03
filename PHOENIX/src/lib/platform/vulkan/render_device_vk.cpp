@@ -81,7 +81,7 @@ namespace PHX
 
 	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
 		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_descriptorPool(VK_NULL_HANDLE),
-		m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_pRenderGraph(nullptr)
+		m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_pRenderGraph(nullptr)
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
@@ -259,9 +259,18 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateShader(const ShaderCreateInfo& createInfo, IShader** out_shader)
+	STATUS_CODE RenderDeviceVk::AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader)
 	{
-		*out_shader = new ShaderVk(this, createInfo);
+		ShaderVk* pShader = new ShaderVk(this, createInfo);
+		if (pShader == nullptr)
+		{
+			LogError("Failed to allocate shader. Memory allocation failed!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+		m_shaders.push_back(pShader);
+
+		pShader->IncrementRefCount();
+		HandleAccessor::PopulateHandle(shader, this, static_cast<u32>(m_shaders.size() - 1), 0u);
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -305,17 +314,17 @@ namespace PHX
 			// Render graph manages render passes; they're cleared every frame, no need to explicitly deallocate
 			break;
 		}
+		case HANDLE_TYPE::SHADER:
+		{
+			DeallocateResource_Helper<ShaderHandle, ShaderVk>(m_shaders, handle);
+			break;
+		}
 		default:
 		{
 			ASSERT_ALWAYS("Failed to deallocate resource. Unrecognized handle type!");
 			break;
 		}
 		}
-	}
-
-	void RenderDeviceVk::DeallocateShader(IShader** pShader)
-	{
-		SAFE_DEL(*pShader);
 	}
 
 	u32 RenderDeviceVk::GetFramesInFlight() const
@@ -403,6 +412,18 @@ namespace PHX
 		return m_pRenderGraph->ResolveHandle(handle);
 	}
 
+	IShader* RenderDeviceVk::ResolveHandle(const ShaderHandle& handle)
+	{
+		const u32 index = HandleAccessor::GetIndex(handle);
+		if (index >= static_cast<u32>(m_shaders.size()))
+		{
+			return nullptr;
+		}
+		// TODO - Check generation
+
+		return m_shaders[index];
+	}
+
 	void RenderDeviceVk::IncrementRefCount(const Handle& handle)
 	{
 		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
@@ -437,6 +458,11 @@ namespace PHX
 		{
 			// Keep ref count?
 			IncrementRefCount_Helper<RenderPassHandle, IRenderPass>(handle);
+			break;
+		}
+		case HANDLE_TYPE::SHADER:
+		{
+			IncrementRefCount_Helper<ShaderHandle, IShader>(handle);
 			break;
 		}
 		default:
@@ -481,6 +507,11 @@ namespace PHX
 		{
 			// Keep ref count?
 			DecrementRefCount_Helper<RenderPassHandle, IRenderPass>(handle);
+			break;
+		}
+		case HANDLE_TYPE::SHADER:
+		{
+			DecrementRefCount_Helper<ShaderHandle, IShader>(handle);
 			break;
 		}
 		default:
