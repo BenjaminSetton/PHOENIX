@@ -14,6 +14,6 @@ namespace PHX
 	{
 		STATUS_CODE CreateCoreObjects(IWindow* pWindow);
 		IWindow* CreateWindow(const WindowCreateInfo& createInfo);
-		IRenderDevice* CreateRenderDevice(const RenderDeviceCreateInfo& createInfo);
+		STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& handle);
 	}
 }

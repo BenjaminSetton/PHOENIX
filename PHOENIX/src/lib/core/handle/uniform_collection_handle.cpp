@@ -2,6 +2,7 @@
 #include "PHX/interface/uniform.h"
 #include "PHX/interface/render_device.h"
 
+#include "core/handle/handle_utils.h"
 #include "utils/logger.h"
 
 namespace PHX
@@ -39,7 +40,7 @@ namespace PHX
 
 	u32 UniformCollectionHandle::GetGroupCount() const
 	{
-		IUniformCollection* pUniformCollection = m_pRenderDevice->ResolveHandle(*this);
+		IUniformCollection* pUniformCollection = HANDLE_UTILS::ResolveHandle(*this);
 		if (pUniformCollection != nullptr)
 		{
 			return pUniformCollection->GetGroupCount();
@@ -50,7 +51,7 @@ namespace PHX
 
 	const UniformDataGroup* UniformCollectionHandle::GetGroup(u32 groupIndex) const
 	{
-		IUniformCollection* pUniformCollection = m_pRenderDevice->ResolveHandle(*this);
+		IUniformCollection* pUniformCollection = HANDLE_UTILS::ResolveHandle(*this);
 		if (pUniformCollection != nullptr)
 		{
 			return pUniformCollection->GetGroup(groupIndex);
@@ -61,7 +62,7 @@ namespace PHX
 
 	UniformDataGroup* UniformCollectionHandle::GetGroup(u32 groupIndex)
 	{
-		IUniformCollection* pUniformCollection = m_pRenderDevice->ResolveHandle(*this);
+		IUniformCollection* pUniformCollection = HANDLE_UTILS::ResolveHandle(*this);
 		if (pUniformCollection != nullptr)
 		{
 			return pUniformCollection->GetGroup(groupIndex);
@@ -72,7 +73,7 @@ namespace PHX
 
 	STATUS_CODE UniformCollectionHandle::QueueBufferUpdate(BufferHandle buffer, u32 set, u32 binding, u64 offset, u64 size)
 	{
-		IUniformCollection* pUniformCollection = m_pRenderDevice->ResolveHandle(*this);
+		IUniformCollection* pUniformCollection = HANDLE_UTILS::ResolveHandle(*this);
 		if (pUniformCollection != nullptr)
 		{
 			return pUniformCollection->QueueBufferUpdate(buffer, set, binding, offset, size);
@@ -84,7 +85,7 @@ namespace PHX
 
 	STATUS_CODE UniformCollectionHandle::QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex)
 	{
-		IUniformCollection* pUniformCollection = m_pRenderDevice->ResolveHandle(*this);
+		IUniformCollection* pUniformCollection = HANDLE_UTILS::ResolveHandle(*this);
 		if (pUniformCollection != nullptr)
 		{
 			return pUniformCollection->QueueImageUpdate(texture, set, binding, imageViewIndex);
@@ -96,7 +97,7 @@ namespace PHX
 
 	STATUS_CODE UniformCollectionHandle::FlushUpdateQueue()
 	{
-		IUniformCollection* pUniformCollection = m_pRenderDevice->ResolveHandle(*this);
+		IUniformCollection* pUniformCollection = HANDLE_UTILS::ResolveHandle(*this);
 		if (pUniformCollection != nullptr)
 		{
 			return pUniformCollection->FlushUpdateQueue();

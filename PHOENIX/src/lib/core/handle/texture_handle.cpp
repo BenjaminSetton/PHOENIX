@@ -2,6 +2,8 @@
 #include "PHX/interface/texture.h"
 #include "PHX/interface/render_device.h"
 
+#include "core/handle/handle_utils.h"
+
 namespace PHX
 {
 	TextureHandle::TextureHandle() : Handle(HANDLE_TYPE::TEXTURE)
@@ -37,8 +39,8 @@ namespace PHX
 
 	void TextureHandle::CopyFrom(TextureHandle other)
 	{
-		ITexture* pThisTexture = m_pRenderDevice->ResolveHandle(*this);
-		ITexture* pOtherTexture = m_pRenderDevice->ResolveHandle(other);
+		ITexture* pThisTexture = HANDLE_UTILS::ResolveHandle(*this);
+		ITexture* pOtherTexture = HANDLE_UTILS::ResolveHandle(other);
 
 		if (pThisTexture != nullptr && pOtherTexture != nullptr)
 		{
@@ -48,7 +50,7 @@ namespace PHX
 
 	u32 TextureHandle::GetWidth() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetWidth();
@@ -59,7 +61,7 @@ namespace PHX
 
 	u32 TextureHandle::GetHeight() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetHeight();
@@ -70,7 +72,7 @@ namespace PHX
 
 	BASE_FORMAT TextureHandle::GetFormat() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetFormat();
@@ -81,7 +83,7 @@ namespace PHX
 
 	u32 TextureHandle::GetArrayLayers() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetArrayLayers();
@@ -92,7 +94,7 @@ namespace PHX
 
 	u32 TextureHandle::GetMipLevels() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetMipLevels();
@@ -103,7 +105,7 @@ namespace PHX
 
 	SAMPLE_COUNT TextureHandle::GetSampleCount() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetSampleCount();
@@ -114,7 +116,7 @@ namespace PHX
 
 	AspectTypeFlags TextureHandle::GetAspectFlags() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetAspectFlags();
@@ -125,7 +127,7 @@ namespace PHX
 
 	VIEW_TYPE TextureHandle::GetViewType() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetViewType();
@@ -136,7 +138,7 @@ namespace PHX
 
 	VIEW_SCOPE TextureHandle::GetViewScope() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetViewScope();
@@ -147,7 +149,7 @@ namespace PHX
 
 	FILTER_MODE TextureHandle::GetMinificationFilter() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetMinificationFilter();
@@ -158,7 +160,7 @@ namespace PHX
 
 	FILTER_MODE TextureHandle::GetMagnificationFilter() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetMagnificationFilter();
@@ -169,7 +171,7 @@ namespace PHX
 
 	SAMPLER_ADDRESS_MODE TextureHandle::GetSamplerAddressMode() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetSamplerAddressMode();
@@ -180,7 +182,7 @@ namespace PHX
 
 	FILTER_MODE TextureHandle::GetSamplerFilter() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetSamplerFilter();
@@ -191,7 +193,7 @@ namespace PHX
 
 	bool TextureHandle::IsAnisotropicFilteringEnabled() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->IsAnisotropicFilteringEnabled();
@@ -202,7 +204,7 @@ namespace PHX
 
 	float TextureHandle::GetAnisotropyLevel() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->GetAnisotropyLevel();
@@ -213,7 +215,7 @@ namespace PHX
 
 	bool TextureHandle::IsDepthTexture() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->IsDepthTexture();
@@ -224,7 +226,7 @@ namespace PHX
 
 	bool TextureHandle::HasStencilComponent() const
 	{
-		ITexture* pTexture = m_pRenderDevice->ResolveHandle(*this);
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
 		if (pTexture != nullptr)
 		{
 			return pTexture->HasStencilComponent();

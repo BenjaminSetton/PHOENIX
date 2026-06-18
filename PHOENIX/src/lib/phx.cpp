@@ -238,28 +238,14 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, IRenderDevice** out_renderDevice)
+	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice)
 	{
-		if (out_renderDevice == nullptr)
-		{
-			LogError("Failed to create render device! out_renderDevice is null");
-			return STATUS_CODE::ERR_API;
-		}
-
-		*out_renderDevice = OBJ_FACTORY::CreateRenderDevice(createInfo);
-
-		// TODO - Figure out a way to capture errors. Catch exceptions or change OBJ_FACTORY return type?
-		return STATUS_CODE::SUCCESS;
+		return OBJ_FACTORY::CreateRenderDevice(createInfo, renderDevice);
 	}
 
 	void DestroyWindow(IWindow** pWindow)
 	{
 		SAFE_DEL(*pWindow);
-	}
-
-	void DestroyRenderDevice(IRenderDevice** pRenderDevice)
-	{
-		SAFE_DEL(*pRenderDevice);
 	}
 
 	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result)

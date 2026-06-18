@@ -159,7 +159,7 @@ void TexturedModelSample::Init()
 	vBufferCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
 	vBufferCI.sizeBytes = vBufferSizeBytes;
 
-	phxRes = m_pRenderDevice->AllocateBuffer(vBufferCI, m_vertexBuffer);
+	phxRes = m_renderDevice.AllocateBuffer(vBufferCI, m_vertexBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// INDEX BUFFER
@@ -169,7 +169,7 @@ void TexturedModelSample::Init()
 	iBufferCI.bufferUsage = BUFFER_USAGE::INDEX_BUFFER;
 	iBufferCI.sizeBytes = iBufferSizeBytes;
 
-	phxRes = m_pRenderDevice->AllocateBuffer(iBufferCI, m_indexBuffer);
+	phxRes = m_renderDevice.AllocateBuffer(iBufferCI, m_indexBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// DEPTH BUFFER
@@ -193,18 +193,18 @@ void TexturedModelSample::Init()
 	depthBufferSamplerCI.minificationFilter = FILTER_MODE::NEAREST;
 	depthBufferSamplerCI.samplerMipMapFilter = FILTER_MODE::NEAREST;
 
-	phxRes = m_pRenderDevice->AllocateTexture(depthBufferBaseCI, depthBufferViewCI, depthBufferSamplerCI, m_depthBuffer);
+	phxRes = m_renderDevice.AllocateTexture(depthBufferBaseCI, depthBufferViewCI, depthBufferSamplerCI, m_depthBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// SHADERS
 	ShaderHandle vertShader;
-	if (!Common::AllocateShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, m_pRenderDevice, vertShader))
+	if (!Common::AllocateShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, m_renderDevice, vertShader))
 	{
 		return;
 	}
 
 	ShaderHandle fragShader;
-	if (!Common::AllocateShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, m_pRenderDevice, fragShader))
+	if (!Common::AllocateShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, m_renderDevice, fragShader))
 	{
 		return;
 	}
@@ -263,14 +263,14 @@ void TexturedModelSample::Init()
 	transformUniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
 	transformUniformBufferCI.sizeBytes = sizeof(TransformData);
 
-	phxRes = m_pRenderDevice->AllocateBuffer(transformUniformBufferCI, m_transformBuffer);
+	phxRes = m_renderDevice.AllocateBuffer(transformUniformBufferCI, m_transformBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	BufferCreateInfo cameraUniformBufferCI{};
 	cameraUniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
 	cameraUniformBufferCI.sizeBytes = sizeof(CameraData);
 
-	phxRes = m_pRenderDevice->AllocateBuffer(cameraUniformBufferCI, m_cameraBuffer);
+	phxRes = m_renderDevice.AllocateBuffer(cameraUniformBufferCI, m_cameraBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// UNIFORM DATA
@@ -339,7 +339,7 @@ void TexturedModelSample::CreateAssetTextures()
 		samplerCI.samplerMipMapFilter = FILTER_MODE::LINEAR;
 
 		TextureHandle pAssetTex;
-		STATUS_CODE res = m_pRenderDevice->AllocateTexture(baseCI, viewCI, samplerCI, pAssetTex);
+		STATUS_CODE res = m_renderDevice.AllocateTexture(baseCI, viewCI, samplerCI, pAssetTex);
 		CHECK_PHX_RES(res);
 
 		m_assetTextures.push_back(pAssetTex);
@@ -398,7 +398,7 @@ void TexturedModelSample::CreateUniformCollection()
 	uniformCollectionCI.dataGroups = dataGroups.data();
 	uniformCollectionCI.groupCount = static_cast<u32>(dataGroups.size());
 
-	STATUS_CODE phxRes = m_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, m_uniformCollection);
+	STATUS_CODE phxRes = m_renderDevice.AllocateUniformCollection(uniformCollectionCI, m_uniformCollection);
 	CHECK_PHX_RES(phxRes);
 }
 

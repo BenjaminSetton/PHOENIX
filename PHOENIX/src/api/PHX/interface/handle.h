@@ -6,7 +6,7 @@
 namespace PHX
 {
 	// Forward declarations
-	class IRenderDevice;
+	class HandleOwner;
 	struct HandleAccessor;
 
 	// DO NOT CONSTRUCT HANDLE OBJECTS DIRECTLY. INSTEAD MAKE AN INSTANCE OF DERIVED HANDLES (e.g. TextureHandle, BufferHandle, etc)
@@ -30,14 +30,14 @@ namespace PHX
 
 	private:
 		void Reset();
-		void PopulateHandle(IRenderDevice* pDevice, u32 index, u8 generation);
+		void PopulateHandle(HandleOwner* pOwner, u32 index, u8 generation);
 		bool IsSame(const Handle& handleA, const Handle& handleB) const;
 
 		void IncrementRefCount();
 		void DecrementRefCount();
 
 	protected:
-		IRenderDevice* m_pRenderDevice;
+		HandleOwner* m_pOwner;
 		u32 m_index;
 		u8 m_generation;
 		HANDLE_TYPE m_type;

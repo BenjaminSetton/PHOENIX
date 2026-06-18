@@ -9,11 +9,11 @@ namespace PHX
 {
 	static constexpr u32 INVALID_INDEX = U32_MAX;
 
-	Handle::Handle() : m_pRenderDevice(nullptr), m_index(0), m_generation(0), m_type(HANDLE_TYPE::INVALID)
+	Handle::Handle() : m_pOwner(nullptr), m_index(0), m_generation(0), m_type(HANDLE_TYPE::INVALID)
 	{
 	}
 
-	Handle::Handle(HANDLE_TYPE type) : m_pRenderDevice(nullptr), m_index(0), m_generation(0), m_type(type)
+	Handle::Handle(HANDLE_TYPE type) : m_pOwner(nullptr), m_index(0), m_generation(0), m_type(type)
 	{
 	}
 
@@ -25,8 +25,7 @@ namespace PHX
 
 	Handle::Handle(const Handle& other)
 	{
-
-		m_pRenderDevice = other.m_pRenderDevice;
+		m_pOwner = other.m_pOwner;
 		m_index = other.m_index;
 		m_generation = other.m_generation;
 		m_type = other.m_type;
@@ -55,7 +54,7 @@ namespace PHX
 			return *this;
 		}
 
-		m_pRenderDevice = other.m_pRenderDevice;
+		m_pOwner = other.m_pOwner;
 		m_index = other.m_index;
 		m_generation = other.m_generation;
 		m_type = other.m_type;
@@ -67,7 +66,7 @@ namespace PHX
 
 	Handle::Handle(Handle&& other) noexcept
 	{
-		m_pRenderDevice = other.m_pRenderDevice;
+		m_pOwner = other.m_pOwner;
 		m_index = other.m_index;
 		m_generation = other.m_generation;
 		m_type = other.m_type;
@@ -93,15 +92,15 @@ namespace PHX
 
 	void Handle::Reset()
 	{
-		m_pRenderDevice = nullptr;
+		m_pOwner = nullptr;
 		m_index = INVALID_INDEX;
 		m_generation = 0;
 		m_type = HANDLE_TYPE::INVALID;
 	}
 
-	void Handle::PopulateHandle(IRenderDevice* pDevice, u32 index, u8 generation)
+	void Handle::PopulateHandle(HandleOwner* pOwner, u32 index, u8 generation)
 	{
-		m_pRenderDevice = pDevice;
+		m_pOwner = pOwner;
 		m_index = index;
 		m_generation = generation;
 		// Do not change the type!
@@ -112,7 +111,7 @@ namespace PHX
 
 	bool Handle::IsSame(const Handle& handleA, const Handle& handleB) const
 	{
-		return (handleA.m_pRenderDevice == handleB.m_pRenderDevice &&
+		return (handleA.m_pOwner == handleB.m_pOwner &&
 				handleA.m_index == handleB.m_index &&
 				handleA.m_generation == handleB.m_generation &&
 				handleA.m_type == handleB.m_type);
@@ -120,17 +119,17 @@ namespace PHX
 
 	void Handle::IncrementRefCount()
 	{
-		if (m_pRenderDevice != nullptr)
+		if (m_pOwner != nullptr)
 		{
-			m_pRenderDevice->IncrementRefCount(*this);
+			m_pOwner->IncrementHandleRefCount(*this);
 		}
 	}
 
 	void Handle::DecrementRefCount()
 	{
-		if (m_pRenderDevice != nullptr)
+		if (m_pOwner != nullptr)
 		{
-			m_pRenderDevice->DecrementRefCount(*this);
+			m_pOwner->DecrementHandleRefCount(*this);
 		}
 	}
 }

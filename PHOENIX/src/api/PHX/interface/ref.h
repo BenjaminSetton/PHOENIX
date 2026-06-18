@@ -6,7 +6,7 @@
 
 namespace PHX
 {
-	// TODO - Move to lib along with handles
+	// TODO - Move to lib
 	class RefCounted
 	{
 	public:

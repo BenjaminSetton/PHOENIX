@@ -1,5 +1,4 @@
 # Executables
-*.exe
 *.out
 *.app
 
@@ -11,3 +10,6 @@ out/
 
 *.spv
 *.sln
+
+# Generated
+PHOENIX/out

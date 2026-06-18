@@ -6,6 +6,7 @@
 #include "platform/vulkan/swap_chain_vk.h"
 
 #include "core/global_settings.h"
+#include "core/handle/handle_utils.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
 
@@ -28,6 +29,11 @@ namespace PHX
 			{
 				return CoreVk::Get().Initialize(pWindow);
 			}
+			default:
+			{
+				ASSERT_ALWAYS("Failed to create core objects. Unsupported graphics API!");
+				break;
+			}
 			}
 
 			// Nothing was created
@@ -43,18 +49,39 @@ namespace PHX
 #endif
 		}
 
-		IRenderDevice* CreateRenderDevice(const RenderDeviceCreateInfo& createInfo)
+		STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice)
 		{
+			// TODO - Move to appropriate storage
+			static IRenderDevice* s_pRenderDevice = nullptr;
+
 			auto& settings = GetSettings();
 			switch (settings.backendAPI)
 			{
 			case GRAPHICS_API::VULKAN:
 			{
-				return new RenderDeviceVk(createInfo);
+				if (s_pRenderDevice != nullptr)
+				{
+					LogError("Cannot re-create render device. An instance already exists!");
+				}
+				else
+				{
+					s_pRenderDevice = new RenderDeviceVk(createInfo);
+					if (s_pRenderDevice == nullptr)
+					{
+						LogError("Failed to create render device. Memory allocation failed!");
+						return STATUS_CODE::ERR_INTERNAL;
+					}
+				}
+				return HANDLE_UTILS::AllocateHandle(s_pRenderDevice, renderDevice);
+			}
+			default:
+			{
+				ASSERT_ALWAYS("Failed to create render device. Unsupported graphics API!");
+				break;
 			}
 			}
 
-			return nullptr;
+			return STATUS_CODE::ERR_API;
 		}
 	}
 }

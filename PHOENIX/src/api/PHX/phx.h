@@ -24,10 +24,9 @@ namespace PHX
 	u32 GetPatchVersion();
 
 	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, IWindow** out_window);
-	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, IRenderDevice** out_renderDevice);
+	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice);
 
 	void DestroyWindow(IWindow** pWindow);
-	void DestroyRenderDevice(IRenderDevice** pRenderDevice);
 
 	// UTILS
 	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result);

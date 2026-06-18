@@ -2,6 +2,7 @@
 #include "PHX/interface/device_context.h"
 #include "PHX/interface/render_device.h"
 
+#include "core/handle/handle_utils.h"
 #include "utils/logger.h"
 
 namespace PHX
@@ -39,7 +40,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextHandle::BindVertexBuffer(BufferHandle vertexBuffer)
 	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
 			return pContext->BindVertexBuffer(vertexBuffer);
@@ -51,7 +52,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextHandle::BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer)
 	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
 			return pContext->BindMesh(vertexBuffer, indexBuffer);
@@ -63,7 +64,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextHandle::BindUniformCollection(UniformCollectionHandle uniformCollection)
 	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
 			return pContext->BindUniformCollection(uniformCollection);
@@ -75,7 +76,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextHandle::SetViewport(Vec2u size, Vec2u offset)
 	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
 			return pContext->SetViewport(size, offset);
@@ -87,7 +88,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextHandle::SetScissor(Vec2u size, Vec2u offset)
 	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
 			return pContext->SetScissor(size, offset);
@@ -99,7 +100,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextHandle::Draw(u32 vertexCount)
 	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
 			return pContext->Draw(vertexCount);
@@ -111,7 +112,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextHandle::DrawIndexed(u32 indexCount)
 	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
 			return pContext->DrawIndexed(indexCount);
@@ -123,7 +124,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextHandle::DrawIndexedInstanced(u32 indexCount, u32 instanceCount)
 	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
 			return pContext->DrawIndexedInstanced(indexCount, instanceCount);
@@ -135,7 +136,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextHandle::Dispatch(Vec3u dimensions)
 	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
 			return pContext->Dispatch(dimensions);
@@ -147,7 +148,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextHandle::CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes)
 	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
 			return pContext->CopyDataToBuffer(buffer, data, sizeBytes);
@@ -159,7 +160,7 @@ namespace PHX
 
 	STATUS_CODE DeviceContextHandle::CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes)
 	{
-		IDeviceContext* pContext = m_pRenderDevice->ResolveHandle(*this);
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
 			return pContext->CopyDataToTexture(texture, data, sizeBytes);

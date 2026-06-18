@@ -2,13 +2,14 @@
 #include "PHX/interface/shader.h"
 #include "PHX/interface/render_device.h"
 
+#include "core/handle/handle_utils.h"
 #include "utils/sanity.h"
 
 namespace PHX
 {
 	static const ShaderReflectionData s_defaultReflectionData;
 
-	ShaderHandle::ShaderHandle() : Handle(HANDLE_TYPE::RENDER_PASS)
+	ShaderHandle::ShaderHandle() : Handle(HANDLE_TYPE::SHADER)
 	{
 	}
 
@@ -41,7 +42,7 @@ namespace PHX
 
 	SHADER_STAGE ShaderHandle::GetStage() const
 	{
-		IShader* pShader = m_pRenderDevice->ResolveHandle(*this);
+		IShader* pShader = HANDLE_UTILS::ResolveHandle(*this);
 		if (pShader != nullptr)
 		{
 			return pShader->GetStage();
@@ -53,7 +54,7 @@ namespace PHX
 
 	const ShaderReflectionData& ShaderHandle::GetReflectionData() const
 	{
-		IShader* pShader = m_pRenderDevice->ResolveHandle(*this);
+		IShader* pShader = HANDLE_UTILS::ResolveHandle(*this);
 		if (pShader != nullptr)
 		{
 			return pShader->GetReflectionData();

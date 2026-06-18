@@ -38,7 +38,7 @@ namespace Common
 	}
 
 	BaseSample::BaseSample() : 
-		m_pWindow(nullptr), m_pRenderDevice(nullptr), m_swapChain(), m_renderGraph(), m_pCamera(nullptr)
+		m_pWindow(nullptr), m_renderDevice(), m_swapChain(), m_renderGraph(), m_pCamera(nullptr)
 	{
 		Init();
 	}
@@ -78,7 +78,6 @@ namespace Common
 
 	void BaseSample::Shutdown()
 	{
-		DestroyRenderDevice();
 		DestroyWindow();
 	}
 
@@ -116,7 +115,7 @@ namespace Common
 		swapChainCI.width = m_pWindow->GetCurrentWidth();
 		swapChainCI.height = m_pWindow->GetCurrentHeight();
 
-		STATUS_CODE phxRes = m_pRenderDevice->AllocateSwapChain(swapChainCI, m_swapChain);
+		STATUS_CODE phxRes = m_renderDevice.AllocateSwapChain(swapChainCI, m_swapChain);
 		CHECK_PHX_RES(phxRes);
 	}
 
@@ -126,27 +125,19 @@ namespace Common
 		renderDeviceCI.framesInFlight = 2;
 		renderDeviceCI.window = m_pWindow;
 
-		IRenderDevice* pRenderDevice = nullptr;
-		STATUS_CODE phxRes = PHX::CreateRenderDevice(renderDeviceCI, &pRenderDevice);
+		STATUS_CODE phxRes = PHX::CreateRenderDevice(renderDeviceCI, m_renderDevice);
 		CHECK_PHX_RES(phxRes);
-
-		m_pRenderDevice = pRenderDevice;
 	}
 
 	void BaseSample::CreateRenderGraph()
 	{
-		STATUS_CODE phxRes = m_pRenderDevice->AllocateRenderGraph(m_renderGraph);
+		STATUS_CODE phxRes = m_renderDevice.AllocateRenderGraph(m_renderGraph);
 		CHECK_PHX_RES(phxRes);
 	}
 
 	void BaseSample::DestroyWindow()
 	{
 		PHX::DestroyWindow(&m_pWindow);
-	}
-
-	void BaseSample::DestroyRenderDevice()
-	{
-		PHX::DestroyRenderDevice(&m_pRenderDevice);
 	}
 
 	void BaseSample::OnKeyDown(PHX::KeyCode keycode)

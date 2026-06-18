@@ -32,12 +32,11 @@ namespace Common
 		virtual void CreateRenderGraph();
 
 		virtual void DestroyWindow();
-		virtual void DestroyRenderDevice();
 
 	protected:
 
 		PHX::IWindow* m_pWindow;
-		PHX::IRenderDevice* m_pRenderDevice;
+		PHX::RenderDeviceHandle m_renderDevice;
 		PHX::SwapChainHandle m_swapChain;
 		PHX::RenderGraphHandle m_renderGraph;
 

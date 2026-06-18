@@ -2,6 +2,7 @@
 #include "PHX/interface/render_device.h"
 #include "PHX/interface/swap_chain.h"
 
+#include "core/handle/handle_utils.h"
 #include "utils/sanity.h"
 
 namespace PHX
@@ -39,7 +40,7 @@ namespace PHX
 
 	TextureHandle SwapChainHandle::GetCurrentImage() const
 	{
-		ISwapChain* pSwapChain = m_pRenderDevice->ResolveHandle(*this);
+		ISwapChain* pSwapChain = HANDLE_UTILS::ResolveHandle(*this);
 		if (pSwapChain != nullptr)
 		{
 			return pSwapChain->GetCurrentImage();
@@ -51,7 +52,7 @@ namespace PHX
 
 	u32 SwapChainHandle::GetImageCount() const
 	{
-		ISwapChain* pSwapChain = m_pRenderDevice->ResolveHandle(*this);
+		ISwapChain* pSwapChain = HANDLE_UTILS::ResolveHandle(*this);
 		if (pSwapChain != nullptr)
 		{
 			return pSwapChain->GetImageCount();
@@ -63,7 +64,7 @@ namespace PHX
 
 	u32 SwapChainHandle::GetCurrentImageIndex() const
 	{
-		ISwapChain* pSwapChain = m_pRenderDevice->ResolveHandle(*this);
+		ISwapChain* pSwapChain = HANDLE_UTILS::ResolveHandle(*this);
 		if (pSwapChain != nullptr)
 		{
 			return pSwapChain->GetCurrentImageIndex();
@@ -75,7 +76,7 @@ namespace PHX
 
 	STATUS_CODE SwapChainHandle::Present()
 	{
-		ISwapChain* pSwapChain = m_pRenderDevice->ResolveHandle(*this);
+		ISwapChain* pSwapChain = HANDLE_UTILS::ResolveHandle(*this);
 		if (pSwapChain != nullptr)
 		{
 			return pSwapChain->Present();
@@ -87,7 +88,7 @@ namespace PHX
 
 	void SwapChainHandle::Resize(u32 newWidth, u32 newHeight)
 	{
-		ISwapChain* pSwapChain = m_pRenderDevice->ResolveHandle(*this);
+		ISwapChain* pSwapChain = HANDLE_UTILS::ResolveHandle(*this);
 		if (pSwapChain != nullptr)
 		{
 			return pSwapChain->Resize(newWidth, newHeight);

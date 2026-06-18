@@ -33,73 +33,22 @@ namespace PHX
 		~RenderDeviceVk() override;
 
 		const char* GetDeviceName() const;
+		u32 GetFramesInFlight() const override;
 		
+		// Allocations
 		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle) override;
 		STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& handle) override;
 		STATUS_CODE AllocateSwapchainTexture(const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView, TextureHandle& handle);
-		STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& uniformCollection) override;
-		STATUS_CODE AllocateRenderGraph(RenderGraphHandle& renderGraph) override;
-		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader) override;
-		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain) override;
-
-		void DeallocateResource(const Handle& handle) override;
-
-		template<typename HandleT, typename DerivedInterfaceT>
-		void DeallocateResource_Helper(std::vector<DerivedInterfaceT*>& list, const Handle& handle)
-		{
-			// Assuming generation is always 0
-			const u32 index = HandleAccessor::GetIndex(handle);
-			if (index <= static_cast<u32>(list.size()))
-			{
-				DerivedInterfaceT* pObj = list[index];
-				SAFE_DEL(pObj);
-
-				list.erase(list.begin() + index);
-			}
-		}
-
-		u32 GetFramesInFlight() const override;
-
-		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext) override;
+		STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& handle) override;
+		STATUS_CODE AllocateRenderGraph(RenderGraphHandle& handle) override;
+		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& handle) override;
+		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& handle) override;
+		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& handle) override;
 
 		// Handles
-		ITexture* ResolveHandle(const TextureHandle& handle) override;
-		IBuffer* ResolveHandle(const BufferHandle& handle) override;
-		IUniformCollection* ResolveHandle(const UniformCollectionHandle& handle) override;
-		IDeviceContext* ResolveHandle(const DeviceContextHandle& handle) override;
-		IRenderGraph* ResolveHandle(const RenderGraphHandle& handle) override;
-		IRenderPass* ResolveHandle(const RenderPassHandle& handle) override;
-		IShader* ResolveHandle(const ShaderHandle& handle) override;
-		ISwapChain* ResolveHandle(const SwapChainHandle& handle) override;
-
-		void IncrementRefCount(const Handle& handle) override;
-		void DecrementRefCount(const Handle& handle) override;
-
-		template<typename HandleT, typename InterfaceT>
-		void IncrementRefCount_Helper(const Handle& handle)
-		{
-			InterfaceT* pObj = ResolveHandle(static_cast<const HandleT&>(handle));
-			if (pObj != nullptr)
-			{
-				pObj->IncrementRefCount();
-			}
-		}
-
-		template<typename HandleT, typename InterfaceT>
-		void DecrementRefCount_Helper(const Handle& handle)
-		{
-			InterfaceT* pObj = ResolveHandle(static_cast<const HandleT&>(handle));
-			if (pObj != nullptr)
-			{
-				pObj->DecrementRefCount();
-
-				// Check for deletion
-				if (pObj->GetRefCount() <= 0)
-				{
-					DeallocateResource(handle);
-				}
-			}
-		}
+		void* ResolveHandle(const Handle& handle) override;
+		void IncrementHandleRefCount(const Handle& handle) override;
+		void DecrementHandleRefCount(const Handle& handle) override;
 
 		// Cached creation calls - vulkan only
 		FramebufferVk* CreateFramebuffer(const FramebufferDescription& desc);
@@ -189,6 +138,6 @@ namespace PHX
 		std::vector<DeviceContextVk*> m_deviceContexts;
 		std::vector<ShaderVk*> m_shaders;
 		std::vector<SwapChainVk*> m_swapChains; // Possibly support multiple windows?
-		RenderGraphVk* m_pRenderGraph;
+		std::vector<RenderGraphVk*> m_renderGraphs;
 	};
 }

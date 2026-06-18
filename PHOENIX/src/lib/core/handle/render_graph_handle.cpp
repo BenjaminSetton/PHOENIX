@@ -1,6 +1,8 @@
 
 #include "PHX/interface/render_device.h"
 #include "PHX/interface/render_graph.h"
+
+#include "core/handle/handle_utils.h"
 #include "utils/sanity.h"
 
 namespace PHX
@@ -38,7 +40,7 @@ namespace PHX
 
 	void RenderPassHandle::SetTextureInput(TextureHandle texture)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetTextureInput(texture);
@@ -47,7 +49,7 @@ namespace PHX
 
 	void RenderPassHandle::SetBufferInput(BufferHandle buffer)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetBufferInput(buffer);
@@ -56,7 +58,7 @@ namespace PHX
 
 	void RenderPassHandle::SetUniformInput(UniformCollectionHandle uniformCollection)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetUniformInput(uniformCollection);
@@ -65,7 +67,7 @@ namespace PHX
 
 	void RenderPassHandle::SetColorOutput(TextureHandle texture)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetColorOutput(texture);
@@ -74,7 +76,7 @@ namespace PHX
 
 	void RenderPassHandle::SetDepthOutput(TextureHandle texture)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetDepthOutput(texture);
@@ -83,7 +85,7 @@ namespace PHX
 
 	void RenderPassHandle::SetDepthStencilOutput(TextureHandle texture)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetDepthStencilOutput(texture);
@@ -92,7 +94,7 @@ namespace PHX
 
 	void RenderPassHandle::SetResolveOutput(TextureHandle texture)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetResolveOutput(texture);
@@ -101,7 +103,7 @@ namespace PHX
 
 	void RenderPassHandle::SetBackbufferOutput(TextureHandle texture)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetBackbufferOutput(texture);
@@ -110,7 +112,7 @@ namespace PHX
 
 	void RenderPassHandle::SetBufferOutput(BufferHandle buffer)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetBufferOutput(buffer);
@@ -119,7 +121,7 @@ namespace PHX
 
 	void RenderPassHandle::SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetPipelineDescription(graphicsPipelineDesc);
@@ -128,7 +130,7 @@ namespace PHX
 
 	void RenderPassHandle::SetPipelineDescription(const ComputePipelineDesc& computePipelineDesc)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetPipelineDescription(computePipelineDesc);
@@ -137,7 +139,7 @@ namespace PHX
 
 	void RenderPassHandle::SetExecuteCallback(ExecuteRenderPassCallbackFn callback)
 	{
-		IRenderPass* pPass = m_pRenderDevice->ResolveHandle(*this);
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
 			return pPass->SetExecuteCallback(callback);
@@ -179,7 +181,7 @@ namespace PHX
 	
 	STATUS_CODE RenderGraphHandle::BeginFrame(SwapChainHandle swapChain)
 	{
-		IRenderGraph* pGraph = m_pRenderDevice->ResolveHandle(*this);
+		IRenderGraph* pGraph = HANDLE_UTILS::ResolveHandle(*this);
 		if (pGraph != nullptr)
 		{
 			return pGraph->BeginFrame(swapChain);
@@ -191,7 +193,7 @@ namespace PHX
 
 	STATUS_CODE RenderGraphHandle::EndFrame()
 	{
-		IRenderGraph* pGraph = m_pRenderDevice->ResolveHandle(*this);
+		IRenderGraph* pGraph = HANDLE_UTILS::ResolveHandle(*this);
 		if (pGraph != nullptr)
 		{
 			return pGraph->EndFrame();
@@ -203,7 +205,7 @@ namespace PHX
 
 	STATUS_CODE RenderGraphHandle::RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass)
 	{
-		IRenderGraph* pGraph = m_pRenderDevice->ResolveHandle(*this);
+		IRenderGraph* pGraph = HANDLE_UTILS::ResolveHandle(*this);
 		if (pGraph != nullptr)
 		{
 			return pGraph->RegisterPass(passName, bindPoint, renderPass);
@@ -215,7 +217,7 @@ namespace PHX
 
 	STATUS_CODE RenderGraphHandle::Bake(ClearValues* pClearColors, u32 clearColorCount)
 	{
-		IRenderGraph* pGraph = m_pRenderDevice->ResolveHandle(*this);
+		IRenderGraph* pGraph = HANDLE_UTILS::ResolveHandle(*this);
 		if (pGraph != nullptr)
 		{
 			return pGraph->Bake(pClearColors, clearColorCount);
@@ -227,7 +229,7 @@ namespace PHX
 
 	STATUS_CODE RenderGraphHandle::GenerateVisualization(const char* fileName, bool generateIfUnique)
 	{
-		IRenderGraph* pGraph = m_pRenderDevice->ResolveHandle(*this);
+		IRenderGraph* pGraph = HANDLE_UTILS::ResolveHandle(*this);
 		if (pGraph != nullptr)
 		{
 			return pGraph->GenerateVisualization(fileName, generateIfUnique);

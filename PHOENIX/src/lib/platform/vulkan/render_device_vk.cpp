@@ -22,6 +22,7 @@
 
 #include "buffer_vk.h"
 #include "core/handle/handle_accessor.h"
+#include "core/handle/handle_utils.h"
 #include "core_vk.h"
 #include "device_context_vk.h"
 #include "pipeline_vk.h"
@@ -81,7 +82,7 @@ namespace PHX
 
 	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
 		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_descriptorPool(VK_NULL_HANDLE),
-		m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_pRenderGraph(nullptr)
+		m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_renderGraphs()
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
@@ -176,6 +177,11 @@ namespace PHX
 		return m_physicalDeviceProperties.deviceName;
 	}
 
+	u32 RenderDeviceVk::GetFramesInFlight() const
+	{
+		return m_framesInFlight;
+	}
+
 	STATUS_CODE RenderDeviceVk::AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle)
 	{
 		BufferVk* pBuffer = new BufferVk(this, createInfo);
@@ -184,14 +190,10 @@ namespace PHX
 			LogError("Failed to allocate buffer. Memory allocation failed!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
-		m_buffers.push_back(pBuffer);
-		
-		pBuffer->IncrementRefCount();
-		HandleAccessor::PopulateHandle(handle, this, static_cast<u32>(m_buffers.size() - 1), 0u);
-		return STATUS_CODE::SUCCESS;
+		return HANDLE_UTILS::AllocateHandle(m_buffers, pBuffer, this, handle);
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& texture)
+	STATUS_CODE RenderDeviceVk::AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& handle)
 	{
 		TextureVk* pTexture = new TextureVk(this, baseCreateInfo, viewCreateInfo, samplerCreateInfo);
 		if (pTexture == nullptr)
@@ -199,11 +201,7 @@ namespace PHX
 			LogError("Failed to allocate texture. Memory allocation failed!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
-		m_textures.push_back(pTexture);
-
-		pTexture->IncrementRefCount();
-		HandleAccessor::PopulateHandle(texture, this, static_cast<u32>(m_textures.size() - 1), 0u);
-		return STATUS_CODE::SUCCESS;
+		return HANDLE_UTILS::AllocateHandle(m_textures, pTexture, this, handle);
 	}
 
 	STATUS_CODE RenderDeviceVk::AllocateSwapchainTexture(const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView, TextureHandle& handle)
@@ -214,14 +212,10 @@ namespace PHX
 			LogError("Failed to allocate swapchain texture. Memory allocation failed!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
-		m_textures.push_back(pTexture);
-
-		pTexture->IncrementRefCount();
-		HandleAccessor::PopulateHandle(handle, this, static_cast<u32>(m_textures.size() - 1), 0u);
-		return STATUS_CODE::SUCCESS;
+		return HANDLE_UTILS::AllocateHandle(m_textures, pTexture, this, handle);
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& uniformCollection)
+	STATUS_CODE RenderDeviceVk::AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& handle)
 	{
 		UniformCollectionVk* pUniformCollection = new UniformCollectionVk(this, createInfo);
 		if (pUniformCollection == nullptr)
@@ -229,31 +223,27 @@ namespace PHX
 			LogError("Failed to allocate uniform collection. Memory allocation failed!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
-		m_uniformCollections.push_back(pUniformCollection);
-
-		pUniformCollection->IncrementRefCount();
-		HandleAccessor::PopulateHandle(uniformCollection, this, static_cast<u32>(m_uniformCollections.size() - 1), 0u);
-		return STATUS_CODE::SUCCESS;
+		return HANDLE_UTILS::AllocateHandle(m_uniformCollections, pUniformCollection, this, handle);
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateRenderGraph(RenderGraphHandle& renderGraph)
+	STATUS_CODE RenderDeviceVk::AllocateRenderGraph(RenderGraphHandle& handle)
 	{
-		if (m_pRenderGraph == nullptr)
+		if (m_renderGraphs.size() >= 1)
 		{
-			m_pRenderGraph = new RenderGraphVk(this);
-			if (m_pRenderGraph == nullptr)
-			{
-				LogError("Failed to allocate render graph. Memory allocation failed!");
-				return STATUS_CODE::ERR_INTERNAL;
-			}
+			LogError("Cannot allocate more than one render graph!");
+			return STATUS_CODE::ERR_API;
 		}
 
-		m_pRenderGraph->IncrementRefCount();
-		HandleAccessor::PopulateHandle(renderGraph, this, 0u, 0u);
-		return STATUS_CODE::SUCCESS;
+		RenderGraphVk* pRenderGraph = new RenderGraphVk(this);
+		if (pRenderGraph == nullptr)
+		{
+			LogError("Failed to allocate render graph. Memory allocation failed!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+		return HANDLE_UTILS::AllocateHandle(m_renderGraphs, pRenderGraph, this, handle);
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader)
+	STATUS_CODE RenderDeviceVk::AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& handle)
 	{
 		ShaderVk* pShader = new ShaderVk(this, createInfo);
 		if (pShader == nullptr)
@@ -261,14 +251,10 @@ namespace PHX
 			LogError("Failed to allocate shader. Memory allocation failed!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
-		m_shaders.push_back(pShader);
-
-		pShader->IncrementRefCount();
-		HandleAccessor::PopulateHandle(shader, this, static_cast<u32>(m_shaders.size() - 1), 0u);
-		return STATUS_CODE::SUCCESS;
+		return HANDLE_UTILS::AllocateHandle(m_shaders, pShader, this, handle);
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain)
+	STATUS_CODE RenderDeviceVk::AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& handle)
 	{
 		SwapChainVk* pSwapChain = new SwapChainVk(this, createInfo);
 		if (pSwapChain == nullptr)
@@ -276,72 +262,10 @@ namespace PHX
 			LogError("Failed to allocate swap chain. Memory allocation failed!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
-		m_swapChains.push_back(pSwapChain);
-
-		pSwapChain->IncrementRefCount();
-		HandleAccessor::PopulateHandle(swapChain, this, static_cast<u32>(m_swapChains.size() - 1), 0u);
-		return STATUS_CODE::SUCCESS;
+		return HANDLE_UTILS::AllocateHandle(m_swapChains, pSwapChain, this, handle);
 	}
 
-	void RenderDeviceVk::DeallocateResource(const Handle& handle)
-	{
-		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
-		switch (handleType)
-		{
-		case HANDLE_TYPE::BUFFER:
-		{
-			DeallocateResource_Helper<BufferHandle, BufferVk>(m_buffers, handle);
-			break;
-		}
-		case HANDLE_TYPE::TEXTURE:
-		{
-			DeallocateResource_Helper<TextureHandle, TextureVk>(m_textures, handle);
-			break;
-		}
-		case HANDLE_TYPE::UNIFORM:
-		{
-			DeallocateResource_Helper<UniformCollectionHandle, UniformCollectionVk>(m_uniformCollections, handle);
-			break;
-		}
-		case HANDLE_TYPE::DEVICE_CONTEXT:
-		{
-			DeallocateResource_Helper<DeviceContextHandle, DeviceContextVk>(m_deviceContexts, handle);
-			break;
-		}
-		case HANDLE_TYPE::RENDER_GRAPH:
-		{
-			SAFE_DEL(m_pRenderGraph);
-			break;
-		}
-		case HANDLE_TYPE::RENDER_PASS:
-		{
-			// Render graph manages render passes; they're cleared every frame, no need to explicitly deallocate
-			break;
-		}
-		case HANDLE_TYPE::SHADER:
-		{
-			DeallocateResource_Helper<ShaderHandle, ShaderVk>(m_shaders, handle);
-			break;
-		}
-		case HANDLE_TYPE::SWAP_CHAIN:
-		{
-			DeallocateResource_Helper<SwapChainHandle, SwapChainVk>(m_swapChains, handle);
-			break;
-		}
-		default:
-		{
-			ASSERT_ALWAYS("Failed to deallocate resource. Unrecognized handle type!");
-			break;
-		}
-		}
-	}
-
-	u32 RenderDeviceVk::GetFramesInFlight() const
-	{
-		return m_framesInFlight;
-	}
-
-	STATUS_CODE RenderDeviceVk::AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext)
+	STATUS_CODE RenderDeviceVk::AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& handle)
 	{
 		DeviceContextVk* pContext = new DeviceContextVk(this, createInfo);
 		if (pContext == nullptr)
@@ -349,146 +273,69 @@ namespace PHX
 			LogError("Failed to allocate device context. Memory allocation failed!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
-		m_deviceContexts.push_back(pContext);
-
-		pContext->IncrementRefCount();
-		HandleAccessor::PopulateHandle(deviceContext, this, static_cast<u32>(m_deviceContexts.size() - 1), 0u);
-		return STATUS_CODE::SUCCESS;
+		return HANDLE_UTILS::AllocateHandle(m_deviceContexts, pContext, this, handle);
 	}
 
-	ITexture* RenderDeviceVk::ResolveHandle(const TextureHandle& handle)
+	void* RenderDeviceVk::ResolveHandle(const Handle& handle)
 	{
-		const u32 index = HandleAccessor::GetIndex(handle);
-		if (index >= static_cast<u32>(m_textures.size()))
+		HANDLE_TYPE const type = HandleAccessor::GetType(handle);
+		switch (type)
 		{
-			return nullptr;
+		case HANDLE_TYPE::BUFFER:          return HANDLE_UTILS::ResolveHandle<BufferVk>(m_buffers, handle);
+		case HANDLE_TYPE::TEXTURE:         return HANDLE_UTILS::ResolveHandle<TextureVk>(m_textures, handle);
+		case HANDLE_TYPE::UNIFORM:         return HANDLE_UTILS::ResolveHandle<UniformCollectionVk>(m_uniformCollections, handle);
+		case HANDLE_TYPE::DEVICE_CONTEXT:  return HANDLE_UTILS::ResolveHandle<DeviceContextVk>(m_deviceContexts, handle);
+		case HANDLE_TYPE::SHADER:          return HANDLE_UTILS::ResolveHandle<ShaderVk>(m_shaders, handle); 
+		case HANDLE_TYPE::SWAP_CHAIN:      return HANDLE_UTILS::ResolveHandle<SwapChainVk>(m_swapChains, handle);
+		case HANDLE_TYPE::RENDER_GRAPH:    return HANDLE_UTILS::ResolveHandle<RenderGraphVk>(m_renderGraphs, handle);
+		default:
+		{
+			break;
 		}
-		// TODO - Check generation
-
-		return m_textures[index];
-	}
-
-	IBuffer* RenderDeviceVk::ResolveHandle(const BufferHandle& handle)
-	{
-		const u32 index = HandleAccessor::GetIndex(handle);
-		if (index >= static_cast<u32>(m_buffers.size()))
-		{
-			return nullptr;
-		}
-		// TODO - Check generation
-
-		return m_buffers[index];
-	}
-
-	IUniformCollection* RenderDeviceVk::ResolveHandle(const UniformCollectionHandle& handle)
-	{
-		const u32 index = HandleAccessor::GetIndex(handle);
-		if (index >= static_cast<u32>(m_uniformCollections.size()))
-		{
-			return nullptr;
-		}
-		// TODO - Check generation
-
-		return m_uniformCollections[index];
-	}
-
-	IDeviceContext* RenderDeviceVk::ResolveHandle(const DeviceContextHandle& handle)
-	{
-		const u32 index = HandleAccessor::GetIndex(handle);
-		if (index >= static_cast<u32>(m_deviceContexts.size()))
-		{
-			return nullptr;
-		}
-		// TODO - Check generation
-
-		return m_deviceContexts[index];
-	}
-
-	IRenderGraph* RenderDeviceVk::ResolveHandle(const RenderGraphHandle& handle)
-	{
-		const u32 index = HandleAccessor::GetIndex(handle);
-		ASSERT_MSG(index == 0, "Invalid render graph handle. Only one graph should be allocated!");
-		return m_pRenderGraph;
-	}
-
-	IRenderPass* RenderDeviceVk::ResolveHandle(const RenderPassHandle& handle)
-	{
-		if (m_pRenderGraph == nullptr)
-		{
-			return nullptr;
 		}
 
-		return m_pRenderGraph->ResolveHandle(handle);
+		ASSERT_ALWAYS("Failed to resolve handle. Unhandled type!");
+		return nullptr;
 	}
 
-	IShader* RenderDeviceVk::ResolveHandle(const ShaderHandle& handle)
-	{
-		const u32 index = HandleAccessor::GetIndex(handle);
-		if (index >= static_cast<u32>(m_shaders.size()))
-		{
-			return nullptr;
-		}
-		// TODO - Check generation
-
-		return m_shaders[index];
-	}
-
-	ISwapChain* RenderDeviceVk::ResolveHandle(const SwapChainHandle& handle)
-	{
-		const u32 index = HandleAccessor::GetIndex(handle);
-		if (index >= static_cast<u32>(m_swapChains.size()))
-		{
-			return nullptr;
-		}
-		// TODO - Check generation
-
-		return m_swapChains[index];
-	}
-
-	void RenderDeviceVk::IncrementRefCount(const Handle& handle)
+	void RenderDeviceVk::IncrementHandleRefCount(const Handle& handle)
 	{
 		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
 		switch (handleType)
 		{
 		case HANDLE_TYPE::BUFFER:
 		{
-			IncrementRefCount_Helper<BufferHandle, IBuffer>(handle);
+			HANDLE_UTILS::IncrementRefCount<BufferHandle, IBuffer>(handle);
 			break;
 		}
 		case HANDLE_TYPE::TEXTURE:
 		{
-			IncrementRefCount_Helper<TextureHandle, ITexture>(handle);
+			HANDLE_UTILS::IncrementRefCount<TextureHandle, ITexture>(handle);
 			break;
 		}
 		case HANDLE_TYPE::UNIFORM:
 		{
-			IncrementRefCount_Helper<UniformCollectionHandle, IUniformCollection>(handle);
+			HANDLE_UTILS::IncrementRefCount<UniformCollectionHandle, IUniformCollection>(handle);
 			break;
 		}
 		case HANDLE_TYPE::DEVICE_CONTEXT:
 		{
-			IncrementRefCount_Helper<DeviceContextHandle, IDeviceContext>(handle);
+			HANDLE_UTILS::IncrementRefCount<DeviceContextHandle, IDeviceContext>(handle);
 			break;
 		}
 		case HANDLE_TYPE::RENDER_GRAPH:
 		{
-			IncrementRefCount_Helper<RenderGraphHandle, IRenderGraph>(handle);
-			break;
-		}
-		case HANDLE_TYPE::RENDER_PASS:
-		{
-			// Keep ref count?
-			IncrementRefCount_Helper<RenderPassHandle, IRenderPass>(handle);
+			HANDLE_UTILS::IncrementRefCount<RenderGraphHandle, IRenderGraph>(handle);
 			break;
 		}
 		case HANDLE_TYPE::SHADER:
 		{
-			IncrementRefCount_Helper<ShaderHandle, IShader>(handle);
+			HANDLE_UTILS::IncrementRefCount<ShaderHandle, IShader>(handle);
 			break;
 		}
 		case HANDLE_TYPE::SWAP_CHAIN:
 		{
-			IncrementRefCount_Helper<SwapChainHandle, ISwapChain>(handle);
+			HANDLE_UTILS::IncrementRefCount<SwapChainHandle, ISwapChain>(handle);
 			break;
 		}
 		default:
@@ -499,50 +346,44 @@ namespace PHX
 		}
 	}
 
-	void RenderDeviceVk::DecrementRefCount(const Handle& handle)
+	void RenderDeviceVk::DecrementHandleRefCount(const Handle& handle)
 	{
 		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
 		switch (handleType)
 		{
 		case HANDLE_TYPE::BUFFER:
 		{
-			DecrementRefCount_Helper<BufferHandle, IBuffer>(handle);
+			HANDLE_UTILS::DecrementRefCount<BufferHandle, BufferVk>(handle, m_buffers);
 			break;
 		}
 		case HANDLE_TYPE::TEXTURE:
 		{
-			DecrementRefCount_Helper<TextureHandle, ITexture>(handle);
+			HANDLE_UTILS::DecrementRefCount<TextureHandle, TextureVk>(handle, m_textures);
 			break;
 		}
 		case HANDLE_TYPE::UNIFORM:
 		{
-			DecrementRefCount_Helper<UniformCollectionHandle, IUniformCollection>(handle);
+			HANDLE_UTILS::DecrementRefCount<UniformCollectionHandle, UniformCollectionVk>(handle, m_uniformCollections);
 			break;
 		}
 		case HANDLE_TYPE::DEVICE_CONTEXT:
 		{
-			DecrementRefCount_Helper<DeviceContextHandle, IDeviceContext>(handle);
+			HANDLE_UTILS::DecrementRefCount<DeviceContextHandle, DeviceContextVk>(handle, m_deviceContexts);
 			break;
 		}
 		case HANDLE_TYPE::RENDER_GRAPH:
 		{
-			DecrementRefCount_Helper<RenderGraphHandle, IRenderGraph>(handle);
-			break;
-		}
-		case HANDLE_TYPE::RENDER_PASS:
-		{
-			// Keep ref count?
-			DecrementRefCount_Helper<RenderPassHandle, IRenderPass>(handle);
+			HANDLE_UTILS::DecrementRefCount<RenderGraphHandle, RenderGraphVk>(handle, m_renderGraphs);
 			break;
 		}
 		case HANDLE_TYPE::SHADER:
 		{
-			DecrementRefCount_Helper<ShaderHandle, IShader>(handle);
+			HANDLE_UTILS::DecrementRefCount<ShaderHandle, ShaderVk>(handle, m_shaders);
 			break;
 		}
 		case HANDLE_TYPE::SWAP_CHAIN:
 		{
-			DecrementRefCount_Helper<SwapChainHandle, ISwapChain>(handle);
+			HANDLE_UTILS::DecrementRefCount<SwapChainHandle, SwapChainVk>(handle, m_swapChains);
 			break;
 		}
 		default:

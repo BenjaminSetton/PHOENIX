@@ -7,7 +7,7 @@
 
 namespace Common
 {
-	bool AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::IRenderDevice* pRenderDevice, PHX::ShaderHandle& shader)
+	bool AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::RenderDeviceHandle renderDevice, PHX::ShaderHandle& shader)
 	{
 		PHX::STATUS_CODE result = PHX::STATUS_CODE::SUCCESS;
 
@@ -40,7 +40,7 @@ namespace Common
 		shaderCI.stage = stage;
 		shaderCI.reflectionData = shaderRes.reflectionData;
 
-		result = pRenderDevice->AllocateShader(shaderCI, shader);
+		result = renderDevice.AllocateShader(shaderCI, shader);
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			return false;

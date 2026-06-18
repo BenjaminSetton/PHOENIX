@@ -5,5 +5,5 @@
 
 namespace Common
 {
-	bool AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::IRenderDevice* pRenderDevice, PHX::ShaderHandle& shader);
+	bool AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::RenderDeviceHandle renderDevice, PHX::ShaderHandle& shader);
 }

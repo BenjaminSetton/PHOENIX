@@ -4,6 +4,7 @@
 
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
+#include "PHX/interface/handle_owner.h"
 #include "PHX/interface/pipeline.h"
 #include "PHX/interface/render_graph.h"
 #include "PHX/interface/shader.h"
@@ -22,9 +23,24 @@ namespace PHX
 		u32 framesInFlight							= 2;
 	};
 
-	// TODO - Create handle
+	struct RenderDeviceHandle : Handle
+	{
+		DECLARE_HANDLE(RenderDeviceHandle)
 
-	class IRenderDevice
+		const char* GetDeviceName() const;
+		u32 GetFramesInFlight() const;
+
+		// Allocations
+		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& buffer);
+		STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& texture);
+		STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& uniformCollection);
+		STATUS_CODE AllocateRenderGraph(RenderGraphHandle& renderGraph);
+		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader);
+		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain);
+		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext);
+	};
+
+	class IRenderDevice : public RefCounted, public HandleOwner
 	{
 	public:
 
@@ -32,35 +48,15 @@ namespace PHX
 
 		// Query device stats
 		virtual const char* GetDeviceName() const = 0;
-
-		// Allocations
-		virtual STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& buffer)																												= 0;
-		virtual STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& texture)	= 0;
-		virtual STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& uniformCollection)																	= 0;
-		virtual STATUS_CODE AllocateRenderGraph(RenderGraphHandle& renderGraph)																																		= 0;
-		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader)																												= 0;
-		virtual STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain)																									= 0;
-
-		virtual void DeallocateResource(const Handle& handle)																																						= 0;
-
-		// LIB-ONLY FUNCTIONS BELOW - THIS WILL BE SPLIT OUT PROPERLY ONCE THE HANDLE FOR THE RENDER DEVICE IS CREATED
-
-		// Getters
 		virtual u32 GetFramesInFlight() const = 0;
 
-		virtual STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext)																					= 0;
-
-		// Handles
-		virtual ITexture* ResolveHandle(const TextureHandle& handle) = 0;
-		virtual IBuffer* ResolveHandle(const BufferHandle& handle) = 0;
-		virtual IUniformCollection* ResolveHandle(const UniformCollectionHandle& handle) = 0;
-		virtual IDeviceContext* ResolveHandle(const DeviceContextHandle& handle) = 0;
-		virtual IRenderGraph* ResolveHandle(const RenderGraphHandle& handle) = 0;
-		virtual IRenderPass* ResolveHandle(const RenderPassHandle& handle) = 0;
-		virtual IShader* ResolveHandle(const ShaderHandle& handle) = 0;
-		virtual ISwapChain* ResolveHandle(const SwapChainHandle& handle) = 0;
-
-		virtual void IncrementRefCount(const Handle& handle) = 0;
-		virtual void DecrementRefCount(const Handle& handle) = 0;
+		// Allocations
+		virtual STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle) = 0;
+		virtual STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& handle) = 0;
+		virtual STATUS_CODE AllocateUniformCollection(const UniformCollectionCreateInfo& createInfo, UniformCollectionHandle& uniformCollection) = 0;
+		virtual STATUS_CODE AllocateRenderGraph(RenderGraphHandle& renderGraph) = 0;
+		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader) = 0;
+		virtual STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain) = 0;
+		virtual STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext) = 0;
 	};
 }

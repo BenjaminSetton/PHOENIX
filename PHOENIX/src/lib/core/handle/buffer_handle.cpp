@@ -2,6 +2,8 @@
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/render_device.h"
 
+#include "core/handle/handle_utils.h"
+
 namespace PHX
 {
 	BufferHandle::BufferHandle() : Handle(HANDLE_TYPE::BUFFER)
@@ -37,7 +39,7 @@ namespace PHX
 
 	BUFFER_USAGE BufferHandle::GetUsage() const
 	{
-		IBuffer* pBuffer = m_pRenderDevice->ResolveHandle(*this);
+		IBuffer* pBuffer = HANDLE_UTILS::ResolveHandle(*this);
 		if (pBuffer != nullptr)
 		{
 			return pBuffer->GetUsage();
@@ -49,7 +51,7 @@ namespace PHX
 
 	u64 BufferHandle::GetSize() const
 	{
-		IBuffer* pBuffer = m_pRenderDevice->ResolveHandle(*this);
+		IBuffer* pBuffer = HANDLE_UTILS::ResolveHandle(*this);
 		if (pBuffer != nullptr)
 		{
 			return pBuffer->GetSize();
