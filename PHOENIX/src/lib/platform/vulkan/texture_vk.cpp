@@ -12,7 +12,7 @@
 namespace PHX
 {
 	TextureVk::TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo) :
-		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_sampler(VK_NULL_HANDLE), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_width(0), m_height(0), 
+		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_sampler(VK_NULL_HANDLE), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_pName(""), m_width(0), m_height(0),
 		m_format(BASE_FORMAT::INVALID), m_aspectFlags(0), m_arrayLayers(0), m_mipLevels(0), m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID), 
 		m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID), m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), 
 		m_anisotropyLevel(0.0f), m_bytesPerTexel(0)
@@ -50,7 +50,7 @@ namespace PHX
 	}
 
 	TextureVk::TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView) :
-		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_sampler(VK_NULL_HANDLE), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_width(0), m_height(0), 
+		m_renderDevice(nullptr), m_baseImage(VK_NULL_HANDLE), m_imageViews(), m_alloc(nullptr), m_sampler(VK_NULL_HANDLE), m_layout(VK_IMAGE_LAYOUT_UNDEFINED), m_pName(""), m_width(0), m_height(0),
 		m_format(BASE_FORMAT::INVALID), m_aspectFlags(0), m_arrayLayers(0), m_mipLevels(0), m_sampleCount(SAMPLE_COUNT::INVALID), m_viewType(VIEW_TYPE::INVALID), m_viewScope(VIEW_SCOPE::INVALID),
 		m_minFilter(FILTER_MODE::INVALID), m_magFilter(FILTER_MODE::INVALID), m_sampAddressMode(SAMPLER_ADDRESS_MODE::INVALID), m_sampFilter(FILTER_MODE::INVALID), m_anisotropicFilteringEnabled(false), 
 		m_anisotropyLevel(0.0f), m_bytesPerTexel(0)
@@ -90,6 +90,11 @@ namespace PHX
 	{
 		UNUSED(other);
 		TODO();
+	}
+
+	const char* TextureVk::GetName() const
+	{
+		return m_pName;
 	}
 
 	u32 TextureVk::GetWidth() const
@@ -513,6 +518,7 @@ namespace PHX
 		// Cache some of the image data
 		m_bytesPerTexel = GetBaseFormatSize(createInfo.format);
 		m_layout = initialImageLayout;
+		m_pName = createInfo.pName;
 		m_width = createInfo.width;
 		m_height = createInfo.height;
 		m_arrayLayers = createInfo.arrayLayers;

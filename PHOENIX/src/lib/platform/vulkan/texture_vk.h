@@ -28,6 +28,7 @@ namespace PHX
 
 		void CopyFrom(ITexture* other) override;
 
+		const char* GetName() const override;
 		u32 GetWidth() const override;
 		u32 GetHeight() const override;
 		BASE_FORMAT GetFormat() const override;
@@ -76,6 +77,7 @@ namespace PHX
 		VkSampler m_sampler;
 		VkImageLayout m_layout;
 
+		const char* m_pName;
 		u32 m_width;
 		u32 m_height;
 		BASE_FORMAT m_format;

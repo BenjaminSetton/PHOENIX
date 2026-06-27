@@ -37,6 +37,17 @@ namespace PHX
 	{
 	}
 
+	const char* BufferHandle::GetName() const
+	{
+		IBuffer* pBuffer = HANDLE_UTILS::ResolveHandle(*this);
+		if (pBuffer != nullptr)
+		{
+			return pBuffer->GetName();
+		}
+
+		return nullptr;
+	}
+
 	BUFFER_USAGE BufferHandle::GetUsage() const
 	{
 		IBuffer* pBuffer = HANDLE_UTILS::ResolveHandle(*this);

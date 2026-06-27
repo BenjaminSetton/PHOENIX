@@ -12,6 +12,7 @@ namespace PHX
 {
 	struct BufferCreateInfo
 	{
+		const char* pName;
 		u64 sizeBytes;
 		BUFFER_USAGE bufferUsage;
 	};
@@ -20,6 +21,7 @@ namespace PHX
 	{
 		DECLARE_HANDLE(BufferHandle)
 
+		const char* GetName() const;
 		BUFFER_USAGE GetUsage() const;
 		u64 GetSize() const;
 	};
@@ -31,6 +33,7 @@ namespace PHX
 
 		virtual ~IBuffer() { }
 
+		virtual const char* GetName() const = 0;
 		virtual BUFFER_USAGE GetUsage() const = 0;
 		virtual u64 GetSize() const = 0;
 	};

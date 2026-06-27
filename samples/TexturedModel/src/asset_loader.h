@@ -16,6 +16,7 @@ struct AssetVertex
 
 struct Texture
 {
+	const char* pName;
 	void* data;
 	PHX::Vec2u size;
 	Common::TEXTURE_TYPE type;
@@ -60,6 +61,7 @@ static Common::AssetHandle ConvertAssetDiskToAssetType(const Common::AssetDisk* 
 		const Common::AssetDiskTexture& diskTex = pAssetDisk->textures[i];
 
 		Texture newTex;
+		newTex.pName = diskTex.pName;
 		newTex.data = diskTex.pData; // Move the pointer over, no copying
 		newTex.size = diskTex.size;
 		newTex.type = diskTex.type;

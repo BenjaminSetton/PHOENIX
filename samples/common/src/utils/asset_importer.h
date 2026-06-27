@@ -44,6 +44,7 @@ namespace Common
 
 	struct AssetDiskTexture
 	{
+		char* pName				= nullptr;
 		void* pData				= nullptr;
 		PHX::Vec2u size			= { 0, 0 };
 		TEXTURE_TYPE type		= TEXTURE_TYPE::MAX;

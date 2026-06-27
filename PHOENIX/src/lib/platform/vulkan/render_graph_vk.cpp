@@ -909,10 +909,13 @@ namespace PHX
 					if (!first) edgeLabel << "\\n";
 					first = false;
 
-					// Resource type
-					if (resource.type == RESOURCE_TYPE::TEXTURE)       edgeLabel << "[TEX]";
-					else if (resource.type == RESOURCE_TYPE::BUFFER)   edgeLabel << "[BUF]";
-					else if (resource.type == RESOURCE_TYPE::UNIFORM)  edgeLabel << "[UNI]";
+					// Type
+					if (resource.type == RESOURCE_TYPE::TEXTURE)       edgeLabel << "[TEX] ";
+					else if (resource.type == RESOURCE_TYPE::BUFFER)   edgeLabel << "[BUF] ";
+					else if (resource.type == RESOURCE_TYPE::UNIFORM)  edgeLabel << "[UNI] ";
+
+					// Name
+					edgeLabel << GetResourceName(resource);
 
 					// Layout transition if this resource has a barrier in the dst pass
 					auto barrierIter = dstPass.m_inputBarriers.find(resource.resourceID);
@@ -1806,5 +1809,41 @@ namespace PHX
 		const BufferHandle handle = static_cast<const BufferHandle>(resource.handle);
 		BufferVk* pBuffer = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(handle));
 		return pBuffer;
+	}
+
+	const char* RenderGraphVk::GetResourceName(const RenderResource& resource)
+	{
+		switch (resource.type)
+		{
+		case RESOURCE_TYPE::TEXTURE:
+		{
+			TextureVk* pTexture = ResolveTexture(resource);
+			if (pTexture != nullptr)
+			{
+				return pTexture->GetName();
+			}
+			break;
+		}
+		case RESOURCE_TYPE::BUFFER:
+		{
+			BufferVk* pBuffer = ResolveBuffer(resource);
+			if (pBuffer != nullptr)
+			{
+				return pBuffer->GetName();
+			}
+			break;
+		}
+		case RESOURCE_TYPE::UNIFORM:
+		{
+			break;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		ASSERT_ALWAYS("Failed to get resource name. Unknown resource type!");
+		return nullptr;
 	}
 }

@@ -45,13 +45,17 @@ namespace Common
 		{ TEXTURE_TYPE::MAX					, "invalid"				},
 	};
 
-	AssetDiskTexture AllocateTexture(const void* const srcData, PHX::Vec2u size, PHX::u32 bytesPerPixel, TEXTURE_TYPE type)
+	AssetDiskTexture AllocateTexture(const char* pName, const void* const srcData, PHX::Vec2u size, PHX::u32 bytesPerPixel, TEXTURE_TYPE type)
 	{
 		AssetDiskTexture diskTex{};
 		if (srcData == nullptr)
 		{
 			return diskTex;
 		}
+
+		const uint32_t nameSize = strlen(pName) + 1;
+		diskTex.pName = new char[nameSize];
+		strcpy_s(diskTex.pName, nameSize, pName);
 
 		uint32_t texelSize = size.GetX() * size.GetY();
 		uint64_t numBytes = texelSize * bytesPerPixel;
@@ -134,7 +138,7 @@ namespace Common
 
 			// Populate the texture data. Note from the assimp implementation:
 			// The format of the data from the imported texture is always ARGB8888, meaning it's 32-bit aligned
-			AssetDiskTexture newTexture = AllocateTexture(importedTexture->pcData, texSize, 4, TEXTURE_TYPE::DIFFUSE);
+			AssetDiskTexture newTexture = AllocateTexture(importedTexture->mFilename.C_Str(), importedTexture->pcData, texSize, 4, TEXTURE_TYPE::DIFFUSE);
 			asset->textures.push_back(newTexture);
 		}
 
@@ -189,7 +193,7 @@ namespace Common
 
 						PHX::Vec2u texSize = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 
-						AssetDiskTexture newTexture = AllocateTexture(pixels, texSize, 4, texType);
+						AssetDiskTexture newTexture = AllocateTexture(textureName.string().c_str(), pixels, texSize, 4, texType);
 						asset->textures.push_back(newTexture);
 
 						/*LogInfo("\tMaterial %u: Loaded %s texture '%s' from disk",

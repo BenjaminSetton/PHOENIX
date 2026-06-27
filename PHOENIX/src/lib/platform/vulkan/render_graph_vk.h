@@ -171,6 +171,7 @@ namespace PHX
 
 		TextureVk* ResolveTexture(const RenderResource& resource);
 		BufferVk* ResolveBuffer(const RenderResource& resource);
+		const char* GetResourceName(const RenderResource& resource);
 
 	private:
 

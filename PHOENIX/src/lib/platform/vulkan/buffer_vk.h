@@ -14,6 +14,7 @@ namespace PHX
 		explicit BufferVk(RenderDeviceVk* pRenderDevice, const BufferCreateInfo& createInfo);
 		~BufferVk();
 
+		const char* GetName() const override;
 		BUFFER_USAGE GetUsage() const override;
 		u64 GetSize() const override;
 
@@ -30,6 +31,7 @@ namespace PHX
 
 		RenderDeviceVk* m_renderDevice;
 
+		const char* m_pName;
 		BufferData m_buffer;
 		BUFFER_USAGE m_usage;
 

@@ -10,7 +10,7 @@ namespace PHX
 {
 	static constexpr u32 MIN_SIZE_FOR_DEDICATED_MEMORY = 128; // in bytes
 
-	BufferVk::BufferVk(RenderDeviceVk* pRenderDevice, const BufferCreateInfo& createInfo) : m_renderDevice(VK_NULL_HANDLE), m_usage()
+	BufferVk::BufferVk(RenderDeviceVk* pRenderDevice, const BufferCreateInfo& createInfo) : m_renderDevice(VK_NULL_HANDLE), m_pName(""), m_usage()
 	{
 		if (createInfo.sizeBytes == 0)
 		{
@@ -41,6 +41,7 @@ namespace PHX
 			return;
 		}
 
+		m_pName = createInfo.pName;
 		m_buffer = newBuffer;
 		m_usage = createInfo.bufferUsage;
 	}
@@ -48,6 +49,11 @@ namespace PHX
 	BufferVk::~BufferVk()
 	{
 		DestroyBuffer(m_renderDevice, m_buffer);
+	}
+
+	const char* BufferVk::GetName() const
+	{
+		return m_pName;
 	}
 
 	BUFFER_USAGE BufferVk::GetUsage() const

@@ -163,6 +163,7 @@ void TexturedModelSample::Init()
 	const u64 vBufferSizeBytes = static_cast<u64>(axeAsset->vertices.size() * sizeof(AssetVertex));
 
 	BufferCreateInfo vBufferCI{};
+	vBufferCI.pName = "VertexBuffer";
 	vBufferCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
 	vBufferCI.sizeBytes = vBufferSizeBytes;
 
@@ -173,6 +174,7 @@ void TexturedModelSample::Init()
 	const u64 iBufferSizeBytes = static_cast<u64>(axeAsset->indices.size() * sizeof(Common::AssetIndexType));
 
 	BufferCreateInfo iBufferCI{};
+	iBufferCI.pName = "IndexBuffer";
 	iBufferCI.bufferUsage = BUFFER_USAGE::INDEX_BUFFER;
 	iBufferCI.sizeBytes = iBufferSizeBytes;
 
@@ -181,6 +183,7 @@ void TexturedModelSample::Init()
 
 	// DEPTH BUFFER
 	TextureBaseCreateInfo depthBufferBaseCI{};
+	depthBufferBaseCI.pName = "DepthBuffer";
 	depthBufferBaseCI.width = m_pWindow->GetCurrentWidth();
 	depthBufferBaseCI.height = m_pWindow->GetCurrentHeight();
 	depthBufferBaseCI.arrayLayers = 1;
@@ -326,6 +329,7 @@ void TexturedModelSample::CreateAssetTextures()
 		const Texture& currTex = pAsset->textures[i];
 
 		TextureBaseCreateInfo baseCI{};
+		baseCI.pName = currTex.pName;
 		baseCI.width = currTex.size.GetX();
 		baseCI.height = currTex.size.GetY();
 		baseCI.arrayLayers = 1;

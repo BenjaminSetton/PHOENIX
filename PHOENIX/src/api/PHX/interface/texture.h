@@ -14,6 +14,7 @@ namespace PHX
 
 	struct TextureBaseCreateInfo
 	{
+		const char* pName         = "";
 		u32 width                 = 0;
 		u32 height                = 0;
 		BASE_FORMAT format        = BASE_FORMAT::INVALID;
@@ -81,6 +82,7 @@ namespace PHX
 		// are deleted functions
 		virtual void CopyFrom(ITexture* other) = 0;
 
+		virtual const char* GetName() const = 0;
 		virtual u32 GetWidth() const = 0;
 		virtual u32 GetHeight() const = 0;
 		virtual BASE_FORMAT GetFormat() const = 0;
