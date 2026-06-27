@@ -367,7 +367,7 @@ namespace PHX
 		copyRegion.imageOffset = { 0, 0, 0 };
 		copyRegion.imageExtent = { textureVk->GetWidth(), textureVk->GetHeight(), 1 };
 
-		vkCmdCopyBufferToImage(cmdBuffer, pStagingBuffer->GetBuffer(), textureVk->GetBaseImage(), textureVk->GetLayout(), 1, &copyRegion);
+		vkCmdCopyBufferToImage(cmdBuffer, pStagingBuffer->GetBuffer(), textureVk->GetBaseImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
 		return STATUS_CODE::SUCCESS;
 	}

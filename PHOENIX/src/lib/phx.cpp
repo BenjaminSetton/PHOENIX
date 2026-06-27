@@ -192,7 +192,7 @@ namespace PHX
 		InitCRC32();
 
 		// Initialize core graphics objects
-		STATUS_CODE coreObjStatus = OBJ_FACTORY::CreateCoreObjects(pWindow);
+		STATUS_CODE coreObjStatus = CoreObjectManager::Get().CreateCoreObjects(pWindow);
 		if (coreObjStatus != STATUS_CODE::SUCCESS)
 		{
 			return coreObjStatus;
@@ -232,7 +232,7 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
-		*out_window = OBJ_FACTORY::CreateWindow(createInfo);
+		*out_window = CoreObjectManager::Get().CreateWindow(createInfo);
 
 		// TODO - Figure out a way to capture errors. Catch exceptions or change OBJ_FACTORY return type?
 		return STATUS_CODE::SUCCESS;
@@ -240,7 +240,7 @@ namespace PHX
 
 	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice)
 	{
-		return OBJ_FACTORY::CreateRenderDevice(createInfo, renderDevice);
+		return CoreObjectManager::Get().CreateRenderDevice(createInfo, renderDevice);
 	}
 
 	void DestroyWindow(IWindow** pWindow)

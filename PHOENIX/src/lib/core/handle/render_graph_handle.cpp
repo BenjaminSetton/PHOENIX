@@ -227,6 +227,18 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
+	u32 RenderGraphHandle::GetFrameNumber() const
+	{
+		IRenderGraph* pGraph = HANDLE_UTILS::ResolveHandle(*this);
+		if (pGraph != nullptr)
+		{
+			return pGraph->GetFrameNumber();
+		}
+
+		ASSERT_ALWAYS("Failed to get frame number. Could not resolve render graph handle!");
+		return U32_MAX;
+	}
+
 	STATUS_CODE RenderGraphHandle::GenerateVisualization(const char* fileName, bool generateIfUnique)
 	{
 		IRenderGraph* pGraph = HANDLE_UTILS::ResolveHandle(*this);

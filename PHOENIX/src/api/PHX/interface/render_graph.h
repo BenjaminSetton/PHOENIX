@@ -5,6 +5,7 @@
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
 #include "PHX/interface/handle.h"
+#include "PHX/interface/handle_owner.h"
 #include "PHX/interface/swap_chain.h"
 #include "PHX/interface/texture.h"
 #include "PHX/interface/uniform.h"
@@ -55,6 +56,8 @@ namespace PHX
 		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass);
 		STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount);
 
+		u32 GetFrameNumber() const;
+
 		// Generates a visualization of the render graph by creating a .dot file. This file can then be
 		// opened with a graph visualization tool such as GraphViz to examine the graph structure. If
 		// the "generateIfUnique" parameter is set to true, a new file will be written out only if the
@@ -95,7 +98,7 @@ namespace PHX
 		virtual void SetExecuteCallback(ExecuteRenderPassCallbackFn callback) = 0;
 	};
 
-	class IRenderGraph : public RefCounted
+	class IRenderGraph : public RefCounted, public HandleOwner
 	{
 	public:
 
@@ -105,6 +108,8 @@ namespace PHX
 		virtual STATUS_CODE EndFrame() = 0;
 		virtual STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) = 0;
 		virtual STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount) = 0;
+
+		virtual u32 GetFrameNumber() const = 0;
 
 		// Generates a visualization of the render graph by creating a .dot file. This file can then be
 		// opened with a graph visualization tool such as GraphViz to examine the graph structure. If
@@ -118,7 +123,5 @@ namespace PHX
 
 		virtual IDeviceContext* GetDeviceContext() = 0; // Used lib-only
 		virtual DeviceContextHandle GetDeviceContextHandle() = 0; // Used to pass to client in exec callback
-
-		virtual IRenderPass* ResolveHandle(const RenderPassHandle& handle) = 0;
 	};
 }

@@ -130,12 +130,15 @@ namespace PHX
 		STATUS_CODE EndFrame() override;
 		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) override;
 		STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount) override;
+		u32 GetFrameNumber() const override;
 		STATUS_CODE GenerateVisualization(const char* fileName, bool generateIfUnique) override;
 
 		IDeviceContext* GetDeviceContext() override;
 		DeviceContextHandle GetDeviceContextHandle() override;
 
-		IRenderPass* ResolveHandle(const RenderPassHandle& handle) override;
+		void* ResolveHandle(const Handle& handle) override;
+		void IncrementHandleRefCount(const Handle& handle) override;
+		void DecrementHandleRefCount(const Handle& handle) override;
 
 	private:
 
@@ -178,7 +181,8 @@ namespace PHX
 
 		std::vector<DeviceContextHandle> m_deviceContextHandles;
 
-		u32 m_frameIndex;
+		u32 m_frameInFlightIndex;
+		u32 m_frameNumber;
 
 		const CRC32 m_reservedBackbufferNameCRC;
 		const CRC32 m_reservedDepthBufferNameCRC;

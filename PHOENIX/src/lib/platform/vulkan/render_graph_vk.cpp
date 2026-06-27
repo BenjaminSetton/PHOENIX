@@ -1,16 +1,19 @@
 
-#include <utility> // std::swap
+#include <sstream>
+#include <vulkan/vk_enum_string_helper.h>
 
 #include "render_graph_vk.h"
 
 #include "buffer_vk.h"
 #include "core/handle/handle_accessor.h"
+#include "core/handle/handle_utils.h"
 #include "device_context_vk.h"
 #include "render_device_vk.h"
 #include "swap_chain_vk.h"
 #include "texture_vk.h"
 #include "utils/attachment_type_converter.h"
 #include "utils/cache_utils.h"
+#include "utils/file_io.h"
 #include "utils/logger.h"
 #include "utils/math.h"
 #include "utils/render_graph_type_converter.h"
@@ -411,6 +414,7 @@ namespace PHX
 					break;
 				}
 				}
+				break;
 			}
 			case BIND_POINT::COMPUTE:
 			{
@@ -620,7 +624,7 @@ namespace PHX
 	//--------------------------------------------------------------------------------------------
 
 	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pRenderDevice(nullptr), m_deviceContextHandles(), 
-		m_frameIndex(0), m_reservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)),
+		m_frameInFlightIndex(0), m_frameNumber(0), m_reservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)),
 		m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName))
 	{
 		if (pRenderDevice == nullptr)
@@ -663,7 +667,7 @@ namespace PHX
 		ASSERT_PTR(swapChainVk);
 
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetDeviceContext());
-		res = pDeviceContext->BeginFrame(swapChainVk, m_frameIndex);
+		res = pDeviceContext->BeginFrame(swapChainVk, m_frameInFlightIndex);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to begin frame. Device context could not begin frame!");
@@ -678,15 +682,15 @@ namespace PHX
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetDeviceContext());
-		res = pDeviceContext->EndFrame(m_frameIndex);
+		res = pDeviceContext->EndFrame(m_frameInFlightIndex);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to end frame. Device context could not flush!");
-			return res;
 		}
 
 		// Now that all the work has been done for the current frame, move onto the next one
-		m_frameIndex = (m_frameIndex + 1) % m_pRenderDevice->GetFramesInFlight();
+		m_frameInFlightIndex = (m_frameInFlightIndex + 1) % m_pRenderDevice->GetFramesInFlight();
+		m_frameNumber++;
 
 		m_registeredRenderPasses.clear();
 		m_resourceUsages.clear();
@@ -699,12 +703,13 @@ namespace PHX
 	{
 		const u32 passIndex = static_cast<u32>(m_registeredRenderPasses.size());
 
+		// TODO - Reconcile with HANDLE_UTILS functions
 		auto registerResourceFuncPtr = std::bind(&RenderGraphVk::RegisterResource, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 		m_registeredRenderPasses.emplace_back(passName, bindPoint, passIndex, registerResourceFuncPtr);
 
 		RenderPassVk& passVk = m_registeredRenderPasses.back();
 		passVk.IncrementRefCount();
-		HandleAccessor::PopulateHandle(renderPass, m_pRenderDevice, static_cast<u32>(m_registeredRenderPasses.size() - 1), 0u);
+		HandleAccessor::PopulateHandle(renderPass, this, static_cast<u32>(m_registeredRenderPasses.size() - 1), 0u);
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -824,44 +829,220 @@ namespace PHX
 		return res;
 	}
 
+	u32 RenderGraphVk::GetFrameNumber() const
+	{
+		return m_frameNumber;
+	}
+
+	static const char* BindPointToString(BIND_POINT bp)
+	{
+		switch (bp)
+		{
+		case BIND_POINT::GRAPHICS: return "GRAPHICS";
+		case BIND_POINT::COMPUTE:  return "COMPUTE";
+		case BIND_POINT::TRANSFER: return "TRANSFER";
+		default:                   return "UNKNOWN";
+		}
+	}
+
 	STATUS_CODE RenderGraphVk::GenerateVisualization(const char* fileName, bool generateIfUnique)
 	{
-		UNUSED(fileName);
 		UNUSED(generateIfUnique);
-		TODO();
 
+		if (fileName == nullptr)
+		{
+			LogError("Failed to generate render graph visualization. File name is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		if (m_registeredRenderPasses.empty())
+		{
+			LogError("Failed to generate render graph visualization. No render passes registered - call after Bake()!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		std::ostringstream dot;
+		dot << "digraph RenderGraph {\n";
+		dot << "\trankdir=LR;\n";
+		dot << "\tnode [shape=box, style=filled, fontname=\"Helvetica\"];\n\n";
+
+		// Emit a node for each registered pass
+		for (const RenderPassVk& pass : m_registeredRenderPasses)
+		{
+#if defined(PHX_DEBUG)
+			const char* passName = pass.m_debugName;
+#else
+			const std::string passNameStr = std::to_string(pass.m_index);
+			const char* passName = passNameStr.c_str();
+#endif
+			const char* bindPointStr = BindPointToString(pass.m_bindPoint);
+
+			// Color nodes by bind point
+			const char* fillColor = "#FFFFFF";
+			if (pass.m_bindPoint == BIND_POINT::GRAPHICS)       fillColor = "#AED6F1";
+			else if (pass.m_bindPoint == BIND_POINT::COMPUTE)   fillColor = "#A9DFBF";
+			else if (pass.m_bindPoint == BIND_POINT::TRANSFER)  fillColor = "#FAD7A0";
+
+			dot << "\tpass" << pass.m_index
+				<< " [label=\"" << passName << "\\n[" << bindPointStr << "]\""
+				<< ", fillcolor=\"" << fillColor << "\"];\n";
+		}
+
+		dot << "\n";
+
+		// Emit edges from dependency info (src -> dst, labelled with shared resource names)
+		for (const RenderPassVk& dstPass : m_registeredRenderPasses)
+		{
+			for (const DependencyInfo& dep : dstPass.m_dependencyInfos)
+			{
+				const RenderPassVk* srcPass = dep.renderPass;
+				if (srcPass == nullptr)
+				{
+					continue;
+				}
+
+				// Build edge label from shared resources
+				std::ostringstream edgeLabel;
+				bool first = true;
+				TraverseResources(dep.resources, [&](const RenderResource& resource)
+				{
+					if (!first) edgeLabel << "\\n";
+					first = false;
+
+					// Resource type
+					if (resource.type == RESOURCE_TYPE::TEXTURE)       edgeLabel << "[TEX]";
+					else if (resource.type == RESOURCE_TYPE::BUFFER)   edgeLabel << "[BUF]";
+					else if (resource.type == RESOURCE_TYPE::UNIFORM)  edgeLabel << "[UNI]";
+
+					// Layout transition if this resource has a barrier in the dst pass
+					auto barrierIter = dstPass.m_inputBarriers.find(resource.resourceID);
+					if (barrierIter != dstPass.m_inputBarriers.end())
+					{
+						const Barrier& barrier = barrierIter->second;
+
+						edgeLabel << " " << string_VkPipelineStageFlags(barrier.srcStageMask) << " -> " << string_VkPipelineStageFlags(barrier.dstStageMask)
+							<< "\\n"
+							<< string_VkAccessFlags(barrier.srcAccessMask) << " -> " << string_VkAccessFlags(barrier.dstAccessMask);
+						if (resource.type == RESOURCE_TYPE::TEXTURE)
+						{
+							edgeLabel << "\\n" 
+								<< string_VkImageLayout(barrier.oldLayout) << " -> " << string_VkImageLayout(barrier.newLayout);
+						}
+					}
+				});
+
+				dot << "\tpass" << srcPass->m_index
+					<< " -> pass" << dstPass.m_index
+					<< " [label=\"" << edgeLabel.str() << "\"];\n";
+			}
+		}
+
+		dot << "}\n";
+
+
+		// Write to file
+		{
+			FileIO io(fileName);
+			if (!io.IsOpen())
+			{
+				LogError("Failed to generate render graph visualization. Could not open file \"%s\" for writing!", fileName);
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+
+			const std::string dotStr = dot.str();
+			io.Write(dotStr.c_str(), static_cast<u32>(dotStr.size()));
+		}
+
+		LogDebug("Render graph visualization written to \"%s\"", fileName);
 		return STATUS_CODE::SUCCESS;
 	}
 
 	IDeviceContext* RenderGraphVk::GetDeviceContext()
 	{
-		if (m_frameIndex >= m_deviceContextHandles.size())
+		if (m_frameInFlightIndex >= m_deviceContextHandles.size())
 		{
 			// This should never happen!
 			ASSERT_ALWAYS("Failed to get device context at index %u. Index is out of bounds!");
 			return nullptr;
 		}
 
-		DeviceContextHandle deviceContext = m_deviceContextHandles[m_frameIndex];
-		return m_pRenderDevice->ResolveHandle(deviceContext);
+		DeviceContextHandle deviceContext = m_deviceContextHandles[m_frameInFlightIndex];
+		return HANDLE_UTILS::ResolveHandle(deviceContext);
 	}
 
 	DeviceContextHandle RenderGraphVk::GetDeviceContextHandle()
 	{
-		ASSERT(m_frameIndex < m_deviceContextHandles.size());
-		return m_deviceContextHandles[m_frameIndex];
+		ASSERT(m_frameInFlightIndex < m_deviceContextHandles.size());
+		return m_deviceContextHandles[m_frameInFlightIndex];
 	}
 
-	IRenderPass* RenderGraphVk::ResolveHandle(const RenderPassHandle& handle)
+	void* RenderGraphVk::ResolveHandle(const Handle& handle)
 	{
-		const u32 index = HandleAccessor::GetIndex(handle);
-		if (index >= static_cast<u32>(m_registeredRenderPasses.size()))
+		const HANDLE_TYPE type = HandleAccessor::GetType(handle);
+		switch (type)
 		{
-			return nullptr;
+		case HANDLE_TYPE::RENDER_PASS:
+		{
+			// TODO - Reconcile with HANDLE_UTILS functions
+			const u32 index = HandleAccessor::GetIndex(handle);
+			if (index < static_cast<u32>(m_registeredRenderPasses.size()))
+			{
+				return &m_registeredRenderPasses[index];
+			}
+			break;
 		}
-		// TODO - Check generation
+		default:
+		{
+			break;
+		}
+		}
 
-		return &m_registeredRenderPasses[index];
+		ASSERT_ALWAYS("Failed to resolve handle. Unsupported handle type!");
+		return nullptr;
+	}
+
+	void RenderGraphVk::IncrementHandleRefCount(const Handle& handle)
+	{
+		const HANDLE_TYPE type = HandleAccessor::GetType(handle);
+		switch (type)
+		{
+		case HANDLE_TYPE::RENDER_PASS:
+		{
+			HANDLE_UTILS::IncrementRefCount<RenderPassHandle, IRenderPass>(handle);
+			break;
+		}
+		default:
+		{
+			ASSERT_ALWAYS("Failed to resolve handle. Unsupported handle type!");
+			break;
+		}
+		}
+	}
+
+	void RenderGraphVk::DecrementHandleRefCount(const Handle& handle)
+	{
+		const HANDLE_TYPE type = HandleAccessor::GetType(handle);
+		switch (type)
+		{
+		case HANDLE_TYPE::RENDER_PASS:
+		{
+			// TODO - Reconcile with HANDLE_UTILS functions
+			const u32 index = HandleAccessor::GetIndex(handle);
+			if (index < static_cast<u32>(m_registeredRenderPasses.size()))
+			{
+				RenderPassVk renderPass = m_registeredRenderPasses[index];
+				renderPass.DecrementRefCount();
+
+				// NOTE - No automatic deletion, render pass lifetimes are managed by other render graph calls
+			}
+			break;
+		}
+		default:
+		{
+			ASSERT_ALWAYS("Failed to resolve handle. Unsupported handle type!");
+			break;
+		}
+		}
 	}
 
 	VkRenderPass RenderGraphVk::CreateRenderPass(const RenderPassVk& renderPass)
@@ -1324,6 +1505,12 @@ namespace PHX
 					const VkImageLayout layout = CalculateResourceImageLayout(*dstResourceUsage, dstRenderPass.m_bindPoint);
 					const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
 
+					if (!isBackBufferResource && !isDepthBufferResource)
+					{
+						// Not a special resource - no output barrier needed for the last pass
+						return;
+					}
+
 					Barrier newDstBarrier;
 					if (isBackBufferResource)
 					{
@@ -1352,11 +1539,12 @@ namespace PHX
 					dstRenderPass.m_outputBarriers.insert({ resourceID, newDstBarrier });
 				});
 			}
-			else if (isFirst)
+
+			if (isFirst)
 			{
 				// Transition all resources used in the first pass to the correct layout, from whatever they were in the previous frame
-				const ResourceIndexBitset IOResources = (dstRenderPass.m_inputResources | dstRenderPass.m_outputResources);
-				TraverseResources(IOResources, [&](const RenderResource& resource)
+				const ResourceIndexBitset inputResources = dstRenderPass.m_inputResources;
+				TraverseResources(inputResources, [&](const RenderResource& resource)
 				{
 					if (resource.type != RESOURCE_TYPE::TEXTURE)
 					{
@@ -1482,6 +1670,7 @@ namespace PHX
 
 				// Update the texture's internal layout variable so it matches it's actual layout
 				pTexture->SetLayout(currBarrier.newLayout);
+
 
 				break;
 			}

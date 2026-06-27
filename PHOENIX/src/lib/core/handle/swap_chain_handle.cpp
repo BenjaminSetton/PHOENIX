@@ -7,7 +7,7 @@
 
 namespace PHX
 {
-	SwapChainHandle::SwapChainHandle() : Handle(HANDLE_TYPE::RENDER_PASS)
+	SwapChainHandle::SwapChainHandle() : Handle(HANDLE_TYPE::SWAP_CHAIN)
 	{
 	}
 

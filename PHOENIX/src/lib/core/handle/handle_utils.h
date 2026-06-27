@@ -40,21 +40,28 @@ namespace PHX
 		ISwapChain* ResolveHandle(const SwapChainHandle& handle);
 		IRenderDevice* ResolveHandle(const RenderDeviceHandle& handle);
 		//IWindow* ResolveHandle(const WindowHandle& handle);
+		
+		///////////////////////////////////
+		// RESOLVE HANDLE
+		///////////////////////////////////
 
 		template<typename InterfaceT>
 		void* ResolveHandle(const std::vector<InterfaceT*>& list, const Handle& handle)
 		{
 			const u32 index = HandleAccessor::GetIndex(handle);
-			if (index >= static_cast<u32>(list.size()))
+			if (index < static_cast<u32>(list.size()))
 			{
 				return list[index];
 			}
 			return nullptr;
 		}
 
-		// Used to allocate objects into lists
-		template<typename DerivedInterfaceT>
-		STATUS_CODE AllocateHandle(std::vector<DerivedInterfaceT*>& list, DerivedInterfaceT* pObj, HandleOwner* pOwner, const Handle& handle)
+		///////////////////////////////////
+		// ALLOCATE HANDLE
+		///////////////////////////////////
+
+		template<typename InterfaceT>
+		STATUS_CODE AllocateHandle(std::vector<InterfaceT*>& list, InterfaceT* pObj, HandleOwner* pOwner, Handle& handle)
 		{
 			list.push_back(pObj);
 			pObj->IncrementRefCount();
@@ -63,15 +70,9 @@ namespace PHX
 			return STATUS_CODE::SUCCESS;
 		}
 
-		// Used to allocate objects when only a single instance can exist
-		template<typename DerivedInterfaceT>
-		STATUS_CODE AllocateHandle(DerivedInterfaceT* pObj, HandleOwner* pOwner, const Handle& handle)
-		{
-			pObj->IncrementRefCount();
-
-			HandleAccessor::PopulateHandle(handle, pOwner, 0u, 0u);
-			return STATUS_CODE::SUCCESS;
-		}
+		///////////////////////////////////
+		// INCREMENT REF COUNT
+		///////////////////////////////////
 
 		template<typename HandleT, typename InterfaceT>
 		void IncrementRefCount(const Handle& handle)
@@ -83,24 +84,26 @@ namespace PHX
 			}
 		}
 
-		template<typename HandleT, typename DerivedInterfaceT>
-		void DecrementRefCount(const Handle& handle, std::vector<DerivedInterfaceT*>& list)
+		///////////////////////////////////
+		// DECREMENT REF COUNT
+		///////////////////////////////////
+
+		template<typename HandleT, typename InterfaceT>
+		void DecrementRefCount(const Handle& handle, std::vector<InterfaceT*>& list)
 		{
-			DerivedInterfaceT* pObj = static_cast<DerivedInterfaceT*>(ResolveHandle(static_cast<const HandleT&>(handle)));
-			if (pObj != nullptr)
+			// Assuming generation is always 0
+			const u32 index = HandleAccessor::GetIndex(handle);
+			if (index < static_cast<u32>(list.size()))
 			{
-				pObj->DecrementRefCount();
-
-				// Check for deletion
-				if (pObj->GetRefCount() <= 0)
+				InterfaceT* pObj = list[index];
+				if (pObj != nullptr)
 				{
-					// Assuming generation is always 0
-					const u32 index = HandleAccessor::GetIndex(handle);
-					if (index <= static_cast<u32>(list.size()))
-					{
-						DerivedInterfaceT* pObj = list[index];
-						SAFE_DEL(pObj);
+					pObj->DecrementRefCount();
 
+					// Check for deletion
+					if (pObj->GetRefCount() <= 0)
+					{
+						SAFE_DEL(pObj);
 						list.erase(list.begin() + index);
 					}
 				}

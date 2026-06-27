@@ -10,7 +10,7 @@ namespace PHX
 	{
 	public:
 
-		virtual void* ResolveHandle(const Handle& handle)    = 0;
+		virtual void* ResolveHandle(const Handle& handle)          = 0;
 		virtual void IncrementHandleRefCount(const Handle& handle) = 0;
 		virtual void DecrementHandleRefCount(const Handle& handle) = 0;
 	};

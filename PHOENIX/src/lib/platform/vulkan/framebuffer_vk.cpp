@@ -100,6 +100,7 @@ namespace PHX
 	{
 		if (VerifyDescription(desc) != STATUS_CODE::SUCCESS)
 		{
+			LogError("Failed to create framebuffer. Description verification failed!");
 			return;
 		}
 
@@ -237,7 +238,7 @@ namespace PHX
 			if (attachmentTex->GetWidth() != desc.width || attachmentTex->GetHeight() != desc.height)
 			{
 				allSizesValid = false;
-				LogWarning("Attempting to create framebuffer of size %ux%u, but attachment %u has size %ux%u", 
+				LogError("Attempting to create framebuffer of size %ux%u, but attachment %u has size %ux%u", 
 					desc.width, desc.height, i, attachmentTex->GetWidth(), attachmentTex->GetHeight());
 			}
 		}
@@ -245,12 +246,6 @@ namespace PHX
 		{
 			return STATUS_CODE::ERR_API;
 		}
-
-		//if (createInfo.renderPass == nullptr)
-		//{
-		//	LogError("Attempting to create framebuffer with an invalid render pass. Render pass is null");
-		//	return;
-		//}
 
 		return STATUS_CODE::SUCCESS;
 	}
