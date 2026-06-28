@@ -287,7 +287,7 @@ namespace PHX
 			case VK_ACCESS_SHADER_WRITE_BIT:
 			{
 				// TODO - Determine proper shader stage
-				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
 				break;
 			}
 			case VK_ACCESS_COLOR_ATTACHMENT_READ_BIT:
@@ -738,7 +738,7 @@ namespace PHX
 
 		FindActivePasses(finalRPIndex, activeRenderPassIndices);
 
-		CalculateResourceBarriers(activeRenderPassIndices);
+		CalculateResourceBarriers(activeRenderPassIndices, finalRPIndex);
 
 		// 4. [COMBINATION] Combine as many separate render passes into one for optimal GPU usage
 		// TODO
@@ -834,20 +834,13 @@ namespace PHX
 		return m_frameNumber;
 	}
 
-	static const char* BindPointToString(BIND_POINT bp)
-	{
-		switch (bp)
-		{
-		case BIND_POINT::GRAPHICS: return "GRAPHICS";
-		case BIND_POINT::COMPUTE:  return "COMPUTE";
-		case BIND_POINT::TRANSFER: return "TRANSFER";
-		default:                   return "UNKNOWN";
-		}
-	}
-
 	STATUS_CODE RenderGraphVk::GenerateVisualization(const char* fileName, bool generateIfUnique)
 	{
 		UNUSED(generateIfUnique);
+		if (generateIfUnique)
+		{
+			TODO();
+		}
 
 		if (fileName == nullptr)
 		{
@@ -861,12 +854,41 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		const u32 backbufferPassIndex = FindBackBufferRenderPassIndex();
+
+		// Looks up a usage name for a physical resource, used to detect the reserved backbuffer/depth resources
+		auto getResourceUsageName = [&](u64 resourceID) -> const char*
+		{
+			for (const ResourceUsage& usage : m_resourceUsages)
+			{
+				if (usage.resourceID == resourceID && usage.name != nullptr)
+				{
+					return usage.name;
+				}
+			}
+			return nullptr;
+		};
+
+		// Builds a verbose barrier tooltip (stage + access masks) shown on hover in SVG output
+		auto buildBarrierTooltip = [&](const Barrier& barrier) -> std::string
+		{
+			std::ostringstream tip;
+			tip << "stage: " << string_VkPipelineStageFlags(barrier.srcStageMask) << " -> " << string_VkPipelineStageFlags(barrier.dstStageMask)
+				<< " | access: " << string_VkAccessFlags(barrier.srcAccessMask) << " -> " << string_VkAccessFlags(barrier.dstAccessMask);
+			return tip.str();
+		};
+
 		std::ostringstream dot;
 		dot << "digraph RenderGraph {\n";
 		dot << "\trankdir=LR;\n";
-		dot << "\tnode [shape=box, style=filled, fontname=\"Helvetica\"];\n\n";
+		dot << "\tbgcolor=\"#FBFCFC\";\n";
+		dot << "\tnodesep=0.35;\n";
+		dot << "\tranksep=1.0;\n";
+		dot << "\tnode [fontname=\"Helvetica\", fontsize=11];\n";
+		dot << "\tedge [fontname=\"Helvetica\", fontsize=9, arrowsize=0.8];\n\n";
 
-		// Emit a node for each registered pass
+		// ---- Render pass nodes (rounded boxes, colored by bind point) ----
+		dot << "\t// Render passes\n";
 		for (const RenderPassVk& pass : m_registeredRenderPasses)
 		{
 #if defined(PHX_DEBUG)
@@ -875,70 +897,174 @@ namespace PHX
 			const std::string passNameStr = std::to_string(pass.m_index);
 			const char* passName = passNameStr.c_str();
 #endif
-			const char* bindPointStr = BindPointToString(pass.m_bindPoint);
+			const char* bindPointStr = RG_UTILS::BindPointToString(pass.m_bindPoint);
 
-			// Color nodes by bind point
 			const char* fillColor = "#FFFFFF";
-			if (pass.m_bindPoint == BIND_POINT::GRAPHICS)       fillColor = "#AED6F1";
-			else if (pass.m_bindPoint == BIND_POINT::COMPUTE)   fillColor = "#A9DFBF";
-			else if (pass.m_bindPoint == BIND_POINT::TRANSFER)  fillColor = "#FAD7A0";
+			if (pass.m_bindPoint == BIND_POINT::GRAPHICS)       fillColor = "#5DADE2";
+			else if (pass.m_bindPoint == BIND_POINT::COMPUTE)   fillColor = "#58D68D";
+			else if (pass.m_bindPoint == BIND_POINT::TRANSFER)  fillColor = "#EB984E";
+
+			const bool isFinalPass = (pass.m_index == backbufferPassIndex);
 
 			dot << "\tpass" << pass.m_index
-				<< " [label=\"" << passName << "\\n[" << bindPointStr << "]\""
-				<< ", fillcolor=\"" << fillColor << "\"];\n";
+				<< " [shape=box, style=\"filled,rounded\", fontcolor=\"#FFFFFF\", margin=\"0.25,0.14\""
+				<< ", fillcolor=\"" << fillColor << "\"";
+			if (isFinalPass)  dot << ", penwidth=3, color=\"#C0392B\"";
+			else              dot << ", penwidth=1, color=\"#34495E\"";
+
+			dot << ", label=<<b>" << passName << "</b><br/><font point-size=\"9\">" << bindPointStr;
+			if (isFinalPass)  dot << " &#8226; FINAL";
+			dot << "</font>>];\n";
 		}
 
 		dot << "\n";
 
-		// Emit edges from dependency info (src -> dst, labelled with shared resource names)
-		for (const RenderPassVk& dstPass : m_registeredRenderPasses)
+		// ---- Resource nodes ----
+		// Gather every physical resource referenced by any pass (inputs or outputs)
+		ResourceIndexBitset usedResources;
+		for (const RenderPassVk& pass : m_registeredRenderPasses)
 		{
-			for (const DependencyInfo& dep : dstPass.m_dependencyInfos)
+			usedResources |= pass.m_inputResources;
+			usedResources |= pass.m_outputResources;
+		}
+
+		dot << "\t// Resources\n";
+		TraverseResources(usedResources, [&](const RenderResource& resource)
+		{
+			const std::string nodeId = "res" + std::to_string(resource.resourceID);
+
+			const char* usageName = getResourceUsageName(resource.resourceID);
+			const bool isBackbuffer = (usageName != nullptr) && (HashCRC32(usageName) == m_reservedBackbufferNameCRC);
+			const bool isDepth      = (usageName != nullptr) && (HashCRC32(usageName) == m_reservedDepthBufferNameCRC);
+
+			// Defaults (texture). All resources share a single ellipse shape and are
+			// distinguished from passes (rounded boxes) by shape, and from each other by color.
+			std::string displayName = "Texture";
+			const char* typeTag = "TEXTURE";
+			const char* fill    = "#EBF5FB";
+			const char* border  = "#2E86C1";
+			u32 penWidth        = 1;
+
+			if (resource.type == RESOURCE_TYPE::BUFFER)
 			{
-				const RenderPassVk* srcPass = dep.renderPass;
-				if (srcPass == nullptr)
+				displayName = GetResourceName(resource);
+				typeTag = "BUFFER";
+				fill    = "#F4ECF7";
+				border  = "#8E44AD";
+			}
+			else if (resource.type == RESOURCE_TYPE::UNIFORM)
+			{
+				displayName = "Uniforms";
+				typeTag = "UNIFORM";
+				fill    = "#FEF9E7";
+				border  = "#B7950B";
+			}
+			else // TEXTURE
+			{
+				displayName = GetResourceName(resource);
+			}
+
+			if (isBackbuffer)
+			{
+				displayName = "Backbuffer";
+				typeTag = "PRESENT";
+				fill    = "#FADBD8";
+				border  = "#C0392B";
+				penWidth = 3;
+			}
+			else if (isDepth)
+			{
+				typeTag = "DEPTH";
+				fill    = "#FCF3CF";
+				border  = "#B7950B";
+			}
+
+			dot << "\t" << nodeId << " [shape=ellipse, style=filled, fillcolor=\"" << fill
+				<< "\", color=\"" << border << "\", penwidth=" << penWidth
+				<< ", label=<<b>" << displayName << "</b><br/><font point-size=\"8\" color=\"#5D6D7E\">" << typeTag << "</font>>];\n";
+		});
+
+		dot << "\n\t// Resource flow (inputs feed passes, passes produce outputs)\n";
+
+		// ---- Edges: resource -> pass (inputs) and pass -> resource (outputs) ----
+		for (const RenderPassVk& pass : m_registeredRenderPasses)
+		{
+			const std::string passNode = "pass" + std::to_string(pass.m_index);
+
+			// Inputs: resource -> pass (blue), labelled with the input layout transition for textures
+			TraverseResources(pass.m_inputResources, [&](const RenderResource& resource)
+			{
+				const std::string resNode = "res" + std::to_string(resource.resourceID);
+
+				std::string label;
+				std::string tooltip;
+				auto barrierIter = pass.m_inputBarriers.find(resource.resourceID);
+				if (barrierIter != pass.m_inputBarriers.end())
 				{
-					continue;
+					const Barrier& barrier = barrierIter->second;
+					if (resource.type == RESOURCE_TYPE::TEXTURE)
+					{
+						label = RG_UTILS::ShortImageLayout(barrier.oldLayout) + "\\n-> " + RG_UTILS::ShortImageLayout(barrier.newLayout);
+					}
+					tooltip = buildBarrierTooltip(barrier);
 				}
 
-				// Build edge label from shared resources
-				std::ostringstream edgeLabel;
-				bool first = true;
-				TraverseResources(dep.resources, [&](const RenderResource& resource)
+				dot << "\t" << resNode << " -> " << passNode << " [color=\"#2E86C1\"";
+				if (!label.empty())   dot << ", label=\"" << label << "\", fontcolor=\"#1F618D\"";
+				if (!tooltip.empty()) dot << ", labeltooltip=\"" << tooltip << "\", edgetooltip=\"" << tooltip << "\"";
+				dot << "];\n";
+			});
+
+			// Outputs: pass -> resource (green), labelled with the resulting layout for textures
+			TraverseResources(pass.m_outputResources, [&](const RenderResource& resource)
+			{
+				const std::string resNode = "res" + std::to_string(resource.resourceID);
+
+				std::string label;
+				std::string tooltip;
+				auto barrierIter = pass.m_outputBarriers.find(resource.resourceID);
+				if (barrierIter != pass.m_outputBarriers.end())
 				{
-					if (!first) edgeLabel << "\\n";
-					first = false;
-
-					// Type
-					if (resource.type == RESOURCE_TYPE::TEXTURE)       edgeLabel << "[TEX] ";
-					else if (resource.type == RESOURCE_TYPE::BUFFER)   edgeLabel << "[BUF] ";
-					else if (resource.type == RESOURCE_TYPE::UNIFORM)  edgeLabel << "[UNI] ";
-
-					// Name
-					edgeLabel << GetResourceName(resource);
-
-					// Layout transition if this resource has a barrier in the dst pass
-					auto barrierIter = dstPass.m_inputBarriers.find(resource.resourceID);
-					if (barrierIter != dstPass.m_inputBarriers.end())
+					const Barrier& barrier = barrierIter->second;
+					if (resource.type == RESOURCE_TYPE::TEXTURE)
 					{
-						const Barrier& barrier = barrierIter->second;
-
-						edgeLabel << " " << string_VkPipelineStageFlags(barrier.srcStageMask) << " -> " << string_VkPipelineStageFlags(barrier.dstStageMask)
-							<< "\\n"
-							<< string_VkAccessFlags(barrier.srcAccessMask) << " -> " << string_VkAccessFlags(barrier.dstAccessMask);
-						if (resource.type == RESOURCE_TYPE::TEXTURE)
-						{
-							edgeLabel << "\\n" 
-								<< string_VkImageLayout(barrier.oldLayout) << " -> " << string_VkImageLayout(barrier.newLayout);
-						}
+						label = "-> " + RG_UTILS::ShortImageLayout(barrier.newLayout);
 					}
-				});
+					tooltip = buildBarrierTooltip(barrier);
+				}
 
-				dot << "\tpass" << srcPass->m_index
-					<< " -> pass" << dstPass.m_index
-					<< " [label=\"" << edgeLabel.str() << "\"];\n";
-			}
+				dot << "\t" << passNode << " -> " << resNode << " [color=\"#239B56\", penwidth=1.4";
+				if (!label.empty())   dot << ", label=\"" << label << "\", fontcolor=\"#1E8449\"";
+				if (!tooltip.empty()) dot << ", labeltooltip=\"" << tooltip << "\", edgetooltip=\"" << tooltip << "\"";
+				dot << "];\n";
+			});
 		}
+
+		// ---- Legend ----
+		dot << "\n\t// Legend (floating, not connected to the graph)\n";
+		dot << "\tlegend [shape=box, style=filled, fillcolor=\"#FFFFFF\", color=\"#34495E\", margin=0, label=<\n";
+		dot << "\t\t<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"4\" CELLPADDING=\"3\">\n";
+		dot << "\t\t<TR><TD COLSPAN=\"2\"><B>Legend</B></TD></TR>\n";
+		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"#5D6D7E\">Passes = rounded boxes &#8226; Resources = ellipses</FONT></TD></TR>\n";
+
+		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Passes</B></FONT></TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#5DADE2\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Graphics pass</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#58D68D\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Compute pass</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#EB984E\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Transfer pass</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#FFFFFF\" BORDER=\"3\" COLOR=\"#C0392B\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Final (backbuffer) pass</TD></TR>\n";
+
+		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Resources</B></FONT></TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#EBF5FB\" BORDER=\"1\" COLOR=\"#2E86C1\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Texture</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#F4ECF7\" BORDER=\"1\" COLOR=\"#8E44AD\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Buffer</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#FEF9E7\" BORDER=\"1\" COLOR=\"#B7950B\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Uniform</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#FCF3CF\" BORDER=\"1\" COLOR=\"#B7950B\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Depth buffer</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#FADBD8\" BORDER=\"3\" COLOR=\"#C0392B\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Backbuffer (present)</TD></TR>\n";
+
+		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Edges</B></FONT></TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#2E86C1\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Resource &#8594; Pass (read / input)</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#239B56\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Pass &#8594; Resource (write / output)</TD></TR>\n";
+		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"#5D6D7E\">Edge labels show texture layout transitions</FONT></TD></TR>\n";
+		dot << "\t\t</TABLE>>];\n";
 
 		dot << "}\n";
 
@@ -1463,18 +1589,24 @@ namespace PHX
 
 	void RenderGraphVk::FindActivePasses(u32 finalPassIndex, std::vector<u32>& out_activeRenderPasses)
 	{
-		// Traverse dependency tree and tag all passes which contribute to the final pass
-		// Discard any passes which weren't tagged
+		// Traverse dependency tree and tag all passes which contribute to the final pass.
+		// A pass reachable via multiple dependency paths (diamond-shaped graphs) is visited
+		// more than once by the DFS, so de-duplicate here to avoid processing/executing it twice.
 		const u32 passCount = static_cast<u32>(m_registeredRenderPasses.size());
-		std::vector<bool> contributesToFinalPass(passCount, false);
+		std::vector<bool> alreadyActive(passCount, false);
 
 		TraverseDependencyTree(finalPassIndex, [&](const RenderPassVk& currRenderPass)
 		{
-			out_activeRenderPasses.push_back(currRenderPass.m_index);
+			const u32 passIndex = currRenderPass.m_index;
+			if (passIndex < passCount && !alreadyActive[passIndex])
+			{
+				alreadyActive[passIndex] = true;
+				out_activeRenderPasses.push_back(passIndex);
+			}
 		});
 	}
 
-	void RenderGraphVk::CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses)
+	void RenderGraphVk::CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex)
 	{
 		// Traverse the dependency tree from bottom-to-top, and for every dependency:
 		// 1. Find which resource usages caused that dependency
@@ -1482,12 +1614,12 @@ namespace PHX
 		for (u32 activeRenderPassIndex : activeRenderPasses)
 		{
 			RenderPassVk& dstRenderPass = m_registeredRenderPasses[activeRenderPassIndex];
+			const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
 
-			// Special case for first and last passes in submission order, since dependencies won't fill out
-			// their input/output dependencies respectively
-			const bool isFirst = (activeRenderPassIndex == activeRenderPasses.back());
-			const bool isLast = (activeRenderPassIndex == activeRenderPasses[0]);
-			if (isLast)
+			// The final (backbuffer) pass needs explicit output transitions for the backbuffer
+			// (-> PRESENT) and depth buffer, since no later pass depends on them to fill out the transition
+			const bool isFinalPass = (dstRenderPass.m_index == finalPassIndex);
+			if (isFinalPass)
 			{
 				TraverseRenderPassOutputs(dstRenderPass.m_index, [&](const RenderResource& resource)
 				{
@@ -1505,8 +1637,7 @@ namespace PHX
 					const bool isBackBufferResource = (dstResourceCRC == m_reservedBackbufferNameCRC);
 					const bool isDepthBufferResource = (dstResourceCRC == m_reservedDepthBufferNameCRC);
 
-					const VkImageLayout layout = CalculateResourceImageLayout(*dstResourceUsage, dstRenderPass.m_bindPoint);
-					const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
+					const VkImageLayout layout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
 
 					if (!isBackBufferResource && !isDepthBufferResource)
 					{
@@ -1543,11 +1674,13 @@ namespace PHX
 				});
 			}
 
-			if (isFirst)
+			// Non-graphics passes (transfer/compute) write their output textures directly (e.g. via a
+			// buffer-to-image copy), so they require an explicit transition into the write layout
+			// (e.g. TRANSFER_DST_OPTIMAL) before execution. Graphics passes get this implicitly from the
+			// VkRenderPass' initialLayout/finalLayout, so they're skipped here.
+			if (dstBindPoint != BIND_POINT::GRAPHICS)
 			{
-				// Transition all resources used in the first pass to the correct layout, from whatever they were in the previous frame
-				const ResourceIndexBitset inputResources = dstRenderPass.m_inputResources;
-				TraverseResources(inputResources, [&](const RenderResource& resource)
+				TraverseRenderPassOutputs(dstRenderPass.m_index, [&](const RenderResource& resource)
 				{
 					if (resource.type != RESOURCE_TYPE::TEXTURE)
 					{
@@ -1560,16 +1693,13 @@ namespace PHX
 					const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
 					ASSERT_PTR(dstResourceUsage); // Should never be null
 
-					// Only insert barriers if the layout is not compatible with the render passes' usage
 					const VkImageLayout srcLayout = pTexture->GetLayout();
-					const VkImageLayout dstLayout = CalculateResourceImageLayout(*dstResourceUsage, dstRenderPass.m_bindPoint);
+					const VkImageLayout dstLayout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
 					if (srcLayout != dstLayout)
 					{
-						const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
-
 						Barrier newDstBarrier;
-						newDstBarrier.srcAccessMask = VK_ACCESS_MEMORY_WRITE_BIT;
 						newDstBarrier.dstAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resource, dstBindPoint);
+						newDstBarrier.srcAccessMask = 0; // TOP_OF_PIPE cannot have a non-zero access mask
 						newDstBarrier.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 						newDstBarrier.dstStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.dstAccessMask, false);
 						newDstBarrier.oldLayout = srcLayout;
@@ -1579,6 +1709,46 @@ namespace PHX
 					}
 				});
 			}
+
+			// Transition input textures that have NO producing dependency (root inputs) from whatever
+			// layout they were left in (previous frame / external upload) to this pass' usage layout.
+			// Inputs supplied by a dependency are handled by the dependency barrier loop below.
+			ResourceIndexBitset coveredResources;
+			for (const DependencyInfo& dependencyInfo : dstRenderPass.m_dependencyInfos)
+			{
+				coveredResources |= dependencyInfo.resources;
+			}
+
+			const ResourceIndexBitset rootInputResources = (dstRenderPass.m_inputResources & ~coveredResources);
+			TraverseResources(rootInputResources, [&](const RenderResource& resource)
+			{
+				if (resource.type != RESOURCE_TYPE::TEXTURE)
+				{
+					return;
+				}
+				TextureVk* pTexture = ResolveTexture(resource);
+				ASSERT_PTR(pTexture);
+
+				const u64& resourceID = resource.resourceID;
+				const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
+				ASSERT_PTR(dstResourceUsage); // Should never be null
+
+				// Only insert barriers if the layout is not compatible with the render passes' usage
+				const VkImageLayout srcLayout = pTexture->GetLayout();
+				const VkImageLayout dstLayout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
+				if (srcLayout != dstLayout)
+				{
+					Barrier newDstBarrier;
+					newDstBarrier.srcAccessMask = 0; // TOP_OF_PIPE cannot have a non-zero access mask
+					newDstBarrier.dstAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resource, dstBindPoint);
+					newDstBarrier.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+					newDstBarrier.dstStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.dstAccessMask, false);
+					newDstBarrier.oldLayout = srcLayout;
+					newDstBarrier.newLayout = dstLayout;
+
+					dstRenderPass.m_inputBarriers.insert({ resourceID, newDstBarrier });
+				}
+			});
 
 			for (const DependencyInfo& dependencyInfo : dstRenderPass.m_dependencyInfos)
 			{

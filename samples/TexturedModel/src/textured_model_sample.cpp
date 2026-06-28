@@ -135,12 +135,16 @@ void TexturedModelSample::Draw()
 
 	m_renderGraph.Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
 
-	const u32 frameNumber = m_renderGraph.GetFrameNumber();
-	std::string renderGraphVisName = "./TexturedModel_RG_";
-	renderGraphVisName.append(std::to_string(frameNumber).c_str());
-	renderGraphVisName.append(".dot");
+	// Viz
+	//{
+	//	const u32 frameNumber = m_renderGraph.GetFrameNumber();
+	//	std::string renderGraphVisName = "./TexturedModel_RG_";
+	//	renderGraphVisName.append(std::to_string(frameNumber).c_str());
+	//	renderGraphVisName.append(".dot");
 
-	m_renderGraph.GenerateVisualization(renderGraphVisName.c_str());
+	//	m_renderGraph.GenerateVisualization(renderGraphVisName.c_str(), false);
+	//}
+
 	m_renderGraph.EndFrame();
 
 	m_swapChain.Present();

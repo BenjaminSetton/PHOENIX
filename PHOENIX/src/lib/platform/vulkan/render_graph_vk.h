@@ -151,7 +151,7 @@ namespace PHX
 
 		void BuildDependencyTree(u32 finalPassIndex);
 		void FindActivePasses(u32 finalPassIndex, std::vector<u32>& out_activeRenderPasses);
-		void CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses);
+		void CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex);
 
 		STATUS_CODE InsertResourceBarriers(const RenderPassVk& renderPass);
 
