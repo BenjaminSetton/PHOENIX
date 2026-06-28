@@ -22,12 +22,13 @@ namespace PHX
 		STATUS_CODE Present() override;
 		void Resize(u32 newWidth, u32 newHeight) override;
 
+		u32 GetWidth() const override;
+		u32 GetHeight() const override;
+
 		STATUS_CODE AcquireNextImage(VkSemaphore imageAvailableSemaphore);
 
 		VkSwapchainKHR GetSwapChain() const;
 		VkFormat GetSwapChainFormat() const;
-		u32 GetCurrentWidth() const;
-		u32 GetCurrentHeight() const;
 		u32 GetImageViewCount() const;
 
 	private:

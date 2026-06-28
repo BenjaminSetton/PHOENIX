@@ -179,6 +179,16 @@ namespace PHX
 		}
 	}
 
+	u32 SwapChainVk::GetWidth() const
+	{
+		return m_width;
+	}
+
+	u32 SwapChainVk::GetHeight() const
+	{
+		return m_height;
+	}
+
 	STATUS_CODE SwapChainVk::AcquireNextImage(VkSemaphore imageAvailableSemaphore)
 	{
 		VkResult resVk = vkAcquireNextImageKHR(m_renderDevice->GetLogicalDevice(), m_swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &m_currImageIndex);
@@ -203,16 +213,6 @@ namespace PHX
 	VkFormat SwapChainVk::GetSwapChainFormat() const
 	{
 		return m_format;
-	}
-
-	u32 SwapChainVk::GetCurrentWidth() const
-	{
-		return m_width;
-	}
-
-	u32 SwapChainVk::GetCurrentHeight() const
-	{
-		return m_height;
 	}
 
 	u32 SwapChainVk::GetImageViewCount() const
@@ -354,6 +354,7 @@ namespace PHX
 		// Once all image views are successfully created, create 
 		// internal texture objects from swap chain image views
 		TextureBaseCreateInfo texBaseCI{};
+		texBaseCI.pName = "Backbuffer";
 		texBaseCI.width = m_width;
 		texBaseCI.height = m_height;
 		texBaseCI.mipLevels = 1;
@@ -362,16 +363,9 @@ namespace PHX
 		texBaseCI.sampleFlags = SAMPLE_COUNT::COUNT_1;
 		texBaseCI.format = TEX_UTILS::ConvertSurfaceFormat(m_format);
 
-		const char* baseBackbufferName = "Backbuffer_";
-
 		m_images.reserve(m_imageCount);
 		for (u32 i = 0; i < m_imageCount; i++)
 		{
-			// Give the backbuffer a unique name per frame in flight
-			std::string backBufferName = baseBackbufferName;
-			backBufferName.append(std::to_string(i));
-			texBaseCI.pName = backBufferName.c_str();
-
 			TextureHandle texture;
 			STATUS_CODE res = pRenderDevice->AllocateSwapchainTexture(texBaseCI, imageViews.at(i), texture);
 			ASSERT_MSG(res == STATUS_CODE::SUCCESS, "Failed to allocate swapchain texture!");

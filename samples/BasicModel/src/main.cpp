@@ -155,8 +155,8 @@ int main(int argc, char** argv)
 	// DEPTH BUFFER
 	TextureBaseCreateInfo depthBufferBaseCI{};
 	depthBufferBaseCI.pName = "DepthBuffer";
-	depthBufferBaseCI.width = pWindow->GetCurrentWidth();
-	depthBufferBaseCI.height = pWindow->GetCurrentHeight();
+	depthBufferBaseCI.width = swapChain.GetWidth();
+	depthBufferBaseCI.height = swapChain.GetHeight();
 	depthBufferBaseCI.arrayLayers = 1;
 	depthBufferBaseCI.generateMips = false;
 	depthBufferBaseCI.format = BASE_FORMAT::D32_FLOAT;

@@ -25,6 +25,9 @@ namespace PHX
 		u32 GetCurrentImageIndex() const;
 		STATUS_CODE Present();
 		void Resize(u32 newWidth, u32 newHeight);
+
+		u32 GetWidth() const;
+		u32 GetHeight() const;
 	};
 
 	// TODO - Move to lib
@@ -39,5 +42,8 @@ namespace PHX
 		virtual u32 GetCurrentImageIndex() const = 0;
 		virtual STATUS_CODE Present() = 0;
 		virtual void Resize(u32 newWidth, u32 newHeight) = 0;
+
+		virtual u32 GetWidth() const = 0;
+		virtual u32 GetHeight() const = 0;
 	};
 }

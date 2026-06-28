@@ -27,8 +27,12 @@ namespace PHX
 
 		virtual ~IWindow() {};
 
+		// Returns the current size of the window. This represent the logical size of the OS window, not
+		// the renderable space. All rendering-related sizes should use the swap chain's GetWidth() / GetHeight() functions,
+		// while these functions can be used for user input coordinates, etc.
 		virtual u32 GetCurrentWidth() const = 0;
 		virtual u32 GetCurrentHeight() const = 0;
+
 		virtual int GetPositionX() const = 0;
 		virtual int GetPositionY() const = 0;
 		virtual const char* GetName() const = 0;

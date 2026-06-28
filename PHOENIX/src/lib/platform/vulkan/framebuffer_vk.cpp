@@ -238,8 +238,8 @@ namespace PHX
 			if (attachmentTex->GetWidth() != desc.width || attachmentTex->GetHeight() != desc.height)
 			{
 				allSizesValid = false;
-				LogError("Attempting to create framebuffer of size %ux%u, but attachment %u has size %ux%u", 
-					desc.width, desc.height, i, attachmentTex->GetWidth(), attachmentTex->GetHeight());
+				LogError("Attempting to create framebuffer of size %ux%u, but attachment \"%s\" (index %u) has size %ux%u", 
+					desc.width, desc.height, attachmentTex->GetName(), i, attachmentTex->GetWidth(), attachmentTex->GetHeight());
 			}
 		}
 		if (!allSizesValid)

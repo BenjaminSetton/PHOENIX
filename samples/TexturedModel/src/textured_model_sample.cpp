@@ -188,8 +188,8 @@ void TexturedModelSample::Init()
 	// DEPTH BUFFER
 	TextureBaseCreateInfo depthBufferBaseCI{};
 	depthBufferBaseCI.pName = "DepthBuffer";
-	depthBufferBaseCI.width = m_pWindow->GetCurrentWidth();
-	depthBufferBaseCI.height = m_pWindow->GetCurrentHeight();
+	depthBufferBaseCI.width = m_swapChain.GetWidth();
+	depthBufferBaseCI.height = m_swapChain.GetHeight();
 	depthBufferBaseCI.arrayLayers = 1;
 	depthBufferBaseCI.generateMips = false;
 	depthBufferBaseCI.format = BASE_FORMAT::D32_FLOAT;

@@ -94,4 +94,28 @@ namespace PHX
 			return pSwapChain->Resize(newWidth, newHeight);
 		}
 	}
+
+	u32 SwapChainHandle::GetWidth() const
+	{
+		ISwapChain* pSwapChain = HANDLE_UTILS::ResolveHandle(*this);
+		if (pSwapChain != nullptr)
+		{
+			return pSwapChain->GetWidth();
+		}
+
+		ASSERT_ALWAYS("Failed to get width. Could not resolve swap chain handle!");
+		return 0;
+	}
+
+	u32 SwapChainHandle::GetHeight() const
+	{
+		ISwapChain* pSwapChain = HANDLE_UTILS::ResolveHandle(*this);
+		if (pSwapChain != nullptr)
+		{
+			return pSwapChain->GetHeight();
+		}
+
+		ASSERT_ALWAYS("Failed to get height. Could not resolve swap chain handle!");
+		return 0;
+	}
 }

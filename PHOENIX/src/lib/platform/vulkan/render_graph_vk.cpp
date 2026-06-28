@@ -1436,8 +1436,8 @@ namespace PHX
 		);
 
 		FramebufferDescription framebufferCI{};
-		framebufferCI.width = maxWidth;
-		framebufferCI.height = maxHeight;
+		framebufferCI.width = maxWidth; // TODO - Revisit
+		framebufferCI.height = maxHeight; // TODO - Revisit
 		framebufferCI.layers = 1;
 		framebufferCI.pAttachments = attachments.data();
 		framebufferCI.attachmentCount = static_cast<u32>(attachments.size());
