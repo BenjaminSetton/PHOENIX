@@ -53,7 +53,7 @@ namespace Common
 			return diskTex;
 		}
 
-		const uint32_t nameSize = strlen(pName) + 1;
+		const uint32_t nameSize = static_cast<uint32_t>(strlen(pName)) + 1;
 		diskTex.pName = new char[nameSize];
 		strcpy_s(diskTex.pName, nameSize, pName);
 

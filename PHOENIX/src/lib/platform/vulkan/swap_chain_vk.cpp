@@ -239,6 +239,13 @@ namespace PHX
 		VkPresentModeKHR presentMode = ChooseSwapPresentMode(details.presentModes, enableVSync);
 		VkExtent2D extent = ChooseSwapChainExtent(details.capabilities, width, height);
 
+		// Warn when we cannot use specified dimensions
+		if (width != extent.width || height != extent.height)
+		{
+			LogWarning("Could not create swap chain with specified dimensions (%ux%u)! Using %ux%u instead",
+				width, height, extent.width, extent.height);
+		}
+
 		uint32_t imageCount = details.capabilities.minImageCount + 1;
 		if (details.capabilities.maxImageCount > 0 && imageCount > details.capabilities.maxImageCount)
 		{
@@ -355,9 +362,16 @@ namespace PHX
 		texBaseCI.sampleFlags = SAMPLE_COUNT::COUNT_1;
 		texBaseCI.format = TEX_UTILS::ConvertSurfaceFormat(m_format);
 
+		const char* baseBackbufferName = "Backbuffer_";
+
 		m_images.reserve(m_imageCount);
 		for (u32 i = 0; i < m_imageCount; i++)
 		{
+			// Give the backbuffer a unique name per frame in flight
+			std::string backBufferName = baseBackbufferName;
+			backBufferName.append(std::to_string(i));
+			texBaseCI.pName = backBufferName.c_str();
+
 			TextureHandle texture;
 			STATUS_CODE res = pRenderDevice->AllocateSwapchainTexture(texBaseCI, imageViews.at(i), texture);
 			ASSERT_MSG(res == STATUS_CODE::SUCCESS, "Failed to allocate swapchain texture!");

@@ -271,6 +271,8 @@ namespace PHX
 		m_position = createInfo.position;
 		m_title = titleUsed;
 		m_inFocus = true;
+
+		LogInfo("Successfully created window with dimensions %ux%u at position (%u, %u)!", m_size.GetX(), m_size.GetY(), m_position.GetX(), m_position.GetY());
 	}
 
 	WindowWin64::~WindowWin64()

@@ -33,7 +33,7 @@ struct TestUBO
 
 // Ugly, but easier for demo's sake
 static PHX::IWindow* s_pWindow = nullptr;
-static PHX::IRenderDevice* s_pRenderDevice = nullptr;
+static PHX::RenderDeviceHandle s_renderDevice;
 static PHX::SwapChainHandle s_swapChain;
 
 void LogCallback(const char* msg, PHX::LOG_TYPE severity)
@@ -136,7 +136,7 @@ int main(int argc, char** argv)
 	RenderDeviceCreateInfo renderDeviceCI{};
 	renderDeviceCI.window = s_pWindow;
 	renderDeviceCI.framesInFlight = 3;
-	result = CreateRenderDevice(renderDeviceCI, &s_pRenderDevice);
+	result = CreateRenderDevice(renderDeviceCI, s_renderDevice);
 	if (result != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create render device
@@ -149,7 +149,7 @@ int main(int argc, char** argv)
 	swapChainCI.width = s_pWindow->GetCurrentWidth();
 	swapChainCI.height = s_pWindow->GetCurrentHeight();
 
-	result = s_pRenderDevice->AllocateSwapChain(swapChainCI, s_swapChain);
+	result = s_renderDevice.AllocateSwapChain(swapChainCI, s_swapChain);
 	if (result != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create swap chain
@@ -159,14 +159,14 @@ int main(int argc, char** argv)
 	// SHADERS
 	std::string vertShaderName("../src/shaders/vertex_sample.vert");
 	ShaderHandle vertShader;
-	if (!Common::AllocateShader(vertShaderName, SHADER_STAGE::VERTEX, s_pRenderDevice, vertShader))
+	if (!Common::AllocateShader(vertShaderName, SHADER_STAGE::VERTEX, s_renderDevice, vertShader))
 	{
 		return -1;
 	}
 
 	std::string fragShaderName("../src/shaders/fragment_sample.frag");
 	ShaderHandle fragShader;
-	if (!Common::AllocateShader(fragShaderName, SHADER_STAGE::FRAGMENT, s_pRenderDevice, fragShader))
+	if (!Common::AllocateShader(fragShaderName, SHADER_STAGE::FRAGMENT, s_renderDevice, fragShader))
 	{
 		return -1;
 	}
@@ -187,7 +187,7 @@ int main(int argc, char** argv)
 	uniformCollectionCI.groupCount = 1;
 
 	UniformCollectionHandle uniforms;
-	result = s_pRenderDevice->AllocateUniformCollection(uniformCollectionCI, uniforms);
+	result = s_renderDevice.AllocateUniformCollection(uniformCollectionCI, uniforms);
 	if (result != PHX::STATUS_CODE::SUCCESS)
 	{
 		return -1;
@@ -199,7 +199,7 @@ int main(int argc, char** argv)
 	bufferCI.sizeBytes = sizeof(SimpleVertexType) * VERTEX_COUNT; // Triangle!
 
 	BufferHandle vBuffer;
-	result = s_pRenderDevice->AllocateBuffer(bufferCI, vBuffer);
+	result = s_renderDevice.AllocateBuffer(bufferCI, vBuffer);
 	if (result != STATUS_CODE::SUCCESS)
 	{
 		return -1;
@@ -219,7 +219,7 @@ int main(int argc, char** argv)
 	uniformBufferCI.sizeBytes = sizeof(TestUBO);
 
 	BufferHandle uniformBuffer;
-	result = s_pRenderDevice->AllocateBuffer(uniformBufferCI, uniformBuffer);
+	result = s_renderDevice.AllocateBuffer(uniformBufferCI, uniformBuffer);
 	if (result != STATUS_CODE::SUCCESS)
 	{
 		return -1;
@@ -227,7 +227,7 @@ int main(int argc, char** argv)
 
 	// RENDER GRAPH
 	RenderGraphHandle renderGraph;
-	result = s_pRenderDevice->AllocateRenderGraph(renderGraph);
+	result = s_renderDevice.AllocateRenderGraph(renderGraph);
 	if (result != PHX::STATUS_CODE::SUCCESS)
 	{
 		return -1;
@@ -299,7 +299,7 @@ int main(int argc, char** argv)
 			continue;
 		}
 
-		s_pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_pRenderDevice->GetDeviceName(), i, elapsedMs.count(), 1.0f / elapsedSeconds.count());
+		s_pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_renderDevice.GetDeviceName(), i, elapsedMs.count(), 1.0f / elapsedSeconds.count());
 
 		// Draw operations
 		result = renderGraph.BeginFrame(s_swapChain);
@@ -370,6 +370,5 @@ int main(int argc, char** argv)
 	}
 
 	// Clean up core objects
-	PHX::DestroyRenderDevice(&s_pRenderDevice);
 	PHX::DestroyWindow(&s_pWindow);
 }

@@ -109,8 +109,8 @@ int main(int argc, char** argv)
 	renderDeviceCI.framesInFlight = 2;
 	renderDeviceCI.window = pWindow;
 
-	IRenderDevice* pRenderDevice = nullptr;
-	phxRes = CreateRenderDevice(renderDeviceCI, &pRenderDevice);
+	RenderDeviceHandle renderDevice;
+	phxRes = CreateRenderDevice(renderDeviceCI, renderDevice);
 	CHECK_PHX_RES(phxRes);
 
 	// SWAP CHAIN
@@ -120,38 +120,41 @@ int main(int argc, char** argv)
 	swapChainCI.height = pWindow->GetCurrentHeight();
 
 	SwapChainHandle swapChain;
-	phxRes = pRenderDevice->AllocateSwapChain(swapChainCI, swapChain);
+	phxRes = renderDevice.AllocateSwapChain(swapChainCI, swapChain);
 	CHECK_PHX_RES(phxRes);
 
 	// VERTEX BUFFER
 	const u64 vBufferSizeBytes = static_cast<u64>(cubeAsset->vertices.size() * sizeof(AssetVertex));
 
 	BufferCreateInfo vBufferCI{};
+	vBufferCI.pName = "VertexBuffer";
 	vBufferCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
 	vBufferCI.sizeBytes = vBufferSizeBytes;
 
 	BufferHandle vertexBuffer;
-	phxRes = pRenderDevice->AllocateBuffer(vBufferCI, vertexBuffer);
+	phxRes = renderDevice.AllocateBuffer(vBufferCI, vertexBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// INDEX BUFFER
 	const u64 iBufferSizeBytes = static_cast<u64>(cubeAsset->indices.size() * sizeof(Common::AssetIndexType));
 
 	BufferCreateInfo iBufferCI{};
+	iBufferCI.pName = "IndexBuffer";
 	iBufferCI.bufferUsage = BUFFER_USAGE::INDEX_BUFFER;
 	iBufferCI.sizeBytes = iBufferSizeBytes;
 
 	BufferHandle indexBuffer;
-	phxRes = pRenderDevice->AllocateBuffer(iBufferCI, indexBuffer);
+	phxRes = renderDevice.AllocateBuffer(iBufferCI, indexBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// RENDER GRAPH
 	RenderGraphHandle renderGraph;
-	phxRes = pRenderDevice->AllocateRenderGraph(renderGraph);
+	phxRes = renderDevice.AllocateRenderGraph(renderGraph);
 	CHECK_PHX_RES(phxRes);
 
 	// DEPTH BUFFER
 	TextureBaseCreateInfo depthBufferBaseCI{};
+	depthBufferBaseCI.pName = "DepthBuffer";
 	depthBufferBaseCI.width = pWindow->GetCurrentWidth();
 	depthBufferBaseCI.height = pWindow->GetCurrentHeight();
 	depthBufferBaseCI.arrayLayers = 1;
@@ -172,18 +175,18 @@ int main(int argc, char** argv)
 	depthBufferSamplerCI.samplerMipMapFilter = FILTER_MODE::NEAREST;
 
 	TextureHandle depthBuffer;
-	phxRes = pRenderDevice->AllocateTexture(depthBufferBaseCI, depthBufferViewCI, depthBufferSamplerCI, depthBuffer);
+	phxRes = renderDevice.AllocateTexture(depthBufferBaseCI, depthBufferViewCI, depthBufferSamplerCI, depthBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	// SHADERS
 	ShaderHandle vertShader;
-	if (!Common::AllocateShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, pRenderDevice, vertShader))
+	if (!Common::AllocateShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, renderDevice, vertShader))
 	{
 		return -1;
 	}
 
 	ShaderHandle fragShader;
-	if (!Common::AllocateShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, pRenderDevice, fragShader))
+	if (!Common::AllocateShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, renderDevice, fragShader))
 	{
 		return -1;
 	}
@@ -221,7 +224,7 @@ int main(int argc, char** argv)
 	uniformBufferCI.sizeBytes = sizeof(TransformData);
 
 	BufferHandle uniformBuffer;
-	phxRes = pRenderDevice->AllocateBuffer(uniformBufferCI, uniformBuffer);
+	phxRes = renderDevice.AllocateBuffer(uniformBufferCI, uniformBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	UniformData uniformData;
@@ -239,7 +242,7 @@ int main(int argc, char** argv)
 	uniformCollectionCI.groupCount = 1;
 
 	UniformCollectionHandle uniformCollection;
-	phxRes = pRenderDevice->AllocateUniformCollection(uniformCollectionCI, uniformCollection);
+	phxRes = renderDevice.AllocateUniformCollection(uniformCollectionCI, uniformCollection);
 	CHECK_PHX_RES(phxRes);
 
 	// GRAPHICS PIPELINE
@@ -326,7 +329,6 @@ int main(int argc, char** argv)
 	}
 
 	PHX::DestroyWindow(&pWindow);
-	PHX::DestroyRenderDevice(&pRenderDevice);
 
 	return 0;
 }
