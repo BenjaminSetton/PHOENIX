@@ -226,11 +226,6 @@ namespace PHX
 
 	STATUS_CODE PipelineVk::VerifyCreateInfo(const GraphicsPipelineDesc& createInfo)
 	{
-		if (createInfo.pInputAttributes == nullptr)
-		{
-			LogError("Failed to create graphics pipeline! Input attributes are null");
-			return STATUS_CODE::ERR_API;
-		}
 		if (createInfo.pShaders == nullptr)
 		{
 			LogError("Failed to create graphics pipeline! Shaders array is null");

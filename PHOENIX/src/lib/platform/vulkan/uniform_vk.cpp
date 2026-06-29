@@ -195,12 +195,37 @@ namespace PHX
 		bufferInfo.offset = offset;
 		bufferInfo.range = range;
 
+		// TODO - Verify that all conversions are correct
+		const BUFFER_USAGE usage = buffer.GetUsage();
+		VkDescriptorType descType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
+		switch (usage)
+		{
+		case BUFFER_USAGE::UNIFORM_BUFFER:
+		case BUFFER_USAGE::INDEX_BUFFER:
+		case BUFFER_USAGE::VERTEX_BUFFER:
+		case BUFFER_USAGE::INDIRECT_BUFFER:
+		{
+			descType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			break;
+		}
+		case BUFFER_USAGE::STORAGE_BUFFER:
+		{
+			descType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+			break;
+		}
+		default:
+		{
+			ASSERT_ALWAYS("Failed to convert buffer usage to descritor type!");
+			break;
+		}
+		}
+
 		VkWriteDescriptorSet writeDescSet{};
 		writeDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writeDescSet.dstSet = vkDescSet;
 		writeDescSet.dstBinding = binding;
 		writeDescSet.dstArrayElement = 0;
-		writeDescSet.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+		writeDescSet.descriptorType = descType;
 		writeDescSet.descriptorCount = 1;
 		writeDescSet.pBufferInfo = &bufferInfo;
 

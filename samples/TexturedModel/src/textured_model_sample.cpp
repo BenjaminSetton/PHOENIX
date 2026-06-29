@@ -291,7 +291,7 @@ void TexturedModelSample::Init()
 	CreateUniformCollection();
 
 	// GRAPHICS PIPELINE
-	m_pipelineDesc.viewportSize = { m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() };
+	m_pipelineDesc.viewportSize = { m_swapChain.GetWidth(), m_swapChain.GetHeight() };
 	m_pipelineDesc.viewportPos = { 0, 0 };
 	m_pipelineDesc.polygonMode = POLYGON_MODE::FILL;
 	m_pipelineDesc.topology = PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;

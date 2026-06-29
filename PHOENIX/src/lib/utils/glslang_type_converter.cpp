@@ -86,23 +86,41 @@ namespace PHX
 
 		BASE_FORMAT ConvertIOTypeToBaseFormat(glslang::TBasicType type, u32 vectorSize)
 		{
-			if (type != glslang::EbtFloat)
+			switch (type)
 			{
-				// TODO
-				ASSERT_ALWAYS("Currently only 32-bit float is supported in ConvertIOTypeToBaseFormat()");
-				return BASE_FORMAT::INVALID;
+			case glslang::EbtFloat:
+			{
+				switch (vectorSize)
+				{
+				case 1: return BASE_FORMAT::R32_FLOAT;
+				case 2: return BASE_FORMAT::R32G32_FLOAT;
+				case 3: return BASE_FORMAT::R32G32B32_FLOAT;
+				case 4: return BASE_FORMAT::R32G32B32A32_FLOAT;
+				default: break;
+				}
+
+				break;
+			}
+			case glslang::EbtInt:
+			{
+				switch (vectorSize)
+				{
+				case 1: return BASE_FORMAT::R32_SINT;
+				case 2: return BASE_FORMAT::R32G32_SINT;
+				case 3: return BASE_FORMAT::R32G32B32_SINT;
+				case 4: return BASE_FORMAT::R32G32B32A32_SINT;
+				default: break;
+				}
+
+				break;
+			}
+			default:
+			{
+				break;
+			}
 			}
 
-			switch (vectorSize)
-			{
-			case 1: return BASE_FORMAT::R32_FLOAT;
-			case 2: return BASE_FORMAT::R32G32_FLOAT;
-			case 3: return BASE_FORMAT::R32G32B32_FLOAT;
-			case 4: return BASE_FORMAT::R32G32B32A32_FLOAT;
-			default: break;
-			}
-
-			ASSERT_ALWAYS("Failed to convert IO type to base format. Vector size is out of expected range! (1-4)");
+			ASSERT_ALWAYS("Failed to convert IO type to base format. Unhandled type or vector size!");
 			return BASE_FORMAT::INVALID;
 		}
 	}

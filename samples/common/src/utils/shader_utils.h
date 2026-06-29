@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <PHX/phx.h>
 #include <PHX/interface/shader.h>
 

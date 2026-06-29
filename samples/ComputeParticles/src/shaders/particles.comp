@@ -1,0 +1,95 @@
+#version 450
+
+layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
+
+struct Particle
+{
+    mat4 transform; // model matrix (position / rotation / scale)
+    vec4 color;     // rgba
+};
+
+layout(std140, set = 0, binding = 0) buffer ParticleBuffer
+{
+    Particle particles[];
+} particleBuffer;
+
+layout(std140, set = 0, binding = 1) uniform SimParams
+{
+    float deltaTime;   // seconds elapsed since last update
+    float totalTime;   // total elapsed time in seconds
+    uint  particleCount;
+    float _pad0;
+} sim;
+
+// Generate a pseudo-random float in [0, 1) from an unsigned seed.
+float Hash(uint seed)
+{
+    seed = (seed ^ 61u) ^ (seed >> 16u);
+    seed *= 9u;
+    seed = seed ^ (seed >> 4u);
+    seed *= 0x27d4eb2du;
+    seed = seed ^ (seed >> 15u);
+    return float(seed & 0x00FFFFFFu) / float(0x01000000u);
+}
+
+void main()
+{
+    uint index = gl_GlobalInvocationID.x;
+    if (index >= sim.particleCount)
+    {
+        return;
+    }
+
+    Particle particle = particleBuffer.particles[index];
+
+    // Per-particle deterministic randomness so each particle behaves uniquely.
+    float seedA = Hash(index * 2u + 1u);
+    float seedB = Hash(index * 7u + 3u);
+    float seedC = Hash(index * 13u + 5u);
+
+    // --- Update position ---
+    // Extract current translation from the transform's 4th column.
+    vec3 position = particle.transform[3].xyz;
+
+    // Give each particle a unique velocity and a gentle gravity pull.
+    vec3 velocity = vec3(
+        (seedA - 0.5) * 2.0,
+        (seedB - 0.5) * 2.0,
+        (seedC - 0.5) * 2.0
+    );
+    velocity.y -= 0.5 * sim.totalTime; // simple gravity accumulation
+
+    position += velocity * sim.deltaTime;
+
+    // Wrap particles back into a [-5, 5] cube so they stay on screen.
+    position = mod(position + 5.0, 10.0) - 5.0;
+
+    // --- Update rotation ---
+    // Spin each particle about the Y axis at a unique rate.
+    float angle = sim.totalTime * (0.5 + seedA * 2.0);
+    float c = cos(angle);
+    float s = sin(angle);
+
+    float scale = 0.1 + seedB * 0.2;
+
+    // Rebuild the transform: scale * rotationY, with the updated translation.
+    mat4 transform = mat4(1.0);
+    transform[0] = vec4( c * scale, 0.0, -s * scale, 0.0);
+    transform[1] = vec4( 0.0,       scale, 0.0,      0.0);
+    transform[2] = vec4( s * scale, 0.0,  c * scale, 0.0);
+    transform[3] = vec4( position,                   1.0);
+
+    particle.transform = transform;
+
+    // --- Update color ---
+    // Animate a smooth color cycle, unique per particle.
+    float t = sim.totalTime + seedC * 6.2831853; // offset phase per particle
+    particle.color = vec4(
+        0.5 + 0.5 * sin(t),
+        0.5 + 0.5 * sin(t + 2.0943951),  // +120 degrees
+        0.5 + 0.5 * sin(t + 4.1887902),  // +240 degrees
+        1.0
+    );
+
+    particleBuffer.particles[index] = particle;
+}

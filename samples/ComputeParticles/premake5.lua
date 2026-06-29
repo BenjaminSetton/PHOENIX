@@ -20,13 +20,18 @@ project "ComputeParticles"
 		"src/**.cpp",
 		"src/**.vert",
 		"src/**.frag",
+		"src/**.comp",
 		"../common/src/**.h",
 		"../common/src/**.cpp"
 	}
 	
 	includedirs
 	{
-		"%{SamplesCommon_IncludeDirs.PHOENIX}"
+		"%{SamplesCommon_IncludeDirs.PHOENIX}",
+		"%{SamplesCommon_IncludeDirs.glm}",
+		"%{SamplesCommon_IncludeDirs.assimp_core}",
+		"%{SamplesCommon_IncludeDirs.assimp_generated}",
+		"%{SamplesCommon_IncludeDirs.stb_image}"
 	}
 	
 	filter "system:windows"
@@ -39,7 +44,10 @@ project "ComputeParticles"
 			
 			links
 			{
-				"%{SamplesCommon_Libraries.PHOENIX_win64_debug}"
+				"%{SamplesCommon_Libraries.PHOENIX_win64_debug}",
+				"%{SamplesCommon_Libraries.assimp_zlib_debug}",
+				"%{SamplesCommon_Libraries.assimp_debug}",
+				"%{SamplesCommon_Libraries.glm_debug}"
 			}
 		
 		filter "configurations:Release"
@@ -47,5 +55,8 @@ project "ComputeParticles"
 			
 			links
 			{
-				"%{SamplesCommon_Libraries.PHOENIX_win64_release}"
+				"%{SamplesCommon_Libraries.PHOENIX_win64_release}",
+				"%{SamplesCommon_Libraries.assimp_zlib_release}",
+				"%{SamplesCommon_Libraries.assimp_release}",
+				"%{SamplesCommon_Libraries.glm_release}"
 			}
