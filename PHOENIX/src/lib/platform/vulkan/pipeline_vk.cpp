@@ -93,10 +93,15 @@ namespace PHX
 			shaderStages.emplace_back(PopulateShaderCreateInfo(pShader));
 		}
 
-		// Vertex input layout
+		// Vertex input layout (optional)
 		std::vector<VkVertexInputAttributeDescription> inputAttributeDescs;
-		PopulateInputAttributeDescription(createInfo.pInputAttributes, createInfo.attributeCount, inputAttributeDescs);
-		VkVertexInputBindingDescription inputBindingDesc = PopulateInputBindingDescription(createInfo.pInputAttributes, createInfo.attributeCount, createInfo.inputBinding, createInfo.inputRate);
+		std::vector<VkVertexInputBindingDescription> inputBindingDescs;
+		bool usesInputAttributes = (createInfo.pInputAttributes != nullptr) && (createInfo.attributeCount != 0);
+		if (usesInputAttributes)
+		{
+			PopulateInputAttributeDescription(createInfo.pInputAttributes, createInfo.attributeCount, inputAttributeDescs);
+			PopulateInputBindingDescription(createInfo.pInputAttributes, createInfo.attributeCount, createInfo.inputBinding, createInfo.inputRate, inputBindingDescs);
+		}
 
 		// TODO - Should we always have the viewport and scissor as dynamic states? Should it be adjustable?
 		const u32 NUM_DYNAMIC_STATES = 2;
@@ -107,7 +112,7 @@ namespace PHX
 		};
 
 		// Core pipeline descriptions
-		VkPipelineVertexInputStateCreateInfo		vertexInputInfo      = PopulateVertexInputCreateInfo(inputBindingDesc, inputAttributeDescs);
+		VkPipelineVertexInputStateCreateInfo		vertexInputInfo      = PopulateVertexInputCreateInfo(inputBindingDescs, inputAttributeDescs);
 		VkPipelineInputAssemblyStateCreateInfo		inputAssembly        = PopulateInputAssemblyCreateInfo(PIPELINE_UTILS::ConvertPrimitiveTopology(createInfo.topology), createInfo.enableRestartPrimitives);
 		VkViewport									viewport             = PopulateViewportInfo(createInfo.viewportSize, createInfo.viewportDepthRange);
 		VkRect2D									scissor              = PopulateScissorInfo(createInfo.scissorOffset, createInfo.scissorExtent);

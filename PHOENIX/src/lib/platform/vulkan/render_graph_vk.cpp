@@ -1216,101 +1216,6 @@ namespace PHX
 				// 
 				// We'll make some assumptions about what the resource access and stage masks are 
 				// in this last pass. Not sure what else to do at the moment
-
-				//attDesc.initialLayout = pTexture->GetLayout();
-
-				//switch (resourceUsage->attachmentType)
-				//{
-				//case ATTACHMENT_TYPE::COLOR:
-				//{
-				//	attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-				//	attDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-				//	if (HashCRC32(resourceUsage->name) == m_pReservedBackbufferNameCRC)
-				//	{
-				//		attDesc.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-				//	}
-
-				//	attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
-				//	attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
-
-				//	subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-				//	subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-				//	subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
-				//	subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-				//	subpassDesc.colorAttachmentIndices.push_back(localResourceIndex);
-				//	break;
-				//}
-				//case ATTACHMENT_TYPE::DEPTH:
-				//{
-				//	attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-				//	attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-				//	attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
-				//	attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
-
-				//	subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-				//	subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-				//	subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-				//	subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-				//	ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
-				//	subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
-				//	break;
-				//}
-				//case ATTACHMENT_TYPE::STENCIL:
-				//{
-				//	attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-				//	attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-				//	attDesc.stencilLoadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
-				//	attDesc.stencilStoreOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
-
-				//	subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-				//	subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-				//	subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-				//	subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-				//	ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
-				//	subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
-				//	break;
-				//}
-				//case ATTACHMENT_TYPE::DEPTH_STENCIL:
-				//{
-				//	attDesc.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-				//	attDesc.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-
-				//	// TODO - Should this be considered a stencil or regular load/store op?
-				//	attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
-				//	attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
-
-				//	subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT; // Store op is always performed in late tests, after subpass access
-				//	subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT; // Load op is always performed in early tests, before subpass access
-				//	subpassDesc.srcAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-				//	subpassDesc.dstAccessMask |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-				//	ASSERT_MSG(subpassDesc.depthStencilAttachmentIndex == -1, "Already assigned the depth stencil attachment index!");
-				//	subpassDesc.depthStencilAttachmentIndex = localResourceIndex;
-				//	break;
-				//}
-				//case ATTACHMENT_TYPE::RESOLVE:
-				//{
-				//	attDesc.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-				//	attDesc.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-				//	attDesc.loadOp = ATT_UTILS::ConvertLoadOp(resourceUsage->loadOp);
-				//	attDesc.storeOp = ATT_UTILS::ConvertStoreOp(resourceUsage->storeOp);
-
-				//	subpassDesc.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-				//	subpassDesc.dstStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT; // TODO - optimize
-				//	subpassDesc.srcAccessMask |= VK_ACCESS_NONE;
-				//	subpassDesc.dstAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-				//	ASSERT_MSG(subpassDesc.resolveAttachmentIndex == -1, "Already assigned the resolve attachment index!");
-				//	subpassDesc.resolveAttachmentIndex = localResourceIndex;
-				//	break;
-				//}
-				//}
 					
 				ASSERT_ALWAYS("Failed to find output barrier for render pass?");
 			}
@@ -1384,7 +1289,8 @@ namespace PHX
 
 		renderPassDesc.subpasses.push_back(subpassDesc); // TODO - Support multiple subpasses
 
-		VkRenderPass renderPassVk = m_pRenderDevice->CreateRenderPass(renderPassDesc);
+		// May return cached render pass if a match is found
+		VkRenderPass renderPassVk = m_pRenderDevice->GetOrCreateRenderPass(renderPassDesc);
 		return renderPassVk;
 	}
 

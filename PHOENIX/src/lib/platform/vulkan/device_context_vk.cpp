@@ -705,9 +705,14 @@ namespace PHX
 				continue;
 			}
 
-			vkResetCommandPool(m_pRenderDevice->GetLogicalDevice(), currPool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
-
+			// TODO - Reuse command buffers
 			CommandBufferList& cmdBufferList = m_cmdBuffers[i];
+			if (!cmdBufferList.empty())
+			{
+				vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), currPool, static_cast<u32>(cmdBufferList.size()), cmdBufferList.data());
+			}
+
+			vkResetCommandPool(m_pRenderDevice->GetLogicalDevice(), currPool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
 			cmdBufferList.clear();
 		}
 	}

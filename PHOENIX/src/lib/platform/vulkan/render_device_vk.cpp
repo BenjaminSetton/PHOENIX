@@ -409,9 +409,9 @@ namespace PHX
 		return m_framebufferCache->Find(desc);
 	}
 
-	VkRenderPass RenderDeviceVk::CreateRenderPass(const RenderPassDescription& desc)
+	VkRenderPass RenderDeviceVk::GetOrCreateRenderPass(const RenderPassDescription& desc)
 	{
-		return m_renderPassCache->FindOrCreate(this, desc);
+		return m_renderPassCache->GetOrCreate(this, desc);
 	}
 
 	void RenderDeviceVk::DestroyRenderPass(const RenderPassDescription& desc)

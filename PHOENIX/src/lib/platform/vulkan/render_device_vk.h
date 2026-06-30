@@ -55,7 +55,7 @@ namespace PHX
 		void DestroyFramebuffer(const FramebufferDescription& desc);
 		FramebufferVk* GetFramebuffer(const FramebufferDescription& desc) const;
 		
-		VkRenderPass CreateRenderPass(const RenderPassDescription& desc);
+		VkRenderPass GetOrCreateRenderPass(const RenderPassDescription& desc);
 		void DestroyRenderPass(const RenderPassDescription& desc);
 		VkRenderPass GetRenderPass(const RenderPassDescription& desc) const;
 

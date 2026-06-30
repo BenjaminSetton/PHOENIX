@@ -12,35 +12,25 @@
 
 namespace PHX
 {
-	VkVertexInputBindingDescription PopulateInputBindingDescription(InputAttribute* pAttributes, u32 attributeCount, u32 inputBinding, VERTEX_INPUT_RATE inputRate)
+	void PopulateInputBindingDescription(InputAttribute* pAttributes, u32 attributeCount, u32 inputBinding, VERTEX_INPUT_RATE inputRate, std::vector<VkVertexInputBindingDescription>& out_inputBindingDescriptions)
 	{
-		if (pAttributes == nullptr || attributeCount == 0)
-		{
-			LogError("Failed to populate input binding description. Attributes array is empty or invalid!");
-			return {};
-		}
-
 		u32 accumulatedStride = 0;
 		for (u32 i = 0; i < attributeCount; i++)
 		{
 			accumulatedStride += GetBaseFormatSize(pAttributes[i].format);
+
 		}
 
 		VkVertexInputBindingDescription bindingDesc{};
 		bindingDesc.binding = inputBinding;
 		bindingDesc.stride = accumulatedStride;
 		bindingDesc.inputRate = PIPELINE_UTILS::ConvertInputRate(inputRate);
-		return bindingDesc;
+
+		out_inputBindingDescriptions.push_back(bindingDesc);
 	}
 
 	void PopulateInputAttributeDescription(InputAttribute* pAttributes, u32 attributeCount, std::vector<VkVertexInputAttributeDescription>& out_inputAttributeDescriptions)
 	{
-		if (pAttributes == nullptr || attributeCount == 0)
-		{
-			LogError("Failed to populate input attribute description. Attributes array is empty or invalid!");
-			return;
-		}
-
 		out_inputAttributeDescriptions.reserve(attributeCount);
 		
 		u32 accumulatedOffset = 0;
@@ -61,12 +51,12 @@ namespace PHX
 		}
 	}
 
-	VkPipelineVertexInputStateCreateInfo PopulateVertexInputCreateInfo(const VkVertexInputBindingDescription& inputBindingDescription, const std::vector<VkVertexInputAttributeDescription>& inputAttributeDescriptions)
+	VkPipelineVertexInputStateCreateInfo PopulateVertexInputCreateInfo(const std::vector<VkVertexInputBindingDescription>& inputBindingDescriptions, const std::vector<VkVertexInputAttributeDescription>& inputAttributeDescriptions)
 	{
 		VkPipelineVertexInputStateCreateInfo vertexInput{};
 		vertexInput.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-		vertexInput.pVertexBindingDescriptions = &(inputBindingDescription); // TODO - Do we need more than 1?
-		vertexInput.vertexBindingDescriptionCount = 1;
+		vertexInput.pVertexBindingDescriptions = inputBindingDescriptions.data();
+		vertexInput.vertexBindingDescriptionCount = static_cast<u32>(inputBindingDescriptions.size());
 		vertexInput.pVertexAttributeDescriptions = inputAttributeDescriptions.data();
 		vertexInput.vertexAttributeDescriptionCount = static_cast<u32>(inputAttributeDescriptions.size());
 

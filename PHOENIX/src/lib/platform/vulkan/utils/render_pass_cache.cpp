@@ -39,7 +39,7 @@ namespace PHX
 		return VK_NULL_HANDLE;
 	}
 
-	VkRenderPass RenderPassCache::FindOrCreate(RenderDeviceVk* pRenderDevice, const RenderPassDescription& desc)
+	VkRenderPass RenderPassCache::GetOrCreate(RenderDeviceVk* pRenderDevice, const RenderPassDescription& desc)
 	{
 		VkRenderPass res = VK_NULL_HANDLE;
 

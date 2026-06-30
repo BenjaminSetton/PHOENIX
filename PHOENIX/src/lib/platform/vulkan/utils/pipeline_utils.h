@@ -14,9 +14,9 @@ namespace PHX
 	class ShaderVk;
 	struct InputAttribute;
 
-	VkVertexInputBindingDescription         PopulateInputBindingDescription(InputAttribute* pAttributes, u32 attributeCount, u32 inputBinding, VERTEX_INPUT_RATE inputRate);
+	void                                    PopulateInputBindingDescription(InputAttribute* pAttributes, u32 attributeCount, u32 inputBinding, VERTEX_INPUT_RATE inputRate, std::vector<VkVertexInputBindingDescription>& out_inputbindingDescriptions);
 	void                                    PopulateInputAttributeDescription(InputAttribute* pAttributes, u32 attributeCount, std::vector<VkVertexInputAttributeDescription>& out_inputAttributeDescriptions);
-	VkPipelineVertexInputStateCreateInfo    PopulateVertexInputCreateInfo(const VkVertexInputBindingDescription& inputBindingDescription, const std::vector<VkVertexInputAttributeDescription>& inputAttributeDescriptions);
+	VkPipelineVertexInputStateCreateInfo    PopulateVertexInputCreateInfo(const std::vector<VkVertexInputBindingDescription>& inputBindingDescriptions, const std::vector<VkVertexInputAttributeDescription>& inputAttributeDescriptions);
 	
 	VkPipelineInputAssemblyStateCreateInfo  PopulateInputAssemblyCreateInfo(VkPrimitiveTopology topology, VkBool32 primitiveRestartEnable);
 	VkPipelineDynamicStateCreateInfo        PopulateDynamicStateCreateInfo(const VkDynamicState* dynamicStates, u32 dynamicStateCount);

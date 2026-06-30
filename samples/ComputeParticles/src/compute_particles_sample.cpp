@@ -109,6 +109,16 @@ void ComputeParticlesSample::Draw()
 			deviceContext.Draw(6 * m_simData.totalParticles);
 		});
 
+	// Viz
+	//{
+	//	const u32 frameNumber = m_renderGraph.GetFrameNumber();
+	//	std::string renderGraphVisName = "./ComputeParticles_RG_";
+	//	renderGraphVisName.append(std::to_string(frameNumber).c_str());
+	//	renderGraphVisName.append(".dot");
+
+	//	m_renderGraph.GenerateVisualization(renderGraphVisName.c_str(), false);
+	//}
+
 	m_renderGraph.Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
 	m_renderGraph.EndFrame();
 

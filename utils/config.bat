@@ -4,6 +4,6 @@
 :: Visual Studio 2022: "vs2022"
 set GENERATOR="vs2022"
 
+set WORKSPACE_DIR=%~dp0..\
 set LIB_OUTPUT_DIR=%WORKSPACE_DIR%PHOENIX\out\
 set SAMPLES_OUTPUT_DIR=%WORKSPACE_DIR%samples\common\out\
-set WORKSPACE_DIR=%~dp0..\
