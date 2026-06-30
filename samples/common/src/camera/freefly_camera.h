@@ -8,7 +8,8 @@ namespace Common
 	{
 	public:
 
-		explicit FreeflyCamera(float speed, float sensitivity);
+		FreeflyCamera();
+		FreeflyCamera(float speed, float sensitivity, glm::vec3 pos, glm::vec3 rot);
 		~FreeflyCamera() override;
 		FreeflyCamera(const FreeflyCamera& other);
 		FreeflyCamera& operator=(const FreeflyCamera& other);

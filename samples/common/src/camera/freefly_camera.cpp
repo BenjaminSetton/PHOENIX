@@ -7,7 +7,12 @@
 
 namespace Common
 {
-	FreeflyCamera::FreeflyCamera(float speed, float sensitivity) : m_speed(speed), m_sensitivity(sensitivity)
+	FreeflyCamera::FreeflyCamera() : BaseCamera(), m_speed(1.0f), m_sensitivity(1.0f)
+	{ 
+	}
+
+	FreeflyCamera::FreeflyCamera(float speed, float sensitivity, glm::vec3 pos, glm::vec3 rot) : BaseCamera(pos, rot),
+		m_speed(speed), m_sensitivity(sensitivity)
 	{
 	}
 

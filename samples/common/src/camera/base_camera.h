@@ -9,6 +9,7 @@ namespace Common
 	public:
 
 		BaseCamera();
+		BaseCamera(glm::vec3 pos, glm::vec3 rot);
 		virtual ~BaseCamera();
 		BaseCamera(const BaseCamera& other);
 		BaseCamera& operator=(const BaseCamera& other);

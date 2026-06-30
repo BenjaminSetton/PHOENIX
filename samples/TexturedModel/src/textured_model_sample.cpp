@@ -265,7 +265,7 @@ void TexturedModelSample::Init()
 	// Create a new freefly camera
 	const float cameraSpeed = 4.0f;
 	const float cameraSensitivity = 0.2f;
-	m_pCamera = new Common::FreeflyCamera(cameraSpeed, cameraSensitivity);
+	m_pCamera = new Common::FreeflyCamera(cameraSpeed, cameraSensitivity, glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f));
 
 	// TRANSFORMS + UNIFORM BUFFER
 	const float fov = 45.0f;

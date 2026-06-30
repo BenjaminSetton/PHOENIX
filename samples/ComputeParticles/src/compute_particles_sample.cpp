@@ -208,7 +208,7 @@ void ComputeParticlesSample::Init()
 	// CAMERA
 	const float cameraSpeed = 4.0f;
 	const float cameraSensitivity = 0.2f;
-	m_pCamera = new Common::FreeflyCamera(cameraSpeed, cameraSensitivity);
+	m_pCamera = new Common::FreeflyCamera(cameraSpeed, cameraSensitivity, glm::vec3(0.0f, 0.0f, 20.0f), glm::vec3(0.0f));
 
 	const float fov = glm::radians(45.0f);
 	const float aspectRatio = static_cast<float>(m_swapChain.GetWidth()) / m_swapChain.GetHeight();

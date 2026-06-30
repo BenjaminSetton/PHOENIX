@@ -11,6 +11,12 @@ namespace Common
 		CalculateMatrix();
 	}
 
+	BaseCamera::BaseCamera(glm::vec3 pos, glm::vec3 rot) : m_cameraMatrix(glm::identity<glm::mat4>()), m_position(pos),
+		m_rotation(rot), m_viewMatrix()
+	{
+		CalculateMatrix();
+	}
+
 	BaseCamera::~BaseCamera()
 	{
 	}
