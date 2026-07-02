@@ -38,7 +38,10 @@ private:
 
 	void CreateUniformCollection();
 	void CreateDrawUniformCollection();
-	void SeedParticles();
+	void CreateOutlineUniformCollection();
+
+	void InitializeParticleBuffer();
+	void InitializeOutlineBuffers();
 
 private:
 
@@ -57,6 +60,16 @@ private:
 	PHX::ComputePipelineDesc m_particlesPipelineDesc;
 	PHX::GraphicsPipelineDesc m_drawPipelineDesc;
 
+	std::vector<PHX::ShaderHandle> m_outlineShaders;
+	PHX::UniformCollectionHandle m_outlineUniformCollection;
+	PHX::BufferHandle m_outlineVertexBuffer;
+	PHX::BufferHandle m_outlineIndexBuffer;
+	PHX::GraphicsPipelineDesc m_outlinePipelineDesc;
+	PHX::InputAttribute m_outlineInputAttribute;
+
 	SimData m_simData;
 	CameraData m_cameraData;
+
+	int32_t m_volumeMinBound;
+	int32_t m_volumeMaxBound;
 };

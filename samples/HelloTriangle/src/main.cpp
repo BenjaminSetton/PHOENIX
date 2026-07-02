@@ -319,7 +319,7 @@ int main(int argc, char** argv)
 		}
 
 		newPass.SetBufferInput(vBuffer);
-		newPass.SetBackbufferOutput(backbufferTex);
+		newPass.SetTextureOutput(backbufferTex, PHX::ATTACHMENT_LOAD_OP::CLEAR, PHX::ATTACHMENT_STORE_OP::STORE, clearCol);
 		newPass.SetPipelineDescription(pipelineDesc);
 		newPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 		{
@@ -331,12 +331,12 @@ int main(int argc, char** argv)
 
 			deviceContext.BindUniformCollection(uniforms);
 			deviceContext.BindVertexBuffer(vBuffer);
-			deviceContext.SetScissor({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
-			deviceContext.SetViewport({ s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() }, { 0, 0 });
+			deviceContext.SetScissor({ s_swapChain.GetWidth(), s_swapChain.GetHeight() }, { 0, 0 });
+			deviceContext.SetViewport({ s_swapChain.GetWidth(), s_swapChain.GetHeight() }, { 0, 0 });
 			deviceContext.Draw(VERTEX_COUNT);
 		});
 
-		result = renderGraph.Bake(&clearCol, 1);
+		result = renderGraph.Bake(s_swapChain);
 		if (result != PHX::STATUS_CODE::SUCCESS)
 		{
 			std::cout << "Failed to bake render graph - skipping frame!" << std::endl;

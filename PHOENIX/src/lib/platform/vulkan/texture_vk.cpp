@@ -73,6 +73,11 @@ namespace PHX
 		}
 
 		m_imageViews.push_back(imageView);
+
+		// Fill out data about the image view for the swapchain images
+		m_aspectFlags = ASPECT_TYPE_FLAG_COLOR;
+		m_viewType = VIEW_TYPE::TYPE_2D;
+		m_viewScope = VIEW_SCOPE::ENTIRE;
 	}
 
 	TextureVk::~TextureVk()

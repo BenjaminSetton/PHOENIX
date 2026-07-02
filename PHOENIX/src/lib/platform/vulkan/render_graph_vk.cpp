@@ -1,4 +1,4 @@
-
+﻿
 #include <sstream>
 #include <vulkan/vk_enum_string_helper.h>
 
@@ -25,7 +25,6 @@
 
 namespace PHX
 {
-	static const char* s_pReservedBackbufferName = "INTERNAL_backbuffer";
 	static const char* s_pReservedDepthBufferName = "INTERNAL_depthbuffer";
 	static constexpr u32 s_invalidRenderPassIndex = U32_MAX;
 
@@ -464,7 +463,6 @@ namespace PHX
 	void RenderPassVk::SetTextureInput(TextureHandle texture)
 	{
 		ResourceUsage usage{};
-		usage.name = nullptr; // TODO
 		usage.io = RESOURCE_IO::INPUT;
 		usage.passIndex = m_index;
 		usage.attachmentType = CalculateAttachmentType(texture);
@@ -478,7 +476,6 @@ namespace PHX
 	void RenderPassVk::SetBufferInput(BufferHandle buffer)
 	{
 		ResourceUsage usage{};
-		usage.name = nullptr; // TODO
 		usage.io = RESOURCE_IO::INPUT;
 		usage.passIndex = m_index;
 		usage.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER; // Not sure if this is correct
@@ -496,7 +493,6 @@ namespace PHX
 	{
 		TODO();
 		ResourceUsage usage{};
-		usage.name = nullptr; // TODO
 		usage.io = RESOURCE_IO::INPUT;
 		usage.passIndex = m_index;
 
@@ -511,27 +507,20 @@ namespace PHX
 
 	void RenderPassVk::SetColorOutput(TextureHandle texture)
 	{
-		ResourceUsage usage{};
-		usage.name = nullptr; // TODO
-		usage.io = RESOURCE_IO::OUTPUT;
-		usage.passIndex = m_index;
-		usage.attachmentType = ATTACHMENT_TYPE::COLOR;
-		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
-		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
-
-		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
-		m_outputResources.set(resourceIndex);
+		SetTextureOutput(texture, ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, {});
 	}
 
 	void RenderPassVk::SetDepthOutput(TextureHandle texture)
 	{
 		ResourceUsage usage{};
-		usage.name = s_pReservedDepthBufferName; // HACK - Assuming all depth writes are for the depth buffer
 		usage.io = RESOURCE_IO::OUTPUT;
 		usage.passIndex = m_index;
 		usage.attachmentType = ATTACHMENT_TYPE::DEPTH;
 		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
 		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
+		usage.clearValue.useClearColor = false;
+		usage.clearValue.depthStencil.depthClear = 1.0f;
+		usage.clearValue.depthStencil.stencilClear = 0;
 
 		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
@@ -541,7 +530,6 @@ namespace PHX
 	{
 		TODO();
 		ResourceUsage usage{};
-		usage.name = nullptr; // TODO
 		usage.io = RESOURCE_IO::OUTPUT;
 		usage.passIndex = m_index;
 		usage.attachmentType = ATTACHMENT_TYPE::DEPTH_STENCIL;
@@ -556,7 +544,6 @@ namespace PHX
 	{
 		TODO();
 		ResourceUsage usage{};
-		usage.name = nullptr; // TODO
 		usage.io = RESOURCE_IO::OUTPUT;
 		usage.passIndex = m_index;
 		usage.attachmentType = ATTACHMENT_TYPE::RESOLVE;
@@ -567,17 +554,19 @@ namespace PHX
 		m_outputResources.set(resourceIndex);
 	}
 
-	void RenderPassVk::SetBackbufferOutput(TextureHandle texture)
+	// NOTE: Ordering guarantee - passes that write the same texture execute in registration order.
+	// This is a guaranteed property of the render graph: BuildDependencyTree() only creates
+	// dependencies pointing to earlier-registered passes, and WAW hazards are included. So any two
+	// passes writing the same output are forced into submission order by the backward-only scan.
+	void RenderPassVk::SetTextureOutput(TextureHandle texture, ATTACHMENT_LOAD_OP loadOp, ATTACHMENT_STORE_OP storeOp, ClearValues clearValue)
 	{
 		ResourceUsage usage{};
-		usage.name = s_pReservedBackbufferName;
 		usage.io = RESOURCE_IO::OUTPUT;
 		usage.passIndex = m_index;
-		usage.attachmentType = ATTACHMENT_TYPE::COLOR;
-		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
-		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
-
-		// TODO - Mark this resource as backbuffer
+		usage.attachmentType = CalculateAttachmentType(texture);
+		usage.storeOp = storeOp;
+		usage.loadOp = loadOp;
+		usage.clearValue = clearValue;
 
 		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
@@ -586,7 +575,6 @@ namespace PHX
 	void RenderPassVk::SetBufferOutput(BufferHandle buffer)
 	{
 		ResourceUsage usage{};
-		usage.name = nullptr;
 		usage.io = RESOURCE_IO::OUTPUT;
 		usage.passIndex = m_index;
 		usage.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER; // Not sure if this is correct
@@ -624,8 +612,7 @@ namespace PHX
 	//--------------------------------------------------------------------------------------------
 
 	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pRenderDevice(nullptr), m_deviceContextHandles(), 
-		m_frameInFlightIndex(0), m_frameNumber(0), m_reservedBackbufferNameCRC(HashCRC32(s_pReservedBackbufferName)),
-		m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName))
+		m_frameInFlightIndex(0), m_frameNumber(0), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), m_presentResID(0)
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -713,20 +700,23 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderGraphVk::Bake(ClearValues* pClearColors, u32 clearColorCount)
+	STATUS_CODE RenderGraphVk::Bake(SwapChainHandle swapChain)
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
+		// Resolve the current swapchain image and compute its resource ID.
+		// All passes writing the swapchain target this same handle for the current frame.
+		TextureHandle currentImage = swapChain.GetCurrentImage();
+		m_presentResID = HashResource(currentImage, RESOURCE_TYPE::TEXTURE);
+
 		// Create the render graph tree using the following steps:
-		// 1. Find the render pass that writes to the back-buffer
-		u32 finalRPIndex = FindBackBufferRenderPassIndex();
+		// 1. Find the render pass that owns presentation (last pass writing to the swapchain image)
+		u32 finalRPIndex = FindPresentRenderPassIndex(m_presentResID);
 		if (finalRPIndex == s_invalidRenderPassIndex)
 		{
-			LogError("Failed to bake render graph. No render pass writes to backbuffer!");
+			LogError("Failed to bake render graph. No render pass writes to the swapchain image!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
-
-		//RenderPassVk& backbufferRP = m_registeredRenderPasses[finalRPIndex];
 		
 		// 2. Once that render pass is found, build the dependency tree
 		BuildDependencyTree(finalRPIndex);
@@ -738,7 +728,7 @@ namespace PHX
 
 		FindActivePasses(finalRPIndex, activeRenderPassIndices);
 
-		CalculateResourceBarriers(activeRenderPassIndices, finalRPIndex);
+		CalculateResourceBarriers(activeRenderPassIndices, finalRPIndex, m_presentResID);
 
 		// 4. [COMBINATION] Combine as many separate render passes into one for optimal GPU usage
 		// TODO
@@ -772,13 +762,29 @@ namespace PHX
 					VkRenderPass renderPassVk = CreateRenderPass(currRenderPass);
 		
 					// Get or create framebuffer from render device (refers to internal cache)
-					const bool isBackbuffer = (currRenderPass.m_index == finalRPIndex);
+					// isBackbuffer: true if this pass writes the swapchain image (triggers resize invalidation)
+					const bool isBackbuffer = PassWritesResource(currRenderPass.m_index, m_presentResID);
 					FramebufferVk* pFramebuffer = CreateFramebuffer(currRenderPass, renderPassVk, isBackbuffer);
 
 					// Get or create pipeline from render device (refers to internal cache)
 					PipelineVk* pPipeline = CreatePipeline(currRenderPass, renderPassVk);
 
-					res = pDeviceContext->BeginRenderPass(renderPassVk, pFramebuffer, pClearColors, clearColorCount);
+					// Build per-attachment clear values from each output's ResourceUsage.clearValue
+					std::vector<ClearValues> clearValues;
+					TraverseRenderPassOutputs(currRenderPass.m_index, [&](const RenderResource& resource)
+					{
+						if (resource.type != RESOURCE_TYPE::TEXTURE)
+						{
+							return;
+						}
+						const ResourceUsage* usage = GetResourceUsageFromPass(currRenderPass, resource.resourceID);
+						if (usage != nullptr)
+						{
+							clearValues.push_back(usage->clearValue);
+						}
+					});
+
+					res = pDeviceContext->BeginRenderPass(renderPassVk, pFramebuffer, clearValues.data(), static_cast<u32>(clearValues.size()));
 					if (res != STATUS_CODE::SUCCESS)
 					{
 						LogError("Failed to bake render pass. Device context could not begin render pass!");
@@ -854,21 +860,6 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		const u32 backbufferPassIndex = FindBackBufferRenderPassIndex();
-
-		// Looks up a usage name for a physical resource, used to detect the reserved backbuffer/depth resources
-		auto getResourceUsageName = [&](u64 resourceID) -> const char*
-		{
-			for (const ResourceUsage& usage : m_resourceUsages)
-			{
-				if (usage.resourceID == resourceID && usage.name != nullptr)
-				{
-					return usage.name;
-				}
-			}
-			return nullptr;
-		};
-
 		// Builds a verbose barrier tooltip (stage + access masks) shown on hover in SVG output
 		auto buildBarrierTooltip = [&](const Barrier& barrier) -> std::string
 		{
@@ -904,7 +895,7 @@ namespace PHX
 			else if (pass.m_bindPoint == BIND_POINT::COMPUTE)   fillColor = "#58D68D";
 			else if (pass.m_bindPoint == BIND_POINT::TRANSFER)  fillColor = "#EB984E";
 
-			const bool isFinalPass = (pass.m_index == backbufferPassIndex);
+			const bool isFinalPass = PassWritesResource(pass.m_index, m_presentResID);
 
 			dot << "\tpass" << pass.m_index
 				<< " [shape=box, style=\"filled,rounded\", fontcolor=\"#FFFFFF\", margin=\"0.25,0.14\""
@@ -932,10 +923,7 @@ namespace PHX
 		TraverseResources(usedResources, [&](const RenderResource& resource)
 		{
 			const std::string nodeId = "res" + std::to_string(resource.resourceID);
-
-			const char* usageName = getResourceUsageName(resource.resourceID);
-			const bool isBackbuffer = (usageName != nullptr) && (HashCRC32(usageName) == m_reservedBackbufferNameCRC);
-			const bool isDepth      = (usageName != nullptr) && (HashCRC32(usageName) == m_reservedDepthBufferNameCRC);
+			const bool isBackbuffer = (resource.resourceID == m_presentResID);
 
 			// Defaults (texture). All resources share a single ellipse shape and are
 			// distinguished from passes (rounded boxes) by shape, and from each other by color.
@@ -966,17 +954,10 @@ namespace PHX
 
 			if (isBackbuffer)
 			{
-				displayName = "Backbuffer";
 				typeTag = "PRESENT";
 				fill    = "#FADBD8";
 				border  = "#C0392B";
 				penWidth = 3;
-			}
-			else if (isDepth)
-			{
-				typeTag = "DEPTH";
-				fill    = "#FCF3CF";
-				border  = "#B7950B";
 			}
 
 			dot << "\t" << nodeId << " [shape=ellipse, style=filled, fillcolor=\"" << fill
@@ -1051,7 +1032,6 @@ namespace PHX
 		dot << "\t\t<TR><TD BGCOLOR=\"#5DADE2\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Graphics pass</TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"#58D68D\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Compute pass</TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"#EB984E\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Transfer pass</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#FFFFFF\" BORDER=\"3\" COLOR=\"#C0392B\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Final (backbuffer) pass</TD></TR>\n";
 
 		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Resources</B></FONT></TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"#EBF5FB\" BORDER=\"1\" COLOR=\"#2E86C1\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Texture</TD></TR>\n";
@@ -1212,11 +1192,7 @@ namespace PHX
 			if (iter == renderPass.m_outputBarriers.end())
 			{
 				// If we can't find any output barriers and the render pass didn't get trimmed, this
-				// means that it's the backbuffer pass since no other pass depends on it. 
-				// 
-				// We'll make some assumptions about what the resource access and stage masks are 
-				// in this last pass. Not sure what else to do at the moment
-					
+				// means that it's the backbuffer pass since no other pass depends on it
 				ASSERT_ALWAYS("Failed to find output barrier for render pass?");
 			}
 			else
@@ -1418,34 +1394,40 @@ namespace PHX
 		return physicalResourceIndex;
 	}
 
-	u32 RenderGraphVk::FindBackBufferRenderPassIndex()
+	u32 RenderGraphVk::FindPresentRenderPassIndex(u64 presentResID)
 	{
-		u32 backbufferRPIndex = s_invalidRenderPassIndex;
+		u32 presentRPIndex = s_invalidRenderPassIndex;
 
-		for (u32 j = 0; j < m_resourceUsages.size(); j++)
+		for (const ResourceUsage& usage : m_resourceUsages)
 		{
-			const ResourceUsage& resourceUsage = m_resourceUsages[j];
-			if (resourceUsage.io != RESOURCE_IO::OUTPUT)
-			{
-				// Only consider output resources
-				continue;
-			}
-
-			if (resourceUsage.name == nullptr)
+			if (usage.io != RESOURCE_IO::OUTPUT)
 			{
 				continue;
 			}
 
-			// TODO - We might want to store the CRC rather than the raw string
-			const CRC32 outputResourceCRC = HashCRC32(resourceUsage.name);
-			if (outputResourceCRC == m_reservedBackbufferNameCRC)
+			if (usage.resourceID == presentResID)
 			{
-				backbufferRPIndex = resourceUsage.passIndex;
-				break;
+				// Track the last (highest passIndex) writer - it owns presentation
+				if (presentRPIndex == s_invalidRenderPassIndex || usage.passIndex > presentRPIndex)
+				{
+					presentRPIndex = usage.passIndex;
+				}
 			}
 		}
 
-		return backbufferRPIndex;
+		return presentRPIndex;
+	}
+
+	bool RenderGraphVk::PassWritesResource(u32 renderPassIndex, u64 resourceID) const
+	{
+		for (const ResourceUsage& usage : m_resourceUsages)
+		{
+			if (usage.passIndex == renderPassIndex && usage.io == RESOURCE_IO::OUTPUT && usage.resourceID == resourceID)
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	void RenderGraphVk::BuildDependencyTree(u32 renderPassIndex)
@@ -1499,20 +1481,34 @@ namespace PHX
 		// A pass reachable via multiple dependency paths (diamond-shaped graphs) is visited
 		// more than once by the DFS, so de-duplicate here to avoid processing/executing it twice.
 		const u32 passCount = static_cast<u32>(m_registeredRenderPasses.size());
-		std::vector<bool> alreadyActive(passCount, false);
+		std::vector<i32> alreadyActive(passCount, -1);
 
 		TraverseDependencyTree(finalPassIndex, [&](const RenderPassVk& currRenderPass)
 		{
 			const u32 passIndex = currRenderPass.m_index;
-			if (passIndex < passCount && !alreadyActive[passIndex])
+			if (passIndex < passCount)
 			{
-				alreadyActive[passIndex] = true;
-				out_activeRenderPasses.push_back(passIndex);
+				if (alreadyActive[passIndex] != -1)
+				{
+					// This means the same pass appeared as a dependency for an earlier pass
+					// in submission order. Therefore we must push it to the back of the list
+					i32 lastPassIndex = alreadyActive[passIndex];
+					auto lastPassIndexIter = out_activeRenderPasses.begin() + lastPassIndex;
+					std::rotate(lastPassIndexIter, lastPassIndexIter + 1, out_activeRenderPasses.end());
+				}
+				else
+				{
+					// Push back new active pass. In this case, alreadyActive holds the 
+					// index of where the pass was last inserted
+					alreadyActive[passIndex] = out_activeRenderPasses.size();
+					out_activeRenderPasses.push_back(passIndex);
+				}
+
 			}
 		});
 	}
 
-	void RenderGraphVk::CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex)
+	void RenderGraphVk::CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex, u64 presentResID)
 	{
 		// Traverse the dependency tree from bottom-to-top, and for every dependency:
 		// 1. Find which resource usages caused that dependency
@@ -1522,63 +1518,54 @@ namespace PHX
 			RenderPassVk& dstRenderPass = m_registeredRenderPasses[activeRenderPassIndex];
 			const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
 
-			// The final (backbuffer) pass needs explicit output transitions for the backbuffer
-			// (-> PRESENT) and depth buffer, since no later pass depends on them to fill out the transition
+			// Every active pass needs an entry in m_outputBarriers for each of its texture outputs so
+			// that CreateRenderPass can find the finalLayout for each attachment.
+			//
+			// Color attachments: only the final (backbuffer) pass needs the color->PRESENT transition.
+			//   Non-final color outputs get their output barrier filled in by the dependency loop below
+			//   (the next pass that writes the same color target will insert a WAW barrier entry there).
+			//
+			// Depth attachments: if no later pass reads/writes the depth buffer (the common case today),
+			//   the dependency loop will never insert an output barrier for it. We generate a terminal
+			//   depth output barrier here for every pass that writes depth so CreateRenderPass never
+			//   hits the "Failed to find output barrier" assert.
 			const bool isFinalPass = (dstRenderPass.m_index == finalPassIndex);
-			if (isFinalPass)
+			TraverseRenderPassOutputs(dstRenderPass.m_index, [&](const RenderResource& resource)
 			{
-				TraverseRenderPassOutputs(dstRenderPass.m_index, [&](const RenderResource& resource)
+				if (resource.type != RESOURCE_TYPE::TEXTURE)
 				{
-					if (resource.type != RESOURCE_TYPE::TEXTURE)
-					{
-						return;
-					}
+					return;
+				}
 
-					const u64& resourceID = resource.resourceID;
-					const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
-					ASSERT_PTR(dstResourceUsage); // Should never be null
+				const u64& resourceID = resource.resourceID;
+				const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
+				ASSERT_PTR(dstResourceUsage); // Should never be null
 
-					// Special cases for backbuffer (presentation engine) and depth buffer
-					CRC32 dstResourceCRC = HashCRC32(dstResourceUsage->name);
-					const bool isBackBufferResource = (dstResourceCRC == m_reservedBackbufferNameCRC);
-					const bool isDepthBufferResource = (dstResourceCRC == m_reservedDepthBufferNameCRC);
+				const bool isColorAttachment = (dstResourceUsage->attachmentType == ATTACHMENT_TYPE::COLOR);
 
-					const VkImageLayout layout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
+				// Color->PRESENT is only needed for the final pass's color output; skip for all others
+				// (the dependency loop will supply the correct WAW output barrier for non-final writers).
+				if (isColorAttachment && !isFinalPass)
+				{
+					return;
+				}
 
-					if (!isBackBufferResource && !isDepthBufferResource)
-					{
-						// Not a special resource - no output barrier needed for the last pass
-						return;
-					}
+				const VkImageLayout layout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
 
-					Barrier newDstBarrier;
-					if (isBackBufferResource)
-					{
-						newDstBarrier.oldLayout = layout;
-						newDstBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+				Barrier newDstBarrier;
+				newDstBarrier.oldLayout = layout;
+				newDstBarrier.newLayout = isColorAttachment ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : layout;
 
-						// NOTE - Presentation engine is external and doesn't require an access mask, but if the backbuffer
-						//        is cleared (from loadOp) we must still sync the clear operation. As a result, we'll set
-						//        the dst flags to COLOR_ATTACHMENT-related write operations to be safe
-						newDstBarrier.srcAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resource, dstBindPoint);
-						newDstBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-						newDstBarrier.srcStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.srcAccessMask, true);
-						newDstBarrier.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-					}
-					else if (isDepthBufferResource)
-					{
-						newDstBarrier.oldLayout = layout;
-						newDstBarrier.newLayout = layout;
+				// NOTE - Presentation engine is external and doesn't require an access mask, but if the backbuffer
+				//        is cleared (from loadOp) we must still sync the clear operation. As a result, we'll set
+				//        the dst flags to COLOR_ATTACHMENT-related write operations to be safe
+				newDstBarrier.srcAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resource, dstBindPoint);
+				newDstBarrier.dstAccessMask = isColorAttachment ? VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT : (VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT);
+				newDstBarrier.srcStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.srcAccessMask, true);
+				newDstBarrier.dstStageMask = isColorAttachment ? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 
-						newDstBarrier.srcAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resource, dstBindPoint);
-						newDstBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-						newDstBarrier.srcStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.srcAccessMask, true);
-						newDstBarrier.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-					}
-
-					dstRenderPass.m_outputBarriers.insert({ resourceID, newDstBarrier });
-				});
-			}
+				dstRenderPass.m_outputBarriers.insert({ resourceID, newDstBarrier });
+			});
 
 			// Non-graphics passes (transfer/compute) write their output textures directly (e.g. via a
 			// buffer-to-image copy), so they require an explicit transition into the write layout
@@ -1692,6 +1679,16 @@ namespace PHX
 		}
 	}
 
+	bool RenderGraphVk::RequiresExplicitResourceBarrier(const RenderPassVk& renderPass, u64 resourceID) const
+	{
+		if (renderPass.m_outputBarriers.find(resourceID) != renderPass.m_outputBarriers.end())
+		{
+			return false;
+		}
+
+		return true;
+	}
+
 	STATUS_CODE RenderGraphVk::InsertResourceBarriers(const RenderPassVk& renderPass)
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
@@ -1701,6 +1698,11 @@ namespace PHX
 		{
 			u64 resourceID = barrierIter.first;
 			const Barrier& currBarrier = barrierIter.second;
+
+			if (!RequiresExplicitResourceBarrier(renderPass, resourceID))
+			{
+				continue;
+			}
 
 			const RenderResource* resourceBarrier = GetPhysicalResource(resourceID);
 			ASSERT_PTR(resourceBarrier);

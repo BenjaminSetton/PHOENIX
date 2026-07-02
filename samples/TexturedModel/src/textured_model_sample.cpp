@@ -95,7 +95,7 @@ void TexturedModelSample::Draw()
 	phxRes = m_renderGraph.RegisterPass("PBRPass", BIND_POINT::GRAPHICS, renderPass);
 	CHECK_PHX_RES(phxRes);
 
-	renderPass.SetBackbufferOutput(m_swapChain.GetCurrentImage());
+	renderPass.SetTextureOutput(m_swapChain.GetCurrentImage(), ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, clearColor);
 	renderPass.SetDepthOutput(m_depthBuffer);
 
 	for (TextureHandle assetTex : m_assetTextures)
@@ -128,12 +128,12 @@ void TexturedModelSample::Draw()
 		// Draw commands
 		deviceContext.BindUniformCollection(m_uniformCollection);
 		deviceContext.BindMesh(m_vertexBuffer, m_indexBuffer);
-		deviceContext.SetScissor({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
-		deviceContext.SetViewport({ m_pWindow->GetCurrentWidth(), m_pWindow->GetCurrentHeight() }, { 0, 0 });
+		deviceContext.SetScissor({ m_swapChain.GetWidth(), m_swapChain.GetHeight() }, { 0, 0 });
+		deviceContext.SetViewport({ m_swapChain.GetWidth(), m_swapChain.GetHeight() }, { 0, 0 });
 		deviceContext.DrawIndexed(static_cast<u32>(axeAsset->indices.size()));
 	});
 
-	m_renderGraph.Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
+	m_renderGraph.Bake(m_swapChain);
 
 	// Viz
 	//{

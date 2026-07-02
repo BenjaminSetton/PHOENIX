@@ -71,11 +71,11 @@ namespace PHX
 		void SetUniformInput(UniformCollectionHandle uniformCollection) override; // Not sure if I want to keep this
 
 		// Outputs
+		void SetTextureOutput(TextureHandle texture, ATTACHMENT_LOAD_OP loadOp, ATTACHMENT_STORE_OP storeOp, ClearValues clearValue = {}) override;
 		void SetColorOutput(TextureHandle texture) override;
 		void SetDepthOutput(TextureHandle texture) override;
 		void SetDepthStencilOutput(TextureHandle texture) override;
 		void SetResolveOutput(TextureHandle texture) override;
-		void SetBackbufferOutput(TextureHandle texture) override;
 		void SetBufferOutput(BufferHandle buffer) override;
 
 		// Pipeline
@@ -129,7 +129,7 @@ namespace PHX
 		STATUS_CODE BeginFrame(SwapChainHandle swapChain) override;
 		STATUS_CODE EndFrame() override;
 		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) override;
-		STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount) override;
+		STATUS_CODE Bake(SwapChainHandle swapChain) override;
 		u32 GetFrameNumber() const override;
 		STATUS_CODE GenerateVisualization(const char* fileName, bool generateIfUnique) override;
 
@@ -147,11 +147,23 @@ namespace PHX
 		PipelineVk* CreatePipeline(const RenderPassVk& renderPass, VkRenderPass renderPassVk);
 		u8 RegisterResource(Handle resource, RESOURCE_TYPE type, const ResourceUsage& usage);
 
-		u32 FindBackBufferRenderPassIndex();
+		// Returns the index of the pass that owns presentation: the last (highest submission index)
+		// active pass that writes to the current swapchain image. Earlier swapchain writers are pulled
+		// in as dependencies via the write-after-write hazard on the shared image.
+		u32 FindPresentRenderPassIndex(u64 presentResID);
+
+		// Returns true if the given pass writes to the physical resource with the given resource ID
+		bool PassWritesResource(u32 renderPassIndex, u64 resourceID) const;
 
 		void BuildDependencyTree(u32 finalPassIndex);
 		void FindActivePasses(u32 finalPassIndex, std::vector<u32>& out_activeRenderPasses);
-		void CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex);
+		void CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex, u64 presentResID);
+
+		// Returns true if an explicit pipeline barrier should be inserted for the given resource
+		// in the given render pass. Texture resources that are also render pass outputs (attachments)
+		// are handled implicitly by the VkRenderPass initialLayout/finalLayout transitions, so they
+		// do not need (and in the case of swapchain textures, cannot use) explicit image barriers.
+		bool RequiresExplicitResourceBarrier(const RenderPassVk& renderPass, u64 resourceID) const;
 
 		STATUS_CODE InsertResourceBarriers(const RenderPassVk& renderPass);
 
@@ -185,7 +197,7 @@ namespace PHX
 		u32 m_frameInFlightIndex;
 		u32 m_frameNumber;
 
-		const CRC32 m_reservedBackbufferNameCRC;
 		const CRC32 m_reservedDepthBufferNameCRC;
+		u64 m_presentResID;
 	};
 }

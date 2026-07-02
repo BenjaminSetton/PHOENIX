@@ -101,12 +101,12 @@ namespace PHX
 		}
 	}
 
-	void RenderPassHandle::SetBackbufferOutput(TextureHandle texture)
+	void RenderPassHandle::SetTextureOutput(TextureHandle texture, ATTACHMENT_LOAD_OP loadOp, ATTACHMENT_STORE_OP storeOp, ClearValues clearValue)
 	{
 		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
 		if (pPass != nullptr)
 		{
-			return pPass->SetBackbufferOutput(texture);
+			return pPass->SetTextureOutput(texture, loadOp, storeOp, clearValue);
 		}
 	}
 
@@ -215,12 +215,12 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	STATUS_CODE RenderGraphHandle::Bake(ClearValues* pClearColors, u32 clearColorCount)
+	STATUS_CODE RenderGraphHandle::Bake(SwapChainHandle swapChain)
 	{
 		IRenderGraph* pGraph = HANDLE_UTILS::ResolveHandle(*this);
 		if (pGraph != nullptr)
 		{
-			return pGraph->Bake(pClearColors, clearColorCount);
+			return pGraph->Bake(swapChain);
 		}
 
 		ASSERT_ALWAYS("Failed to bake. Could not resolve render graph handle!");

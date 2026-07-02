@@ -1,6 +1,7 @@
 #pragma once
 
 #include "PHX/types/attachment_desc.h"
+#include "PHX/types/clear_color.h"
 
 namespace PHX
 {
@@ -27,13 +28,13 @@ namespace PHX
 
 	struct ResourceUsage
 	{
-		const char* name				= nullptr;
 		RESOURCE_IO io					= RESOURCE_IO::INPUT;
 
 		// Texture only
 		ATTACHMENT_TYPE attachmentType	= ATTACHMENT_TYPE::COLOR;
 		ATTACHMENT_STORE_OP storeOp		= ATTACHMENT_STORE_OP::IGNORE;
 		ATTACHMENT_LOAD_OP loadOp		= ATTACHMENT_LOAD_OP::IGNORE;
+		ClearValues clearValue			= {};	// Used when loadOp == CLEAR
 
 		// Buffer only
 		BUFFER_USAGE bufferUsage		= BUFFER_USAGE::UNIFORM_BUFFER;

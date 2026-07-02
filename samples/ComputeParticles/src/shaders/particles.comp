@@ -21,6 +21,10 @@ layout(std140, set = 0, binding = 1) uniform SimParams
     float _pad0;
 } sim;
 
+// Volume bounds (must match m_volumeMinBound / m_volumeMaxBound in C++)
+const float m_volumeMin = -30.0;
+const float m_volumeMax =  30.0;
+
 // Generate a pseudo-random float in [0, 1) from an unsigned seed.
 float Hash(uint seed)
 {
@@ -42,54 +46,151 @@ void main()
 
     Particle particle = particleBuffer.particles[index];
 
-    // Per-particle deterministic randomness so each particle behaves uniquely.
+    // Per-particle deterministic randomness.
     float seedA = Hash(index * 2u + 1u);
     float seedB = Hash(index * 7u + 3u);
     float seedC = Hash(index * 13u + 5u);
+    float seedD = Hash(index * 41u + 11u);
 
-    // --- Update position ---
-    // Extract current translation from the transform's 4th column.
+    // --- Fire simulation ---
+    // Transform layout:
+    //   column 0.xyz = velocity,     column 0.w = 0
+    //   column 1.x   = lifetime,     column 1.y = scale
+    //   column 1.z   = max lifetime, column 1.w = 0
+    //   column 2.xyz = unused,       column 2.w = 0
+    //   column 3.xyz = position,     column 3.w = 1
+
     vec3 position = particle.transform[3].xyz;
+    vec3 velocity = particle.transform[0].xyz;
+    float lifetime    = particle.transform[1].x;
+    float scale       = particle.transform[1].y;
+    float maxLifetime = particle.transform[1].z;
 
-    // Give each particle a unique velocity and a gentle gravity pull.
-    vec3 velocity = vec3(
-        (seedA - 0.5) * 2.0,
-        (seedB - 0.5) * 2.0,
-        (seedC - 0.5) * 2.0
-    );
-    velocity.y -= 0.5 * sim.totalTime; // simple gravity accumulation
+    // --- Random explosions ---
+    // Every few seconds, a random explosion epoch triggers. All particles
+    // compute the same epoch ID deterministically, so they agree on the
+    // explosion center. Particles near the center get a strong outward impulse.
+    uint explosionEpoch = uint(sim.totalTime / 3.5);  // new explosion every ~3.5s
+    uint explosionSeed = explosionEpoch * 997u + 13u;
+    float explosionTrigger = Hash(explosionSeed);
+    // Only ~60% of epochs actually explode.
+    bool hasExplosion = explosionTrigger > 0.4;
 
+    vec3 explosionCenter = vec3(0.0);
+    float explosionDist = 9999.0;
+    float explosionForce = 0.0;
+
+    if (hasExplosion)
+    {
+        explosionCenter = vec3(
+            (Hash(explosionSeed * 7u + 1u) - 0.5) * 40.0,
+            float(m_volumeMax) - Hash(explosionSeed * 11u + 3u) * 20.0,
+            (Hash(explosionSeed * 13u + 7u) - 0.5) * 40.0
+        );
+        vec3 toParticle = position - explosionCenter;
+        explosionDist = length(toParticle);
+        float explosionRadius = 12.0;
+        if (explosionDist < explosionRadius)
+        {
+            float falloff = 1.0 - explosionDist / explosionRadius;
+            explosionForce = falloff * falloff * 40.0;
+            velocity += normalize(toParticle + vec3(0.001)) * explosionForce;
+        }
+    }
+
+    // Buoyancy: hot air rises. In Vulkan's flipped Y, "up on screen" is -Y.
+    velocity.y -= 5.0 * sim.deltaTime;
+
+    // Turbulent horizontal motion using time-varying noise.
+    float t = sim.totalTime + seedA * 6.28;
+    velocity.x += sin(t * 2.0 + position.y * 0.3) * 1.5 * sim.deltaTime;
+    velocity.z += cos(t * 1.7 + position.y * 0.4) * 1.5 * sim.deltaTime;
+
+    // Drag to prevent particles from accelerating forever.
+    velocity *= (1.0 - 0.5 * sim.deltaTime);
+
+    // Integrate.
     position += velocity * sim.deltaTime;
+    lifetime -= sim.deltaTime;
 
-    // Wrap particles back into a [-5, 5] cube so they stay on screen.
-    position = mod(position + 5.0, 10.0) - 5.0;
+    // Kill particles when they leave the volume
+    if (position.x < float(m_volumeMin) || position.x > float(m_volumeMax) ||
+        position.y < float(m_volumeMin) || position.y > float(m_volumeMax) ||
+        position.z < float(m_volumeMin) || position.z > float(m_volumeMax))
+    {
+        lifetime = 0.0;
+    }
 
-    // --- Update rotation ---
-    // Spin each particle about the Y axis at a unique rate.
-    float angle = sim.totalTime * (0.5 + seedA * 2.0);
-    float c = cos(angle);
-    float s = sin(angle);
+    // Respawn when lifetime expires or particle sinks below the volume.
+    if (lifetime <= 0.0)
+    {
+        // Spawn at the top plane (world max = bottom on screen) with random horizontal spread.
+        float r1 = Hash(index * 101u + uint(sim.totalTime * 7.0));
+        float r2 = Hash(index * 257u + uint(sim.totalTime * 11.0));
+        float r3 = Hash(index * 401u + uint(sim.totalTime * 5.0));
+        position = vec3(
+            (r1 - 0.5) * 24.0,
+            float(m_volumeMax) - 1.0,
+            (r2 - 0.5) * 24.0
+        );
 
-    float scale = 0.1 + seedB * 0.2;
+        // Random downward velocity (in world space = upward on screen).
+        velocity = vec3(
+            (seedA - 0.5) * 5.0,
+            -(1.0 + seedB * 6.0 + r3 * 3.0),
+            (seedC - 0.5) * 5.0
+        );
 
-    // Rebuild the transform: scale * rotationY, with the updated translation.
+        maxLifetime = 1.5 + seedD * 3.0;
+        lifetime = maxLifetime;
+    }
+
+    // --- Rebuild transform ---
     mat4 transform = mat4(1.0);
-    transform[0] = vec4( c * scale, 0.0, -s * scale, 0.0);
-    transform[1] = vec4( 0.0,       scale, 0.0,      0.0);
-    transform[2] = vec4( s * scale, 0.0,  c * scale, 0.0);
-    transform[3] = vec4( position,                   1.0);
+    transform[0] = vec4(velocity,     0.0);
+    transform[1] = vec4(lifetime, scale, maxLifetime, 0.0);
+    transform[3] = vec4(position,    1.0);
 
     particle.transform = transform;
 
-    // --- Update color ---
-    // Animate a smooth color cycle, unique per particle.
-    float t = sim.totalTime + seedC * 6.2831853; // offset phase per particle
-    particle.color = vec4(
-        0.5 + 0.5 * sin(t),
-        0.5 + 0.5 * sin(t + 2.0943951),  // +120 degrees
-        0.5 + 0.5 * sin(t + 4.1887902),  // +240 degrees
-        1.0
-    );
+    // --- Color: temperature gradient based on height ---
+    // Fire rises from world max (screen bottom) to world min (screen top).
+    // Hot at spawn point (high Y) → cool at top (low Y).
+    float heightRatio = clamp((float(m_volumeMax) - position.y) / 30.0, 0.0, 1.0);
+    float heat = 1.0 - heightRatio;
+
+    // Temperature curve: sharp white→orange near base, gradual red→dark higher up.
+    vec3 color;
+    if (heat > 0.8)
+    {
+        // White-hot core.
+        color = mix(vec3(1.0, 0.6, 0.2), vec3(1.0, 1.0, 0.9), (heat - 0.8) * 5.0);
+    }
+    else if (heat > 0.3)
+    {
+        // Orange to red.
+        float t2 = (heat - 0.3) / 0.5;
+        color = mix(vec3(0.8, 0.15, 0.02), vec3(1.0, 0.6, 0.2), t2);
+    }
+    else
+    {
+        // Red to dark smoke.
+        color = mix(vec3(0.1, 0.05, 0.05), vec3(0.8, 0.15, 0.02), heat / 0.3);
+    }
+
+    // Explosion flash: particles caught in the blast glow white-hot briefly.
+    float explosionFlash = 0.0;
+    if (explosionForce > 0.0)
+    {
+        explosionFlash = clamp(explosionForce / 40.0, 0.0, 1.0);
+    }
+    color = mix(color, vec3(1.0, 1.0, 0.95), explosionFlash);
+
+    // Fade out near end of lifetime.
+    float lifeRatio = clamp(lifetime / maxLifetime, 0.0, 1.0);
+    float alpha = lifeRatio * lifeRatio;
+
+    particle.color = vec4(color * (0.5 + heat * 0.5), alpha);
 
     particleBuffer.particles[index] = particle;
 }

@@ -21,8 +21,8 @@ layout(location = 0) out vec4 vColor;
 
 // Two triangles (6 vertices) forming a unit quad centered on the origin, in local space.
 const vec2 corners[6] = vec2[](
-    vec2(-0.5, -0.5), vec2( 0.5, -0.5), vec2( 0.5,  0.5),
-    vec2(-0.5, -0.5), vec2( 0.5,  0.5), vec2(-0.5,  0.5)
+    vec2(-0.1, -0.1), vec2( 0.1, -0.1), vec2( 0.1,  0.1),
+    vec2(-0.1, -0.1), vec2( 0.1,  0.1), vec2(-0.1,  0.1)
 );
 
 void main()
@@ -32,10 +32,19 @@ void main()
 
     Particle particle = particleBuffer.particles[particleIndex];
 
-    // Expand the point into a quad corner in the particle's local space, then apply
-    // its transform (from the compute pass) and the camera view / projection.
-    vec4 localPos = vec4(corners[cornerIndex], 0.0, 1.0);
-    gl_Position = cam.proj * cam.view * particle.transform * localPos;
+    // Position is stored in column 3; scale is encoded in column 1's y component.
+    vec3 worldPos = particle.transform[3].xyz;
+    float scale   = particle.transform[1].y;
+
+    // Camera-facing billboard: extract right and up from the inverse view matrix.
+    // The view matrix rows (transposed) give us the camera's right and up directions.
+    vec3 camRight = vec3(cam.view[0][0], cam.view[1][0], cam.view[2][0]);
+    vec3 camUp    = vec3(cam.view[0][1], cam.view[1][1], cam.view[2][1]);
+
+    vec2 corner = corners[cornerIndex] * scale;
+    vec3 finalPos = worldPos + camRight * corner.x + camUp * corner.y;
+
+    gl_Position = cam.proj * cam.view * vec4(finalPos, 1.0);
 
     vColor = particle.color;
 }

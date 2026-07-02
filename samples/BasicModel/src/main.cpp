@@ -305,7 +305,7 @@ int main(int argc, char** argv)
 
 		renderPass.SetBufferInput(vertexBuffer);
 		renderPass.SetBufferInput(indexBuffer);
-		renderPass.SetBackbufferOutput(swapChain.GetCurrentImage());
+		renderPass.SetTextureOutput(swapChain.GetCurrentImage(), ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, clearColor);
 		renderPass.SetDepthOutput(depthBuffer);
 		renderPass.SetPipelineDescription(pipelineDesc);
 		renderPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
@@ -322,7 +322,7 @@ int main(int argc, char** argv)
 			deviceContext.DrawIndexed(static_cast<u32>(cubeAsset->indices.size()));
 		});
 
-		renderGraph.Bake(clearVals.data(), static_cast<u32>(clearVals.size()));
+		renderGraph.Bake(swapChain);
 		renderGraph.EndFrame();
 
 		swapChain.Present();

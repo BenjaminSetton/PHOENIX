@@ -9,6 +9,7 @@
 #include "PHX/interface/swap_chain.h"
 #include "PHX/interface/texture.h"
 #include "PHX/interface/uniform.h"
+#include "PHX/types/attachment_desc.h"
 #include "PHX/types/clear_color.h"
 
 namespace PHX
@@ -28,15 +29,18 @@ namespace PHX
 
 		// Inputs
 		void SetTextureInput(TextureHandle texture);
-		void SetBufferInput(BufferHandle buffer);							// Not sure if I want to keep this
-		void SetUniformInput(UniformCollectionHandle uniformCollection);	// Not sure if I want to keep this
+		void SetBufferInput(BufferHandle buffer);
+		void SetUniformInput(UniformCollectionHandle uniformCollection); // Not sure if I want to keep this
 
 		// Outputs
+		// SetTextureOutput is the generic texture-write entry point. The attachment type (color/depth/
+		// stencil/resolve) is inferred from the texture's aspect flags. Swapchain images are written
+		// through this same path - there is nothing special about them other than being presented.
+		void SetTextureOutput(TextureHandle texture, ATTACHMENT_LOAD_OP loadOp, ATTACHMENT_STORE_OP storeOp, ClearValues clearValue = {});
 		void SetColorOutput(TextureHandle texture);
 		void SetDepthOutput(TextureHandle texture);
 		void SetDepthStencilOutput(TextureHandle texture);
 		void SetResolveOutput(TextureHandle texture);
-		void SetBackbufferOutput(TextureHandle texture);
 		void SetBufferOutput(BufferHandle buffer);
 
 		// Pipeline data
@@ -54,7 +58,11 @@ namespace PHX
 		STATUS_CODE BeginFrame(SwapChainHandle swapChain);
 		STATUS_CODE EndFrame();
 		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass);
-		STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount);
+
+		// Bakes and executes the render graph. The swap chain is passed in so the graph can identify
+		// which passes write to the current swapchain image (the present target). Any number of passes
+		// may write to it; the last one (in registration order) owns presentation.
+		STATUS_CODE Bake(SwapChainHandle swapChain);
 
 		u32 GetFrameNumber() const;
 
@@ -83,11 +91,11 @@ namespace PHX
 		virtual void SetUniformInput(UniformCollectionHandle uniformCollection) = 0;	// Not sure if I want to keep this
 			 
 		// Outputs
+		virtual void SetTextureOutput(TextureHandle handle, ATTACHMENT_LOAD_OP loadOp, ATTACHMENT_STORE_OP storeOp, ClearValues clearValue = {}) = 0;
 		virtual void SetColorOutput(TextureHandle handle) = 0;
 		virtual void SetDepthOutput(TextureHandle handle) = 0;
 		virtual void SetDepthStencilOutput(TextureHandle handle) = 0;
 		virtual void SetResolveOutput(TextureHandle handle) = 0;
-		virtual void SetBackbufferOutput(TextureHandle handle) = 0;
 		virtual void SetBufferOutput(BufferHandle handle) = 0;
 
 		// Pipeline data
@@ -107,7 +115,7 @@ namespace PHX
 		virtual STATUS_CODE BeginFrame(SwapChainHandle swapChain) = 0;
 		virtual STATUS_CODE EndFrame() = 0;
 		virtual STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) = 0;
-		virtual STATUS_CODE Bake(ClearValues* pClearColors, u32 clearColorCount) = 0;
+		virtual STATUS_CODE Bake(SwapChainHandle swapChain) = 0;
 
 		virtual u32 GetFrameNumber() const = 0;
 
