@@ -5,6 +5,7 @@ SamplesCommon_IncludeDirs["assimp_core"]         = "%{wks.location}/samples/comm
 SamplesCommon_IncludeDirs["assimp_generated"]    = "%{wks.location}/samples/common/out/assimp/include"
 SamplesCommon_IncludeDirs["glm"]                 = "%{wks.location}/samples/common/vendor/glm/glm"
 SamplesCommon_IncludeDirs["stb_image"]           = "%{wks.location}/samples/common/vendor/stb_image"
+SamplesCommon_IncludeDirs["imgui"]               = "%{wks.location}/samples/common/vendor/imgui"
 
 SamplesCommon_Libraries                          = {}
 SamplesCommon_Libraries["PHOENIX_win64_debug"]   = "%{wks.location}/PHOENIX/out/PHX/bin/windows/Debug/x86_64/PHOENIX.lib"
