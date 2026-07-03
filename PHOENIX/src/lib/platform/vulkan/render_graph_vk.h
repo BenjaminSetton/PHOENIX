@@ -157,7 +157,7 @@ namespace PHX
 
 		void BuildDependencyTree(u32 finalPassIndex);
 		void FindActivePasses(u32 finalPassIndex, std::vector<u32>& out_activeRenderPasses);
-		void CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex, u64 presentResID);
+		void CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex);
 
 		// Returns true if an explicit pipeline barrier should be inserted for the given resource
 		// in the given render pass. Texture resources that are also render pass outputs (attachments)

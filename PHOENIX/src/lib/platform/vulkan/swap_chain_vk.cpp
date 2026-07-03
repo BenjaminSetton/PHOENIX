@@ -13,6 +13,7 @@
 #include "utils/sanity.h"
 #include "utils/swap_chain_helpers.h"
 #include "utils/texture_type_converter.h"
+#include "utils/debug_utils.h"
 
 namespace PHX
 {
@@ -292,6 +293,8 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_SWAPCHAIN_KHR, reinterpret_cast<uint64_t>(m_swapChain), "SwapChain");
+
 		// Get the number of images, then we use the count to create the image views below
 		resVk = vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &imageCount, nullptr);
 		if (resVk != VK_SUCCESS)
@@ -328,6 +331,13 @@ namespace PHX
 		std::vector<VkImage> swapChainImages(m_imageCount);
 		vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &m_imageCount, swapChainImages.data());
 
+		for (uint32_t i = 0; i < m_imageCount; i++)
+		{
+			char imgName[64];
+			snprintf(imgName, sizeof(imgName), "BackbufferImage_%u", i);
+			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(swapChainImages[i]), imgName);
+		}
+
 		VkImageViewCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -349,6 +359,10 @@ namespace PHX
 				LogError("Failed to create one or more swap chain image views!");
 				return STATUS_CODE::ERR_INTERNAL;
 			}
+
+			char name[64];
+			snprintf(name, sizeof(name), "BackbufferImageView_%u", i);
+			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageViews.at(i)), name);
 		}
 
 		// Once all image views are successfully created, create 

@@ -8,6 +8,7 @@
 #include "utils/sanity.h"
 #include "utils/texture_type_converter.h"
 #include "utils/texture_utils.h"
+#include "utils/debug_utils.h"
 
 namespace PHX
 {
@@ -508,6 +509,8 @@ namespace PHX
 				LogError("Failed to create texture! Got error: \"%s\"", string_VkResult(res));
 				return STATUS_CODE::ERR_INTERNAL;
 			}
+
+			DEBUG_UTILS::SetObjectName(m_renderDevice->GetLogicalDevice(), VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(m_baseImage), createInfo.pName);
 		}
 
 		// Calculate mip levels
@@ -571,6 +574,8 @@ namespace PHX
 				return STATUS_CODE::ERR_INTERNAL;
 			}
 
+			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageView), m_pName);
+
 			break;
 		}
 		case VIEW_SCOPE::PER_MIP:
@@ -590,6 +595,8 @@ namespace PHX
 					LogError("Failed to create texture image view! Got error: \"%s\"", string_VkResult(res));
 					return STATUS_CODE::ERR_INTERNAL;
 				}
+
+				DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageView), m_pName);
 			}
 
 			break;
@@ -636,6 +643,8 @@ namespace PHX
 			LogError(false, "Failed to create texture sampler! Got error: \"%s\"", string_VkResult(res));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_SAMPLER, reinterpret_cast<uint64_t>(m_sampler), m_pName);
 
 		return STATUS_CODE::SUCCESS;
 	}

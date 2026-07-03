@@ -14,6 +14,7 @@
 #include "utils/render_pass_cache.h"
 #include "utils/sanity.h"
 #include "utils/texture_type_converter.h"
+#include "utils/debug_utils.h"
 
 namespace PHX
 {
@@ -165,6 +166,9 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(m_pipeline), "GraphicsPipeline");
+		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE_LAYOUT, reinterpret_cast<uint64_t>(m_layout), "GraphicsPipelineLayout");
+
 		m_bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
 		LogDebug("GRAPHICS PIPELINE CREATED: %u stages", pipelineInfo.stageCount);
@@ -219,6 +223,9 @@ namespace PHX
 			LogError("Failed to create compute pipeline! Got error: \"%s\"", string_VkResult(res));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(m_pipeline), "ComputePipeline");
+		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE_LAYOUT, reinterpret_cast<uint64_t>(m_layout), "ComputePipelineLayout");
 
 		m_bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
 

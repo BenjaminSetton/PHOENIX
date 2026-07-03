@@ -8,6 +8,7 @@
 #include "render_device_vk.h"
 #include "texture_vk.h"
 #include "utils/attachment_type_converter.h"
+#include "utils/debug_utils.h"
 
 namespace PHX
 {
@@ -135,6 +136,8 @@ namespace PHX
 			LogError("Failed to create framebuffer! Got error: %s", string_VkResult(res));
 			return;
 		}
+
+		DEBUG_UTILS::SetObjectName(pRenderDevice->GetLogicalDevice(), VK_OBJECT_TYPE_FRAMEBUFFER, reinterpret_cast<uint64_t>(m_framebuffer), "Framebuffer");
 
 		// Cache the attachments
 		m_attachments.reserve(desc.attachmentCount);

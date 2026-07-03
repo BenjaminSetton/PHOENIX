@@ -66,25 +66,6 @@ namespace PHX
 		return ATTACHMENT_TYPE::INVALID;
 	}
 
-	static VkImageLayout CalculateLayoutForInputImage(ATTACHMENT_TYPE attachmentType)
-	{
-		switch (attachmentType)
-		{
-		case ATTACHMENT_TYPE::COLOR:         return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		case ATTACHMENT_TYPE::DEPTH:         return VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL;
-		case ATTACHMENT_TYPE::DEPTH_STENCIL: return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-		case ATTACHMENT_TYPE::STENCIL:       return VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL;
-		case ATTACHMENT_TYPE::RESOLVE:       return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL; // Is this right?
-		default:
-		{
-			break;
-		}
-		}
-
-		LogWarning("Failed to calculate layout for input image with attachment type %u. Defaulting to general layout", static_cast<u32>(attachmentType));
-		return VK_IMAGE_LAYOUT_GENERAL;
-	}
-
 	static VkAccessFlags CalculateResourceAccessFlags(const ResourceUsage& usage, const RenderResource& resource, BIND_POINT bindPoint)
 	{
 		VkAccessFlags flags = 0;
@@ -136,33 +117,7 @@ namespace PHX
 				}
 				case RESOURCE_TYPE::TEXTURE:
 				{
-					switch (usage.attachmentType)
-					{
-					case ATTACHMENT_TYPE::COLOR:
-					{
-						flags |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-						break;
-					}
-					case ATTACHMENT_TYPE::DEPTH:
-					case ATTACHMENT_TYPE::STENCIL: // fall-thru
-					case ATTACHMENT_TYPE::DEPTH_STENCIL: // fall-thru
-					{
-						flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
-						break;
-					}
-					case ATTACHMENT_TYPE::RESOLVE:
-					{
-						// Is an *input* resolve texture a logic error?
-						ASSERT_ALWAYS("Cannot calculate access flag for input resolve texture");
-						break;
-					}
-					case ATTACHMENT_TYPE::INVALID:
-					{
-						// Not sure how we got here in the first place
-						ASSERT_ALWAYS("Cannot calculate access flag for input texture with an invalid attachment type!");
-						break;
-					}
-					}
+					flags |= VK_ACCESS_SHADER_READ_BIT;
 					break;
 				}
 				case RESOURCE_TYPE::UNIFORM:
@@ -285,8 +240,11 @@ namespace PHX
 			case VK_ACCESS_SHADER_READ_BIT:
 			case VK_ACCESS_SHADER_WRITE_BIT:
 			{
-				// TODO - Determine proper shader stage
-				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_VERTEX_SHADER_BIT);
+				// TODO - Find a way to tell which shader is writing to the resource so we don't have to include
+				//        all the shader flags. For now, we're only covering vertex and fragment shaders, but realistically
+				//        this should cover more shader types like geometry, tesselation, etc but I don't want to
+				//        guard against all of them here
+				flags |= (VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
 				break;
 			}
 			case VK_ACCESS_COLOR_ATTACHMENT_READ_BIT:
@@ -478,7 +436,7 @@ namespace PHX
 		ResourceUsage usage{};
 		usage.io = RESOURCE_IO::INPUT;
 		usage.passIndex = m_index;
-		usage.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER; // Not sure if this is correct
+		usage.bufferUsage = buffer.GetUsage();
 
 		// Not a texture resource
 		usage.attachmentType = ATTACHMENT_TYPE::INVALID;
@@ -577,7 +535,7 @@ namespace PHX
 		ResourceUsage usage{};
 		usage.io = RESOURCE_IO::OUTPUT;
 		usage.passIndex = m_index;
-		usage.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER; // Not sure if this is correct
+		usage.bufferUsage = buffer.GetUsage();
 
 		// Not a texture resource
 		usage.attachmentType = ATTACHMENT_TYPE::INVALID;
@@ -728,7 +686,7 @@ namespace PHX
 
 		FindActivePasses(finalRPIndex, activeRenderPassIndices);
 
-		CalculateResourceBarriers(activeRenderPassIndices, finalRPIndex, m_presentResID);
+		CalculateResourceBarriers(activeRenderPassIndices, finalRPIndex);
 
 		// 4. [COMBINATION] Combine as many separate render passes into one for optimal GPU usage
 		// TODO
@@ -1500,7 +1458,7 @@ namespace PHX
 				{
 					// Push back new active pass. In this case, alreadyActive holds the 
 					// index of where the pass was last inserted
-					alreadyActive[passIndex] = out_activeRenderPasses.size();
+					alreadyActive[passIndex] = static_cast<i32>(out_activeRenderPasses.size());
 					out_activeRenderPasses.push_back(passIndex);
 				}
 
@@ -1508,7 +1466,7 @@ namespace PHX
 		});
 	}
 
-	void RenderGraphVk::CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex, u64 presentResID)
+	void RenderGraphVk::CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex)
 	{
 		// Traverse the dependency tree from bottom-to-top, and for every dependency:
 		// 1. Find which resource usages caused that dependency
@@ -1699,9 +1657,18 @@ namespace PHX
 			u64 resourceID = barrierIter.first;
 			const Barrier& currBarrier = barrierIter.second;
 
-			if (!RequiresExplicitResourceBarrier(renderPass, resourceID))
+			if (renderPass.m_bindPoint == BIND_POINT::GRAPHICS)
 			{
-				continue;
+				// HACK! We prevent barriers from being inserted for output textures that
+				// belong to a graphics pass. This is because the render pass implicitly performs
+				// these transitions, so we save work and also it's not possible to insert an explicit
+				// barrier to transition the backbuffer layout, so we must rely on the render pass implicit
+				// transitions anyway. I think ideally this logic would get moved to the CalculateResourceBarriers()
+				// function so that the barriers are never created to begin with
+				if (!RequiresExplicitResourceBarrier(renderPass, resourceID))
+				{
+					continue;
+				}
 			}
 
 			const RenderResource* resourceBarrier = GetPhysicalResource(resourceID);
@@ -1751,8 +1718,6 @@ namespace PHX
 
 				// Update the texture's internal layout variable so it matches it's actual layout
 				pTexture->SetLayout(currBarrier.newLayout);
-
-
 				break;
 			}
 			case RESOURCE_TYPE::UNIFORM:

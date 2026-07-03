@@ -7,6 +7,7 @@
 #include "../render_device_vk.h"
 #include "../texture_vk.h"
 #include "texture_type_converter.h"
+#include "debug_utils.h"
 
 namespace PHX
 {
@@ -150,6 +151,8 @@ namespace PHX
 		{
 			LogError("Failed to create render pass from description! Got error: \"%s\"", string_VkResult(res));
 		}
+
+		DEBUG_UTILS::SetObjectName(pRenderDevice->GetLogicalDevice(), VK_OBJECT_TYPE_RENDER_PASS, reinterpret_cast<uint64_t>(renderPass), "RenderPass");
 
 		LogDebug("RENDER PASS CREATED: %u attachments, %u subpasses, %u subpass dependencies", static_cast<u32>(attachmentDescs.size()), 1, 1);
 
