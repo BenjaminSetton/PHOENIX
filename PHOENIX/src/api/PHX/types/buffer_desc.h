@@ -6,8 +6,16 @@ namespace PHX
 	{
 		UNIFORM_BUFFER = 0,
 		STORAGE_BUFFER,
-		INDEX_BUFFER,	// Index buffers currently only support 32-bit index types!
+		INDEX_BUFFER,
 		VERTEX_BUFFER,
 		INDIRECT_BUFFER
+	};
+
+	enum class INDEX_TYPE
+	{
+		U16 = 0,
+		U32,
+
+		MAX
 	};
 }

@@ -90,6 +90,21 @@ namespace PHX
 		return !IsSame(*this, INVALID_HANDLE);
 	}
 
+	u32 Handle::GetIndex() const
+	{
+		return m_index;
+	}
+
+	u32 Handle::GetGeneration() const
+	{
+		return m_generation;
+	}
+
+	HANDLE_TYPE Handle::GetType() const
+	{
+		return m_type;
+	}
+
 	void Handle::Reset()
 	{
 		m_pOwner = nullptr;

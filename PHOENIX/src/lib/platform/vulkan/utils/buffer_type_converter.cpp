@@ -21,5 +21,17 @@ namespace PHX
 			LogError("Failed to convert buffer usage flag to VkBufferUsageFlagBits");
 			return VK_BUFFER_USAGE_FLAG_BITS_MAX_ENUM;
 		}
+
+		VkIndexType ConvertIndexType(INDEX_TYPE type)
+		{
+			switch (type)
+			{
+			case INDEX_TYPE::U16: return VK_INDEX_TYPE_UINT16;
+			case INDEX_TYPE::U32: return VK_INDEX_TYPE_UINT32;
+			}
+
+			LogError("Failed to convert index type to VkIndexType");
+			return VK_INDEX_TYPE_MAX_ENUM;
+		}
 	}
 }

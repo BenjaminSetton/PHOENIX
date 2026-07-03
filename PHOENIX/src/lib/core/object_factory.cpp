@@ -20,7 +20,7 @@ namespace PHX
 {
 	void* CoreObjectManager::ResolveHandle(const Handle& handle)
 	{
-		const HANDLE_TYPE type = HandleAccessor::GetType(handle);
+		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
 		case HANDLE_TYPE::RENDER_DEVICE: return HANDLE_UTILS::ResolveHandle<IRenderDevice>(m_renderDevices, handle);
@@ -36,7 +36,7 @@ namespace PHX
 
 	void CoreObjectManager::IncrementHandleRefCount(const Handle& handle)
 	{
-		const HANDLE_TYPE type = HandleAccessor::GetType(handle);
+		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
 		case HANDLE_TYPE::RENDER_DEVICE: 
@@ -54,7 +54,7 @@ namespace PHX
 
 	void CoreObjectManager::DecrementHandleRefCount(const Handle& handle)
 	{
-		const HANDLE_TYPE type = HandleAccessor::GetType(handle);
+		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
 		case HANDLE_TYPE::RENDER_DEVICE:

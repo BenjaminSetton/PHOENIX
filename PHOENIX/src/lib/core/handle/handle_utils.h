@@ -48,7 +48,7 @@ namespace PHX
 		template<typename InterfaceT>
 		void* ResolveHandle(const std::vector<InterfaceT*>& list, const Handle& handle)
 		{
-			const u32 index = HandleAccessor::GetIndex(handle);
+			const u32 index = handle.GetIndex();
 			if (index < static_cast<u32>(list.size()))
 			{
 				return list[index];
@@ -64,8 +64,6 @@ namespace PHX
 		STATUS_CODE AllocateHandle(std::vector<InterfaceT*>& list, InterfaceT* pObj, HandleOwner* pOwner, Handle& handle)
 		{
 			list.push_back(pObj);
-			pObj->IncrementRefCount();
-
 			HandleAccessor::PopulateHandle(handle, pOwner, static_cast<u32>(list.size() - 1), 0u);
 			return STATUS_CODE::SUCCESS;
 		}
@@ -92,7 +90,7 @@ namespace PHX
 		void DecrementRefCount(const Handle& handle, std::vector<InterfaceT*>& list)
 		{
 			// Assuming generation is always 0
-			const u32 index = HandleAccessor::GetIndex(handle);
+			const u32 index = handle.GetIndex();
 			if (index < static_cast<u32>(list.size()))
 			{
 				InterfaceT* pObj = list[index];

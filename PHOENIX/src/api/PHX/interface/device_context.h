@@ -23,14 +23,14 @@ namespace PHX
 		DECLARE_HANDLE(DeviceContextHandle)
 
 		STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer);
-		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer);
+		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType = INDEX_TYPE::U32);
 		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection);
 		STATUS_CODE SetViewport(Vec2u size, Vec2u offset);
 		STATUS_CODE SetScissor(Vec2u size, Vec2u offset);
 
 		STATUS_CODE Draw(u32 vertexCount);
-		STATUS_CODE DrawIndexed(u32 indexCount);
-		STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount);
+		STATUS_CODE DrawIndexed(u32 indexCount, u32 firstIndex = 0, u32 vertexOffset = 0);
+		STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex = 0, u32 vertexOffset = 0, u32 instanceOffset = 0);
 
 		STATUS_CODE Dispatch(Vec3u dimensions);
 
@@ -46,14 +46,14 @@ namespace PHX
 		virtual ~IDeviceContext() { }
 
 		virtual STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer) = 0;
-		virtual STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer) = 0;
+		virtual STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType) = 0;
 		virtual STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection) = 0;
 		virtual STATUS_CODE SetViewport(Vec2u size, Vec2u offset) = 0;
 		virtual STATUS_CODE SetScissor(Vec2u size, Vec2u offset) = 0;
 
 		virtual STATUS_CODE Draw(u32 vertexCount) = 0;
-		virtual STATUS_CODE DrawIndexed(u32 indexCount) = 0;
-		virtual STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount) = 0;
+		virtual STATUS_CODE DrawIndexed(u32 indexCount, u32 firstIndex, u32 vertexOffset) = 0;
+		virtual STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex, u32 vertexOffset, u32 instanceOffset) = 0;
 
 		virtual STATUS_CODE Dispatch(Vec3u dimensions) = 0;
 

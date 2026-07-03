@@ -33,6 +33,12 @@ namespace Common
 
 		virtual void DestroyWindow();
 
+		virtual void OnKeyDown(PHX::KeyCode keycode);
+		virtual void OnKeyUp(PHX::KeyCode keycode);
+		virtual void OnMouseButtonDown(PHX::MouseButtonCode mouseButton);
+		virtual void OnMouseButtonUp(PHX::MouseButtonCode mouseButton);
+		virtual void OnMouseMoved(float newX, float newY);
+
 	protected:
 
 		PHX::IWindow* m_pWindow;
@@ -41,13 +47,5 @@ namespace Common
 		PHX::RenderGraphHandle m_renderGraph;
 
 		BaseCamera* m_pCamera;
-
-	private:
-
-		void OnKeyDown(PHX::KeyCode keycode);
-		void OnKeyUp(PHX::KeyCode keycode);
-		void OnMouseButtonDown(PHX::MouseButtonCode mouseButton);
-		void OnMouseButtonUp(PHX::MouseButtonCode mouseButton);
-		void OnMouseMoved(float newX, float newY);
 	};
 }

@@ -21,16 +21,22 @@ project "TexturedModel"
 		"src/**.vert",
 		"src/**.frag",
 		"../common/src/**.h",
-		"../common/src/**.cpp"
+		"../common/src/**.cpp",
+		"../common/vendor/imgui/imgui.cpp",
+		"../common/vendor/imgui/imgui_draw.cpp",
+		"../common/vendor/imgui/imgui_tables.cpp",
+		"../common/vendor/imgui/imgui_widgets.cpp",
+		"../common/vendor/imgui/imgui_demo.cpp",
 	}
 	
 	includedirs
 	{
 		"%{SamplesCommon_IncludeDirs.PHOENIX}",
+		"%{SamplesCommon_IncludeDirs.glm}",
 		"%{SamplesCommon_IncludeDirs.assimp_core}",
 		"%{SamplesCommon_IncludeDirs.assimp_generated}",
-		"%{SamplesCommon_IncludeDirs.glm}",
-		"%{SamplesCommon_IncludeDirs.stb_image}"
+		"%{SamplesCommon_IncludeDirs.stb_image}",
+		"%{SamplesCommon_IncludeDirs.imgui}"
 	}
 	
 	filter "system:windows"

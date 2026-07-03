@@ -18,5 +18,8 @@ namespace PHX
 		VkStencilOp ConvertStencilOp(STENCIL_OP stencilOp);
 		VkVertexInputRate ConvertInputRate(VERTEX_INPUT_RATE inputRate);
 		VkPipelineBindPoint ConvertBindPoint(BIND_POINT bindPoint);
+		VkBlendFactor ConvertBlendFactor(BLEND_FACTOR factor);
+		VkBlendOp ConvertBlendOp(BLEND_OP op);
+		VkColorComponentFlags ConvertColorComponentFlags(ColorComponentFlags flags);
 	}
 }

@@ -138,5 +138,57 @@ namespace PHX
 			LogError("Failed to convert bind point to VkPipelineBindPoint");
 			return VK_PIPELINE_BIND_POINT_MAX_ENUM;
 		}
+
+		VkBlendFactor ConvertBlendFactor(BLEND_FACTOR factor)
+		{
+			switch (factor)
+			{
+			case BLEND_FACTOR::ZERO:                     return VK_BLEND_FACTOR_ZERO;
+			case BLEND_FACTOR::ONE:                      return VK_BLEND_FACTOR_ONE;
+			case BLEND_FACTOR::SRC_COLOR:                return VK_BLEND_FACTOR_SRC_COLOR;
+			case BLEND_FACTOR::ONE_MINUS_SRC_COLOR:      return VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR;
+			case BLEND_FACTOR::DST_COLOR:                return VK_BLEND_FACTOR_DST_COLOR;
+			case BLEND_FACTOR::ONE_MINUS_DST_COLOR:      return VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR;
+			case BLEND_FACTOR::SRC_ALPHA:                return VK_BLEND_FACTOR_SRC_ALPHA;
+			case BLEND_FACTOR::ONE_MINUS_SRC_ALPHA:      return VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+			case BLEND_FACTOR::DST_ALPHA:                return VK_BLEND_FACTOR_DST_ALPHA;
+			case BLEND_FACTOR::ONE_MINUS_DST_ALPHA:      return VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
+			case BLEND_FACTOR::CONSTANT_COLOR:           return VK_BLEND_FACTOR_CONSTANT_COLOR;
+			case BLEND_FACTOR::ONE_MINUS_CONSTANT_COLOR: return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR;
+			case BLEND_FACTOR::CONSTANT_ALPHA:           return VK_BLEND_FACTOR_CONSTANT_ALPHA;
+			case BLEND_FACTOR::ONE_MINUS_CONSTANT_ALPHA: return VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA;
+			case BLEND_FACTOR::SRC_ALPHA_SATURATE:       return VK_BLEND_FACTOR_SRC_ALPHA_SATURATE;
+			}
+
+			LogError("Failed to convert blend factor to VkBlendFactor");
+			return VK_BLEND_FACTOR_MAX_ENUM;
+		}
+
+		VkBlendOp ConvertBlendOp(BLEND_OP op)
+		{
+			switch (op)
+			{
+			case BLEND_OP::ADD:              return VK_BLEND_OP_ADD;
+			case BLEND_OP::SUBTRACT:         return VK_BLEND_OP_SUBTRACT;
+			case BLEND_OP::REVERSE_SUBTRACT: return VK_BLEND_OP_REVERSE_SUBTRACT;
+			case BLEND_OP::MIN_VALUE:        return VK_BLEND_OP_MIN;
+			case BLEND_OP::MAX_VALUE:        return VK_BLEND_OP_MAX;
+			}
+
+			LogError("Failed to convert blend op to VkBlendOp");
+			return VK_BLEND_OP_MAX_ENUM;
+		}
+
+		VkColorComponentFlags ConvertColorComponentFlags(ColorComponentFlags flags)
+		{
+			VkColorComponentFlags vkFlags = 0;
+
+			if (flags & COLOR_COMPONENT_FLAG_R) vkFlags |= VK_COLOR_COMPONENT_R_BIT;
+			if (flags & COLOR_COMPONENT_FLAG_G) vkFlags |= VK_COLOR_COMPONENT_G_BIT;
+			if (flags & COLOR_COMPONENT_FLAG_B) vkFlags |= VK_COLOR_COMPONENT_B_BIT;
+			if (flags & COLOR_COMPONENT_FLAG_A) vkFlags |= VK_COLOR_COMPONENT_A_BIT;
+
+			return vkFlags;
+		}
 	}
 }

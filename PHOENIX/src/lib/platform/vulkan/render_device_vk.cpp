@@ -21,7 +21,6 @@
 #include "render_device_vk.h"
 
 #include "buffer_vk.h"
-#include "core/handle/handle_accessor.h"
 #include "core/handle/handle_utils.h"
 #include "core_vk.h"
 #include "device_context_vk.h"
@@ -278,7 +277,7 @@ namespace PHX
 
 	void* RenderDeviceVk::ResolveHandle(const Handle& handle)
 	{
-		HANDLE_TYPE const type = HandleAccessor::GetType(handle);
+		HANDLE_TYPE const type = handle.GetType();
 		switch (type)
 		{
 		case HANDLE_TYPE::BUFFER:          return HANDLE_UTILS::ResolveHandle<BufferVk>(m_buffers, handle);
@@ -300,7 +299,7 @@ namespace PHX
 
 	void RenderDeviceVk::IncrementHandleRefCount(const Handle& handle)
 	{
-		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
+		HANDLE_TYPE handleType = handle.GetType();
 		switch (handleType)
 		{
 		case HANDLE_TYPE::BUFFER:
@@ -348,7 +347,7 @@ namespace PHX
 
 	void RenderDeviceVk::DecrementHandleRefCount(const Handle& handle)
 	{
-		HANDLE_TYPE handleType = HandleAccessor::GetType(handle);
+		HANDLE_TYPE handleType = handle.GetType();
 		switch (handleType)
 		{
 		case HANDLE_TYPE::BUFFER:

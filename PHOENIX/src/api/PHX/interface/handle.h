@@ -28,6 +28,10 @@ namespace PHX
 
 		bool IsValid() const;
 
+		u32 GetIndex() const;
+		u32 GetGeneration() const;
+		HANDLE_TYPE GetType() const;
+
 	private:
 		void Reset();
 		void PopulateHandle(HandleOwner* pOwner, u32 index, u8 generation);

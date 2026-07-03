@@ -9,6 +9,7 @@
 #include "swap_chain_vk.h"
 #include "uniform_vk.h"
 #include "utils/buffer_utils.h"
+#include "utils/buffer_type_converter.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
 #include "utils/staging_buffer.h"
@@ -19,7 +20,7 @@
 
 namespace PHX
 {
-	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo) :
+	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo) : m_pRenderDevice(nullptr),
 		m_cmdBuffers(), m_wasWorkSubmitted(true), m_contextualPipeline(nullptr)
 	{
 		UNUSED(createInfo);
@@ -61,7 +62,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer)
+	STATUS_CODE DeviceContextVk::BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType)
 	{
 		BufferVk* vBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(vertexBuffer));
 		if (vBufferVk == nullptr)
@@ -89,7 +90,7 @@ namespace PHX
 		VkDeviceSize offset = vBufferVk->GetOffset();
 
 		vkCmdBindVertexBuffers(cmdBuffer, 0, 1, &vkBuffer, &offset);
-		vkCmdBindIndexBuffer(cmdBuffer, iBufferVk->GetBuffer(), 0, VK_INDEX_TYPE_UINT32); // TODO - Support a range of sizes for index types?
+		vkCmdBindIndexBuffer(cmdBuffer, iBufferVk->GetBuffer(), 0, BUFFER_UTILS::ConvertIndexType(indexType));
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -193,7 +194,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::DrawIndexed(u32 indexCount)
+	STATUS_CODE DeviceContextVk::DrawIndexed(u32 indexCount, u32 firstIndex, u32 vertexOffset)
 	{
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
@@ -203,11 +204,11 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		vkCmdDrawIndexed(cmdBuffer, static_cast<u32>(indexCount), 1, 0, 0, 0);
+		vkCmdDrawIndexed(cmdBuffer, indexCount, 1, firstIndex, vertexOffset, 0);
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::DrawIndexedInstanced(u32 indexCount, u32 instanceCount)
+	STATUS_CODE DeviceContextVk::DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex, u32 vertexOffset, u32 instanceOffset)
 	{
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
@@ -217,7 +218,7 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		vkCmdDrawIndexed(cmdBuffer, indexCount, instanceCount, 0, 0, 0);
+		vkCmdDrawIndexed(cmdBuffer, indexCount, instanceCount, firstIndex, vertexOffset, instanceOffset);
 		return STATUS_CODE::SUCCESS;
 	}
 

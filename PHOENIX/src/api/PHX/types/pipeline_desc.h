@@ -1,6 +1,6 @@
 #pragma once
 
-//#include "integral_types.h"
+#include "integral_types.h"
 #include "input_attribute.h"
 #include "PHX/interface/shader.h"
 #include "PHX/interface/uniform.h"
@@ -98,10 +98,60 @@ namespace PHX
 		////////
 	};
 
-	// TODO?
-	// - Dynamic state
-	// - Viewport state
-	// - Color blending state
+	enum class BLEND_FACTOR
+	{
+		ZERO = 0,
+		ONE,
+		SRC_COLOR,
+		ONE_MINUS_SRC_COLOR,
+		DST_COLOR,
+		ONE_MINUS_DST_COLOR,
+		SRC_ALPHA,
+		ONE_MINUS_SRC_ALPHA,
+		DST_ALPHA,
+		ONE_MINUS_DST_ALPHA,
+		CONSTANT_COLOR,
+		ONE_MINUS_CONSTANT_COLOR,
+		CONSTANT_ALPHA,
+		ONE_MINUS_CONSTANT_ALPHA,
+		SRC_ALPHA_SATURATE,
+
+		MAX
+	};
+
+	enum class BLEND_OP
+	{
+		ADD = 0,
+		SUBTRACT,
+		REVERSE_SUBTRACT,
+		MIN_VALUE,
+		MAX_VALUE,
+
+		MAX
+	};
+
+	enum COLOR_COMPONENT_FLAG : u8
+	{
+		COLOR_COMPONENT_FLAG_NONE = 0,
+		COLOR_COMPONENT_FLAG_R    = (1 << 0),
+		COLOR_COMPONENT_FLAG_G    = (1 << 1),
+		COLOR_COMPONENT_FLAG_B    = (1 << 2),
+		COLOR_COMPONENT_FLAG_A    = (1 << 3),
+	};
+	using ColorComponentFlags = u8;
+
+	struct BlendState
+	{
+		bool                enableBlend        = false;
+		BLEND_FACTOR        srcColorFactor     = BLEND_FACTOR::SRC_ALPHA;
+		BLEND_FACTOR        dstColorFactor     = BLEND_FACTOR::ONE_MINUS_SRC_ALPHA;
+		BLEND_OP            colorBlendOp       = BLEND_OP::ADD;
+		BLEND_FACTOR        srcAlphaFactor     = BLEND_FACTOR::ONE;
+		BLEND_FACTOR        dstAlphaFactor     = BLEND_FACTOR::ONE_MINUS_SRC_ALPHA;
+		BLEND_OP            alphaBlendOp       = BLEND_OP::ADD;
+		ColorComponentFlags colorWriteMask     = COLOR_COMPONENT_FLAG_R | COLOR_COMPONENT_FLAG_G | COLOR_COMPONENT_FLAG_B | COLOR_COMPONENT_FLAG_A;
+	};
+
 	struct GraphicsPipelineDesc
 	{
 		// Input assembler
@@ -149,6 +199,9 @@ namespace PHX
 		StencilOpState stencilFront					= { };
 		StencilOpState stencilBack					= { };
 		Vec2f depthBoundsRange						= { 0.0f, 1.0f };
+
+		// Color blend state
+		BlendState blendState                       = { };
 
 		// Pipeline layout
 		UniformCollectionHandle uniformCollection	= INVALID_HANDLE;

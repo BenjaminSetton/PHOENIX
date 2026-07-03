@@ -23,7 +23,7 @@ namespace PHX
 	VkPipelineViewportStateCreateInfo       PopulateViewportStateCreateInfo(const VkViewport* viewports, u32 viewportCount, const VkRect2D* scissors, u32 scissorCount);
 	VkPipelineRasterizationStateCreateInfo  PopulateRasterizerStateCreateInfo(VkCullModeFlags cullMode, VkFrontFace windingOrder, VkPolygonMode polygonMode, float lineWidth, bool enableDepthClamp, bool enableRasterizerDiscard, bool enableDepthBias, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor);
 	VkPipelineMultisampleStateCreateInfo    PopulateMultisamplingStateCreateInfo(VkSampleCountFlagBits sampleCount, bool enableAlphaToCoverage, bool enableAlphaToOne);
-	VkPipelineColorBlendAttachmentState     PopulateColorBlendAttachment(); // No need for parameters yet...
+	VkPipelineColorBlendAttachmentState     PopulateColorBlendAttachment(VkBool32 blendEnable, VkBlendFactor srcColorFactor, VkBlendFactor dstColorFactor, VkBlendOp colorBlendOp, VkBlendFactor srcAlphaFactor, VkBlendFactor dstAlphaFactor, VkBlendOp alphaBlendOp, VkColorComponentFlags colorWriteMask);
 	VkPipelineColorBlendStateCreateInfo     PopulateColorBlendStateCreateInfo(const VkPipelineColorBlendAttachmentState* attachments, u32 blendAttachmentCount);
 	VkPipelineDepthStencilStateCreateInfo   PopulateDepthStencilStateCreateInfo(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp, VkBool32 depthBoundsTestEnable, Vec2f depthBoundsRange, VkBool32 stencilTestEnable, StencilOpState stencilFront, StencilOpState stencilBack);
 	VkPipelineLayoutCreateInfo              PopulatePipelineLayoutCreateInfo(const VkDescriptorSetLayout* setLayouts, u32 setLayoutCount, const VkPushConstantRange* pushConstantRanges, u32 pushConstantCount);

@@ -50,12 +50,12 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	STATUS_CODE DeviceContextHandle::BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer)
+	STATUS_CODE DeviceContextHandle::BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType)
 	{
 		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
-			return pContext->BindMesh(vertexBuffer, indexBuffer);
+			return pContext->BindMesh(vertexBuffer, indexBuffer, indexType);
 		}
 
 		LogError("Failed to bind mesh. Could not resolve device context handle!");
@@ -110,24 +110,24 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	STATUS_CODE DeviceContextHandle::DrawIndexed(u32 indexCount)
+	STATUS_CODE DeviceContextHandle::DrawIndexed(u32 indexCount, u32 firstIndex, u32 vertexOffset)
 	{
 		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
-			return pContext->DrawIndexed(indexCount);
+			return pContext->DrawIndexed(indexCount, firstIndex, vertexOffset);
 		}
 
 		LogError("Failed to issue draw indexed call. Could not resolve device context handle!");
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	STATUS_CODE DeviceContextHandle::DrawIndexedInstanced(u32 indexCount, u32 instanceCount)
+	STATUS_CODE DeviceContextHandle::DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex, u32 vertexOffset, u32 instanceOffset)
 	{
 		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
-			return pContext->DrawIndexedInstanced(indexCount, instanceCount);
+			return pContext->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, vertexOffset, instanceOffset);
 		}
 
 		LogError("Failed to issue draw indexed instanced call. Could not resolve device context handle!");

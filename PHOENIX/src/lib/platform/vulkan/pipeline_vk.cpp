@@ -120,7 +120,15 @@ namespace PHX
 		VkPipelineDynamicStateCreateInfo			dynamicState         = PopulateDynamicStateCreateInfo(&dynamicStates[0], NUM_DYNAMIC_STATES);
 		VkPipelineViewportStateCreateInfo			viewportState        = PopulateViewportStateCreateInfo(&viewport, 1, &scissor, 1);
 		VkPipelineMultisampleStateCreateInfo		multisampling        = PopulateMultisamplingStateCreateInfo(TEX_UTILS::ConvertSampleCount(createInfo.rasterizationSamples), createInfo.enableAlphaToCoverage, createInfo.enableAlphaToOne);
-		VkPipelineColorBlendAttachmentState			colorBlendAttachment = PopulateColorBlendAttachment();
+		VkPipelineColorBlendAttachmentState			colorBlendAttachment = PopulateColorBlendAttachment(
+			createInfo.blendState.enableBlend ? VK_TRUE : VK_FALSE,
+			PIPELINE_UTILS::ConvertBlendFactor(createInfo.blendState.srcColorFactor),
+			PIPELINE_UTILS::ConvertBlendFactor(createInfo.blendState.dstColorFactor),
+			PIPELINE_UTILS::ConvertBlendOp(createInfo.blendState.colorBlendOp),
+			PIPELINE_UTILS::ConvertBlendFactor(createInfo.blendState.srcAlphaFactor),
+			PIPELINE_UTILS::ConvertBlendFactor(createInfo.blendState.dstAlphaFactor),
+			PIPELINE_UTILS::ConvertBlendOp(createInfo.blendState.alphaBlendOp),
+			PIPELINE_UTILS::ConvertColorComponentFlags(createInfo.blendState.colorWriteMask));
 		VkPipelineColorBlendStateCreateInfo			colorBlending        = PopulateColorBlendStateCreateInfo(&colorBlendAttachment, 1);
 		VkPipelineDepthStencilStateCreateInfo		depthStencil         = PopulateDepthStencilStateCreateInfo(createInfo.enableDepthTest, 
 			createInfo.enableDepthWrite, 

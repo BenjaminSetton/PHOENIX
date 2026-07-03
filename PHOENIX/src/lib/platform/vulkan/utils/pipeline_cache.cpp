@@ -82,6 +82,16 @@ namespace PHX
 		HashCombine(seed, desc.stencilBack.reference);
 		HashCombine(seed, desc.depthBoundsRange);
 
+		// Color blend state
+		HashCombine(seed, desc.blendState.enableBlend);
+		HashCombine(seed, desc.blendState.srcColorFactor);
+		HashCombine(seed, desc.blendState.dstColorFactor);
+		HashCombine(seed, desc.blendState.colorBlendOp);
+		HashCombine(seed, desc.blendState.srcAlphaFactor);
+		HashCombine(seed, desc.blendState.dstAlphaFactor);
+		HashCombine(seed, desc.blendState.alphaBlendOp);
+		HashCombine(seed, desc.blendState.colorWriteMask);
+
 		// Uniform collection
 		if (desc.uniformCollection.IsValid())
 		{

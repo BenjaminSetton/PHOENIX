@@ -1,7 +1,7 @@
 workspace "PHOENIX"
 
 	architecture "x64"
-	startproject "SponzaDemo"
+	startproject "ImGui"
 	
 	configurations
 	{
@@ -20,4 +20,5 @@ include "samples/HelloTriangle/premake5.lua"
 include "samples/BasicModel/premake5.lua"
 include "samples/TexturedModel/premake5.lua"
 include "samples/ComputeParticles/premake5.lua"
+include "samples/ImGui/premake5.lua"
 group ""

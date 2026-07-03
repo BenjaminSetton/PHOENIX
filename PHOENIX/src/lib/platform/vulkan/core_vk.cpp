@@ -220,25 +220,28 @@ namespace PHX
 	{
 		if (pWindow == nullptr)
 		{
-			LogError("Failed to create surface! Window is null");
+			LogError("Failed to create surface. Window is null!");
 			return STATUS_CODE::ERR_API;
 		}
 
 #if defined(PHX_WINDOWS)
 		WindowWin64* windowWin64 = static_cast<WindowWin64*>(pWindow);
-		if (windowWin64 != nullptr)
+		if (windowWin64 == nullptr)
 		{
-			VkWin32SurfaceCreateInfoKHR surfaceCreateInfo{};
-			surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-			surfaceCreateInfo.hinstance = GetModuleHandle(NULL);
-			surfaceCreateInfo.hwnd = reinterpret_cast<HWND>(windowWin64->GetNativeHandle());
+			LogError("Failed to create surface. Window could not be cast to Wiin64 window!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
 
-			VkResult res = vkCreateWin32SurfaceKHR(m_instance, &surfaceCreateInfo, nullptr, &m_surface);
-			if (res != VK_SUCCESS)
-			{
-				LogError("Failed to create win32 surface! Got error: \"%s\"", string_VkResult(res));
-				return STATUS_CODE::ERR_INTERNAL;
-			}
+		VkWin32SurfaceCreateInfoKHR surfaceCreateInfo{};
+		surfaceCreateInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+		surfaceCreateInfo.hinstance = GetModuleHandle(NULL);
+		surfaceCreateInfo.hwnd = reinterpret_cast<HWND>(windowWin64->GetNativeHandle());
+
+		VkResult res = vkCreateWin32SurfaceKHR(m_instance, &surfaceCreateInfo, nullptr, &m_surface);
+		if (res != VK_SUCCESS)
+		{
+			LogError("Failed to create win32 surface. Got error: \"%s\"!", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 #endif
 

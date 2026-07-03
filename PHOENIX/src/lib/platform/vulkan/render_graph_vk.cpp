@@ -31,8 +31,8 @@ namespace PHX
 	static u64 HashResource(Handle resource, const RESOURCE_TYPE& type)
 	{
 		size_t seed = 0;
-		HashCombine(seed, HandleAccessor::GetIndex(resource));
-		HashCombine(seed, HandleAccessor::GetGeneration(resource));
+		HashCombine(seed, resource.GetIndex());
+		HashCombine(seed, resource.GetGeneration());
 		HashCombine(seed, type);
 
 		return static_cast<u64>(seed);
@@ -653,7 +653,9 @@ namespace PHX
 		m_registeredRenderPasses.emplace_back(passName, bindPoint, passIndex, registerResourceFuncPtr);
 
 		RenderPassVk& passVk = m_registeredRenderPasses.back();
-		passVk.IncrementRefCount();
+
+		// NOTE - Manually call PopulateHandle() from HandleAccessor vs using HANDLE_UTILS, 
+		// since that inserts an InterfaceT pointer into an array
 		HandleAccessor::PopulateHandle(renderPass, this, static_cast<u32>(m_registeredRenderPasses.size() - 1), 0u);
 		return STATUS_CODE::SUCCESS;
 	}
@@ -1056,13 +1058,13 @@ namespace PHX
 
 	void* RenderGraphVk::ResolveHandle(const Handle& handle)
 	{
-		const HANDLE_TYPE type = HandleAccessor::GetType(handle);
+		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
 		case HANDLE_TYPE::RENDER_PASS:
 		{
 			// TODO - Reconcile with HANDLE_UTILS functions
-			const u32 index = HandleAccessor::GetIndex(handle);
+			const u32 index = handle.GetIndex();
 			if (index < static_cast<u32>(m_registeredRenderPasses.size()))
 			{
 				return &m_registeredRenderPasses[index];
@@ -1081,7 +1083,7 @@ namespace PHX
 
 	void RenderGraphVk::IncrementHandleRefCount(const Handle& handle)
 	{
-		const HANDLE_TYPE type = HandleAccessor::GetType(handle);
+		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
 		case HANDLE_TYPE::RENDER_PASS:
@@ -1099,13 +1101,13 @@ namespace PHX
 
 	void RenderGraphVk::DecrementHandleRefCount(const Handle& handle)
 	{
-		const HANDLE_TYPE type = HandleAccessor::GetType(handle);
+		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
 		case HANDLE_TYPE::RENDER_PASS:
 		{
 			// TODO - Reconcile with HANDLE_UTILS functions
-			const u32 index = HandleAccessor::GetIndex(handle);
+			const u32 index = handle.GetIndex();
 			if (index < static_cast<u32>(m_registeredRenderPasses.size()))
 			{
 				RenderPassVk renderPass = m_registeredRenderPasses[index];

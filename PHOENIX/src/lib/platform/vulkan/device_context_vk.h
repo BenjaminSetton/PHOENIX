@@ -34,14 +34,14 @@ namespace PHX
 		~DeviceContextVk();
 
 		STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer) override;
-		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer) override;
+		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType) override;
 		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection) override;
 		STATUS_CODE SetViewport(Vec2u size, Vec2u offset) override;
 		STATUS_CODE SetScissor(Vec2u size, Vec2u offset) override;
 
 		STATUS_CODE Draw(u32 vertexCount) override;
-		STATUS_CODE DrawIndexed(u32 indexCount) override;
-		STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount) override;
+		STATUS_CODE DrawIndexed(u32 indexCount, u32 firstIndex, u32 vertexOffset) override;
+		STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex, u32 vertexOffset, u32 instanceOffset) override;
 
 		STATUS_CODE Dispatch(Vec3u dimensions) override;
 

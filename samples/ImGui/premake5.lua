@@ -1,7 +1,7 @@
 
 include "../common/vendor/dependencies.lua"
 
-project "ComputeParticles"
+project "ImGui"
 	location "out"
 	language "C++"
 	kind "ConsoleApp"
@@ -20,7 +20,6 @@ project "ComputeParticles"
 		"src/**.cpp",
 		"src/**.vert",
 		"src/**.frag",
-		"src/**.comp",
 		"../common/src/**.h",
 		"../common/src/**.cpp",
 		"../common/vendor/imgui/imgui.cpp",

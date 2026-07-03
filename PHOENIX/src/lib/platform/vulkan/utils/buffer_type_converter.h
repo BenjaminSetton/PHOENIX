@@ -9,5 +9,6 @@ namespace PHX
 	namespace BUFFER_UTILS
 	{
 		VkBufferUsageFlagBits ConvertBufferUsage(BUFFER_USAGE usage);
+		VkIndexType ConvertIndexType(INDEX_TYPE type);
 	}
 }
