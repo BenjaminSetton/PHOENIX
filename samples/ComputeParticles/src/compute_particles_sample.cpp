@@ -121,17 +121,17 @@ void ComputeParticlesSample::Draw()
 		deviceContext.DrawIndexed(24);
 	});
 
-	// Viz
-	//{
-	//	const u32 frameNumber = m_renderGraph.GetFrameNumber();
-	//	std::string renderGraphVisName = "./ComputeParticles_RG_";
-	//	renderGraphVisName.append(std::to_string(frameNumber).c_str());
-	//	renderGraphVisName.append(".dot");
-
-	//	m_renderGraph.GenerateVisualization(renderGraphVisName.c_str(), false);
-	//}
-
 	m_renderGraph.Bake(m_swapChain);
+
+	// Viz
+	{
+		const u32 frameNumber = m_renderGraph.GetFrameNumber();
+		const u32 nameLen = 64;
+		char renderGraphVisName[nameLen];
+		snprintf(renderGraphVisName, nameLen, "./ComputeParticles_RG_%u.dot", frameNumber);
+		m_renderGraph.GenerateVisualization(renderGraphVisName);
+	}
+
 	m_renderGraph.EndFrame();
 
 	m_swapChain.Present();

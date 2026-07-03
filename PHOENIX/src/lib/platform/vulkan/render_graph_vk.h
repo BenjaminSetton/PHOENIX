@@ -185,6 +185,9 @@ namespace PHX
 		BufferVk* ResolveBuffer(const RenderResource& resource);
 		const char* GetResourceName(const RenderResource& resource);
 
+		// Returns a hash of the state of the render graph in the current frame
+		u64 HashState() const;
+
 	private:
 
 		std::vector<RenderPassVk> m_registeredRenderPasses;
@@ -193,6 +196,11 @@ namespace PHX
 		RenderDeviceVk* m_pRenderDevice;
 
 		std::vector<DeviceContextHandle> m_deviceContextHandles;
+
+		u64 m_currentFrameGraphHash;
+
+		// Stores the unique hashes for which a visualization has been generated
+		std::unordered_map<u64, bool> m_uniqueVisualizationHashes;
 
 		u32 m_frameInFlightIndex;
 		u32 m_frameNumber;

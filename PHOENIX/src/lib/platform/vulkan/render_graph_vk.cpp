@@ -569,7 +569,7 @@ namespace PHX
 
 	//--------------------------------------------------------------------------------------------
 
-	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pRenderDevice(nullptr), m_deviceContextHandles(), 
+	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pRenderDevice(nullptr), m_deviceContextHandles(), m_currentFrameGraphHash(0), m_uniqueVisualizationHashes(),
 		m_frameInFlightIndex(0), m_frameNumber(0), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), m_presentResID(0)
 	{
 		if (pRenderDevice == nullptr)
@@ -790,6 +790,10 @@ namespace PHX
 			}
 		}
 
+		// Hash the state of the render graph after baking 
+		// and store it in the map
+		m_currentFrameGraphHash = HashState();
+
 		return res;
 	}
 
@@ -800,12 +804,6 @@ namespace PHX
 
 	STATUS_CODE RenderGraphVk::GenerateVisualization(const char* fileName, bool generateIfUnique)
 	{
-		UNUSED(generateIfUnique);
-		if (generateIfUnique)
-		{
-			TODO();
-		}
-
 		if (fileName == nullptr)
 		{
 			LogError("Failed to generate render graph visualization. File name is null!");
@@ -816,6 +814,16 @@ namespace PHX
 		{
 			LogError("Failed to generate render graph visualization. No render passes registered - call after Bake()!");
 			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		if (generateIfUnique)
+		{
+			auto hashIter = m_uniqueVisualizationHashes.find(m_currentFrameGraphHash);
+			if (hashIter != m_uniqueVisualizationHashes.end())
+			{
+				// We've already generated a visualization for the current state. Don't re-generate
+				return STATUS_CODE::SUCCESS;
+			}
 		}
 
 		// Builds a verbose barrier tooltip (stage + access masks) shown on hover in SVG output
@@ -1020,7 +1028,10 @@ namespace PHX
 			io.Write(dotStr.c_str(), static_cast<u32>(dotStr.size()));
 		}
 
-		LogDebug("Render graph visualization written to \"%s\"", fileName);
+		// Cache the hash that we've generated a visualization for
+		m_uniqueVisualizationHashes.insert({ m_currentFrameGraphHash, true });
+
+		LogDebug("Render graph visualization written to \"%s\" for hash %llX", fileName, m_currentFrameGraphHash);
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -1888,5 +1899,96 @@ namespace PHX
 
 		ASSERT_ALWAYS("Failed to get resource name. Unknown resource type!");
 		return nullptr;
+	}
+
+	u64 RenderGraphVk::HashState() const
+	{
+		size_t seed = 0;
+
+		// Render passes
+		HashCombine(seed, m_registeredRenderPasses.size());
+		for (u32 i = 0; i < static_cast<u32>(m_registeredRenderPasses.size()); i++)
+		{
+			const RenderPassVk& currRenderPass = m_registeredRenderPasses[i];
+			HashCombine(seed, currRenderPass.m_inputResources);
+			HashCombine(seed, currRenderPass.m_outputResources);
+			// Ignore callbacks
+			HashCombine(seed, currRenderPass.m_index);
+
+			HashCombine(seed, currRenderPass.m_bindPoint);
+			switch (currRenderPass.m_bindPoint)
+			{
+			case BIND_POINT::GRAPHICS:
+			{
+				GraphicsPipelineDescHasher hasher;
+				HashCombine(seed, hasher(currRenderPass.graphicsDesc));
+				break;
+			}
+			case BIND_POINT::COMPUTE:
+			{
+				ComputePipelineDescHasher hasher;
+				HashCombine(seed, hasher(currRenderPass.computeDesc));
+				break;
+			}
+			case BIND_POINT::TRANSFER:
+			{
+				break;
+			}
+			default:
+			{
+				ASSERT_ALWAYS("Failed to hash render graph state. Unhandled bind point");
+				return 0;
+			}
+			}
+
+			auto HashBarrierFn = [&](const std::unordered_map<u64, Barrier>& barrierMap, u64& seed)
+			{
+				HashCombine(seed, barrierMap.size());
+				for (const auto& barrierIter : barrierMap)
+				{
+					// Ignore barrierIter.first (resourceID) - may change per frame
+					const Barrier& currInputBarrier = barrierIter.second;
+					HashCombine(seed, currInputBarrier.dstAccessMask);
+					HashCombine(seed, currInputBarrier.dstStageMask);
+					HashCombine(seed, currInputBarrier.srcAccessMask);
+					HashCombine(seed, currInputBarrier.srcStageMask);
+					HashCombine(seed, currInputBarrier.oldLayout);
+					HashCombine(seed, currInputBarrier.newLayout);
+				}
+			};
+
+			HashBarrierFn(currRenderPass.m_inputBarriers, seed);
+			HashBarrierFn(currRenderPass.m_outputBarriers, seed);
+		}
+
+		// Resource usages
+		HashCombine(seed, m_resourceUsages.size());
+		for (u32 i = 0; i < static_cast<u32>(m_resourceUsages.size()); i++)
+		{
+			const ResourceUsage& currUsage = m_resourceUsages[i];
+
+			HashCombine(seed, currUsage.io);
+			HashCombine(seed, currUsage.attachmentType);
+			HashCombine(seed, currUsage.storeOp);
+			HashCombine(seed, currUsage.loadOp);
+			// Ignore clearValue
+			HashCombine(seed, currUsage.bufferUsage);
+			// Ignore resourceID - derived from handle, may change per frame
+			HashCombine(seed, currUsage.passIndex);
+		}
+
+		// Physical resources
+		HashCombine(seed, m_physicalResources.size());
+		for (u32 i = 0; i < static_cast<u32>(m_physicalResources.size()); i++)
+		{
+			const RenderResource& currResource = m_physicalResources[i];
+
+			// Ignore data that changes per-frame (e.g. swap chain image indices).
+			// resourceID is derived from the handle (index + generation) and may
+			// change per frame
+			HashCombine(seed, currResource.type);
+		}
+
+		return seed;
 	}
 }
