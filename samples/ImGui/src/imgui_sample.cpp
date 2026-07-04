@@ -23,17 +23,18 @@ bool ImGuiSample::Update(float dt)
 
 	m_imguiBackend.NewFrame(dt, m_swapChain.GetWidth(), m_swapChain.GetHeight());
 
+	// Build ImGui UI
+	ImGui::Begin("Hello, PHX!");
+	ImGui::Text("This is ImGui running through PHX's abstract renderer!");
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+	ImGui::Text("Current frame: %u", m_renderGraph.GetFrameNumber());
+	ImGui::End();
+
 	return shouldClose;
 }
 
 void ImGuiSample::Draw()
 {
-	// Build ImGui UI
-	ImGui::Begin("Hello, PHX!");
-	ImGui::Text("This is ImGui running through PHX's abstract renderer!");
-	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-	ImGui::End();
-
 	ImGui::Render();
 
 	m_renderGraph.BeginFrame(m_swapChain);
@@ -41,6 +42,15 @@ void ImGuiSample::Draw()
 	bool isDrawing = m_imguiRenderer.RenderDrawData(m_renderGraph, m_swapChain, ImGui::GetDrawData());
 
 	m_renderGraph.Bake(m_swapChain);
+
+	// Viz
+	{
+		const u32 frameNumber = m_renderGraph.GetFrameNumber();
+		const u32 nameLen = 64;
+		char renderGraphVisName[nameLen];
+		snprintf(renderGraphVisName, nameLen, "./ImGui_RG_%u.dot", frameNumber);
+		m_renderGraph.GenerateVisualization(renderGraphVisName);
+	}
 
 	m_renderGraph.EndFrame();
 	m_swapChain.Present();

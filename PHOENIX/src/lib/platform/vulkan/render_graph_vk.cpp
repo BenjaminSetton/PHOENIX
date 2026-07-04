@@ -652,8 +652,6 @@ namespace PHX
 		auto registerResourceFuncPtr = std::bind(&RenderGraphVk::RegisterResource, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 		m_registeredRenderPasses.emplace_back(passName, bindPoint, passIndex, registerResourceFuncPtr);
 
-		RenderPassVk& passVk = m_registeredRenderPasses.back();
-
 		// NOTE - Manually call PopulateHandle() from HandleAccessor vs using HANDLE_UTILS, 
 		// since that inserts an InterfaceT pointer into an array
 		HandleAccessor::PopulateHandle(renderPass, this, static_cast<u32>(m_registeredRenderPasses.size() - 1), 0u);
@@ -726,9 +724,6 @@ namespace PHX
 					const bool isBackbuffer = PassWritesResource(currRenderPass.m_index, m_presentResID);
 					FramebufferVk* pFramebuffer = CreateFramebuffer(currRenderPass, renderPassVk, isBackbuffer);
 
-					// Get or create pipeline from render device (refers to internal cache)
-					PipelineVk* pPipeline = CreatePipeline(currRenderPass, renderPassVk);
-
 					// Build per-attachment clear values from each output's ResourceUsage.clearValue
 					std::vector<ClearValues> clearValues;
 					TraverseRenderPassOutputs(currRenderPass.m_index, [&](const RenderResource& resource)
@@ -751,10 +746,26 @@ namespace PHX
 						return res;
 					}
 
-					// Call the main render pass execution callback with a device context handle, since it's client-facing
-					pDeviceContext->SetContextualPipeline(pPipeline);
-					currRenderPass.m_execCallback(deviceContext);
-					pDeviceContext->ResetContextualPipeline();
+					// Determine if this pass has a pipeline description. Clear-only passes (e.g. ImGuiClearPass)
+					// register as graphics passes with texture outputs but no shaders, so they only need the
+					// render pass begin/end to perform attachment clears.
+					const bool hasPipeline = (currRenderPass.graphicsDesc.shaderCount > 0 && currRenderPass.graphicsDesc.pShaders != nullptr);
+
+					if (hasPipeline)
+					{
+						PipelineVk* pPipeline = CreatePipeline(currRenderPass, renderPassVk);
+						pDeviceContext->SetContextualPipeline(pPipeline);
+					}
+
+					if (currRenderPass.m_execCallback)
+					{
+						currRenderPass.m_execCallback(deviceContext);
+					}
+
+					if (hasPipeline)
+					{
+						pDeviceContext->ResetContextualPipeline();
+					}
 
 					res = pDeviceContext->EndRenderPass();
 					if (res != STATUS_CODE::SUCCESS)

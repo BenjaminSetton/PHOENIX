@@ -246,16 +246,9 @@ namespace PHX
 
 	STATUS_CODE PipelineVk::VerifyCreateInfo(const GraphicsPipelineDesc& createInfo)
 	{
-		if (createInfo.pShaders == nullptr)
-		{
-			LogError("Failed to create graphics pipeline! Shaders array is null");
-			return STATUS_CODE::ERR_API;
-		}
-		if (createInfo.shaderCount == 0)
-		{
-			LogError("Failed to create graphics pipeline! Shader count is 0");
-			return STATUS_CODE::ERR_API;
-		}
+		// Render graph prevents pipelines without shaders from being created!
+		ASSERT_MSG(createInfo.pShaders != nullptr, "Failed to create graphics pipeline! Shaders array is null");
+		ASSERT_MSG(createInfo.shaderCount != 0, "Failed to create graphics pipeline! Shader count is 0");
 
 		for (u32 i = 0; i < createInfo.shaderCount; i++)
 		{

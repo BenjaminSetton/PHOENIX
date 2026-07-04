@@ -804,7 +804,7 @@ namespace PHX
 		QUEUE_TYPE cmdQueueType = GetQueueTypeFromBindPoint(pPipeline->GetBindPoint());
 		if (cmdQueueType == QUEUE_TYPE::COUNT)
 		{
-			LogError("Failed to bind pipeline. Could not convert from bind point %u to queue type!", static_cast<u32>(pPipeline->GetBindPoint()));
+			LogError("Failed to bind pipeline. Could not convert from bind point %s to queue type!", string_VkPipelineBindPoint(pPipeline->GetBindPoint()));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 

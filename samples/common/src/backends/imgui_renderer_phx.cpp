@@ -240,83 +240,69 @@ namespace Common
 			return false;
 		}
 
-		// When there is no draw data, register a clear-only pass so the swapchain image is transitioned to present layout
-		if (drawData == nullptr || drawData->TotalVtxCount == 0)
+		const bool hasDrawData = (drawData != nullptr && drawData->TotalVtxCount > 0);
+
+		if (hasDrawData)
 		{
-			RenderPassHandle clearPass;
-			STATUS_CODE res = renderGraph.RegisterPass("ImGuiClearPass", BIND_POINT::GRAPHICS, clearPass);
+			u64 totalVtxSize = static_cast<u64>(drawData->TotalVtxCount) * sizeof(ImDrawVert);
+			u64 totalIdxSize = static_cast<u64>(drawData->TotalIdxCount) * sizeof(ImDrawIdx);
+			EnsureBufferSize(totalVtxSize, totalIdxSize);
+
+			// Register transfer pass to upload vertex/index data (vkCmdCopyBuffer cannot be called inside a render pass)
+			RenderPassHandle transferPass;
+			STATUS_CODE res = renderGraph.RegisterPass("ImGuiDataUpload", BIND_POINT::TRANSFER, transferPass);
 			if (res != STATUS_CODE::SUCCESS)
 			{
 				return false;
 			}
 
-			ClearValues clearVals{};
-			clearPass.SetTextureOutput(swapChain.GetCurrentImage(), ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, clearVals);
-			return true;
-		}
+			transferPass.SetBufferOutput(m_vertexBuffer);
+			transferPass.SetBufferOutput(m_indexBuffer);
 
-		u64 totalVtxSize = static_cast<u64>(drawData->TotalVtxCount) * sizeof(ImDrawVert);
-		u64 totalIdxSize = static_cast<u64>(drawData->TotalIdxCount) * sizeof(ImDrawIdx);
-		EnsureBufferSize(totalVtxSize, totalIdxSize);
-
-		// Update transform UBO
-		float scale[2] =
-		{
-			2.0f / drawData->DisplaySize.x,
-			2.0f / drawData->DisplaySize.y
-		};
-		float translation[2] =
-		{
-			-1.0f - drawData->DisplayPos.x * scale[0],
-			-1.0f - drawData->DisplayPos.y * scale[1]
-		};
-		float transformData[4] = { scale[0], scale[1], translation[0], translation[1] };
-
-		// Register transfer pass to upload vertex/index data (vkCmdCopyBuffer cannot be called inside a render pass)
-		RenderPassHandle transferPass;
-		STATUS_CODE res = renderGraph.RegisterPass("ImGuiDataUpload", BIND_POINT::TRANSFER, transferPass);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			return false;
-		}
-
-		transferPass.SetBufferOutput(m_vertexBuffer);
-		transferPass.SetBufferOutput(m_indexBuffer);
-
-		transferPass.SetExecuteCallback([&, drawData, this](DeviceContextHandle deviceContext)
-		{
-			// Upload font atlas on the first frame
+			// Declare the font texture as a transfer output so the render graph inserts a barrier
+			// transitioning it to TRANSFER_DST_OPTIMAL before the copy. Only needed on the first upload.
 			if (!m_fontAtlasUploaded)
 			{
-				ImGuiIO& io = ImGui::GetIO();
-				u8* pixels = nullptr;
-				int width = 0;
-				int height = 0;
-				io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-				u64 uploadSize = static_cast<u64>(width) * static_cast<u64>(height) * 4;
-				deviceContext.CopyDataToTexture(m_fontTexture, pixels, uploadSize);
-				m_fontAtlasUploaded = true;
+				transferPass.SetTextureOutput(m_fontTexture, ATTACHMENT_LOAD_OP::INVALID, ATTACHMENT_STORE_OP::INVALID, {});
 			}
 
-			std::vector<ImDrawVert> allVertices;
-			allVertices.reserve(static_cast<size_t>(drawData->TotalVtxCount));
-			std::vector<ImDrawIdx> allIndices;
-			allIndices.reserve(static_cast<size_t>(drawData->TotalIdxCount));
-
-			for (int n = 0; n < drawData->CmdListsCount; n++)
+			transferPass.SetExecuteCallback([&, drawData, this](DeviceContextHandle deviceContext)
 			{
-				const ImDrawList* cmdList = drawData->CmdLists[n];
-				allVertices.insert(allVertices.end(), cmdList->VtxBuffer.begin(), cmdList->VtxBuffer.end());
-				allIndices.insert(allIndices.end(), cmdList->IdxBuffer.begin(), cmdList->IdxBuffer.end());
-			}
+				// Upload font atlas on the first frame
+				if (!m_fontAtlasUploaded)
+				{
+					ImGuiIO& io = ImGui::GetIO();
+					u8* pixels = nullptr;
+					int width = 0;
+					int height = 0;
+					io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+					u64 uploadSize = static_cast<u64>(width) * static_cast<u64>(height) * 4;
+					deviceContext.CopyDataToTexture(m_fontTexture, pixels, uploadSize);
+					m_fontAtlasUploaded = true;
+				}
 
-			deviceContext.CopyDataToBuffer(m_vertexBuffer, allVertices.data(), allVertices.size() * sizeof(ImDrawVert));
-			deviceContext.CopyDataToBuffer(m_indexBuffer, allIndices.data(), allIndices.size() * sizeof(ImDrawIdx));
-		});
+				std::vector<ImDrawVert> allVertices;
+				allVertices.reserve(static_cast<size_t>(drawData->TotalVtxCount));
+				std::vector<ImDrawIdx> allIndices;
+				allIndices.reserve(static_cast<size_t>(drawData->TotalIdxCount));
 
-		// Register ImGui graphics pass
+				for (int n = 0; n < drawData->CmdListsCount; n++)
+				{
+					const ImDrawList* cmdList = drawData->CmdLists[n];
+					allVertices.insert(allVertices.end(), cmdList->VtxBuffer.begin(), cmdList->VtxBuffer.end());
+					allIndices.insert(allIndices.end(), cmdList->IdxBuffer.begin(), cmdList->IdxBuffer.end());
+				}
+
+				deviceContext.CopyDataToBuffer(m_vertexBuffer, allVertices.data(), allVertices.size() * sizeof(ImDrawVert));
+				deviceContext.CopyDataToBuffer(m_indexBuffer, allIndices.data(), allIndices.size() * sizeof(ImDrawIdx));
+			});
+		}
+
+		// Always register the ImGui graphics pass. When there is no draw data, the clear load op
+		// handles clearing the swapchain. No pipeline or callback is set in that case, so the
+		// render graph skips pipeline creation and just executes begin/end render pass.
 		RenderPassHandle renderPass;
-		res = renderGraph.RegisterPass("ImGuiPass", BIND_POINT::GRAPHICS, renderPass);
+		STATUS_CODE res = renderGraph.RegisterPass("ImGuiPass", BIND_POINT::GRAPHICS, renderPass);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return false;
@@ -325,62 +311,78 @@ namespace Common
 		ClearValues clearVals{};
 		renderPass.SetTextureOutput(swapChain.GetCurrentImage(), ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, clearVals);
 
-		renderPass.SetBufferInput(m_vertexBuffer);
-		renderPass.SetBufferInput(m_indexBuffer);
-		renderPass.SetTextureInput(m_fontTexture);
-
-		renderPass.SetPipelineDescription(m_pipelineDesc);
-
-		renderPass.SetExecuteCallback([&, transformData, drawData, swapChain](DeviceContextHandle deviceContext)
+		if (hasDrawData)
 		{
-			deviceContext.CopyDataToBuffer(m_transformBuffer, transformData, sizeof(transformData));
-			m_uniformCollection.QueueBufferUpdate(m_transformBuffer, 0, 0, 0);
-			m_uniformCollection.QueueImageUpdate(m_fontTexture, 1, 0, 0);
-			m_uniformCollection.FlushUpdateQueue();
-
-			deviceContext.BindUniformCollection(m_uniformCollection);
-			deviceContext.SetViewport({ swapChain.GetWidth(), swapChain.GetHeight() }, { 0, 0 });
-
-			INDEX_TYPE indexType = (sizeof(ImDrawIdx) == 2) ? INDEX_TYPE::U16 : INDEX_TYPE::U32;
-
-			u32 globalVertexOffset = 0;
-			u32 globalIndexOffset = 0;
-
-			for (int n = 0; n < drawData->CmdListsCount; n++)
+			// Update transform UBO
+			float scale[2] =
 			{
-				const ImDrawList* cmdList = drawData->CmdLists[n];
+				2.0f / drawData->DisplaySize.x,
+				2.0f / drawData->DisplaySize.y
+			};
+			float translation[2] =
+			{
+				-1.0f - drawData->DisplayPos.x * scale[0],
+				-1.0f - drawData->DisplayPos.y * scale[1]
+			};
+			float transformData[4] = { scale[0], scale[1], translation[0], translation[1] };
 
-				deviceContext.BindMesh(m_vertexBuffer, m_indexBuffer, indexType);
+			renderPass.SetBufferInput(m_vertexBuffer);
+			renderPass.SetBufferInput(m_indexBuffer);
+			renderPass.SetTextureInput(m_fontTexture);
 
-				u32 indexOffset = globalIndexOffset;
-				for (int cmdIdx = 0; cmdIdx < cmdList->CmdBuffer.Size; cmdIdx++)
+			renderPass.SetPipelineDescription(m_pipelineDesc);
+
+			renderPass.SetExecuteCallback([&, transformData, drawData, swapChain](DeviceContextHandle deviceContext)
+			{
+				deviceContext.CopyDataToBuffer(m_transformBuffer, transformData, sizeof(transformData));
+				m_uniformCollection.QueueBufferUpdate(m_transformBuffer, 0, 0, 0);
+				m_uniformCollection.QueueImageUpdate(m_fontTexture, 1, 0, 0);
+				m_uniformCollection.FlushUpdateQueue();
+
+				deviceContext.BindUniformCollection(m_uniformCollection);
+				deviceContext.SetViewport({ swapChain.GetWidth(), swapChain.GetHeight() }, { 0, 0 });
+
+				INDEX_TYPE indexType = (sizeof(ImDrawIdx) == 2) ? INDEX_TYPE::U16 : INDEX_TYPE::U32;
+
+				u32 globalVertexOffset = 0;
+				u32 globalIndexOffset = 0;
+
+				for (int n = 0; n < drawData->CmdListsCount; n++)
 				{
-					const ImDrawCmd& cmd = cmdList->CmdBuffer[cmdIdx];
+					const ImDrawList* cmdList = drawData->CmdLists[n];
 
-					ImVec2 clipMin = ImVec2(cmd.ClipRect.x - drawData->DisplayPos.x, cmd.ClipRect.y - drawData->DisplayPos.y);
-					ImVec2 clipMax = ImVec2(cmd.ClipRect.z - drawData->DisplayPos.x, cmd.ClipRect.w - drawData->DisplayPos.y);
+					deviceContext.BindMesh(m_vertexBuffer, m_indexBuffer, indexType);
 
-					if (clipMax.x <= clipMin.x || clipMax.y <= clipMin.y)
+					u32 indexOffset = globalIndexOffset;
+					for (int cmdIdx = 0; cmdIdx < cmdList->CmdBuffer.Size; cmdIdx++)
 					{
-						continue;
+						const ImDrawCmd& cmd = cmdList->CmdBuffer[cmdIdx];
+
+						ImVec2 clipMin = ImVec2(cmd.ClipRect.x - drawData->DisplayPos.x, cmd.ClipRect.y - drawData->DisplayPos.y);
+						ImVec2 clipMax = ImVec2(cmd.ClipRect.z - drawData->DisplayPos.x, cmd.ClipRect.w - drawData->DisplayPos.y);
+
+						if (clipMax.x <= clipMin.x || clipMax.y <= clipMin.y)
+						{
+							continue;
+						}
+
+						u32 scissorX = static_cast<u32>(clipMin.x);
+						u32 scissorY = static_cast<u32>(clipMin.y);
+						u32 scissorW = static_cast<u32>(clipMax.x - clipMin.x);
+						u32 scissorH = static_cast<u32>(clipMax.y - clipMin.y);
+
+						deviceContext.SetScissor({ scissorW, scissorH }, { scissorX, scissorY });
+
+						deviceContext.DrawIndexed(static_cast<u32>(cmd.ElemCount), indexOffset, globalVertexOffset);
+
+						indexOffset += static_cast<u32>(cmd.ElemCount);
 					}
 
-					u32 scissorX = static_cast<u32>(clipMin.x);
-					u32 scissorY = static_cast<u32>(clipMin.y);
-					u32 scissorW = static_cast<u32>(clipMax.x - clipMin.x);
-					u32 scissorH = static_cast<u32>(clipMax.y - clipMin.y);
-
-					deviceContext.SetScissor({ scissorW, scissorH }, { scissorX, scissorY });
-
-					deviceContext.DrawIndexed(static_cast<u32>(cmd.ElemCount), indexOffset, globalVertexOffset);
-
-					indexOffset += static_cast<u32>(cmd.ElemCount);
+					globalVertexOffset += static_cast<u32>(cmdList->VtxBuffer.Size);
+					globalIndexOffset += static_cast<u32>(cmdList->IdxBuffer.Size);
 				}
-
-				globalVertexOffset += static_cast<u32>(cmdList->VtxBuffer.Size);
-				globalIndexOffset += static_cast<u32>(cmdList->IdxBuffer.Size);
-			}
-		});
+			});
+		}
 
 		return true;
 	}
