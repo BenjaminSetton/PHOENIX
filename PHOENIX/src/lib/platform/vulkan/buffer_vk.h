@@ -1,6 +1,6 @@
 #pragma once
 
-#include "PHX/interface/buffer.h"
+#include "core/interface_types/buffer_interface.h"
 
 #include "render_device_vk.h"
 #include "utils/buffer_utils.h"

@@ -2,11 +2,8 @@
 
 #include "PHX/types/buffer_desc.h"
 #include "PHX/types/integral_types.h"
-#include "PHX/types/status_code.h"
 
 #include "PHX/interface/handle.h"
-
-#include "PHX/interface/ref.h" // TODO - Move to lib
 
 namespace PHX
 {
@@ -24,17 +21,5 @@ namespace PHX
 		const char* GetName() const;
 		BUFFER_USAGE GetUsage() const;
 		u64 GetSize() const;
-	};
-
-	// TODO - Move to lib
-	class IBuffer : public RefCounted
-	{
-	public:
-
-		virtual ~IBuffer() { }
-
-		virtual const char* GetName() const = 0;
-		virtual BUFFER_USAGE GetUsage() const = 0;
-		virtual u64 GetSize() const = 0;
 	};
 }

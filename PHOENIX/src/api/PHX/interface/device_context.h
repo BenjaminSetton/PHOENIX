@@ -1,7 +1,6 @@
 #pragma once
 
 #include "PHX/interface/buffer.h"
-#include "PHX/interface/pipeline.h"
 #include "PHX/interface/uniform.h"
 #include "PHX/types/clear_color.h"
 #include "PHX/types/integral_types.h"

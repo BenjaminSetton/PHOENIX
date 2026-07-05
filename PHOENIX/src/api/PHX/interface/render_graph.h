@@ -11,6 +11,7 @@
 #include "PHX/interface/uniform.h"
 #include "PHX/types/attachment_desc.h"
 #include "PHX/types/clear_color.h"
+#include "PHX/types/pipeline_desc.h"
 
 namespace PHX
 {

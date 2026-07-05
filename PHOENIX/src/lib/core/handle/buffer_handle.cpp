@@ -3,6 +3,7 @@
 #include "PHX/interface/render_device.h"
 
 #include "core/handle/handle_utils.h"
+#include "core/interface_types/buffer_interface.h"
 
 namespace PHX
 {

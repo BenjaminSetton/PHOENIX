@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include "PHX/interface/pipeline.h"
+#include "PHX/types/pipeline_desc.h"
 #include "PHX/types/status_code.h"
 
 namespace PHX
@@ -10,7 +10,8 @@ namespace PHX
 	// Forward declarations
 	class RenderDeviceVk;
 
-	class PipelineVk : public IPipeline
+	// Pipelines have no interface type!
+	class PipelineVk
 	{
 	public:
 
