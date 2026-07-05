@@ -170,11 +170,11 @@ static bool CheckMandatorySettings(const PHX::Settings& settings)
 
 namespace PHX
 {
-	STATUS_CODE Initialize(const Settings& initSettings, IWindow* pWindow)
+	STATUS_CODE Initialize(const Settings& initSettings, WindowHandle window)
 	{
-		if (pWindow == nullptr)
+		if (!window.IsValid())
 		{
-			LogError("Failed to initialize library! Window is null");
+			LogError("Failed to initialize library. Window handle is invalid!");
 			return STATUS_CODE::ERR_API;
 		}
 
@@ -192,7 +192,7 @@ namespace PHX
 		InitCRC32();
 
 		// Initialize core graphics objects
-		STATUS_CODE coreObjStatus = CoreObjectManager::Get().CreateCoreObjects(pWindow);
+		STATUS_CODE coreObjStatus = CoreObjectManager::Get().CreateCoreObjects(window);
 		if (coreObjStatus != STATUS_CODE::SUCCESS)
 		{
 			return coreObjStatus;
@@ -224,28 +224,14 @@ namespace PHX
 		return VER_PATCH;
 	}
 
-	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, IWindow** out_window)
+	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, WindowHandle& window)
 	{
-		if (out_window == nullptr)
-		{
-			LogError("Failed to create window! out_window is null");
-			return STATUS_CODE::ERR_API;
-		}
-
-		*out_window = CoreObjectManager::Get().CreateWindow(createInfo);
-
-		// TODO - Figure out a way to capture errors. Catch exceptions or change OBJ_FACTORY return type?
-		return STATUS_CODE::SUCCESS;
+		return CoreObjectManager::Get().CreateWindow(createInfo, window);
 	}
 
 	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice)
 	{
 		return CoreObjectManager::Get().CreateRenderDevice(createInfo, renderDevice);
-	}
-
-	void DestroyWindow(IWindow** pWindow)
-	{
-		SAFE_DEL(*pWindow);
 	}
 
 	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result)

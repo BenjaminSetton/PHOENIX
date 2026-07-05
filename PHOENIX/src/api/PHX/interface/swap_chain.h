@@ -18,7 +18,7 @@ namespace PHX
 
 	struct SwapChainHandle : public Handle
 	{
-		DECLARE_HANDLE(SwapChainHandle)
+		DECLARE_PHX_HANDLE(SwapChainHandle);
 
 		TextureHandle GetCurrentImage() const;
 		u32 GetImageCount() const;

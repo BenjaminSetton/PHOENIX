@@ -23,7 +23,8 @@ namespace PHX
 		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
-		case HANDLE_TYPE::RENDER_DEVICE: return HANDLE_UTILS::ResolveHandle<IRenderDevice>(m_renderDevices, handle);
+		case HANDLE_TYPE::RENDER_DEVICE: return HANDLE_UTILS::ResolveHandleFromList<IRenderDevice>(m_renderDevices, handle);
+		case HANDLE_TYPE::WINDOW:        return HANDLE_UTILS::ResolveHandleFromList<IWindow>(m_windows, handle);
 		default:
 		{
 			break;
@@ -44,6 +45,11 @@ namespace PHX
 			HANDLE_UTILS::IncrementRefCount<RenderDeviceHandle, IRenderDevice>(handle);
 			break;
 		}
+		case HANDLE_TYPE::WINDOW:
+		{
+			HANDLE_UTILS::IncrementRefCount<WindowHandle, IWindow>(handle);
+			break;
+		}
 		default:
 		{
 			ASSERT_ALWAYS("Failed to increment handle ref count. Unhandled type!");
@@ -62,6 +68,11 @@ namespace PHX
 			HANDLE_UTILS::DecrementRefCount<RenderDeviceHandle, IRenderDevice>(handle, m_renderDevices);
 			break;
 		}
+		case HANDLE_TYPE::WINDOW:
+		{
+			HANDLE_UTILS::DecrementRefCount<WindowHandle, IWindow>(handle, m_windows);
+			break;
+		}
 		default:
 		{
 			ASSERT_ALWAYS("Failed to increment handle ref count. Unhandled type!");
@@ -70,14 +81,14 @@ namespace PHX
 		}
 	}
 
-	STATUS_CODE CoreObjectManager::CreateCoreObjects(IWindow* pWindow)
+	STATUS_CODE CoreObjectManager::CreateCoreObjects(WindowHandle window)
 	{
 		auto& settings = GetSettings();
 		switch (settings.backendAPI)
 		{
 		case GRAPHICS_API::VULKAN:
 		{
-			return CoreVk::Get().Initialize(pWindow);
+			return CoreVk::Get().Initialize(window);
 		}
 		default:
 		{
@@ -90,12 +101,13 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	IWindow* CoreObjectManager::CreateWindow(const WindowCreateInfo& createInfo)
+	STATUS_CODE CoreObjectManager::CreateWindow(const WindowCreateInfo& createInfo, WindowHandle& window)
 	{
 #if defined(PHX_WINDOWS)
-		return new WindowWin64(createInfo);
+		WindowWin64* pWindow = new WindowWin64(createInfo);
+		return HANDLE_UTILS::AllocateHandle<IWindow>(m_windows, pWindow, this, window);
 #else
-#    error Invalid platform!
+#		error Unsupported platform!
 #endif
 	}
 
@@ -110,7 +122,7 @@ namespace PHX
 			if (numRenderDevices > 0)
 			{
 				LogWarning("Cannot re-create render device. An instance already exists!");
-				return STATUS_CODE::ERR_API;
+				return STATUS_CODE::SUCCESS;
 			}
 			else
 			{

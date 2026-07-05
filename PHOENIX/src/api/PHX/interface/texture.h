@@ -44,12 +44,7 @@ namespace PHX
 
 	struct TextureHandle : public Handle
 	{
-		TextureHandle();
-		TextureHandle(const Handle& other); // Needed for down-casting from Handle?
-		~TextureHandle();
-		TextureHandle(const TextureHandle& other);
-		TextureHandle& operator=(const TextureHandle& other);
-		TextureHandle(TextureHandle&& other) noexcept;
+		DECLARE_PHX_HANDLE(TextureHandle);
 
 		void CopyFrom(TextureHandle other);
 		u32 GetWidth() const;

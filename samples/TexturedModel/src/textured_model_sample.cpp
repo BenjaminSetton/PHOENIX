@@ -153,7 +153,7 @@ void TexturedModelSample::Init()
 {
 	STATUS_CODE phxRes;
 
-	m_pWindow->SetWindowTitle("PHX %u.%u.%u | TEXTURED MODEL", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
+	m_window.SetWindowTitle("PHX %u.%u.%u | TEXTURED MODEL", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
 
 	// LOAD MODEL
 	{
@@ -268,7 +268,7 @@ void TexturedModelSample::Init()
 
 	// TRANSFORMS + UNIFORM BUFFER
 	const float fov = 45.0f;
-	const float aspectRatio = static_cast<float>(m_pWindow->GetCurrentWidth()) / m_pWindow->GetCurrentHeight();
+	const float aspectRatio = static_cast<float>(m_window.GetCurrentWidth()) / m_window.GetCurrentHeight();
 	const float scale = 0.005f;
 	m_transform = InitializeTransform(m_pCamera, fov, aspectRatio, scale);
 

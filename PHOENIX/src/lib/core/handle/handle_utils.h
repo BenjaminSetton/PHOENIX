@@ -39,14 +39,15 @@ namespace PHX
 		IShader* ResolveHandle(const ShaderHandle& handle);
 		ISwapChain* ResolveHandle(const SwapChainHandle& handle);
 		IRenderDevice* ResolveHandle(const RenderDeviceHandle& handle);
-		//IWindow* ResolveHandle(const WindowHandle& handle);
+		IWindow* ResolveHandle(const WindowHandle& handle);
 		
 		///////////////////////////////////
 		// RESOLVE HANDLE
 		///////////////////////////////////
 
+		// Called by HandleOwner-derived objects when resolving handles
 		template<typename InterfaceT>
-		void* ResolveHandle(const std::vector<InterfaceT*>& list, const Handle& handle)
+		void* ResolveHandleFromList(const std::vector<InterfaceT*>& list, const Handle& handle)
 		{
 			const u32 index = handle.GetIndex();
 			if (index < static_cast<u32>(list.size()))

@@ -13,7 +13,7 @@
 namespace PHX
 {
 	// INIT
-	STATUS_CODE Initialize(const Settings& initSettings, IWindow* pWindow);
+	STATUS_CODE Initialize(const Settings& initSettings, WindowHandle window);
 
 	// Returns the combined versions into a single u32
 	u32 GetFullVersion();
@@ -23,10 +23,8 @@ namespace PHX
 	u32 GetMinorVersion();
 	u32 GetPatchVersion();
 
-	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, IWindow** out_window);
+	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, WindowHandle& window);
 	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice);
-
-	void DestroyWindow(IWindow** pWindow);
 
 	// UTILS
 	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result);

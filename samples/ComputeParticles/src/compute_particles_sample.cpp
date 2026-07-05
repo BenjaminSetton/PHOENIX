@@ -141,7 +141,7 @@ void ComputeParticlesSample::Init()
 {
 	STATUS_CODE phxRes;
 
-	m_pWindow->SetWindowTitle("PHX %u.%u.%u | COMPUTE PARTICLES", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
+	m_window.SetWindowTitle("PHX %u.%u.%u | COMPUTE PARTICLES", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
 
 	// Set particle count cap (must be set before allocating the particle buffer)
 	// ONE MILLI!

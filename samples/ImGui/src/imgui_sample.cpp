@@ -39,7 +39,7 @@ void ImGuiSample::Draw()
 
 	m_renderGraph.BeginFrame(m_swapChain);
 
-	bool isDrawing = m_imguiRenderer.RenderDrawData(m_renderGraph, m_swapChain, ImGui::GetDrawData());
+	m_imguiRenderer.RenderDrawData(m_renderGraph, m_swapChain, ImGui::GetDrawData());
 
 	m_renderGraph.Bake(m_swapChain);
 
@@ -58,7 +58,7 @@ void ImGuiSample::Draw()
 
 void ImGuiSample::Init()
 {
-	m_pWindow->SetWindowTitle("PHX %u.%u.%u | IMGUI", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
+	m_window.SetWindowTitle("PHX %u.%u.%u | IMGUI", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
 
 	if (!m_imguiBackend.Init())
 	{

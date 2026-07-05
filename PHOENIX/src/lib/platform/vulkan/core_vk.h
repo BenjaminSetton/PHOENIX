@@ -18,7 +18,7 @@ namespace PHX
 			return instance;
 		}
 
-		STATUS_CODE Initialize(IWindow* pWindow);
+		STATUS_CODE Initialize(WindowHandle window);
 
 		VkInstance GetInstance() const;
 		VkSurfaceKHR GetSurface() const;
@@ -32,7 +32,7 @@ namespace PHX
 		~CoreVk();
 
 		STATUS_CODE CreateInstance(bool enableValidationLayers);
-		STATUS_CODE CreateSurface(IWindow* pWindow);
+		STATUS_CODE CreateSurface(WindowHandle window);
 
 		void DestroyInstance();
 		void DestroySurface();

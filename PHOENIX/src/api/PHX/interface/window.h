@@ -1,7 +1,11 @@
 #pragma once
 
+#include "PHX/interface/handle.h"
 #include "PHX/types/integral_types.h"
 #include "PHX/types/vec_types.h"
+
+#include <stdarg.h> // TODO - MOVE TO LIB
+#include "PHX/interface/ref.h" // TODO - MOVE TO LIB
 
 namespace PHX
 {
@@ -21,7 +25,29 @@ namespace PHX
 		bool canResize			= true;
 	};
 
-	class IWindow
+	struct WindowHandle : public Handle
+	{
+		DECLARE_PHX_HANDLE(WindowHandle);
+
+		u32 GetCurrentWidth() const;
+		u32 GetCurrentHeight() const;
+
+		int GetPositionX() const;
+		int GetPositionY() const;
+		const char* GetName() const;
+
+		void Update(float deltaTime);
+		bool InFocus() const;
+		bool ShouldClose() const;
+		bool IsMinimized() const;
+		bool IsMaximized() const;
+
+
+		void SetWindowTitle(const char* format, ...);
+	};
+
+	// TODO - MOVE TO LIB
+	class IWindow : public RefCounted
 	{
 	public:
 
@@ -43,8 +69,7 @@ namespace PHX
 		virtual bool IsMinimized() const = 0;
 		virtual bool IsMaximized() const = 0;
 
-
-		virtual void SetWindowTitle(const char* format, ...) = 0;
+		virtual void SetWindowTitle(const char* format, va_list args) = 0;
 	};
 
 }

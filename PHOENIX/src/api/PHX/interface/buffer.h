@@ -19,7 +19,7 @@ namespace PHX
 
 	struct BufferHandle : public Handle
 	{
-		DECLARE_HANDLE(BufferHandle)
+		DECLARE_PHX_HANDLE(BufferHandle);
 
 		const char* GetName() const;
 		BUFFER_USAGE GetUsage() const;

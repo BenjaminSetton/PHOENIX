@@ -1,7 +1,8 @@
 
 #include "texture_type_converter.h"
 
-#include "../../../utils/sanity.h"
+#include "utils/logger.h"
+#include "utils/sanity.h"
 
 namespace PHX
 {
@@ -241,9 +242,14 @@ namespace PHX
 			// TODO - Fill out more supported surface formats
 			switch (format)
 			{
-			case VK_FORMAT_B8G8R8A8_SRGB: return BASE_FORMAT::B8G8R8A8_SRGB;
+			case VK_FORMAT_B8G8R8A8_SRGB:  return BASE_FORMAT::B8G8R8A8_SRGB;
+			case VK_FORMAT_B8G8R8A8_UNORM: return BASE_FORMAT::B8G8R8A8_UNORM;
+
+			case VK_FORMAT_UNDEFINED: break;
 			}
 
+			// Log an error because of TODO above^
+			LogError("Failed to convert surface VkFormat to BASE_FORMAT");
 			return BASE_FORMAT::INVALID;
 		}
 	}

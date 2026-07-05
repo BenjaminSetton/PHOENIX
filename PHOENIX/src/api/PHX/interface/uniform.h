@@ -20,12 +20,7 @@ namespace PHX
 
 	struct UniformCollectionHandle : public Handle
 	{
-		UniformCollectionHandle();
-		UniformCollectionHandle(const Handle& other);
-		~UniformCollectionHandle();
-		UniformCollectionHandle(const UniformCollectionHandle& other);
-		UniformCollectionHandle& operator=(const UniformCollectionHandle& other);
-		UniformCollectionHandle(UniformCollectionHandle&& other) noexcept;
+		DECLARE_PHX_HANDLE(UniformCollectionHandle);
 
 		u32 GetGroupCount() const;
 		const UniformDataGroup* GetGroup(u32 groupIndex) const;

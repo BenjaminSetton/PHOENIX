@@ -38,7 +38,7 @@ namespace Common
 	}
 
 	BaseSample::BaseSample() : 
-		m_pWindow(nullptr), m_renderDevice(), m_swapChain(), m_renderGraph(), m_pCamera(nullptr)
+		m_window(), m_renderDevice(), m_swapChain(), m_renderGraph(), m_pCamera(nullptr)
 	{
 		Init();
 	}
@@ -68,7 +68,7 @@ namespace Common
 		settings.windowMouseButtonUpCallback   = [=](MouseButtonCode mouseButton) { this->OnMouseButtonUp(mouseButton); };
 		settings.windowKeyRepeatCallback       = nullptr;
 
-		STATUS_CODE phxRes = PHX::Initialize(settings, m_pWindow);
+		STATUS_CODE phxRes = PHX::Initialize(settings, m_window);
 		CHECK_PHX_RES(phxRes);
 
 		CreateRenderDevice();
@@ -78,12 +78,11 @@ namespace Common
 
 	void BaseSample::Shutdown()
 	{
-		DestroyWindow();
 	}
 
 	bool BaseSample::Update(float dt)
 	{
-		m_pWindow->Update(dt);
+		m_window.Update(dt);
 
 		InputManager::GetInstance().Update();
 
@@ -92,7 +91,7 @@ namespace Common
 			m_pCamera->Update(dt);
 		}
 
-		return m_pWindow->ShouldClose();
+		return m_window.ShouldClose();
 	}
 
 	void BaseSample::CreateWindow()
@@ -101,19 +100,16 @@ namespace Common
 		windowCI.cursorType = CURSOR_TYPE::SHOWN;
 		windowCI.canResize = false;
 
-		IWindow* pWindow;
-		STATUS_CODE phxRes = PHX::CreateWindow(windowCI, &pWindow);
+		STATUS_CODE phxRes = PHX::CreateWindow(windowCI, m_window);
 		CHECK_PHX_RES(phxRes);
-
-		m_pWindow = pWindow;
 	}
 
 	void BaseSample::CreateSwapChain()
 	{
 		SwapChainCreateInfo swapChainCI{};
 		swapChainCI.enableVSync = true;
-		swapChainCI.width = m_pWindow->GetCurrentWidth();
-		swapChainCI.height = m_pWindow->GetCurrentHeight();
+		swapChainCI.width = m_window.GetCurrentWidth();
+		swapChainCI.height = m_window.GetCurrentHeight();
 
 		STATUS_CODE phxRes = m_renderDevice.AllocateSwapChain(swapChainCI, m_swapChain);
 		CHECK_PHX_RES(phxRes);
@@ -123,7 +119,7 @@ namespace Common
 	{
 		RenderDeviceCreateInfo renderDeviceCI{};
 		renderDeviceCI.framesInFlight = 2;
-		renderDeviceCI.window = m_pWindow;
+		renderDeviceCI.window = m_window;
 
 		STATUS_CODE phxRes = PHX::CreateRenderDevice(renderDeviceCI, m_renderDevice);
 		CHECK_PHX_RES(phxRes);
@@ -133,11 +129,6 @@ namespace Common
 	{
 		STATUS_CODE phxRes = m_renderDevice.AllocateRenderGraph(m_renderGraph);
 		CHECK_PHX_RES(phxRes);
-	}
-
-	void BaseSample::DestroyWindow()
-	{
-		PHX::DestroyWindow(&m_pWindow);
 	}
 
 	void BaseSample::OnKeyDown(PHX::KeyCode keycode)

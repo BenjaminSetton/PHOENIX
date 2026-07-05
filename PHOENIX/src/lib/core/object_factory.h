@@ -26,9 +26,9 @@ namespace PHX
 		void IncrementHandleRefCount(const Handle& handle) override;
 		void DecrementHandleRefCount(const Handle& handle) override;
 
-		STATUS_CODE CreateCoreObjects(IWindow* pWindow);
-		IWindow* CreateWindow(const WindowCreateInfo& createInfo);
-		STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& handle);
+		STATUS_CODE CreateCoreObjects(WindowHandle window);
+		STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, WindowHandle& window);
+		STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice);
 
 	private:
 		std::vector<IWindow*> m_windows;

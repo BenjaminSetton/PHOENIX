@@ -85,11 +85,11 @@ int main(int argc, char** argv)
 	windowCI.canResize = false;
 
 	// WINDOW
-	IWindow* pWindow;
-	phxRes = CreateWindow(windowCI, &pWindow);
+	WindowHandle window;
+	phxRes = CreateWindow(windowCI, window);
 	CHECK_PHX_RES(phxRes);
 
-	pWindow->SetWindowTitle("PHX %u.%u.%u | BASIC MODEL", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
+	window.SetWindowTitle("PHX %u.%u.%u | BASIC MODEL", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
 
 	// INIT
 	Settings settings{};
@@ -101,13 +101,13 @@ int main(int argc, char** argv)
 	settings.windowMaximizedCallback = OnWindowMaximizedCallback;
 	settings.windowMinimizedCallback = OnWindowMinimizedCallback;
 	settings.windowResizedCallback = OnWindowResizedCallback;
-	phxRes = Initialize(settings, pWindow);
+	phxRes = Initialize(settings, window);
 	CHECK_PHX_RES(phxRes);
 
 	// RENDER DEVICE
 	RenderDeviceCreateInfo renderDeviceCI{};
 	renderDeviceCI.framesInFlight = 2;
-	renderDeviceCI.window = pWindow;
+	renderDeviceCI.window = window;
 
 	RenderDeviceHandle renderDevice;
 	phxRes = CreateRenderDevice(renderDeviceCI, renderDevice);
@@ -116,8 +116,8 @@ int main(int argc, char** argv)
 	// SWAP CHAIN
 	SwapChainCreateInfo swapChainCI{};
 	swapChainCI.enableVSync = true;
-	swapChainCI.width = pWindow->GetCurrentWidth();
-	swapChainCI.height = pWindow->GetCurrentHeight();
+	swapChainCI.width = window.GetCurrentWidth();
+	swapChainCI.height = window.GetCurrentHeight();
 
 	SwapChainHandle swapChain;
 	phxRes = renderDevice.AllocateSwapChain(swapChainCI, swapChain);
@@ -216,7 +216,7 @@ int main(int argc, char** argv)
 	// TRANSFORMS + UNIFORM BUFFER
 	glm::vec3 initialCameraPos = { 0.0f, 1.0f, -7.0f };
 	float fov = 45.0f;
-	float aspectRatio = static_cast<float>(pWindow->GetCurrentWidth()) / pWindow->GetCurrentHeight();
+	float aspectRatio = static_cast<float>(window.GetCurrentWidth()) / window.GetCurrentHeight();
 	TransformData transform = InitializeTransform(initialCameraPos, fov, aspectRatio);
 
 	BufferCreateInfo uniformBufferCI{};
@@ -247,7 +247,7 @@ int main(int argc, char** argv)
 
 	// GRAPHICS PIPELINE
 	GraphicsPipelineDesc pipelineDesc{};
-	pipelineDesc.viewportSize = { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() };
+	pipelineDesc.viewportSize = { window.GetCurrentWidth(), window.GetCurrentHeight() };
 	pipelineDesc.viewportPos = { 0, 0 };
 	pipelineDesc.polygonMode = POLYGON_MODE::FILL;
 	pipelineDesc.topology = PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
@@ -289,9 +289,9 @@ int main(int argc, char** argv)
 	});
 
 	// MAIN LOOP
-	while(!pWindow->ShouldClose())
+	while(!window.ShouldClose())
 	{
-		pWindow->Update(0);
+		window.Update(0);
 
 		renderGraph.BeginFrame(swapChain);
 
@@ -317,8 +317,8 @@ int main(int argc, char** argv)
 			deviceContext.BindUniformCollection(uniformCollection);
 
 			deviceContext.BindMesh(vertexBuffer, indexBuffer);
-			deviceContext.SetScissor( { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 } );
-			deviceContext.SetViewport( { pWindow->GetCurrentWidth(), pWindow->GetCurrentHeight() }, { 0, 0 } );
+			deviceContext.SetScissor( { window.GetCurrentWidth(), window.GetCurrentHeight() }, { 0, 0 } );
+			deviceContext.SetViewport( { window.GetCurrentWidth(), window.GetCurrentHeight() }, { 0, 0 } );
 			deviceContext.DrawIndexed(static_cast<u32>(cubeAsset->indices.size()));
 		});
 
@@ -327,8 +327,6 @@ int main(int argc, char** argv)
 
 		swapChain.Present();
 	}
-
-	PHX::DestroyWindow(&pWindow);
 
 	return 0;
 }

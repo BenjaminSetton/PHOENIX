@@ -31,8 +31,6 @@ namespace Common
 		virtual void CreateRenderDevice();
 		virtual void CreateRenderGraph();
 
-		virtual void DestroyWindow();
-
 		virtual void OnKeyDown(PHX::KeyCode keycode);
 		virtual void OnKeyUp(PHX::KeyCode keycode);
 		virtual void OnMouseButtonDown(PHX::MouseButtonCode mouseButton);
@@ -41,7 +39,7 @@ namespace Common
 
 	protected:
 
-		PHX::IWindow* m_pWindow;
+		PHX::WindowHandle m_window;
 		PHX::RenderDeviceHandle m_renderDevice;
 		PHX::SwapChainHandle m_swapChain;
 		PHX::RenderGraphHandle m_renderGraph;

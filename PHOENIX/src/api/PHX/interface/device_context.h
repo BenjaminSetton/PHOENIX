@@ -20,7 +20,7 @@ namespace PHX
 
 	struct DeviceContextHandle : public Handle
 	{
-		DECLARE_HANDLE(DeviceContextHandle)
+		DECLARE_PHX_HANDLE(DeviceContextHandle);
 
 		STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer);
 		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType = INDEX_TYPE::U32);

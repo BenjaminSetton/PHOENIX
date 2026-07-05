@@ -510,13 +510,10 @@ namespace PHX
 		}
 	}
 
-	void WindowWin64::SetWindowTitle(const char* format, ...)
+	void WindowWin64::SetWindowTitle(const char* format, va_list args)
 	{
 		static char buffer[MAX_WINDOW_TITLE_SIZE];
-		va_list va;
-		va_start(va, format);
-		vsprintf_s(buffer, format, va);
-		va_end(va);
+		vsprintf_s(buffer, format, args);
 
 		m_title = buffer;
 		glfwSetWindowTitle(m_handle, m_title);

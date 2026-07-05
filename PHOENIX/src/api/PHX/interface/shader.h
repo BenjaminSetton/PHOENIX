@@ -17,7 +17,7 @@ namespace PHX
 
 	struct ShaderHandle : public Handle
 	{
-		DECLARE_HANDLE(ShaderHandle)
+		DECLARE_PHX_HANDLE(ShaderHandle);
 
 		SHADER_STAGE GetStage() const;
 		const ShaderReflectionData& GetReflectionData() const;

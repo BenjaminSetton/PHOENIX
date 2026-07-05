@@ -6,6 +6,7 @@
 #include "core_vk.h"
 
 #include "core/global_settings.h"
+#include "core/handle/handle_utils.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
 
@@ -92,7 +93,7 @@ namespace PHX
 		return true;
 	}
 
-	STATUS_CODE CoreVk::Initialize(IWindow* pWindow)
+	STATUS_CODE CoreVk::Initialize(WindowHandle window)
 	{
 		const Settings& settings = GetSettings();
 
@@ -104,7 +105,7 @@ namespace PHX
 			return res;
 		}
 
-		res = CreateSurface(pWindow);
+		res = CreateSurface(window);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return res;
@@ -216,8 +217,11 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE CoreVk::CreateSurface(IWindow* pWindow)
+	STATUS_CODE CoreVk::CreateSurface(WindowHandle window)
 	{
+		// TODO - Cache window handle with created surface, so GetSurface() returns the surface
+		// associated to an arbitrary window. This is in the hopes of supporting multiple windows in the future
+		IWindow* pWindow = HANDLE_UTILS::ResolveHandle(window);
 		if (pWindow == nullptr)
 		{
 			LogError("Failed to create surface. Window is null!");

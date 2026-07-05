@@ -196,6 +196,7 @@ namespace PHX
 		D32_FLOAT_S8_UINT,
 
 		// Surface formats
-		B8G8R8A8_SRGB
+		B8G8R8A8_SRGB,
+		B8G8R8A8_UNORM,
 	};
 }

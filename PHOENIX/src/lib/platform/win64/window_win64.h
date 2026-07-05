@@ -38,7 +38,7 @@ namespace PHX
 		void OnMouseMovedCallback(float newX, float newY);
 		void OnMouseButtonEvent(int button, int action);
 
-		void SetWindowTitle(const char* format, ...) override;
+		void SetWindowTitle(const char* format, va_list args) override;
 
 	private:
 

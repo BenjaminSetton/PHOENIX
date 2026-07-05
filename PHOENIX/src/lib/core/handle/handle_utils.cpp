@@ -54,5 +54,10 @@ namespace PHX
 		{
 			RESOLVE_HELPER(handle, IRenderDevice);
 		}
+
+		IWindow* ResolveHandle(const WindowHandle& handle)
+		{
+			RESOLVE_HELPER(handle, IWindow);
+		}
 	}
 }

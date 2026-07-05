@@ -19,13 +19,13 @@ namespace PHX
 	struct RenderDeviceCreateInfo
 	{
 		DebugMessageCallbackFn debugMessageCallback = nullptr;
-		IWindow* window								= nullptr;
+		WindowHandle window							= INVALID_HANDLE; // Currently unused, but keeping around for possible future multi-window support
 		u32 framesInFlight							= 2;
 	};
 
 	struct RenderDeviceHandle : Handle
 	{
-		DECLARE_HANDLE(RenderDeviceHandle)
+		DECLARE_PHX_HANDLE(RenderDeviceHandle);
 
 		const char* GetDeviceName() const;
 		u32 GetFramesInFlight() const;

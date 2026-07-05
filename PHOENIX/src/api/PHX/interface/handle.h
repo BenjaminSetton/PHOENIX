@@ -47,7 +47,7 @@ namespace PHX
 		HANDLE_TYPE m_type;
 	};
 
-#define DECLARE_HANDLE(HandleType)					\
+#define DECLARE_PHX_HANDLE(HandleType)				\
 	HandleType();									\
 	HandleType(const Handle& other);				\
 	~HandleType();									\

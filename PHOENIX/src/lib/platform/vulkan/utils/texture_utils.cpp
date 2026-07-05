@@ -72,6 +72,7 @@ namespace PHX
 		case BASE_FORMAT::D32_FLOAT:
 		case BASE_FORMAT::D24_UNORM_S8_UINT:
 		case BASE_FORMAT::B8G8R8A8_SRGB:
+		case BASE_FORMAT::B8G8R8A8_UNORM:
 		{
 			return 4;
 		}

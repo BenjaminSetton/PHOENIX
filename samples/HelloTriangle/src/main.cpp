@@ -32,7 +32,7 @@ struct TestUBO
 };
 
 // Ugly, but easier for demo's sake
-static PHX::IWindow* s_pWindow = nullptr;
+static PHX::WindowHandle s_window;
 static PHX::RenderDeviceHandle s_renderDevice;
 static PHX::SwapChainHandle s_swapChain;
 
@@ -108,7 +108,7 @@ int main(int argc, char** argv)
 
 	// WINDOW
 	WindowCreateInfo windowCI{};
-	result = CreateWindow(windowCI, &s_pWindow);
+	result = CreateWindow(windowCI, s_window);
 	if (result != STATUS_CODE::SUCCESS)
 	{
 		// Failed to create window
@@ -125,7 +125,7 @@ int main(int argc, char** argv)
 	initSettings.windowFocusChangedCallback = OnWindowFocusChangedCallback;
 	initSettings.windowMinimizedCallback = OnWindowMinimizedCallback;
 	initSettings.windowMaximizedCallback = OnWindowMaximizedCallback;
-	result = Initialize(initSettings, s_pWindow);
+	result = Initialize(initSettings, s_window);
 	if (result != STATUS_CODE::SUCCESS)
 	{
 		// Failed to initialize graphics
@@ -134,7 +134,7 @@ int main(int argc, char** argv)
 
 	// RENDER DEVICE
 	RenderDeviceCreateInfo renderDeviceCI{};
-	renderDeviceCI.window = s_pWindow;
+	renderDeviceCI.window = s_window;
 	renderDeviceCI.framesInFlight = 3;
 	result = CreateRenderDevice(renderDeviceCI, s_renderDevice);
 	if (result != STATUS_CODE::SUCCESS)
@@ -146,8 +146,8 @@ int main(int argc, char** argv)
 	// SWAP CHAIN
 	SwapChainCreateInfo swapChainCI{};
 	swapChainCI.enableVSync = true;
-	swapChainCI.width = s_pWindow->GetCurrentWidth();
-	swapChainCI.height = s_pWindow->GetCurrentHeight();
+	swapChainCI.width = s_window.GetCurrentWidth();
+	swapChainCI.height = s_window.GetCurrentHeight();
 
 	result = s_renderDevice.AllocateSwapChain(swapChainCI, s_swapChain);
 	if (result != STATUS_CODE::SUCCESS)
@@ -260,7 +260,7 @@ int main(int argc, char** argv)
 	pipelineDesc.topology = PHX::PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
 	pipelineDesc.pInputAttributes = inputAttributes.data();
 	pipelineDesc.attributeCount = static_cast<u32>(inputAttributes.size());
-	pipelineDesc.viewportSize = { s_pWindow->GetCurrentWidth(), s_pWindow->GetCurrentHeight() };
+	pipelineDesc.viewportSize = { s_window.GetCurrentWidth(), s_window.GetCurrentHeight() };
 	pipelineDesc.pShaders = shaders.data();
 	pipelineDesc.shaderCount = static_cast<u32>(shaders.size());
 	pipelineDesc.cullMode = PHX::CULL_MODE::NONE;
@@ -285,21 +285,21 @@ int main(int argc, char** argv)
 	std::chrono::duration<float> frameBudgetMs(1.0f / 60.0f); // 60FPS
 	auto timeStart = std::chrono::high_resolution_clock::now();
 	auto timeEnd = std::chrono::high_resolution_clock::now();
-	while (!s_pWindow->ShouldClose())
+	while (!s_window.ShouldClose())
 	{
 		const std::chrono::duration<float, std::milli> elapsedMs = timeEnd - timeStart;
 		const std::chrono::duration<float> elapsedSeconds = timeEnd - timeStart;
 
 		timeStart = std::chrono::high_resolution_clock::now();
 
-		s_pWindow->Update(0.13f);
-		if (s_pWindow->IsMinimized())
+		s_window.Update(0.13f);
+		if (s_window.IsMinimized())
 		{
 			// No need to render/draw while minimized
 			continue;
 		}
 
-		s_pWindow->SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_renderDevice.GetDeviceName(), i, elapsedMs.count(), 1.0f / elapsedSeconds.count());
+		s_window.SetWindowTitle("PHX - %s | FRAME %u | FRAMETIME %2.2fms | FPS %2.2f", s_renderDevice.GetDeviceName(), i, elapsedMs.count(), 1.0f / elapsedSeconds.count());
 
 		// Draw operations
 		result = renderGraph.BeginFrame(s_swapChain);
@@ -368,7 +368,4 @@ int main(int argc, char** argv)
 
 		i++;
 	}
-
-	// Clean up core objects
-	PHX::DestroyWindow(&s_pWindow);
 }

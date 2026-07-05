@@ -280,13 +280,13 @@ namespace PHX
 		HANDLE_TYPE const type = handle.GetType();
 		switch (type)
 		{
-		case HANDLE_TYPE::BUFFER:          return HANDLE_UTILS::ResolveHandle<BufferVk>(m_buffers, handle);
-		case HANDLE_TYPE::TEXTURE:         return HANDLE_UTILS::ResolveHandle<TextureVk>(m_textures, handle);
-		case HANDLE_TYPE::UNIFORM:         return HANDLE_UTILS::ResolveHandle<UniformCollectionVk>(m_uniformCollections, handle);
-		case HANDLE_TYPE::DEVICE_CONTEXT:  return HANDLE_UTILS::ResolveHandle<DeviceContextVk>(m_deviceContexts, handle);
-		case HANDLE_TYPE::SHADER:          return HANDLE_UTILS::ResolveHandle<ShaderVk>(m_shaders, handle); 
-		case HANDLE_TYPE::SWAP_CHAIN:      return HANDLE_UTILS::ResolveHandle<SwapChainVk>(m_swapChains, handle);
-		case HANDLE_TYPE::RENDER_GRAPH:    return HANDLE_UTILS::ResolveHandle<RenderGraphVk>(m_renderGraphs, handle);
+		case HANDLE_TYPE::BUFFER:          return HANDLE_UTILS::ResolveHandleFromList<BufferVk>(m_buffers, handle);
+		case HANDLE_TYPE::TEXTURE:         return HANDLE_UTILS::ResolveHandleFromList<TextureVk>(m_textures, handle);
+		case HANDLE_TYPE::UNIFORM:         return HANDLE_UTILS::ResolveHandleFromList<UniformCollectionVk>(m_uniformCollections, handle);
+		case HANDLE_TYPE::DEVICE_CONTEXT:  return HANDLE_UTILS::ResolveHandleFromList<DeviceContextVk>(m_deviceContexts, handle);
+		case HANDLE_TYPE::SHADER:          return HANDLE_UTILS::ResolveHandleFromList<ShaderVk>(m_shaders, handle); 
+		case HANDLE_TYPE::SWAP_CHAIN:      return HANDLE_UTILS::ResolveHandleFromList<SwapChainVk>(m_swapChains, handle);
+		case HANDLE_TYPE::RENDER_GRAPH:    return HANDLE_UTILS::ResolveHandleFromList<RenderGraphVk>(m_renderGraphs, handle);
 		default:
 		{
 			break;

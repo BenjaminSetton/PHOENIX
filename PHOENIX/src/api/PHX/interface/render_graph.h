@@ -25,7 +25,7 @@ namespace PHX
 
 	struct RenderPassHandle : public Handle
 	{
-		DECLARE_HANDLE(RenderPassHandle)
+		DECLARE_PHX_HANDLE(RenderPassHandle);
 
 		// Inputs
 		void SetTextureInput(TextureHandle texture);
@@ -53,7 +53,7 @@ namespace PHX
 
 	struct RenderGraphHandle : public Handle
 	{
-		DECLARE_HANDLE(RenderGraphHandle)
+		DECLARE_PHX_HANDLE(RenderGraphHandle);
 
 		STATUS_CODE BeginFrame(SwapChainHandle swapChain);
 		STATUS_CODE EndFrame();
