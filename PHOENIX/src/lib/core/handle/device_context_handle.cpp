@@ -3,6 +3,7 @@
 #include "PHX/interface/render_device.h"
 
 #include "core/handle/handle_utils.h"
+#include "core/interface_types/device_context_interface.h"
 #include "utils/logger.h"
 
 namespace PHX

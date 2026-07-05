@@ -13,6 +13,10 @@
 #include "PHX/types/clear_color.h"
 #include "PHX/types/pipeline_desc.h"
 
+// TODO - MOVE TO LIB
+#include "core/interface_types/device_context_interface.h"
+#include "PHX/interface/device_context.h"
+
 namespace PHX
 {
 	typedef std::function<void(DeviceContextHandle deviceContext)> ExecuteRenderPassCallbackFn;

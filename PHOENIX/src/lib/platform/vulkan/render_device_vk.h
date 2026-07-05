@@ -8,6 +8,7 @@
 #include "PHX/interface/render_device.h"
 #include "PHX/types/queue_type.h"
 #include "PHX/types/status_code.h"
+#include "core/interface_types/render_device_interface.h"
 #include "utils/framebuffer_cache.h"
 #include "utils/pipeline_cache.h"
 #include "utils/queue_family_indices.h"
