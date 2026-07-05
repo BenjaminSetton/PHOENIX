@@ -5,7 +5,7 @@
 #include <vulkan/vulkan.h>
 
 #include "buffer_vk.h"
-#include "PHX/interface/device_context.h"
+#include "core/interface_types/device_context_interface.h"
 #include "render_device_vk.h"
 #include "texture_vk.h"
 

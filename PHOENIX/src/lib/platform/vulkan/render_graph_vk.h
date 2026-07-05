@@ -4,9 +4,8 @@
 #include <functional>
 #include <vector>
 
+#include "core/interface_types/render_graph_interface.h"
 #include "framebuffer_vk.h"
-#include "PHX/interface/handle.h"
-#include "PHX/interface/render_graph.h"
 #include "pipeline_vk.h"
 #include "utils/crc32.h"
 #include "utils/render_graph_utils.h"

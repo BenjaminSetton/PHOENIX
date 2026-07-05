@@ -1,8 +1,6 @@
 
-#include "PHX/interface/render_device.h"
-#include "PHX/interface/render_graph.h"
-
 #include "core/handle/handle_utils.h"
+#include "core/interface_types/render_graph_interface.h"
 #include "utils/sanity.h"
 
 namespace PHX

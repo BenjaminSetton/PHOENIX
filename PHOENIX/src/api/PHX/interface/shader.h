@@ -3,7 +3,6 @@
 #include "PHX/types/integral_types.h"
 #include "PHX/types/shader_desc.h"
 #include "PHX/interface/handle.h"
-#include "PHX/interface/ref.h" // TODO - Move to lib
 
 namespace PHX
 {
@@ -21,17 +20,5 @@ namespace PHX
 
 		SHADER_STAGE GetStage() const;
 		const ShaderReflectionData& GetReflectionData() const;
-	};
-
-
-	// TODO - Move to lib
-	class IShader : public RefCounted
-	{
-	public:
-
-		virtual ~IShader() { }
-
-		virtual SHADER_STAGE GetStage() const = 0;
-		virtual const ShaderReflectionData& GetReflectionData() const = 0;
 	};
 }

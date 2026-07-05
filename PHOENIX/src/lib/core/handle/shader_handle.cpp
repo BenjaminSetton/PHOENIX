@@ -1,8 +1,8 @@
 
-#include "PHX/interface/shader.h"
 #include "PHX/interface/render_device.h"
 
 #include "core/handle/handle_utils.h"
+#include "core/interface_types/shader_interface.h"
 #include "utils/sanity.h"
 
 namespace PHX

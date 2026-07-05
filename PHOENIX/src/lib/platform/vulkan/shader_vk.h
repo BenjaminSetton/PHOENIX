@@ -2,7 +2,8 @@
 
 #include <vulkan/vulkan.h>
 
-#include "PHX/interface/shader.h"
+#include "core/interface_types/shader_interface.h"
+#include "render_device_vk.h"
 
 namespace PHX
 {
