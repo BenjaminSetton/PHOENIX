@@ -12,6 +12,10 @@
 
 namespace PHX
 {
+	// Forward declarations
+	class IRenderDevice;
+	class IWindow;
+
 	class CoreObjectManager : public HandleOwner
 	{
 	public:

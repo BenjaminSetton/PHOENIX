@@ -8,8 +8,6 @@
 
 #include "PHX/interface/handle.h"
 
-#include "PHX/interface/ref.h" // TODO - Move to lib
-
 namespace PHX
 {
 	struct UniformCollectionCreateInfo
@@ -30,26 +28,5 @@ namespace PHX
 		STATUS_CODE QueueBufferUpdate(BufferHandle buffer, u32 set, u32 binding, u64 offset, u64 size = U64_MAX);
 		STATUS_CODE QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex);
 		STATUS_CODE FlushUpdateQueue();
-	};
-
-	// TODO - Move to lib
-
-	// Represents all the uniform data used by a particular pipeline. The uniform data can
-	// be split into as many uniform groups as needed, but the uniform data must represent
-	// all the possible uniform slots used in the pipeline
-	class IUniformCollection : public RefCounted
-	{
-	public:
-
-		virtual ~IUniformCollection() { }
-
-		virtual u32 GetGroupCount() const = 0;
-		virtual const UniformDataGroup* GetGroup(u32 groupIndex) const = 0;
-		virtual UniformDataGroup* GetGroup(u32 groupIndex) = 0;
-
-		// Queue a buffer update. A size of U64_MAX is used to indicate a "whole buffer" update
-		virtual STATUS_CODE QueueBufferUpdate(BufferHandle buffer, u32 set, u32 binding, u64 offset, u64 size = U64_MAX) = 0;
-		virtual STATUS_CODE QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex) = 0;
-		virtual STATUS_CODE FlushUpdateQueue() = 0;
 	};
 }

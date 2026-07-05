@@ -3,6 +3,7 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
+#include "core/interface_types/uniform_interface.h"
 #include "PHX/interface/uniform.h"
 
 namespace PHX

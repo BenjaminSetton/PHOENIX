@@ -1,8 +1,7 @@
 
-#include "PHX/interface/texture.h"
-#include "PHX/interface/render_device.h"
-
 #include "core/handle/handle_utils.h"
+#include "core/interface_types/texture_interface.h"
+#include "PHX/interface/render_device.h"
 
 namespace PHX
 {

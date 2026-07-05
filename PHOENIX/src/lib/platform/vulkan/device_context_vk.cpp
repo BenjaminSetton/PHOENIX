@@ -373,7 +373,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::BeginFrame(ISwapChain* pSwapChain, u32 frameIndex)
+	STATUS_CODE DeviceContextVk::BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex)
 	{
 		if (m_pRenderDevice == nullptr)
 		{
@@ -381,11 +381,10 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(pSwapChain);
-		if (swapChainVk == nullptr)
+		if (pSwapChain == nullptr)
 		{
 			LogError("Failed to begin frame! Swap chain pointer is null");
-			return STATUS_CODE::ERR_API;
+			return STATUS_CODE::ERR_INTERNAL;
 		}
 
 		STATUS_CODE res;
@@ -399,7 +398,7 @@ namespace PHX
 		}
 
 		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(frameIndex);
-		res = swapChainVk->AcquireNextImage(imageAvailableSemaphore);
+		res = pSwapChain->AcquireNextImage(imageAvailableSemaphore);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to begin frame! Swap chain could not acquire next image");

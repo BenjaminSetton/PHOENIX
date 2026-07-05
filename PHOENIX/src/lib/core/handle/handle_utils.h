@@ -26,7 +26,7 @@ namespace PHX
 	class IShader;
 	class ISwapChain;
 	class IRenderDevice;
-	//class IWindow;
+	class IWindow;
 
 	namespace HANDLE_UTILS
 	{

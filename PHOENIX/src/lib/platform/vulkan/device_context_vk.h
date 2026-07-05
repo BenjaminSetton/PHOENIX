@@ -55,7 +55,7 @@ namespace PHX
 		STATUS_CODE SetContextualPipeline(PipelineVk* pPipeline);
 		void ResetContextualPipeline();
 
-		STATUS_CODE BeginFrame(ISwapChain* pSwapChain, u32 frameIndex);
+		STATUS_CODE BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex);
 		STATUS_CODE EndFrame(u32 frameIndex);
 
 		STATUS_CODE BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount);

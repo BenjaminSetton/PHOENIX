@@ -1,8 +1,7 @@
 
-#include "PHX/interface/render_device.h"
-#include "PHX/interface/swap_chain.h"
-
 #include "core/handle/handle_utils.h"
+#include "core/interface_types/swap_chain_interface.h"
+#include "PHX/interface/render_device.h"
 #include "utils/sanity.h"
 
 namespace PHX

@@ -2,7 +2,7 @@
 
 #include <vulkan/vulkan.h>
 
-#include "PHX/interface/swap_chain.h"
+#include "core/interface_types/swap_chain_interface.h"
 #include "PHX/types/status_code.h"
 #include "render_device_vk.h"
 #include "texture_vk.h"

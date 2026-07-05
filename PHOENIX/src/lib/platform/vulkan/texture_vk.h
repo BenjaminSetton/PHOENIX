@@ -4,9 +4,11 @@
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
+#include "core/interface_types/texture_interface.h"
 #include "PHX/interface/texture.h"
 #include "PHX/types/queue_type.h"
 #include "PHX/types/status_code.h"
+#include "PHX/types/texture_desc.h"
 
 namespace PHX
 {
