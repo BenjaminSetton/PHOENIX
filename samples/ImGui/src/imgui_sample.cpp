@@ -30,6 +30,8 @@ bool ImGuiSample::Update(float dt)
 	ImGui::Text("Current frame: %u", m_renderGraph.GetFrameNumber());
 	ImGui::End();
 
+	ImGui::ShowDemoWindow();
+
 	return shouldClose;
 }
 

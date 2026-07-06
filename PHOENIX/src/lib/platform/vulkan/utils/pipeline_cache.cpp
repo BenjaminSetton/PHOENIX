@@ -128,7 +128,7 @@ namespace PHX
 
 			for (u32 i = 0; i < shaderCount; i++)
 			{
-				ShaderHandle currShader = desc.pShaders[i];
+				const ShaderHandle& currShader = desc.pShaders[i];
 				if (currShader != INVALID_HANDLE)
 				{
 					HashCombine(seed, currShader.GetStage());

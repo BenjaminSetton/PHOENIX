@@ -55,7 +55,12 @@ namespace Common
 		Settings settings{};
 		settings.backendAPI                    = GRAPHICS_API::VULKAN;
 		settings.logCallback                   = nullptr;
+
+#if defined(DEBUG)
 		settings.enableValidation              = true;
+#else
+		settings.enableValidation              = false;
+#endif
 		settings.swapChainOutdatedCallback     = OnSwapChainOutdatedCallback;
 		settings.windowFocusChangedCallback    = OnWindowFocusChangedCallback;
 		settings.windowMaximizedCallback       = OnWindowMaximizedCallback;
@@ -107,7 +112,7 @@ namespace Common
 	void BaseSample::CreateSwapChain()
 	{
 		SwapChainCreateInfo swapChainCI{};
-		swapChainCI.enableVSync = true;
+		swapChainCI.enableVSync = false;
 		swapChainCI.width = m_window.GetCurrentWidth();
 		swapChainCI.height = m_window.GetCurrentHeight();
 

@@ -277,14 +277,14 @@ namespace PHX
 
 	void* RenderDeviceVk::ResolveHandle(const Handle& handle)
 	{
-		HANDLE_TYPE const type = handle.GetType();
+		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
 		case HANDLE_TYPE::BUFFER:          return HANDLE_UTILS::ResolveHandleFromList<BufferVk>(m_buffers, handle);
 		case HANDLE_TYPE::TEXTURE:         return HANDLE_UTILS::ResolveHandleFromList<TextureVk>(m_textures, handle);
 		case HANDLE_TYPE::UNIFORM:         return HANDLE_UTILS::ResolveHandleFromList<UniformCollectionVk>(m_uniformCollections, handle);
 		case HANDLE_TYPE::DEVICE_CONTEXT:  return HANDLE_UTILS::ResolveHandleFromList<DeviceContextVk>(m_deviceContexts, handle);
-		case HANDLE_TYPE::SHADER:          return HANDLE_UTILS::ResolveHandleFromList<ShaderVk>(m_shaders, handle); 
+		case HANDLE_TYPE::SHADER:          return HANDLE_UTILS::ResolveHandleFromList<ShaderVk>(m_shaders, handle);
 		case HANDLE_TYPE::SWAP_CHAIN:      return HANDLE_UTILS::ResolveHandleFromList<SwapChainVk>(m_swapChains, handle);
 		case HANDLE_TYPE::RENDER_GRAPH:    return HANDLE_UTILS::ResolveHandleFromList<RenderGraphVk>(m_renderGraphs, handle);
 		default:
@@ -299,44 +299,16 @@ namespace PHX
 
 	void RenderDeviceVk::IncrementHandleRefCount(const Handle& handle)
 	{
-		HANDLE_TYPE handleType = handle.GetType();
+		const HANDLE_TYPE handleType = handle.GetType();
 		switch (handleType)
 		{
-		case HANDLE_TYPE::BUFFER:
-		{
-			HANDLE_UTILS::IncrementRefCount<BufferHandle, IBuffer>(handle);
-			break;
-		}
-		case HANDLE_TYPE::TEXTURE:
-		{
-			HANDLE_UTILS::IncrementRefCount<TextureHandle, ITexture>(handle);
-			break;
-		}
-		case HANDLE_TYPE::UNIFORM:
-		{
-			HANDLE_UTILS::IncrementRefCount<UniformCollectionHandle, IUniformCollection>(handle);
-			break;
-		}
-		case HANDLE_TYPE::DEVICE_CONTEXT:
-		{
-			HANDLE_UTILS::IncrementRefCount<DeviceContextHandle, IDeviceContext>(handle);
-			break;
-		}
-		case HANDLE_TYPE::RENDER_GRAPH:
-		{
-			HANDLE_UTILS::IncrementRefCount<RenderGraphHandle, IRenderGraph>(handle);
-			break;
-		}
-		case HANDLE_TYPE::SHADER:
-		{
-			HANDLE_UTILS::IncrementRefCount<ShaderHandle, IShader>(handle);
-			break;
-		}
-		case HANDLE_TYPE::SWAP_CHAIN:
-		{
-			HANDLE_UTILS::IncrementRefCount<SwapChainHandle, ISwapChain>(handle);
-			break;
-		}
+		case HANDLE_TYPE::BUFFER:         HANDLE_UTILS::IncrementRefCount<BufferVk>(handle, m_buffers);                       break;
+		case HANDLE_TYPE::TEXTURE:        HANDLE_UTILS::IncrementRefCount<TextureVk>(handle, m_textures);                     break;
+		case HANDLE_TYPE::UNIFORM:        HANDLE_UTILS::IncrementRefCount<UniformCollectionVk>(handle, m_uniformCollections); break;
+		case HANDLE_TYPE::DEVICE_CONTEXT: HANDLE_UTILS::IncrementRefCount<DeviceContextVk>(handle, m_deviceContexts);         break;
+		case HANDLE_TYPE::RENDER_GRAPH:   HANDLE_UTILS::IncrementRefCount<RenderGraphVk>(handle, m_renderGraphs);             break;
+		case HANDLE_TYPE::SHADER:         HANDLE_UTILS::IncrementRefCount<ShaderVk>(handle, m_shaders);                       break;
+		case HANDLE_TYPE::SWAP_CHAIN:     HANDLE_UTILS::IncrementRefCount<SwapChainVk>(handle, m_swapChains);                 break;
 		default:
 		{
 			ASSERT_ALWAYS("Failed to increment ref count. Unrecognized handle type!");
@@ -347,44 +319,16 @@ namespace PHX
 
 	void RenderDeviceVk::DecrementHandleRefCount(const Handle& handle)
 	{
-		HANDLE_TYPE handleType = handle.GetType();
+		const HANDLE_TYPE handleType = handle.GetType();
 		switch (handleType)
 		{
-		case HANDLE_TYPE::BUFFER:
-		{
-			HANDLE_UTILS::DecrementRefCount<BufferHandle, BufferVk>(handle, m_buffers);
-			break;
-		}
-		case HANDLE_TYPE::TEXTURE:
-		{
-			HANDLE_UTILS::DecrementRefCount<TextureHandle, TextureVk>(handle, m_textures);
-			break;
-		}
-		case HANDLE_TYPE::UNIFORM:
-		{
-			HANDLE_UTILS::DecrementRefCount<UniformCollectionHandle, UniformCollectionVk>(handle, m_uniformCollections);
-			break;
-		}
-		case HANDLE_TYPE::DEVICE_CONTEXT:
-		{
-			HANDLE_UTILS::DecrementRefCount<DeviceContextHandle, DeviceContextVk>(handle, m_deviceContexts);
-			break;
-		}
-		case HANDLE_TYPE::RENDER_GRAPH:
-		{
-			HANDLE_UTILS::DecrementRefCount<RenderGraphHandle, RenderGraphVk>(handle, m_renderGraphs);
-			break;
-		}
-		case HANDLE_TYPE::SHADER:
-		{
-			HANDLE_UTILS::DecrementRefCount<ShaderHandle, ShaderVk>(handle, m_shaders);
-			break;
-		}
-		case HANDLE_TYPE::SWAP_CHAIN:
-		{
-			HANDLE_UTILS::DecrementRefCount<SwapChainHandle, SwapChainVk>(handle, m_swapChains);
-			break;
-		}
+		case HANDLE_TYPE::BUFFER:         HANDLE_UTILS::DecrementRefCount<BufferHandle, BufferVk>(handle, m_buffers);                                  break;
+		case HANDLE_TYPE::TEXTURE:        HANDLE_UTILS::DecrementRefCount<TextureHandle, TextureVk>(handle, m_textures);                               break;
+		case HANDLE_TYPE::UNIFORM:        HANDLE_UTILS::DecrementRefCount<UniformCollectionHandle, UniformCollectionVk>(handle, m_uniformCollections); break;
+		case HANDLE_TYPE::DEVICE_CONTEXT: HANDLE_UTILS::DecrementRefCount<DeviceContextHandle, DeviceContextVk>(handle, m_deviceContexts);             break;
+		case HANDLE_TYPE::RENDER_GRAPH:   HANDLE_UTILS::DecrementRefCount<RenderGraphHandle, RenderGraphVk>(handle, m_renderGraphs);                   break;
+		case HANDLE_TYPE::SHADER:         HANDLE_UTILS::DecrementRefCount<ShaderHandle, ShaderVk>(handle, m_shaders);                                  break;
+		case HANDLE_TYPE::SWAP_CHAIN:     HANDLE_UTILS::DecrementRefCount<SwapChainHandle, SwapChainVk>(handle, m_swapChains);                         break;
 		default:
 		{
 			ASSERT_ALWAYS("Failed to decrement ref count. Unrecognized handle type!");

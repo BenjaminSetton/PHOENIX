@@ -74,7 +74,7 @@ namespace PHX
 		///////////////////////////////////
 
 		template<typename HandleT, typename InterfaceT>
-		void IncrementRefCount(const Handle& handle)
+		inline void IncrementRefCount(const Handle& handle)
 		{
 			InterfaceT* pObj = ResolveHandle(static_cast<const HandleT&>(handle));
 			if (pObj != nullptr)
@@ -83,12 +83,28 @@ namespace PHX
 			}
 		}
 
+		// List-based overload that avoids the extra virtual ResolveHandle round-trip
+		// by indexing the owner's list directly (symmetric with DecrementRefCount).
+		template<typename InterfaceT>
+		inline void IncrementRefCount(const Handle& handle, const std::vector<InterfaceT*>& list)
+		{
+			const u32 index = handle.GetIndex();
+			if (index < static_cast<u32>(list.size()))
+			{
+				InterfaceT* pObj = list[index];
+				if (pObj != nullptr)
+				{
+					pObj->IncrementRefCount();
+				}
+			}
+		}
+
 		///////////////////////////////////
 		// DECREMENT REF COUNT
 		///////////////////////////////////
 
 		template<typename HandleT, typename InterfaceT>
-		void DecrementRefCount(const Handle& handle, std::vector<InterfaceT*>& list)
+		inline void DecrementRefCount(const Handle& handle, std::vector<InterfaceT*>& list)
 		{
 			// Assuming generation is always 0
 			const u32 index = handle.GetIndex();

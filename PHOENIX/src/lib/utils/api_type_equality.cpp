@@ -21,14 +21,14 @@ namespace PHX
 
 	////////////////////////////////////////////////////////////////////////////////
 
-	static bool CanHandlesBeUsedForComparison(Handle A, Handle B)
+	static bool CanHandlesBeUsedForComparison(const Handle& A, const Handle& B)
 	{
 		return !(A.IsValid() ^ B.IsValid());
 	}
 
 	////////////////////////////////////////////////////////////////////////////////
 
-	static bool AreHandlesValid(Handle A, Handle B)
+	static bool AreHandlesValid(const Handle& A, const Handle& B)
 	{
 		return (A.IsValid() && B.IsValid());
 	}
@@ -37,7 +37,7 @@ namespace PHX
 
 	// Returns true if both shaders are null, or if both shaders are not null but their
 	// contents are equal. Returns false in all other cases
-	static bool AreShadersEqual(ShaderHandle A, ShaderHandle B)
+	static bool AreShadersEqual(const ShaderHandle& A, const ShaderHandle& B)
 	{
 		if (!CanHandlesBeUsedForComparison(A, B))
 		{
@@ -55,7 +55,7 @@ namespace PHX
 
 	////////////////////////////////////////////////////////////////////////////////
 
-	static bool AreUniformsEqual(UniformCollectionHandle uniformsA, UniformCollectionHandle uniformsB)
+	static bool AreUniformsEqual(const UniformCollectionHandle& uniformsA, const UniformCollectionHandle& uniformsB)
 	{
 		if (!CanHandlesBeUsedForComparison(uniformsA, uniformsB))
 		{
@@ -160,8 +160,8 @@ namespace PHX
 
 		for (u32 i = 0; i < shaderCount; i++)
 		{
-			ShaderHandle shaderA = pShaders[i];
-			ShaderHandle shaderB = other.pShaders[i];
+			const ShaderHandle& shaderA = pShaders[i];
+			const ShaderHandle& shaderB = other.pShaders[i];
 			if (!CanHandlesBeUsedForComparison(shaderA, shaderB))
 			{
 				return false;
@@ -185,19 +185,8 @@ namespace PHX
 			return false;
 		}
 
-		// OTHER MEMBERS (compared thru memcmp excluding pointers, which are compared above)
-		GraphicsPipelineDesc copyA = *this;
-		GraphicsPipelineDesc copyB = other;
-
-		copyA.uniformCollection = INVALID_HANDLE;
-		copyA.pShaders = nullptr;
-		copyA.shaderCount = 0;
-
-		copyB.uniformCollection = INVALID_HANDLE;
-		copyB.pShaders = nullptr;
-		copyB.shaderCount = 0;
-
-		const int cmpResult = memcmp(&copyA, &copyB, sizeof(GraphicsPipelineDesc));
+		// OTHER MEMBERS: everything else from the pipeline desc struct is trivially-comparable
+		const int cmpResult = memcmp(this, &other, offsetof(GraphicsPipelineDesc, uniformCollection));
 		return (cmpResult == 0);
 	}
 

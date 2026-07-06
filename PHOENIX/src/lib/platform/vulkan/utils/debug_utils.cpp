@@ -1,6 +1,7 @@
 #include "debug_utils.h"
 
 #include "utils/logger.h"
+#include "utils/sanity.h"
 #include <vulkan/vk_enum_string_helper.h>
 
 namespace PHX
@@ -36,8 +37,15 @@ namespace PHX
 					name, static_cast<u32>(objectType), static_cast<unsigned long long>(objectHandle), string_VkResult(res));
 			}
 		}
-#elif
-		void SetObjectName(VkDevice device, VkObjectType objectType, uint64_t objectHandle, const char* name) { // No-op }
+#else
+		void SetObjectName(VkDevice device, VkObjectType objectType, uint64_t objectHandle, const char* name) 
+		{
+			/* No-op */
+			UNUSED(device);
+			UNUSED(objectType);
+			UNUSED(objectHandle);
+			UNUSED(name);
+		}
 #endif
 	}
 }
