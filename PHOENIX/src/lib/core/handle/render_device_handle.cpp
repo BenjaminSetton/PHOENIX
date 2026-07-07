@@ -9,36 +9,7 @@ namespace PHX
 {
 	static const ShaderReflectionData s_defaultReflectionData;
 
-	RenderDeviceHandle::RenderDeviceHandle() : Handle(HANDLE_TYPE::RENDER_DEVICE)
-	{
-	}
-
-	RenderDeviceHandle::RenderDeviceHandle(const Handle& base) : Handle(base)
-	{
-	}
-
-	RenderDeviceHandle::~RenderDeviceHandle()
-	{
-	}
-
-	RenderDeviceHandle::RenderDeviceHandle(const RenderDeviceHandle& other) : Handle(other)
-	{
-	}
-
-	RenderDeviceHandle& RenderDeviceHandle::operator=(const RenderDeviceHandle& other)
-	{
-		if (this == &other)
-		{
-			return *this;
-		}
-
-		Handle::operator=(other);
-		return *this;
-	}
-
-	RenderDeviceHandle::RenderDeviceHandle(RenderDeviceHandle&& other) noexcept : Handle(std::move(other))
-	{
-	}
+	DEFINE_PHX_HANDLE(RenderDeviceHandle, HANDLE_TYPE::RENDER_DEVICE)
 
 	const char* RenderDeviceHandle::GetDeviceName() const
 	{

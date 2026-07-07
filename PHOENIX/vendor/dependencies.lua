@@ -29,3 +29,11 @@ PHX_Libraries["glslang_code_gen_release"]            = "%{wks.location}/PHOENIX/
 PHX_Libraries["glslang_machine_independent_release"] = "%{wks.location}/PHOENIX/out/glslang/glslang/Release/MachineIndependent.lib"
 PHX_Libraries["glslang_os_dependent_win_release"]    = "%{wks.location}/PHOENIX/out/glslang/glslang/OSDependent/Windows/Release/OSDependent.lib"
 
+PHX_Libraries["glslang_sanitizer"]                       = "%{wks.location}/PHOENIX/out/glslang_sanitizer/glslang/debug/glslangd.lib"
+PHX_Libraries["SPV_sanitizer"]                           = "%{wks.location}/PHOENIX/out/glslang_sanitizer/SPIRV/debug/SPIRVd.lib"
+PHX_Libraries["SPV_tools_sanitizer"]                     = "%{wks.location}/PHOENIX/out/glslang_sanitizer/External/spirv-tools/source/Debug/SPIRV-Toolsd.lib"
+PHX_Libraries["SPV_tools_opt_sanitizer"]                 = "%{wks.location}/PHOENIX/out/glslang_sanitizer/External/spirv-tools/source/opt/Debug/SPIRV-Tools-optd.lib"
+PHX_Libraries["glslang_code_gen_sanitizer"]              = "%{wks.location}/PHOENIX/out/glslang_sanitizer/glslang/Debug/GenericCodeGend.lib"
+PHX_Libraries["glslang_machine_independent_sanitizer"]   = "%{wks.location}/PHOENIX/out/glslang_sanitizer/glslang/Debug/MachineIndependentd.lib"
+PHX_Libraries["glslang_os_dependent_win_sanitizer"]      = "%{wks.location}/PHOENIX/out/glslang_sanitizer/glslang/OSDependent/Windows/Debug/OSDependentd.lib"
+

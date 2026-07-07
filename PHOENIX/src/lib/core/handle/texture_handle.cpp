@@ -5,36 +5,7 @@
 
 namespace PHX
 {
-	TextureHandle::TextureHandle() : Handle(HANDLE_TYPE::TEXTURE)
-	{
-	}
-
-	TextureHandle::TextureHandle(const Handle& other) : Handle(other)
-	{
-	}
-
-	TextureHandle::~TextureHandle()
-	{
-	}
-
-	TextureHandle::TextureHandle(const TextureHandle& other) : Handle(other)
-	{
-	}
-
-	TextureHandle& TextureHandle::operator=(const TextureHandle& other)
-	{
-		if (this == &other)
-		{
-			return *this;
-		}
-
-		Handle::operator==(other);
-		return *this;
-	}
-
-	TextureHandle::TextureHandle(TextureHandle&& other) noexcept : Handle(std::move(other))
-	{
-	}
+	DEFINE_PHX_HANDLE(TextureHandle, HANDLE_TYPE::TEXTURE)
 
 	void TextureHandle::CopyFrom(TextureHandle other)
 	{

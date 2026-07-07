@@ -637,7 +637,12 @@ namespace PHX
 		m_frameInFlightIndex = (m_frameInFlightIndex + 1) % m_pRenderDevice->GetFramesInFlight();
 		m_frameNumber++;
 
+		for (RenderPassVk* currRenderPass : m_registeredRenderPasses)
+		{
+			SAFE_DEL(currRenderPass);
+		}
 		m_registeredRenderPasses.clear();
+
 		m_resourceUsages.clear();
 		m_physicalResources.clear();
 
@@ -650,7 +655,9 @@ namespace PHX
 
 		// TODO - Reconcile with HANDLE_UTILS functions
 		auto registerResourceFuncPtr = std::bind(&RenderGraphVk::RegisterResource, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-		m_registeredRenderPasses.emplace_back(passName, bindPoint, passIndex, registerResourceFuncPtr);
+
+		RenderPassVk* newRenderPass = new RenderPassVk(passName, bindPoint, passIndex, registerResourceFuncPtr);
+		m_registeredRenderPasses.push_back(newRenderPass);
 
 		// NOTE - Manually call PopulateHandle() from HandleAccessor vs using HANDLE_UTILS, 
 		// since that inserts an InterfaceT pointer into an array
@@ -702,7 +709,7 @@ namespace PHX
 
 		for (u32 activeRenderPassIndex : activeRenderPassIndices)
 		{
-			const RenderPassVk& currRenderPass = m_registeredRenderPasses[activeRenderPassIndex];
+			const RenderPassVk& currRenderPass = *m_registeredRenderPasses[activeRenderPassIndex];
 
 			// Before calling execution callback, insert all barriers required by the render pass
 			res = InsertResourceBarriers(currRenderPass);
@@ -859,24 +866,24 @@ namespace PHX
 
 		// ---- Render pass nodes (rounded boxes, colored by bind point) ----
 		dot << "\t// Render passes\n";
-		for (const RenderPassVk& pass : m_registeredRenderPasses)
+		for (const RenderPassVk* pRenderPass : m_registeredRenderPasses)
 		{
 #if defined(PHX_DEBUG)
-			const char* passName = pass.m_debugName;
+			const char* passName = pRenderPass->m_debugName;
 #else
 			const std::string passNameStr = std::to_string(pass.m_index);
 			const char* passName = passNameStr.c_str();
 #endif
-			const char* bindPointStr = RG_UTILS::BindPointToString(pass.m_bindPoint);
+			const char* bindPointStr = RG_UTILS::BindPointToString(pRenderPass->m_bindPoint);
 
 			const char* fillColor = "#FFFFFF";
-			if (pass.m_bindPoint == BIND_POINT::GRAPHICS)       fillColor = "#5DADE2";
-			else if (pass.m_bindPoint == BIND_POINT::COMPUTE)   fillColor = "#58D68D";
-			else if (pass.m_bindPoint == BIND_POINT::TRANSFER)  fillColor = "#EB984E";
+			if (pRenderPass->m_bindPoint == BIND_POINT::GRAPHICS)       fillColor = "#5DADE2";
+			else if (pRenderPass->m_bindPoint == BIND_POINT::COMPUTE)   fillColor = "#58D68D";
+			else if (pRenderPass->m_bindPoint == BIND_POINT::TRANSFER)  fillColor = "#EB984E";
 
-			const bool isFinalPass = PassWritesResource(pass.m_index, m_presentResID);
+			const bool isFinalPass = PassWritesResource(pRenderPass->m_index, m_presentResID);
 
-			dot << "\tpass" << pass.m_index
+			dot << "\tpass" << pRenderPass->m_index
 				<< " [shape=box, style=\"filled,rounded\", fontcolor=\"#FFFFFF\", margin=\"0.25,0.14\""
 				<< ", fillcolor=\"" << fillColor << "\"";
 			if (isFinalPass)  dot << ", penwidth=3, color=\"#C0392B\"";
@@ -892,10 +899,10 @@ namespace PHX
 		// ---- Resource nodes ----
 		// Gather every physical resource referenced by any pass (inputs or outputs)
 		ResourceIndexBitset usedResources;
-		for (const RenderPassVk& pass : m_registeredRenderPasses)
+		for (const RenderPassVk* pRenderPass : m_registeredRenderPasses)
 		{
-			usedResources |= pass.m_inputResources;
-			usedResources |= pass.m_outputResources;
+			usedResources |= pRenderPass->m_inputResources;
+			usedResources |= pRenderPass->m_outputResources;
 		}
 
 		dot << "\t// Resources\n";
@@ -947,19 +954,19 @@ namespace PHX
 		dot << "\n\t// Resource flow (inputs feed passes, passes produce outputs)\n";
 
 		// ---- Edges: resource -> pass (inputs) and pass -> resource (outputs) ----
-		for (const RenderPassVk& pass : m_registeredRenderPasses)
+		for (const RenderPassVk* pRenderPass : m_registeredRenderPasses)
 		{
-			const std::string passNode = "pass" + std::to_string(pass.m_index);
+			const std::string passNode = "pass" + std::to_string(pRenderPass->m_index);
 
 			// Inputs: resource -> pass (blue), labelled with the input layout transition for textures
-			TraverseResources(pass.m_inputResources, [&](const RenderResource& resource)
+			TraverseResources(pRenderPass->m_inputResources, [&](const RenderResource& resource)
 			{
 				const std::string resNode = "res" + std::to_string(resource.resourceID);
 
 				std::string label;
 				std::string tooltip;
-				auto barrierIter = pass.m_inputBarriers.find(resource.resourceID);
-				if (barrierIter != pass.m_inputBarriers.end())
+				auto barrierIter = pRenderPass->m_inputBarriers.find(resource.resourceID);
+				if (barrierIter != pRenderPass->m_inputBarriers.end())
 				{
 					const Barrier& barrier = barrierIter->second;
 					if (resource.type == RESOURCE_TYPE::TEXTURE)
@@ -976,14 +983,14 @@ namespace PHX
 			});
 
 			// Outputs: pass -> resource (green), labelled with the resulting layout for textures
-			TraverseResources(pass.m_outputResources, [&](const RenderResource& resource)
+			TraverseResources(pRenderPass->m_outputResources, [&](const RenderResource& resource)
 			{
 				const std::string resNode = "res" + std::to_string(resource.resourceID);
 
 				std::string label;
 				std::string tooltip;
-				auto barrierIter = pass.m_outputBarriers.find(resource.resourceID);
-				if (barrierIter != pass.m_outputBarriers.end())
+				auto barrierIter = pRenderPass->m_outputBarriers.find(resource.resourceID);
+				if (barrierIter != pRenderPass->m_outputBarriers.end())
 				{
 					const Barrier& barrier = barrierIter->second;
 					if (resource.type == RESOURCE_TYPE::TEXTURE)
@@ -1074,13 +1081,7 @@ namespace PHX
 		{
 		case HANDLE_TYPE::RENDER_PASS:
 		{
-			// TODO - Reconcile with HANDLE_UTILS functions
-			const u32 index = handle.GetIndex();
-			if (index < static_cast<u32>(m_registeredRenderPasses.size()))
-			{
-				return &m_registeredRenderPasses[index];
-			}
-			break;
+			return HANDLE_UTILS::ResolveHandleFromList<RenderPassVk>(m_registeredRenderPasses, handle);
 		}
 		default:
 		{
@@ -1099,7 +1100,7 @@ namespace PHX
 		{
 		case HANDLE_TYPE::RENDER_PASS:
 		{
-			HANDLE_UTILS::IncrementRefCount<RenderPassHandle, IRenderPass>(handle);
+			HANDLE_UTILS::IncrementRefCount<RenderPassVk>(handle, m_registeredRenderPasses);
 			break;
 		}
 		default:
@@ -1121,8 +1122,8 @@ namespace PHX
 			const u32 index = handle.GetIndex();
 			if (index < static_cast<u32>(m_registeredRenderPasses.size()))
 			{
-				RenderPassVk renderPass = m_registeredRenderPasses[index];
-				renderPass.DecrementRefCount();
+				RenderPassVk* renderPass = m_registeredRenderPasses[index];
+				renderPass->DecrementRefCount();
 
 				// NOTE - No automatic deletion, render pass lifetimes are managed by other render graph calls
 			}
@@ -1414,10 +1415,10 @@ namespace PHX
 
 	void RenderGraphVk::BuildDependencyTree(u32 renderPassIndex)
 	{
-		RenderPassVk& currRenderPass = m_registeredRenderPasses[renderPassIndex];
+		RenderPassVk* pCurrRenderPass = m_registeredRenderPasses[renderPassIndex];
 
 		// Base cases
-		if (currRenderPass.m_inputResources.none())
+		if (pCurrRenderPass->m_inputResources.none())
 		{
 			return;
 		}
@@ -1437,11 +1438,11 @@ namespace PHX
 				continue;
 			}
 
-			RenderPassVk& prevRenderPass = m_registeredRenderPasses[i];
+			RenderPassVk* pPrevRenderPass = m_registeredRenderPasses[i];
 
-			const ResourceIndexBitset rawHazardResources = (prevRenderPass.m_outputResources & currRenderPass.m_inputResources);
-			const ResourceIndexBitset warHazardResources = (prevRenderPass.m_inputResources & currRenderPass.m_outputResources);
-			const ResourceIndexBitset wawHazardResources = (prevRenderPass.m_outputResources & currRenderPass.m_outputResources);
+			const ResourceIndexBitset rawHazardResources = (pPrevRenderPass->m_outputResources & pCurrRenderPass->m_inputResources);
+			const ResourceIndexBitset warHazardResources = (pPrevRenderPass->m_inputResources  & pCurrRenderPass->m_outputResources);
+			const ResourceIndexBitset wawHazardResources = (pPrevRenderPass->m_outputResources & pCurrRenderPass->m_outputResources);
 
 			// Create a new dependency to this previous render pass if any hazards are detected
 			const ResourceIndexBitset hazardResources = (rawHazardResources | warHazardResources | wawHazardResources);
@@ -1449,9 +1450,9 @@ namespace PHX
 			if (isDependencyRP)
 			{
 				DependencyInfo newDependency{};
-				newDependency.renderPass = &prevRenderPass;
+				newDependency.renderPass = pPrevRenderPass;
 				newDependency.resources = hazardResources;
-				currRenderPass.m_dependencyInfos.push_back(newDependency);
+				pCurrRenderPass->m_dependencyInfos.push_back(newDependency);
 				BuildDependencyTree(i);
 			}
 		}
@@ -1497,8 +1498,8 @@ namespace PHX
 		// 2. For all those resource usages, generate a barrier. Only generate pipeline barriers for now, and ignore cross-queue synchronization
 		for (u32 activeRenderPassIndex : activeRenderPasses)
 		{
-			RenderPassVk& dstRenderPass = m_registeredRenderPasses[activeRenderPassIndex];
-			const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
+			RenderPassVk* pDstRenderPass = m_registeredRenderPasses[activeRenderPassIndex];
+			const BIND_POINT dstBindPoint = pDstRenderPass->m_bindPoint;
 
 			// Every active pass needs an entry in m_outputBarriers for each of its texture outputs so
 			// that CreateRenderPass can find the finalLayout for each attachment.
@@ -1511,8 +1512,8 @@ namespace PHX
 			//   the dependency loop will never insert an output barrier for it. We generate a terminal
 			//   depth output barrier here for every pass that writes depth so CreateRenderPass never
 			//   hits the "Failed to find output barrier" assert.
-			const bool isFinalPass = (dstRenderPass.m_index == finalPassIndex);
-			TraverseRenderPassOutputs(dstRenderPass.m_index, [&](const RenderResource& resource)
+			const bool isFinalPass = (pDstRenderPass->m_index == finalPassIndex);
+			TraverseRenderPassOutputs(pDstRenderPass->m_index, [&](const RenderResource& resource)
 			{
 				if (resource.type != RESOURCE_TYPE::TEXTURE)
 				{
@@ -1520,7 +1521,7 @@ namespace PHX
 				}
 
 				const u64& resourceID = resource.resourceID;
-				const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
+				const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(*pDstRenderPass, resourceID);
 				ASSERT_PTR(dstResourceUsage); // Should never be null
 
 				const bool isColorAttachment = (dstResourceUsage->attachmentType == ATTACHMENT_TYPE::COLOR);
@@ -1546,7 +1547,7 @@ namespace PHX
 				newDstBarrier.srcStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.srcAccessMask, true);
 				newDstBarrier.dstStageMask = isColorAttachment ? VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 
-				dstRenderPass.m_outputBarriers.insert({ resourceID, newDstBarrier });
+				pDstRenderPass->m_outputBarriers.insert({ resourceID, newDstBarrier });
 			});
 
 			// Non-graphics passes (transfer/compute) write their output textures directly (e.g. via a
@@ -1555,7 +1556,7 @@ namespace PHX
 			// VkRenderPass' initialLayout/finalLayout, so they're skipped here.
 			if (dstBindPoint != BIND_POINT::GRAPHICS)
 			{
-				TraverseRenderPassOutputs(dstRenderPass.m_index, [&](const RenderResource& resource)
+				TraverseRenderPassOutputs(pDstRenderPass->m_index, [&](const RenderResource& resource)
 				{
 					if (resource.type != RESOURCE_TYPE::TEXTURE)
 					{
@@ -1565,7 +1566,7 @@ namespace PHX
 					ASSERT_PTR(pTexture);
 
 					const u64& resourceID = resource.resourceID;
-					const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
+					const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(*pDstRenderPass, resourceID);
 					ASSERT_PTR(dstResourceUsage); // Should never be null
 
 					const VkImageLayout srcLayout = pTexture->GetLayout();
@@ -1580,7 +1581,7 @@ namespace PHX
 						newDstBarrier.oldLayout = srcLayout;
 						newDstBarrier.newLayout = dstLayout;
 
-						dstRenderPass.m_inputBarriers.insert({ resourceID, newDstBarrier });
+						pDstRenderPass->m_inputBarriers.insert({ resourceID, newDstBarrier });
 					}
 				});
 			}
@@ -1589,12 +1590,12 @@ namespace PHX
 			// layout they were left in (previous frame / external upload) to this pass' usage layout.
 			// Inputs supplied by a dependency are handled by the dependency barrier loop below.
 			ResourceIndexBitset coveredResources;
-			for (const DependencyInfo& dependencyInfo : dstRenderPass.m_dependencyInfos)
+			for (const DependencyInfo& dependencyInfo : pDstRenderPass->m_dependencyInfos)
 			{
 				coveredResources |= dependencyInfo.resources;
 			}
 
-			const ResourceIndexBitset rootInputResources = (dstRenderPass.m_inputResources & ~coveredResources);
+			const ResourceIndexBitset rootInputResources = (pDstRenderPass->m_inputResources & ~coveredResources);
 			TraverseResources(rootInputResources, [&](const RenderResource& resource)
 			{
 				if (resource.type != RESOURCE_TYPE::TEXTURE)
@@ -1605,7 +1606,7 @@ namespace PHX
 				ASSERT_PTR(pTexture);
 
 				const u64& resourceID = resource.resourceID;
-				const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
+				const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(*pDstRenderPass, resourceID);
 				ASSERT_PTR(dstResourceUsage); // Should never be null
 
 				// Only insert barriers if the layout is not compatible with the render passes' usage
@@ -1621,25 +1622,25 @@ namespace PHX
 					newDstBarrier.oldLayout = srcLayout;
 					newDstBarrier.newLayout = dstLayout;
 
-					dstRenderPass.m_inputBarriers.insert({ resourceID, newDstBarrier });
+					pDstRenderPass->m_inputBarriers.insert({ resourceID, newDstBarrier });
 				}
 			});
 
-			for (const DependencyInfo& dependencyInfo : dstRenderPass.m_dependencyInfos)
+			for (const DependencyInfo& dependencyInfo : pDstRenderPass->m_dependencyInfos)
 			{
-				RenderPassVk* srcRenderPass = dependencyInfo.renderPass;
+				RenderPassVk* pSrcRenderPass = dependencyInfo.renderPass;
 				TraverseResources(dependencyInfo.resources, [&](const RenderResource& resourceDependency)
 				{
 					// Setup the barrier. In this case the source corresponds to the active source render pass we're
 					// currently in. The destination corresponds to the dependency we're currently looping through
 					const u64& resourceID = resourceDependency.resourceID;
-					const ResourceUsage* srcResourceUsage = GetResourceUsageFromPass(*srcRenderPass, resourceID);
+					const ResourceUsage* srcResourceUsage = GetResourceUsageFromPass(*pSrcRenderPass, resourceID);
 					ASSERT_PTR(srcResourceUsage); // Should never be null
-					const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(dstRenderPass, resourceID);
+					const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(*pDstRenderPass, resourceID);
 					ASSERT_PTR(dstResourceUsage); // Should never be null
 
-					const BIND_POINT srcBindPoint = srcRenderPass->m_bindPoint;
-					const BIND_POINT dstBindPoint = dstRenderPass.m_bindPoint;
+					const BIND_POINT srcBindPoint = pSrcRenderPass->m_bindPoint;
+					const BIND_POINT dstBindPoint = pDstRenderPass->m_bindPoint;
 
 					Barrier newDstBarrier;
 					newDstBarrier.srcAccessMask = CalculateResourceAccessFlags(*srcResourceUsage, resourceDependency, srcBindPoint);
@@ -1654,8 +1655,8 @@ namespace PHX
 					}
 
 					// Add the barrier information to both src and dst pass
-					dstRenderPass.m_inputBarriers.insert({ resourceID, newDstBarrier });
-					srcRenderPass->m_outputBarriers.insert({ resourceID, newDstBarrier });
+					pDstRenderPass->m_inputBarriers.insert({ resourceID, newDstBarrier });
+					pSrcRenderPass->m_outputBarriers.insert({ resourceID, newDstBarrier });
 				});
 			}
 		}
@@ -1764,15 +1765,15 @@ namespace PHX
 			return;
 		}
 
-		const RenderPassVk& currRenderPass = m_registeredRenderPasses[renderPassIndex];
+		const RenderPassVk* pCurrRenderPass = m_registeredRenderPasses[renderPassIndex];
 		if (callback != nullptr)
 		{
-			callback(currRenderPass);
+			callback(*pCurrRenderPass);
 		}
 
-		for (u32 i = 0; i < static_cast<u32>(currRenderPass.m_dependencyInfos.size()); i++)
+		for (u32 i = 0; i < static_cast<u32>(pCurrRenderPass->m_dependencyInfos.size()); i++)
 		{
-			const DependencyInfo& dependencyInfo = currRenderPass.m_dependencyInfos[i];
+			const DependencyInfo& dependencyInfo = pCurrRenderPass->m_dependencyInfos[i];
 			ASSERT_PTR(dependencyInfo.renderPass);
 			TraverseDependencyTree(dependencyInfo.renderPass->m_index, callback);
 		}
@@ -1797,8 +1798,8 @@ namespace PHX
 			return;
 		}
 
-		const RenderPassVk& rp = m_registeredRenderPasses[renderPassIndex];
-		TraverseResources(rp.m_inputResources, callback);
+		const RenderPassVk* pRenderPass = m_registeredRenderPasses[renderPassIndex];
+		TraverseResources(pRenderPass->m_inputResources, callback);
 	}
 
 	void RenderGraphVk::TraverseRenderPassOutputs(u32 renderPassIndex, TraverseResourceCallbackFn callback) const
@@ -1808,8 +1809,8 @@ namespace PHX
 			return;
 		}
 
-		const RenderPassVk& rp = m_registeredRenderPasses[renderPassIndex];
-		TraverseResources(rp.m_outputResources, callback);
+		const RenderPassVk* pRenderPass = m_registeredRenderPasses[renderPassIndex];
+		TraverseResources(pRenderPass->m_outputResources, callback);
 	}
 
 	const ResourceUsage* RenderGraphVk::GetResourceUsageFromPass(const RenderPassVk& renderPass, u64 resourceID) const
@@ -1844,8 +1845,8 @@ namespace PHX
 
 	void RenderGraphVk::UpdateTextureLayouts(u32 renderPassIndex)
 	{
-		RenderPassVk& renderPass = m_registeredRenderPasses[renderPassIndex];
-		for (const auto& iter : renderPass.m_outputBarriers)
+		RenderPassVk* pRenderPass = m_registeredRenderPasses[renderPassIndex];
+		for (const auto& iter : pRenderPass->m_outputBarriers)
 		{
 			u64 resourceID = iter.first;
 			const Barrier& barrierInfo = iter.second;
@@ -1922,25 +1923,25 @@ namespace PHX
 		HashCombine(seed, m_registeredRenderPasses.size());
 		for (u32 i = 0; i < static_cast<u32>(m_registeredRenderPasses.size()); i++)
 		{
-			const RenderPassVk& currRenderPass = m_registeredRenderPasses[i];
-			HashCombine(seed, currRenderPass.m_inputResources);
-			HashCombine(seed, currRenderPass.m_outputResources);
+			const RenderPassVk* pCurrRenderPass = m_registeredRenderPasses[i];
+			HashCombine(seed, pCurrRenderPass->m_inputResources);
+			HashCombine(seed, pCurrRenderPass->m_outputResources);
 			// Ignore callbacks
-			HashCombine(seed, currRenderPass.m_index);
+			HashCombine(seed, pCurrRenderPass->m_index);
 
-			HashCombine(seed, currRenderPass.m_bindPoint);
-			switch (currRenderPass.m_bindPoint)
+			HashCombine(seed, pCurrRenderPass->m_bindPoint);
+			switch (pCurrRenderPass->m_bindPoint)
 			{
 			case BIND_POINT::GRAPHICS:
 			{
 				GraphicsPipelineDescHasher hasher;
-				HashCombine(seed, hasher(currRenderPass.graphicsDesc));
+				HashCombine(seed, hasher(pCurrRenderPass->graphicsDesc));
 				break;
 			}
 			case BIND_POINT::COMPUTE:
 			{
 				ComputePipelineDescHasher hasher;
-				HashCombine(seed, hasher(currRenderPass.computeDesc));
+				HashCombine(seed, hasher(pCurrRenderPass->computeDesc));
 				break;
 			}
 			case BIND_POINT::TRANSFER:
@@ -1970,8 +1971,8 @@ namespace PHX
 				}
 			};
 
-			HashBarrierFn(currRenderPass.m_inputBarriers, seed);
-			HashBarrierFn(currRenderPass.m_outputBarriers, seed);
+			HashBarrierFn(pCurrRenderPass->m_inputBarriers, seed);
+			HashBarrierFn(pCurrRenderPass->m_outputBarriers, seed);
 		}
 
 		// Resource usages

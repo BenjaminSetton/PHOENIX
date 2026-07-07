@@ -9,36 +9,7 @@
 
 namespace PHX
 {
-	WindowHandle::WindowHandle() : Handle(HANDLE_TYPE::WINDOW)
-	{
-	}
-
-	WindowHandle::WindowHandle(const Handle& other) : Handle(other)
-	{
-	}
-
-	WindowHandle::~WindowHandle()
-	{
-	}
-
-	WindowHandle::WindowHandle(const WindowHandle& other) : Handle(other)
-	{
-	}
-
-	WindowHandle& WindowHandle::operator=(const WindowHandle& other)
-	{
-		if (this == &other)
-		{
-			return *this;
-		}
-
-		Handle::operator=(other);
-		return *this;
-	}
-
-	WindowHandle::WindowHandle(WindowHandle&& other) noexcept : Handle(std::move(other))
-	{
-	}
+	DEFINE_PHX_HANDLE(WindowHandle, HANDLE_TYPE::WINDOW)
 
 	u32 WindowHandle::GetCurrentWidth() const
 	{

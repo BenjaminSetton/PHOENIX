@@ -42,12 +42,12 @@ namespace PHX
 		{
 		case HANDLE_TYPE::RENDER_DEVICE: 
 		{
-			HANDLE_UTILS::IncrementRefCount<RenderDeviceHandle, IRenderDevice>(handle);
+			HANDLE_UTILS::IncrementRefCount<IRenderDevice>(handle, m_renderDevices);
 			break;
 		}
 		case HANDLE_TYPE::WINDOW:
 		{
-			HANDLE_UTILS::IncrementRefCount<WindowHandle, IWindow>(handle);
+			HANDLE_UTILS::IncrementRefCount<IWindow>(handle, m_windows);
 			break;
 		}
 		default:

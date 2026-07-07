@@ -56,11 +56,7 @@ namespace Common
 		settings.backendAPI                    = GRAPHICS_API::VULKAN;
 		settings.logCallback                   = nullptr;
 
-#if defined(DEBUG)
-		settings.enableValidation              = true;
-#else
-		settings.enableValidation              = false;
-#endif
+		settings.enableValidation              = true; // TODO - Add DEBUG project define for samples and guard this setting based on that
 		settings.swapChainOutdatedCallback     = OnSwapChainOutdatedCallback;
 		settings.windowFocusChangedCallback    = OnWindowFocusChangedCallback;
 		settings.windowMaximizedCallback       = OnWindowMaximizedCallback;

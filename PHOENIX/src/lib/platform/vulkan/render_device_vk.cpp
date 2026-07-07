@@ -156,11 +156,14 @@ namespace PHX
 		}
 		m_commandPools.clear();
 
-		// Clear resources
-		m_textures.clear();
-		m_buffers.clear();
-		m_uniformCollections.clear();
-		m_deviceContexts.clear();
+		// Delete resources
+		DeleteResources(m_textures);
+		DeleteResources(m_buffers);
+		DeleteResources(m_uniformCollections);
+		DeleteResources(m_deviceContexts);
+		DeleteResources(m_shaders);
+		DeleteResources(m_swapChains);
+		DeleteResources(m_renderGraphs);
 		
 		// Destroy descriptor pool
 		vkDestroyDescriptorPool(m_logicalDevice, m_descriptorPool, nullptr);

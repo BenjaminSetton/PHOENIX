@@ -7,8 +7,6 @@
 
 #include "../utils/shader_utils.h"
 
-
-
 using namespace PHX;
 
 namespace Common

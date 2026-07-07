@@ -9,36 +9,7 @@ namespace PHX
 {
 	static const ShaderReflectionData s_defaultReflectionData;
 
-	ShaderHandle::ShaderHandle() : Handle(HANDLE_TYPE::SHADER)
-	{
-	}
-
-	ShaderHandle::ShaderHandle(const Handle& base) : Handle(base)
-	{
-	}
-
-	ShaderHandle::~ShaderHandle()
-	{
-	}
-
-	ShaderHandle::ShaderHandle(const ShaderHandle& other) : Handle(other)
-	{
-	}
-
-	ShaderHandle& ShaderHandle::operator=(const ShaderHandle& other)
-	{
-		if (this == &other)
-		{
-			return *this;
-		}
-
-		Handle::operator=(other);
-		return *this;
-	}
-
-	ShaderHandle::ShaderHandle(ShaderHandle&& other) noexcept : Handle(std::move(other))
-	{
-	}
+	DEFINE_PHX_HANDLE(ShaderHandle, HANDLE_TYPE::SHADER)
 
 	SHADER_STAGE ShaderHandle::GetStage() const
 	{

@@ -15,10 +15,11 @@
 
 #include "window_win64.h"
 
-#include "../../utils/logger.h"
-#include "../../utils/sanity.h"
+#include "core/global_settings.h"
 #include "PHX/types/key_codes.h"
 #include "PHX/types/mouse_codes.h"
+#include "utils/logger.h"
+#include "utils/sanity.h"
 
 namespace PHX
 {

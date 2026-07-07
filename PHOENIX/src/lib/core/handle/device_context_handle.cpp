@@ -8,36 +8,7 @@
 
 namespace PHX
 {
-	DeviceContextHandle::DeviceContextHandle() : Handle(HANDLE_TYPE::DEVICE_CONTEXT)
-	{
-	}
-
-	DeviceContextHandle::DeviceContextHandle(const Handle& other) : Handle(other)
-	{
-	}
-
-	DeviceContextHandle::~DeviceContextHandle()
-	{
-	}
-
-	DeviceContextHandle::DeviceContextHandle(const DeviceContextHandle& other) : Handle(other)
-	{
-	}
-
-	DeviceContextHandle& DeviceContextHandle::operator=(const DeviceContextHandle& other)
-	{
-		if (this == &other)
-		{
-			return *this;
-		}
-
-		Handle::operator=(other);
-		return *this;
-	}
-
-	DeviceContextHandle::DeviceContextHandle(DeviceContextHandle&& other) noexcept : Handle(std::move(other))
-	{
-	}
+	DEFINE_PHX_HANDLE(DeviceContextHandle, HANDLE_TYPE::DEVICE_CONTEXT)
 
 	STATUS_CODE DeviceContextHandle::BindVertexBuffer(BufferHandle vertexBuffer)
 	{

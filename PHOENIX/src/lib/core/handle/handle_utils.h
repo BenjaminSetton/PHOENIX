@@ -73,18 +73,6 @@ namespace PHX
 		// INCREMENT REF COUNT
 		///////////////////////////////////
 
-		template<typename HandleT, typename InterfaceT>
-		inline void IncrementRefCount(const Handle& handle)
-		{
-			InterfaceT* pObj = ResolveHandle(static_cast<const HandleT&>(handle));
-			if (pObj != nullptr)
-			{
-				pObj->IncrementRefCount();
-			}
-		}
-
-		// List-based overload that avoids the extra virtual ResolveHandle round-trip
-		// by indexing the owner's list directly (symmetric with DecrementRefCount).
 		template<typename InterfaceT>
 		inline void IncrementRefCount(const Handle& handle, const std::vector<InterfaceT*>& list)
 		{

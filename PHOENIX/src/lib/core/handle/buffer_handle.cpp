@@ -7,36 +7,7 @@
 
 namespace PHX
 {
-	BufferHandle::BufferHandle() : Handle(HANDLE_TYPE::BUFFER)
-	{
-	}
-
-	BufferHandle::BufferHandle(const Handle& base) : Handle(base)
-	{
-	}
-
-	BufferHandle::~BufferHandle()
-	{
-	}
-
-	BufferHandle::BufferHandle(const BufferHandle& other) : Handle(other)
-	{
-	}
-
-	BufferHandle& BufferHandle::operator=(const BufferHandle& other)
-	{
-		if (this == &other)
-		{
-			return *this;
-		}
-
-		Handle::operator=(other);
-		return *this;
-	}
-
-	BufferHandle::BufferHandle(BufferHandle&& other) noexcept : Handle(std::move(other))
-	{
-	}
+	DEFINE_PHX_HANDLE(BufferHandle, HANDLE_TYPE::BUFFER)
 
 	const char* BufferHandle::GetName() const
 	{

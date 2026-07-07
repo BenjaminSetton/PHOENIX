@@ -46,9 +46,7 @@ namespace PHX
 		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& handle) override;
 		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& handle) override;
 
-		// Handles. Defined in the .cpp: these are always invoked through the
-		// HandleOwner vtable, so they cannot be inlined at the call site, and
-		// their bodies require the complete concrete resource types.
+		// Handles
 		void* ResolveHandle(const Handle& handle) override;
 		void IncrementHandleRefCount(const Handle& handle) override;
 		void DecrementHandleRefCount(const Handle& handle) override;
@@ -102,6 +100,16 @@ namespace PHX
 		STATUS_CODE AllocateCommandPool_Helper(QUEUE_TYPE type, VkCommandPoolCreateFlags flags);
 
 		STATUS_CODE AllocateSyncObjects(u32 framesInFlight);
+
+		template<typename ResourceT>
+		void DeleteResources(std::vector<ResourceT*>& resources)
+		{
+			for (auto* resource : resources)
+			{
+				SAFE_DEL(resource);
+			}
+			resources.clear();
+		}
 
 	private:
 

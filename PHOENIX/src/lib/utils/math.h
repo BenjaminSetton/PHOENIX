@@ -13,5 +13,5 @@ namespace PHX
 	static T Max(const T left, const T right) noexcept { return (left > right ? left : right); }
 
 	template<typename T, ENABLE_IF_INTEGRAL_TYPE(T)>
-	static T Clamp(T val, T min, T max) noexcept { return Max(Min(val, min), max); }
+	static T Clamp(T val, T min, T max) noexcept { return Min(Max(val, min), max); }
 }

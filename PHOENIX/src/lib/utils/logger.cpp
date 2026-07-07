@@ -3,10 +3,10 @@
 #include <cstdarg>
 #include <time.h>
 
-#include "logger.h"
-#include "sanity.h"
-
+#include "core/global_settings.h"
 #include "PHX/types/integral_types.h"
+#include "utils/logger.h"
+#include "utils/sanity.h"
 
 #define LOG_FORMAT_CODE(logType) \
 	va_list va; \

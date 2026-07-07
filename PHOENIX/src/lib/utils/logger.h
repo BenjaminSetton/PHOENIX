@@ -1,7 +1,5 @@
 #pragma once
 
-#include "core/global_settings.h" // LOG_TYPE, GlobalSettings
-
 namespace PHX
 {
 	void LogError(const char* format, ...);

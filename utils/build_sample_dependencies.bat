@@ -29,6 +29,22 @@ echo [%LOG_CHANNEL%] Finished building assimp release!
 echo [%LOG_CHANNEL%] Finished building assimp!
 ::-----------------------------------------------------------
 
+:: Build assimp (Sanitizer/ASAN)
+::-----------------------------------------------------------
+echo [%LOG_CHANNEL%] Building assimp dependency (Sanitizer)...
+
+set ASSIMP_OUT_SANITIZER="%SAMPLES_OUTPUT_DIR%assimp_sanitizer"
+
+:: Build assimp project with ASAN flags in Debug config
+cmake -S %ASSIMP_SRC% -B %ASSIMP_OUT_SANITIZER% -D BUILD_SHARED_LIBS=OFF -D ASSIMP_BUILD_TESTS=OFF -D ASSIMP_BUILD_ZLIB=ON -D CMAKE_C_FLAGS_DEBUG="/fsanitize=address /Zi" -D CMAKE_CXX_FLAGS_DEBUG="/fsanitize=address /Zi"
+
+echo [%LOG_CHANNEL%] Started building assimp sanitizer...
+cmake --build %ASSIMP_OUT_SANITIZER% --config Debug
+echo [%LOG_CHANNEL%] Finished building assimp sanitizer!
+
+echo [%LOG_CHANNEL%] Finished building assimp dependency (Sanitizer)!
+::-----------------------------------------------------------
+
 :: Build glm
 ::-----------------------------------------------------------
 echo [%LOG_CHANNEL%] Building glm dependency...

@@ -47,6 +47,8 @@ namespace PHX
 		HANDLE_TYPE m_type;
 	};
 
+	static const Handle INVALID_HANDLE;
+
 #define DECLARE_PHX_HANDLE(HandleType)				\
 	HandleType();									\
 	HandleType(const Handle& other);				\
@@ -55,6 +57,15 @@ namespace PHX
 	HandleType& operator=(const HandleType& other);	\
 	HandleType(HandleType&& other) noexcept;
 
-	// Move to cpp? Prefer functions (e.g. IsValid()) instead of direct reference
-	static const Handle INVALID_HANDLE;
+#define DEFINE_PHX_HANDLE(HandleType, HandleEnum)										\
+	HandleType::HandleType() : Handle(HandleEnum) { }									\
+	HandleType::HandleType(const Handle& other) : Handle(other) { }						\
+	HandleType::~HandleType() { }														\
+	HandleType::HandleType(const HandleType& other) : Handle(other) { }					\
+	HandleType& HandleType::operator=(const HandleType& other) {						\
+		if (this == &other) return *this;												\
+		Handle::operator=(other);														\
+		return *this;																	\
+	}																					\
+	HandleType::HandleType(HandleType&& other) noexcept : Handle(std::move(other)) { }
 }

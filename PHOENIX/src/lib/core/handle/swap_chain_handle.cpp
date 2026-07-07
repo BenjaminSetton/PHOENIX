@@ -6,36 +6,7 @@
 
 namespace PHX
 {
-	SwapChainHandle::SwapChainHandle() : Handle(HANDLE_TYPE::SWAP_CHAIN)
-	{
-	}
-
-	SwapChainHandle::SwapChainHandle(const Handle& base) : Handle(base)
-	{
-	}
-
-	SwapChainHandle::~SwapChainHandle()
-	{
-	}
-
-	SwapChainHandle::SwapChainHandle(const SwapChainHandle& other) : Handle(other)
-	{
-	}
-
-	SwapChainHandle& SwapChainHandle::operator=(const SwapChainHandle& other)
-	{
-		if (this == &other)
-		{
-			return *this;
-		}
-
-		Handle::operator=(other);
-		return *this;
-	}
-
-	SwapChainHandle::SwapChainHandle(SwapChainHandle&& other) noexcept : Handle(std::move(other))
-	{
-	}
+	DEFINE_PHX_HANDLE(SwapChainHandle, HANDLE_TYPE::SWAP_CHAIN)
 
 	TextureHandle SwapChainHandle::GetCurrentImage() const
 	{

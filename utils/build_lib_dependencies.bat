@@ -61,5 +61,21 @@ echo [%LOG_CHANNEL%] Finished building glslang release!
 echo [%LOG_CHANNEL%] Finished building glslang dependency!
 ::-----------------------------------------------------------
 
+:: Build glslang (Sanitizer/ASAN)
+::-----------------------------------------------------------
+echo [%LOG_CHANNEL%] Building glslang dependency (Sanitizer)...
+
+set GLSLANG_OUT_SANITIZER="%LIB_OUTPUT_DIR%glslang_sanitizer"
+
+:: Build glslang project with ASAN flags in Debug config
+cmake -S %GLSLANG_SRC% -B %GLSLANG_OUT_SANITIZER% -D GLSLANG_TESTS=OFF -D CMAKE_C_FLAGS_DEBUG="/fsanitize=address /Zi" -D CMAKE_CXX_FLAGS_DEBUG="/fsanitize=address /Zi"
+
+echo [%LOG_CHANNEL%] Started building glslang sanitizer...
+cmake --build %GLSLANG_OUT_SANITIZER% --config Debug
+echo [%LOG_CHANNEL%] Finished building glslang sanitizer!
+
+echo [%LOG_CHANNEL%] Finished building glslang dependency (Sanitizer)!
+::-----------------------------------------------------------
+
 echo [%LOG_CHANNEL%] Finished building dependencies!
 pause

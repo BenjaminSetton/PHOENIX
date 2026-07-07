@@ -6,7 +6,8 @@ workspace "PHOENIX"
 	configurations
 	{
 		"Debug",
-		"Release"
+		"Release",
+		"Sanitizer"
 	}
 	
 outputDir = "%{cfg.system}/%{cfg.buildcfg}/%{cfg.architecture}"

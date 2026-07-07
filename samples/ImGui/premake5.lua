@@ -65,3 +65,18 @@ project "ImGui"
 				"%{SamplesCommon_Libraries.assimp_release}",
 				"%{SamplesCommon_Libraries.glm_release}"
 			}
+
+	filter "configurations:Sanitizer"
+		symbols "On"
+		editandcontinue "Off"
+
+		links
+		{
+			"%{SamplesCommon_Libraries.PHOENIX_win64_sanitizer}",
+			"%{SamplesCommon_Libraries.assimp_zlib_sanitizer}",
+			"%{SamplesCommon_Libraries.assimp_sanitizer}",
+			"%{SamplesCommon_Libraries.glm_debug}"
+		}
+
+	filter { "system:windows", "configurations:Sanitizer" }
+		buildoptions { "/fsanitize=address" }

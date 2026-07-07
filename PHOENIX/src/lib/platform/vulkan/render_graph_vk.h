@@ -189,7 +189,7 @@ namespace PHX
 
 	private:
 
-		std::vector<RenderPassVk> m_registeredRenderPasses;
+		std::vector<RenderPassVk*> m_registeredRenderPasses;
 		std::vector<ResourceUsage> m_resourceUsages;
 		std::vector<RenderResource> m_physicalResources;
 		RenderDeviceVk* m_pRenderDevice;

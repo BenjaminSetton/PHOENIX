@@ -53,7 +53,13 @@ project "PHOENIX"
 				"%{PHX_Libraries.glslang_os_dependent_win_release}"
 			}
 	
-	-- Platform-independent configurations
+		filter "configurations:Sanitizer"
+			links
+			{
+				"%{PHX_Libraries.glslang_os_dependent_win_sanitizer}"
+		}
+
+-- Platform-independent configurations
 	filter "configurations:Debug"
 		defines "PHX_DEBUG"
 		symbols "On"
@@ -82,5 +88,23 @@ project "PHOENIX"
 			"%{PHX_Libraries.SPV_tools_opt_release}",
 			"%{PHX_Libraries.glslang_code_gen_release}",
 			"%{PHX_Libraries.glslang_machine_independent_release}"
+	}
+
+	filter "configurations:Sanitizer"
+		defines { "PHX_DEBUG", "PHX_SANITIZE" }
+		symbols "On"
+		editandcontinue "Off"
+
+		links
+		{
+			"%{PHX_Libraries.glfw_debug}",
+			"%{PHX_Libraries.glslang_sanitizer}",
+			"%{PHX_Libraries.SPV_sanitizer}",
+			"%{PHX_Libraries.SPV_tools_sanitizer}",
+			"%{PHX_Libraries.SPV_tools_opt_sanitizer}",
+			"%{PHX_Libraries.glslang_code_gen_sanitizer}",
+			"%{PHX_Libraries.glslang_machine_independent_sanitizer}"
 		}
-		
+
+	filter { "system:windows", "configurations:Sanitizer" }
+		buildoptions { "/fsanitize=address" }

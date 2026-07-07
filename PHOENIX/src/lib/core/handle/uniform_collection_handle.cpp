@@ -6,36 +6,7 @@
 
 namespace PHX
 {
-	UniformCollectionHandle::UniformCollectionHandle() : Handle(HANDLE_TYPE::UNIFORM)
-	{
-	}
-
-	UniformCollectionHandle::UniformCollectionHandle(const Handle& other) : Handle(other)
-	{
-	}
-
-	UniformCollectionHandle::~UniformCollectionHandle()
-	{
-	}
-
-	UniformCollectionHandle::UniformCollectionHandle(const UniformCollectionHandle& other) : Handle(other)
-	{
-	}
-
-	UniformCollectionHandle& UniformCollectionHandle::operator=(const UniformCollectionHandle& other)
-	{
-		if (this == &other)
-		{
-			return *this;
-		}
-
-		Handle::operator=(other);
-		return *this;
-	}
-
-	UniformCollectionHandle::UniformCollectionHandle(UniformCollectionHandle&& other) noexcept : Handle(std::move(other))
-	{
-	}
+	DEFINE_PHX_HANDLE(UniformCollectionHandle, HANDLE_TYPE::UNIFORM)
 
 	u32 UniformCollectionHandle::GetGroupCount() const
 	{

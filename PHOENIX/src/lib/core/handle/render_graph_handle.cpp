@@ -5,36 +5,7 @@
 
 namespace PHX
 {
-	RenderPassHandle::RenderPassHandle() : Handle(HANDLE_TYPE::RENDER_PASS)
-	{
-	}
-
-	RenderPassHandle::RenderPassHandle(const Handle& base) : Handle(base)
-	{
-	}
-
-	RenderPassHandle::~RenderPassHandle()
-	{
-	}
-
-	RenderPassHandle::RenderPassHandle(const RenderPassHandle& other) : Handle(other)
-	{
-	}
-
-	RenderPassHandle& RenderPassHandle::operator=(const RenderPassHandle& other)
-	{
-		if (this == &other)
-		{
-			return *this;
-		}
-
-		Handle::operator=(other);
-		return *this;
-	}
-
-	RenderPassHandle::RenderPassHandle(RenderPassHandle&& other) noexcept : Handle(std::move(other))
-	{
-	}
+	DEFINE_PHX_HANDLE(RenderPassHandle, HANDLE_TYPE::RENDER_PASS)
 
 	void RenderPassHandle::SetTextureInput(TextureHandle texture)
 	{
