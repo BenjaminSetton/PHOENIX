@@ -15,10 +15,10 @@ namespace PHX
 
 	struct FramebufferAttachmentDesc
 	{
-		TextureVk* pTexture = nullptr;
-		u32 mipTarget = 0;
-		ATTACHMENT_TYPE type = ATTACHMENT_TYPE::INVALID;
-		ATTACHMENT_LOAD_OP loadOp = ATTACHMENT_LOAD_OP::INVALID;
+		TextureVk* pTexture			= nullptr;
+		u32 mipTarget				= 0;
+		ATTACHMENT_TYPE type		= ATTACHMENT_TYPE::INVALID;
+		ATTACHMENT_LOAD_OP loadOp	= ATTACHMENT_LOAD_OP::INVALID;
 		ATTACHMENT_STORE_OP storeOp = ATTACHMENT_STORE_OP::INVALID;
 	};
 
@@ -31,16 +31,16 @@ namespace PHX
 		FramebufferDescription& operator=(const FramebufferDescription& desc);
 		bool operator==(const FramebufferDescription& other) const;
 
-		u32 width = 0;
-		u32 height = 0;
-		u32 layers = 0;
+		u32 width								= 0;
+		u32 height								= 0;
+		u32 layers								= 0;
 		FramebufferAttachmentDesc* pAttachments = nullptr;
-		u32 attachmentCount = 0;
-		VkRenderPass renderPass;
-		bool isBackbuffer = false;
+		u32 attachmentCount						= 0;
+		VkRenderPass renderPass					= VK_NULL_HANDLE;
+		bool isBackbuffer						= false;
 
 		// INTERNAL
-		bool shouldDeleteAttachments = false;
+		bool shouldDeleteAttachments			= false;
 	};
 
 	class FramebufferVk

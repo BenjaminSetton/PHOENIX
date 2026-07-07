@@ -210,7 +210,7 @@ namespace PHX
 		{
 			delete iter.second;
 		}
-		m_graphicsPipelineCache.clear();
+		m_computePipelineCache.clear();
 
 		vkDestroyPipelineCache(m_renderDevice->GetLogicalDevice(), m_vkCache, nullptr);
 	}

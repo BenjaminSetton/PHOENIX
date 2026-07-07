@@ -45,7 +45,10 @@ namespace PHX
 
 	ShaderVk::~ShaderVk()
 	{
-		vkDestroyShaderModule(m_pRenderDevice->GetLogicalDevice(), m_shader, nullptr);
+		if (m_pRenderDevice != nullptr)
+		{
+			vkDestroyShaderModule(m_pRenderDevice->GetLogicalDevice(), m_shader, nullptr);
+		}
 	}
 
 	SHADER_STAGE ShaderVk::GetStage() const

@@ -375,7 +375,7 @@ namespace PHX
 			}
 			case BIND_POINT::COMPUTE:
 			{
-				return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				return VK_IMAGE_LAYOUT_GENERAL;
 			}
 			case BIND_POINT::TRANSFER:
 			{
@@ -871,7 +871,7 @@ namespace PHX
 #if defined(PHX_DEBUG)
 			const char* passName = pRenderPass->m_debugName;
 #else
-			const std::string passNameStr = std::to_string(pass.m_index);
+			const std::string passNameStr = std::to_string(pRenderPass->m_index);
 			const char* passName = passNameStr.c_str();
 #endif
 			const char* bindPointStr = RG_UTILS::BindPointToString(pRenderPass->m_bindPoint);
@@ -1341,11 +1341,17 @@ namespace PHX
 
 	u8 RenderGraphVk::RegisterResource(Handle resource, RESOURCE_TYPE type, const ResourceUsage& usage)
 	{
+		if (static_cast<u8>(m_physicalResources.size()) > U8_MAX)
+		{
+			LogError("Failed to register resource. Physical resource limit (%u) reached!", U8_MAX);
+			return 0;
+		}
+
 		const u64 resourceID = HashResource(resource, type);
 		u8 physicalResourceIndex = U8_MAX;
 
 		// Try to find an existing physical resource
-		for (u8 i = 0; i < static_cast<u32>(m_physicalResources.size()); i++)
+		for (u8 i = 0; i < static_cast<u8>(m_physicalResources.size()); i++)
 		{
 			const RenderResource& physicalResource = m_physicalResources[i];
 			if (physicalResource.resourceID == resourceID)
@@ -1415,14 +1421,14 @@ namespace PHX
 
 	void RenderGraphVk::BuildDependencyTree(u32 renderPassIndex)
 	{
-		RenderPassVk* pCurrRenderPass = m_registeredRenderPasses[renderPassIndex];
-
 		// Base cases
-		if (pCurrRenderPass->m_inputResources.none())
+		if (renderPassIndex >= m_registeredRenderPasses.size())
 		{
 			return;
 		}
-		if (renderPassIndex >= m_registeredRenderPasses.size())
+
+		RenderPassVk* pCurrRenderPass = m_registeredRenderPasses[renderPassIndex];
+		if (pCurrRenderPass->m_inputResources.none())
 		{
 			return;
 		}

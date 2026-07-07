@@ -25,7 +25,7 @@ namespace Common
 		Shutdown();
 	}
 
-	bool ImGuiPhxRenderer::Init(RenderDeviceHandle renderDevice, SwapChainHandle swapChain, RenderGraphHandle renderGraph)
+	bool ImGuiPhxRenderer::Init(RenderDeviceHandle renderDevice, SwapChainHandle swapChain)
 	{
 		CreateFontAtlas(renderDevice);
 		CreateShaders(renderDevice);

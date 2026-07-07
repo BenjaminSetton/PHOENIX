@@ -1,5 +1,6 @@
 
 #include "utils/file_io.h"
+#include "utils/sanity.h"
 
 namespace PHX
 {
@@ -26,6 +27,8 @@ namespace PHX
 
 	u32 FileIO::Read(char* data, u32 length)
 	{
+		// Make sure file is open for read. Was having trouble with this flag before
+		TODO();
 		m_stream.read(data, static_cast<std::streamsize>(length));
 		return static_cast<u32>(m_stream.gcount());
 	}

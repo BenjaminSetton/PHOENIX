@@ -148,8 +148,25 @@ namespace PHX
 		BufferVk* bufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(buffer));
 		if ((bufferVk == nullptr) || (bufferVk->GetBuffer() == nullptr))
 		{
-			LogError("Failed to queue buffer update! Buffer is null");
+			LogError("Failed to queue buffer update. Buffer is null!");
 			return STATUS_CODE::ERR_API;
+		}
+
+		const BUFFER_USAGE usage = bufferVk->GetUsage();
+		switch (usage)
+		{
+		case BUFFER_USAGE::VERTEX_BUFFER:
+		case BUFFER_USAGE::INDEX_BUFFER:
+		case BUFFER_USAGE::INDIRECT_BUFFER:
+		{
+			LogError("Failed to queue buffer update. Buffer usage is invalid! Expected storage or uniform buffer, but found %u", static_cast<u32>(usage));
+			return STATUS_CODE::ERR_API;
+		}
+		default:
+		{
+			// Usage ok
+			break;
+		}
 		}
 
 		if (set >= m_descriptorSets.size())
@@ -196,14 +213,10 @@ namespace PHX
 		bufferInfo.range = range;
 
 		// TODO - Verify that all conversions are correct
-		const BUFFER_USAGE usage = buffer.GetUsage();
 		VkDescriptorType descType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
 		switch (usage)
 		{
 		case BUFFER_USAGE::UNIFORM_BUFFER:
-		case BUFFER_USAGE::INDEX_BUFFER:
-		case BUFFER_USAGE::VERTEX_BUFFER:
-		case BUFFER_USAGE::INDIRECT_BUFFER:
 		{
 			descType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 			break;

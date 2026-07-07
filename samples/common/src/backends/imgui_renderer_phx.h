@@ -13,7 +13,7 @@ namespace Common
 		ImGuiPhxRenderer();
 		~ImGuiPhxRenderer();
 
-		bool Init(PHX::RenderDeviceHandle renderDevice, PHX::SwapChainHandle swapChain, PHX::RenderGraphHandle renderGraph);
+		bool Init(PHX::RenderDeviceHandle renderDevice, PHX::SwapChainHandle swapChain);
 		void Shutdown();
 
 		// Renders data provided by ImDrawData. Returns whether the function succeeded or not

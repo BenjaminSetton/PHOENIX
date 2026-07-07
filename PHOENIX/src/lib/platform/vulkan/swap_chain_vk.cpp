@@ -95,20 +95,19 @@ namespace PHX
 
 	SwapChainVk::SwapChainVk(RenderDeviceVk* pRenderDevice, const SwapChainCreateInfo& createInfo)
 	{
-		RenderDeviceVk* renderDevice = static_cast<RenderDeviceVk*>(pRenderDevice);
 		if (pRenderDevice == nullptr)
 		{
 			LogError("Failed to create swap chain. Render device pointer is null!");
 			return;
 		}
 
-		STATUS_CODE res = CreateSwapChain(renderDevice, createInfo.width, createInfo.height, createInfo.enableVSync);
+		STATUS_CODE res = CreateSwapChain(pRenderDevice, createInfo.width, createInfo.height, createInfo.enableVSync);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
 
-		m_renderDevice = renderDevice;
+		m_renderDevice = pRenderDevice;
 		m_isVSyncEnabled = createInfo.enableVSync;
 	}
 

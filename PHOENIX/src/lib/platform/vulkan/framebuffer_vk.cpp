@@ -125,7 +125,7 @@ namespace PHX
 		VkFramebufferCreateInfo framebufferInfo{};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		framebufferInfo.renderPass = desc.renderPass;
-		framebufferInfo.attachmentCount = desc.attachmentCount;
+		framebufferInfo.attachmentCount = static_cast<u32>(imageViews.size());
 		framebufferInfo.pAttachments = imageViews.data();
 		framebufferInfo.width = desc.width;
 		framebufferInfo.height = desc.height;

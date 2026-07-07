@@ -108,7 +108,7 @@ namespace Common
 	void BaseSample::CreateSwapChain()
 	{
 		SwapChainCreateInfo swapChainCI{};
-		swapChainCI.enableVSync = false;
+		swapChainCI.enableVSync = true;
 		swapChainCI.width = m_window.GetCurrentWidth();
 		swapChainCI.height = m_window.GetCurrentHeight();
 

@@ -26,6 +26,8 @@ namespace PHX
 			HashCombine(seed, currAtt.loadOp);
 			HashCombine(seed, currAtt.storeOp);
 		}
+		HashCombine(seed, desc.renderPass);
+		HashCombine(seed, desc.isBackbuffer);
 
 		return seed;
 	}
