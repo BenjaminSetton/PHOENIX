@@ -63,9 +63,16 @@ namespace PHX
 
 	void RenderPassCache::Delete(const RenderPassDescription& desc)
 	{
+		if (m_pRenderDevice == nullptr)
+		{
+			LogError("Failed to delete render pass from cache. Render device is null!");
+			return;
+		}
+
 		auto it = m_cache.find(desc);
 		if (it != m_cache.end())
 		{
+			vkDestroyRenderPass(m_pRenderDevice->GetLogicalDevice(), it->second, nullptr);
 			m_cache.erase(it);
 		}
 	}

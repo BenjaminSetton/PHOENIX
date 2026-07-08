@@ -3,10 +3,10 @@
 echo Running first time setup...
 
 :: Dependencies
-call build_lib_dependencies.bat
-call build_sample_dependencies.bat
+call "%~dp0build_lib_dependencies.bat"
+call "%~dp0build_sample_dependencies.bat"
 
 :: Project
-call build_solution.bat
+call "%~dp0build_project.bat"
 
 echo Finished first time setup!

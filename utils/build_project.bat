@@ -1,6 +1,6 @@
 @echo off
 
-call config.bat
+call "%~dp0config.bat"
 
 echo Building PHOENIX for %GENERATOR%...
 

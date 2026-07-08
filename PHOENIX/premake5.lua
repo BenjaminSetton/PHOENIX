@@ -32,79 +32,36 @@ project "PHOENIX"
 	
 	links
 	{
-		"%{PHX_Libraries.vulkan}"
+		"%{PHX_Libraries.vulkan}",
+		"%{PHX_Libraries.glfw}",
+		"%{PHX_Libraries.glslang}",
+		"%{PHX_Libraries.SPV}",
+		"%{PHX_Libraries.glslang_code_gen}",
+		"%{PHX_Libraries.glslang_machine_independent}"
 	}
-	
+
 	filter "system:windows"
 		cppdialect "C++14"
 		systemversion "latest"
 		warnings "High"
 		defines "PHX_WINDOWS"
-		
-		filter "configurations:Debug"
-			links
-			{
-				"%{PHX_Libraries.glslang_os_dependent_win_debug}"
-			}
-			
-		filter "configurations:Release"
-			links
-			{
-				"%{PHX_Libraries.glslang_os_dependent_win_release}"
-			}
-	
-		filter "configurations:Sanitizer"
-			links
-			{
-				"%{PHX_Libraries.glslang_os_dependent_win_sanitizer}"
+		links
+		{
+			"%{PHX_Libraries.glslang_os_dependent_win}"
 		}
 
--- Platform-independent configurations
 	filter "configurations:Debug"
 		defines "PHX_DEBUG"
 		symbols "On"
-		
-		links
-		{
-			"%{PHX_Libraries.glfw_debug}",
-			"%{PHX_Libraries.glslang_debug}",
-			"%{PHX_Libraries.SPV_debug}",
-			"%{PHX_Libraries.SPV_tools_debug}",
-			"%{PHX_Libraries.SPV_tools_opt_debug}",
-			"%{PHX_Libraries.glslang_code_gen_debug}",
-			"%{PHX_Libraries.glslang_machine_independent_debug}"
-		}
-	
+
 	filter "configurations:Release"
 		defines "PHX_RELEASE"
 		optimize "On"
-		
-		links
-		{
-			"%{PHX_Libraries.glfw_release}",
-			"%{PHX_Libraries.glslang_release}",
-			"%{PHX_Libraries.SPV_release}",
-			"%{PHX_Libraries.SPV_tools_release}",
-			"%{PHX_Libraries.SPV_tools_opt_release}",
-			"%{PHX_Libraries.glslang_code_gen_release}",
-			"%{PHX_Libraries.glslang_machine_independent_release}"
-	}
 
 	filter "configurations:Sanitizer"
 		defines { "PHX_DEBUG", "PHX_SANITIZE" }
 		symbols "On"
 		editandcontinue "Off"
-
-		links
-		{
-			"%{PHX_Libraries.glfw_debug}",
-			"%{PHX_Libraries.glslang_sanitizer}",
-			"%{PHX_Libraries.SPV_sanitizer}",
-			"%{PHX_Libraries.SPV_tools_sanitizer}",
-			"%{PHX_Libraries.SPV_tools_opt_sanitizer}",
-			"%{PHX_Libraries.glslang_code_gen_sanitizer}",
-			"%{PHX_Libraries.glslang_machine_independent_sanitizer}"
-		}
 
 	filter { "system:windows", "configurations:Sanitizer" }
 		buildoptions { "/fsanitize=address" }

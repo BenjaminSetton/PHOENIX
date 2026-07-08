@@ -39,44 +39,31 @@ project "HelloTriangle"
 		"%{SamplesCommon_IncludeDirs.imgui}"
 	}
 	
+	links
+	{
+		"%{SamplesCommon_Libraries.PHOENIX}",
+		"%{SamplesCommon_Libraries.assimp_zlib}",
+		"%{SamplesCommon_Libraries.assimp}",
+		"%{SamplesCommon_Libraries.glm}"
+	}
+
 	filter "system:windows"
 		cppdialect "C++17"
 		systemversion "latest"
 		warnings "High"
-	
-		filter "configurations:Debug"
-			symbols "On"
-			
-			links
-			{
-				"%{SamplesCommon_Libraries.PHOENIX_win64_debug}",
-				"%{SamplesCommon_Libraries.assimp_zlib_debug}",
-				"%{SamplesCommon_Libraries.assimp_debug}",
-				"%{SamplesCommon_Libraries.glm_debug}"
-			}
-		
-		filter "configurations:Release"
-			optimize "On"
-			
-			links
-			{
-				"%{SamplesCommon_Libraries.PHOENIX_win64_release}",
-				"%{SamplesCommon_Libraries.assimp_zlib_release}",
-				"%{SamplesCommon_Libraries.assimp_release}",
-				"%{SamplesCommon_Libraries.glm_release}"
-			}
+
+	filter "configurations:Debug"
+		symbols "On"
+
+	filter "configurations:Release"
+		optimize "On"
 
 	filter "configurations:Sanitizer"
 		symbols "On"
 		editandcontinue "Off"
 
-		links
-		{
-			"%{SamplesCommon_Libraries.PHOENIX_win64_sanitizer}",
-			"%{SamplesCommon_Libraries.assimp_zlib_sanitizer}",
-			"%{SamplesCommon_Libraries.assimp_sanitizer}",
-			"%{SamplesCommon_Libraries.glm_debug}"
-		}
-
 	filter { "system:windows", "configurations:Sanitizer" }
 		buildoptions { "/fsanitize=address" }
+		linkoptions { "/INCREMENTAL:NO" }
+
+	SamplesCommon_CopyAsanDLL()

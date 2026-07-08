@@ -10,7 +10,12 @@ workspace "PHOENIX"
 		"Sanitizer"
 	}
 	
-outputDir = "%{cfg.system}/%{cfg.buildcfg}/%{cfg.architecture}"
+configLower = { Debug = "debug", Release = "release", Sanitizer = "sanitizer" }
+ConfigMap = {
+    debugSuffix = { Debug = "d", Release = "", Sanitizer = "d" }
+}
+
+outputDir = "%{cfg.system}/%{configLower[cfg.buildcfg]}/%{cfg.architecture}"
 
 -- Core lib
 include "PHOENIX/premake5.lua"

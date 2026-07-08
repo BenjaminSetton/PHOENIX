@@ -8,14 +8,17 @@ SamplesCommon_IncludeDirs["stb_image"]           = "%{wks.location}/samples/comm
 SamplesCommon_IncludeDirs["imgui"]               = "%{wks.location}/samples/common/vendor/imgui"
 
 SamplesCommon_Libraries                          = {}
-SamplesCommon_Libraries["PHOENIX_win64_debug"]   = "%{wks.location}/PHOENIX/out/PHX/bin/windows/Debug/x86_64/PHOENIX.lib"
-SamplesCommon_Libraries["PHOENIX_win64_release"] = "%{wks.location}/PHOENIX/out/PHX/bin/windows/Release/x86_64/PHOENIX.lib"
-SamplesCommon_Libraries["PHOENIX_win64_sanitizer"] = "%{wks.location}/PHOENIX/out/PHX/bin/windows/Sanitizer/x86_64/PHOENIX.lib"
-SamplesCommon_Libraries["assimp_debug"]          = "%{wks.location}/samples/common/out/assimp/lib/Debug/assimp-vc143-mtd.lib"
-SamplesCommon_Libraries["assimp_release"]        = "%{wks.location}/samples/common/out/assimp/lib/Release/assimp-vc143-mt.lib"
-SamplesCommon_Libraries["assimp_zlib_debug"]     = "%{wks.location}/samples/common/out/assimp/contrib/zlib/Debug/zlibstaticd.lib"
-SamplesCommon_Libraries["assimp_zlib_release"]   = "%{wks.location}/samples/common/out/assimp/contrib/zlib/Release/zlibstatic.lib"
-SamplesCommon_Libraries["glm_debug"]             = "%{wks.location}/samples/common/out/glm/glm/Debug/glm.lib"
-SamplesCommon_Libraries["glm_release"]           = "%{wks.location}/samples/common/out/glm/glm/Release/glm.lib"
-SamplesCommon_Libraries["assimp_sanitizer"]      = "%{wks.location}/samples/common/out/assimp_sanitizer/lib/Debug/assimp-vc143-mtd.lib"
-SamplesCommon_Libraries["assimp_zlib_sanitizer"] = "%{wks.location}/samples/common/out/assimp_sanitizer/contrib/zlib/Debug/zlibstaticd.lib"
+SamplesCommon_Libraries["PHOENIX"]               = "%{wks.location}/PHOENIX/out/phx/bin/%{cfg.system}/%{configLower[cfg.buildcfg]}/%{cfg.architecture}/PHOENIX.lib"
+SamplesCommon_Libraries["assimp"]                = "%{wks.location}/samples/common/out/assimp/bin/%{cfg.system}/%{configLower[cfg.buildcfg]}/%{cfg.architecture}/assimp-vc143-mt%{ConfigMap.debugSuffix[cfg.buildcfg]}.lib"
+SamplesCommon_Libraries["assimp_zlib"]           = "%{wks.location}/samples/common/out/assimp/bin/%{cfg.system}/%{configLower[cfg.buildcfg]}/%{cfg.architecture}/zlibstatic%{ConfigMap.debugSuffix[cfg.buildcfg]}.lib"
+SamplesCommon_Libraries["glm"]                   = "%{wks.location}/samples/common/out/glm/bin/%{cfg.system}/%{configLower[cfg.buildcfg]}/%{cfg.architecture}/glm.lib"
+
+-- Copies the MSVC ASAN runtime DLL next to the built executable on Sanitizer builds.
+-- Call this inside a sample's project block.
+function SamplesCommon_CopyAsanDLL()
+    filter { "system:windows", "configurations:Sanitizer" }
+        postbuildcommands {
+            '"%{wks.location}/utils/copy_asan_dll.bat" "%{cfg.targetdir}"'
+        }
+    filter {}
+end
