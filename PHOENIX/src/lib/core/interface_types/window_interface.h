@@ -1,7 +1,8 @@
 #pragma once
 
-#include <stdarg.h>
-#include "PHX/interface/ref.h"
+#include <stdarg.h> // va_list
+
+#include "core/ref.h"
 #include "PHX/types/integral_types.h"
 
 namespace PHX

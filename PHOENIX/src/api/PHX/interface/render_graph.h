@@ -5,7 +5,6 @@
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
 #include "PHX/interface/handle.h"
-#include "PHX/interface/handle_owner.h"
 #include "PHX/interface/swap_chain.h"
 #include "PHX/interface/texture.h"
 #include "PHX/interface/uniform.h"

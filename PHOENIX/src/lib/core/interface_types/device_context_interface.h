@@ -1,7 +1,7 @@
 #pragma once
 
+#include "core/ref.h"
 #include "PHX/interface/buffer.h"
-#include "PHX/interface/ref.h"
 #include "PHX/interface/uniform.h"
 #include "PHX/types/status_code.h"
 

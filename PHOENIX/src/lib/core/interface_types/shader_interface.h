@@ -1,6 +1,6 @@
 #pragma once
 
-#include "PHX/interface/ref.h"
+#include "core/ref.h"
 #include "PHX/types/shader_desc.h"
 
 namespace PHX

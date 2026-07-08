@@ -1,6 +1,6 @@
 #pragma once
 
-#include "PHX/interface/ref.h"
+#include "core/ref.h"
 #include "PHX/types/buffer_desc.h"
 #include "PHX/types/integral_types.h"
 

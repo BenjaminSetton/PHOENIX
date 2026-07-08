@@ -5,7 +5,6 @@
 
 namespace PHX
 {
-	// TODO - Move to lib
 	class HandleOwner
 	{
 	public:

@@ -2,7 +2,6 @@
 
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
-#include "PHX/interface/handle_owner.h"
 #include "PHX/interface/render_graph.h"
 #include "PHX/interface/shader.h"
 #include "PHX/interface/texture.h"

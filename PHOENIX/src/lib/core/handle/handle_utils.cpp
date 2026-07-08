@@ -1,6 +1,7 @@
 
-#include "core/handle/handle_utils.h"
 #include "core/handle/handle_accessor.h"
+#include "core/handle/handle_owner.h"
+#include "core/handle/handle_utils.h"
 
 #define RESOLVE_HELPER(handle, HandleT) \
 	HandleOwner* pOwner = HandleAccessor::GetOwner(handle); \

@@ -3,7 +3,7 @@
 #include <memory>
 #include <vector>
 
-#include "PHX/interface/handle_owner.h"
+#include "core/handle/handle_owner.h"
 #include "PHX/interface/render_device.h"
 #include "PHX/interface/swap_chain.h"
 #include "PHX/interface/window.h"
