@@ -4,6 +4,7 @@
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
 
+#include "core/handle/handle_list.h"
 #include "framebuffer_vk.h"
 #include "PHX/interface/render_device.h"
 #include "PHX/types/queue_type.h"
@@ -101,16 +102,6 @@ namespace PHX
 
 		STATUS_CODE AllocateSyncObjects(u32 framesInFlight);
 
-		template<typename ResourceT>
-		void DeleteResources(std::vector<ResourceT*>& resources)
-		{
-			for (auto* resource : resources)
-			{
-				SAFE_DEL(resource);
-			}
-			resources.clear();
-		}
-
 	private:
 
 		VmaAllocator m_allocator;
@@ -143,12 +134,12 @@ namespace PHX
 		std::vector<VkFence> m_inFlightFences;
 
 		// Resource objects
-		std::vector<TextureVk*> m_textures;
-		std::vector<BufferVk*> m_buffers;
-		std::vector<UniformCollectionVk*> m_uniformCollections;
-		std::vector<DeviceContextVk*> m_deviceContexts;
-		std::vector<ShaderVk*> m_shaders;
-		std::vector<SwapChainVk*> m_swapChains; // Possibly support multiple windows?
-		std::vector<RenderGraphVk*> m_renderGraphs;
+		HandleList<TextureVk> m_textures;
+		HandleList<BufferVk> m_buffers;
+		HandleList<UniformCollectionVk> m_uniformCollections;
+		HandleList<DeviceContextVk> m_deviceContexts;
+		HandleList<ShaderVk> m_shaders;
+		HandleList<SwapChainVk> m_swapChains; // Possibly support multiple windows?
+		HandleList<RenderGraphVk> m_renderGraphs;
 	};
 }

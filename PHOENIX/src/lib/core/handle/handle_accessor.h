@@ -11,7 +11,7 @@ namespace PHX
 
 	struct HandleAccessor
 	{
-		static void PopulateHandle(Handle& handle, HandleOwner* pOwner, u32 index, u8 generation);
+		static void PopulateHandle(Handle& handle, HandleOwner* pOwner, u32 index);
 		static HandleOwner* GetOwner(const Handle& handle);
 	};
 }

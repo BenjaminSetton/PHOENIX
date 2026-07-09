@@ -23,8 +23,8 @@ namespace PHX
 		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
-		case HANDLE_TYPE::RENDER_DEVICE: return HANDLE_UTILS::ResolveHandleFromList<IRenderDevice>(m_renderDevices, handle);
-		case HANDLE_TYPE::WINDOW:        return HANDLE_UTILS::ResolveHandleFromList<IWindow>(m_windows, handle);
+		case HANDLE_TYPE::RENDER_DEVICE: return m_renderDevices.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::WINDOW:        return m_windows.Resolve(handle.GetIndex());
 		default:
 		{
 			break;
@@ -40,16 +40,8 @@ namespace PHX
 		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
-		case HANDLE_TYPE::RENDER_DEVICE: 
-		{
-			HANDLE_UTILS::IncrementRefCount<IRenderDevice>(handle, m_renderDevices);
-			break;
-		}
-		case HANDLE_TYPE::WINDOW:
-		{
-			HANDLE_UTILS::IncrementRefCount<IWindow>(handle, m_windows);
-			break;
-		}
+		case HANDLE_TYPE::RENDER_DEVICE: m_renderDevices.IncrementRefCount(handle.GetIndex()); break;
+		case HANDLE_TYPE::WINDOW:        m_windows.IncrementRefCount(handle.GetIndex());       break;
 		default:
 		{
 			ASSERT_ALWAYS("Failed to increment handle ref count. Unhandled type!");
@@ -63,16 +55,8 @@ namespace PHX
 		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
-		case HANDLE_TYPE::RENDER_DEVICE:
-		{
-			HANDLE_UTILS::DecrementRefCount<RenderDeviceHandle, IRenderDevice>(handle, m_renderDevices);
-			break;
-		}
-		case HANDLE_TYPE::WINDOW:
-		{
-			HANDLE_UTILS::DecrementRefCount<WindowHandle, IWindow>(handle, m_windows);
-			break;
-		}
+		case HANDLE_TYPE::RENDER_DEVICE: m_renderDevices.DecrementRefCount(handle.GetIndex()); break;
+		case HANDLE_TYPE::WINDOW:        m_windows.DecrementRefCount(handle.GetIndex());       break;
 		default:
 		{
 			ASSERT_ALWAYS("Failed to increment handle ref count. Unhandled type!");
@@ -118,7 +102,7 @@ namespace PHX
 		{
 		case GRAPHICS_API::VULKAN:
 		{
-			const u32 numRenderDevices = static_cast<u32>(m_renderDevices.size());
+			const u32 numRenderDevices = m_renderDevices.Size();
 			if (numRenderDevices > 0)
 			{
 				LogWarning("Cannot re-create render device. An instance already exists!");

@@ -13,6 +13,7 @@
 #include "PHX/interface/window.h"
 
 #include "core/handle/handle_accessor.h"
+#include "core/handle/handle_list.h"
 
 namespace PHX
 {
@@ -40,77 +41,17 @@ namespace PHX
 		ISwapChain* ResolveHandle(const SwapChainHandle& handle);
 		IRenderDevice* ResolveHandle(const RenderDeviceHandle& handle);
 		IWindow* ResolveHandle(const WindowHandle& handle);
-		
-		///////////////////////////////////
-		// RESOLVE HANDLE
-		///////////////////////////////////
-
-		// Called by HandleOwner-derived objects when resolving handles
-		template<typename InterfaceT>
-		void* ResolveHandleFromList(const std::vector<InterfaceT*>& list, const Handle& handle)
-		{
-			const u32 index = handle.GetIndex();
-			if (index < static_cast<u32>(list.size()))
-			{
-				return list[index];
-			}
-			return nullptr;
-		}
 
 		///////////////////////////////////
 		// ALLOCATE HANDLE
 		///////////////////////////////////
 
 		template<typename InterfaceT>
-		STATUS_CODE AllocateHandle(std::vector<InterfaceT*>& list, InterfaceT* pObj, HandleOwner* pOwner, Handle& handle)
+		STATUS_CODE AllocateHandle(HandleList<InterfaceT>& list, InterfaceT* pObj, HandleOwner* pOwner, Handle& handle)
 		{
-			list.push_back(pObj);
-			HandleAccessor::PopulateHandle(handle, pOwner, static_cast<u32>(list.size() - 1), 0u);
+			const u32 index = list.Allocate(pObj);
+			HandleAccessor::PopulateHandle(handle, pOwner, index);
 			return STATUS_CODE::SUCCESS;
-		}
-
-		///////////////////////////////////
-		// INCREMENT REF COUNT
-		///////////////////////////////////
-
-		template<typename InterfaceT>
-		inline void IncrementRefCount(const Handle& handle, const std::vector<InterfaceT*>& list)
-		{
-			const u32 index = handle.GetIndex();
-			if (index < static_cast<u32>(list.size()))
-			{
-				InterfaceT* pObj = list[index];
-				if (pObj != nullptr)
-				{
-					pObj->IncrementRefCount();
-				}
-			}
-		}
-
-		///////////////////////////////////
-		// DECREMENT REF COUNT
-		///////////////////////////////////
-
-		template<typename HandleT, typename InterfaceT>
-		inline void DecrementRefCount(const Handle& handle, std::vector<InterfaceT*>& list)
-		{
-			// Assuming generation is always 0
-			const u32 index = handle.GetIndex();
-			if (index < static_cast<u32>(list.size()))
-			{
-				InterfaceT* pObj = list[index];
-				if (pObj != nullptr)
-				{
-					pObj->DecrementRefCount();
-
-					// Check for deletion
-					if (pObj->GetRefCount() <= 0)
-					{
-						SAFE_DEL(pObj);
-						list.erase(list.begin() + index);
-					}
-				}
-			}
 		}
 	}
 }

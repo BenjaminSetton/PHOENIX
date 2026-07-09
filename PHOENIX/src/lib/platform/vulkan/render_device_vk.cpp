@@ -157,13 +157,13 @@ namespace PHX
 		m_commandPools.clear();
 
 		// Delete resources
-		DeleteResources(m_textures);
-		DeleteResources(m_buffers);
-		DeleteResources(m_uniformCollections);
-		DeleteResources(m_deviceContexts);
-		DeleteResources(m_shaders);
-		DeleteResources(m_swapChains);
-		DeleteResources(m_renderGraphs);
+		m_textures.DeleteAll();
+		m_buffers.DeleteAll();
+		m_uniformCollections.DeleteAll();
+		m_deviceContexts.DeleteAll();
+		m_shaders.DeleteAll();
+		m_swapChains.DeleteAll();
+		m_renderGraphs.DeleteAll();
 		
 		// Destroy descriptor pool
 		vkDestroyDescriptorPool(m_logicalDevice, m_descriptorPool, nullptr);
@@ -230,7 +230,7 @@ namespace PHX
 
 	STATUS_CODE RenderDeviceVk::AllocateRenderGraph(RenderGraphHandle& handle)
 	{
-		if (m_renderGraphs.size() >= 1)
+		if (m_renderGraphs.Size() >= 1)
 		{
 			LogError("Cannot allocate more than one render graph!");
 			return STATUS_CODE::ERR_API;
@@ -283,13 +283,13 @@ namespace PHX
 		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
-		case HANDLE_TYPE::BUFFER:          return HANDLE_UTILS::ResolveHandleFromList<BufferVk>(m_buffers, handle);
-		case HANDLE_TYPE::TEXTURE:         return HANDLE_UTILS::ResolveHandleFromList<TextureVk>(m_textures, handle);
-		case HANDLE_TYPE::UNIFORM:         return HANDLE_UTILS::ResolveHandleFromList<UniformCollectionVk>(m_uniformCollections, handle);
-		case HANDLE_TYPE::DEVICE_CONTEXT:  return HANDLE_UTILS::ResolveHandleFromList<DeviceContextVk>(m_deviceContexts, handle);
-		case HANDLE_TYPE::SHADER:          return HANDLE_UTILS::ResolveHandleFromList<ShaderVk>(m_shaders, handle);
-		case HANDLE_TYPE::SWAP_CHAIN:      return HANDLE_UTILS::ResolveHandleFromList<SwapChainVk>(m_swapChains, handle);
-		case HANDLE_TYPE::RENDER_GRAPH:    return HANDLE_UTILS::ResolveHandleFromList<RenderGraphVk>(m_renderGraphs, handle);
+		case HANDLE_TYPE::BUFFER:          return m_buffers.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::TEXTURE:         return m_textures.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::UNIFORM:         return m_uniformCollections.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::DEVICE_CONTEXT:  return m_deviceContexts.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::SHADER:          return m_shaders.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::SWAP_CHAIN:      return m_swapChains.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::RENDER_GRAPH:    return m_renderGraphs.Resolve(handle.GetIndex());
 		default:
 		{
 			break;
@@ -305,13 +305,13 @@ namespace PHX
 		const HANDLE_TYPE handleType = handle.GetType();
 		switch (handleType)
 		{
-		case HANDLE_TYPE::BUFFER:         HANDLE_UTILS::IncrementRefCount<BufferVk>(handle, m_buffers);                       break;
-		case HANDLE_TYPE::TEXTURE:        HANDLE_UTILS::IncrementRefCount<TextureVk>(handle, m_textures);                     break;
-		case HANDLE_TYPE::UNIFORM:        HANDLE_UTILS::IncrementRefCount<UniformCollectionVk>(handle, m_uniformCollections); break;
-		case HANDLE_TYPE::DEVICE_CONTEXT: HANDLE_UTILS::IncrementRefCount<DeviceContextVk>(handle, m_deviceContexts);         break;
-		case HANDLE_TYPE::RENDER_GRAPH:   HANDLE_UTILS::IncrementRefCount<RenderGraphVk>(handle, m_renderGraphs);             break;
-		case HANDLE_TYPE::SHADER:         HANDLE_UTILS::IncrementRefCount<ShaderVk>(handle, m_shaders);                       break;
-		case HANDLE_TYPE::SWAP_CHAIN:     HANDLE_UTILS::IncrementRefCount<SwapChainVk>(handle, m_swapChains);                 break;
+		case HANDLE_TYPE::BUFFER:         m_buffers.IncrementRefCount(handle.GetIndex());            break;
+		case HANDLE_TYPE::TEXTURE:        m_textures.IncrementRefCount(handle.GetIndex());           break;
+		case HANDLE_TYPE::UNIFORM:        m_uniformCollections.IncrementRefCount(handle.GetIndex()); break;
+		case HANDLE_TYPE::DEVICE_CONTEXT: m_deviceContexts.IncrementRefCount(handle.GetIndex());     break;
+		case HANDLE_TYPE::RENDER_GRAPH:   m_renderGraphs.IncrementRefCount(handle.GetIndex());       break;
+		case HANDLE_TYPE::SHADER:         m_shaders.IncrementRefCount(handle.GetIndex());            break;
+		case HANDLE_TYPE::SWAP_CHAIN:     m_swapChains.IncrementRefCount(handle.GetIndex());         break;
 		default:
 		{
 			ASSERT_ALWAYS("Failed to increment ref count. Unrecognized handle type!");
@@ -325,13 +325,13 @@ namespace PHX
 		const HANDLE_TYPE handleType = handle.GetType();
 		switch (handleType)
 		{
-		case HANDLE_TYPE::BUFFER:         HANDLE_UTILS::DecrementRefCount<BufferHandle, BufferVk>(handle, m_buffers);                                  break;
-		case HANDLE_TYPE::TEXTURE:        HANDLE_UTILS::DecrementRefCount<TextureHandle, TextureVk>(handle, m_textures);                               break;
-		case HANDLE_TYPE::UNIFORM:        HANDLE_UTILS::DecrementRefCount<UniformCollectionHandle, UniformCollectionVk>(handle, m_uniformCollections); break;
-		case HANDLE_TYPE::DEVICE_CONTEXT: HANDLE_UTILS::DecrementRefCount<DeviceContextHandle, DeviceContextVk>(handle, m_deviceContexts);             break;
-		case HANDLE_TYPE::RENDER_GRAPH:   HANDLE_UTILS::DecrementRefCount<RenderGraphHandle, RenderGraphVk>(handle, m_renderGraphs);                   break;
-		case HANDLE_TYPE::SHADER:         HANDLE_UTILS::DecrementRefCount<ShaderHandle, ShaderVk>(handle, m_shaders);                                  break;
-		case HANDLE_TYPE::SWAP_CHAIN:     HANDLE_UTILS::DecrementRefCount<SwapChainHandle, SwapChainVk>(handle, m_swapChains);                         break;
+		case HANDLE_TYPE::BUFFER:         m_buffers.DecrementRefCount(handle.GetIndex());            break;
+		case HANDLE_TYPE::TEXTURE:        m_textures.DecrementRefCount(handle.GetIndex());           break;
+		case HANDLE_TYPE::UNIFORM:        m_uniformCollections.DecrementRefCount(handle.GetIndex()); break;
+		case HANDLE_TYPE::DEVICE_CONTEXT: m_deviceContexts.DecrementRefCount(handle.GetIndex());     break;
+		case HANDLE_TYPE::RENDER_GRAPH:   m_renderGraphs.DecrementRefCount(handle.GetIndex());       break;
+		case HANDLE_TYPE::SHADER:         m_shaders.DecrementRefCount(handle.GetIndex());            break;
+		case HANDLE_TYPE::SWAP_CHAIN:     m_swapChains.DecrementRefCount(handle.GetIndex());         break;
 		default:
 		{
 			ASSERT_ALWAYS("Failed to decrement ref count. Unrecognized handle type!");

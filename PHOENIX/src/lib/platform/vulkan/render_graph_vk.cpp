@@ -32,7 +32,6 @@ namespace PHX
 	{
 		size_t seed = 0;
 		HashCombine(seed, resource.GetIndex());
-		HashCombine(seed, resource.GetGeneration());
 		HashCombine(seed, type);
 
 		return static_cast<u64>(seed);
@@ -596,6 +595,7 @@ namespace PHX
 
 	RenderGraphVk::~RenderGraphVk()
 	{
+		m_registeredRenderPasses.DeleteAll();
 	}
 
 	STATUS_CODE RenderGraphVk::BeginFrame(SwapChainHandle swapChain)
@@ -637,11 +637,7 @@ namespace PHX
 		m_frameInFlightIndex = (m_frameInFlightIndex + 1) % m_pRenderDevice->GetFramesInFlight();
 		m_frameNumber++;
 
-		for (RenderPassVk* currRenderPass : m_registeredRenderPasses)
-		{
-			SAFE_DEL(currRenderPass);
-		}
-		m_registeredRenderPasses.clear();
+		m_registeredRenderPasses.DeleteAll();
 
 		m_resourceUsages.clear();
 		m_physicalResources.clear();
@@ -651,17 +647,16 @@ namespace PHX
 
 	STATUS_CODE RenderGraphVk::RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass)
 	{
-		const u32 passIndex = static_cast<u32>(m_registeredRenderPasses.size());
-
 		// TODO - Reconcile with HANDLE_UTILS functions
 		auto registerResourceFuncPtr = std::bind(&RenderGraphVk::RegisterResource, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
-		RenderPassVk* newRenderPass = new RenderPassVk(passName, bindPoint, passIndex, registerResourceFuncPtr);
-		m_registeredRenderPasses.push_back(newRenderPass);
+		RenderPassVk* newRenderPass = new RenderPassVk(passName, bindPoint, 0u, registerResourceFuncPtr);
+		const u32 passIndex = m_registeredRenderPasses.Allocate(newRenderPass);
+		newRenderPass->m_index = passIndex;
 
 		// NOTE - Manually call PopulateHandle() from HandleAccessor vs using HANDLE_UTILS, 
 		// since that inserts an InterfaceT pointer into an array
-		HandleAccessor::PopulateHandle(renderPass, this, static_cast<u32>(m_registeredRenderPasses.size() - 1), 0u);
+		HandleAccessor::PopulateHandle(renderPass, this, passIndex);
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -689,7 +684,7 @@ namespace PHX
 		// 3. [TRIMMING] Accumulate all contributing render passes into a separate container for the render graph. This is done so that
 		//               all non-contributing passes are indirectly trimmed
 		std::vector<u32> activeRenderPassIndices;
-		activeRenderPassIndices.reserve(m_registeredRenderPasses.size());
+		activeRenderPassIndices.reserve(m_registeredRenderPasses.Size());
 
 		FindActivePasses(finalRPIndex, activeRenderPassIndices);
 
@@ -709,7 +704,7 @@ namespace PHX
 
 		for (u32 activeRenderPassIndex : activeRenderPassIndices)
 		{
-			const RenderPassVk& currRenderPass = *m_registeredRenderPasses[activeRenderPassIndex];
+			const RenderPassVk& currRenderPass = *m_registeredRenderPasses.Get(activeRenderPassIndex);
 
 			// Before calling execution callback, insert all barriers required by the render pass
 			res = InsertResourceBarriers(currRenderPass);
@@ -830,7 +825,7 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
-		if (m_registeredRenderPasses.empty())
+		if (m_registeredRenderPasses.Empty())
 		{
 			LogError("Failed to generate render graph visualization. No render passes registered - call after Bake()!");
 			return STATUS_CODE::ERR_INTERNAL;
@@ -866,8 +861,14 @@ namespace PHX
 
 		// ---- Render pass nodes (rounded boxes, colored by bind point) ----
 		dot << "\t// Render passes\n";
-		for (const RenderPassVk* pRenderPass : m_registeredRenderPasses)
+		for (u32 i = 0; i < m_registeredRenderPasses.Size(); i++)
 		{
+			const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(i);
+			if (pRenderPass == nullptr) 
+			{
+				continue;
+			}
+
 #if defined(PHX_DEBUG)
 			const char* passName = pRenderPass->m_debugName;
 #else
@@ -899,8 +900,14 @@ namespace PHX
 		// ---- Resource nodes ----
 		// Gather every physical resource referenced by any pass (inputs or outputs)
 		ResourceIndexBitset usedResources;
-		for (const RenderPassVk* pRenderPass : m_registeredRenderPasses)
+		for (u32 i = 0; i < m_registeredRenderPasses.Size(); i++)
 		{
+			const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(i);
+			if (pRenderPass == nullptr) 
+			{
+				continue;
+			}
+			
 			usedResources |= pRenderPass->m_inputResources;
 			usedResources |= pRenderPass->m_outputResources;
 		}
@@ -954,8 +961,14 @@ namespace PHX
 		dot << "\n\t// Resource flow (inputs feed passes, passes produce outputs)\n";
 
 		// ---- Edges: resource -> pass (inputs) and pass -> resource (outputs) ----
-		for (const RenderPassVk* pRenderPass : m_registeredRenderPasses)
+		for (u32 i = 0; i < m_registeredRenderPasses.Size(); i++)
 		{
+			const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(i);
+			if (pRenderPass == nullptr) 
+			{
+				continue;
+			}
+
 			const std::string passNode = "pass" + std::to_string(pRenderPass->m_index);
 
 			// Inputs: resource -> pass (blue), labelled with the input layout transition for textures
@@ -1079,10 +1092,7 @@ namespace PHX
 		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
-		case HANDLE_TYPE::RENDER_PASS:
-		{
-			return HANDLE_UTILS::ResolveHandleFromList<RenderPassVk>(m_registeredRenderPasses, handle);
-		}
+		case HANDLE_TYPE::RENDER_PASS: return m_registeredRenderPasses.Resolve(handle.GetIndex());
 		default:
 		{
 			break;
@@ -1100,7 +1110,7 @@ namespace PHX
 		{
 		case HANDLE_TYPE::RENDER_PASS:
 		{
-			HANDLE_UTILS::IncrementRefCount<RenderPassVk>(handle, m_registeredRenderPasses);
+			m_registeredRenderPasses.IncrementRefCount(handle.GetIndex());
 			break;
 		}
 		default:
@@ -1118,15 +1128,7 @@ namespace PHX
 		{
 		case HANDLE_TYPE::RENDER_PASS:
 		{
-			// TODO - Reconcile with HANDLE_UTILS functions
-			const u32 index = handle.GetIndex();
-			if (index < static_cast<u32>(m_registeredRenderPasses.size()))
-			{
-				RenderPassVk* renderPass = m_registeredRenderPasses[index];
-				renderPass->DecrementRefCount();
-
-				// NOTE - No automatic deletion, render pass lifetimes are managed by other render graph calls
-			}
+			m_registeredRenderPasses.DecrementRefCountNoDelete(handle.GetIndex());
 			break;
 		}
 		default:
@@ -1422,12 +1424,12 @@ namespace PHX
 	void RenderGraphVk::BuildDependencyTree(u32 renderPassIndex)
 	{
 		// Base cases
-		if (renderPassIndex >= m_registeredRenderPasses.size())
+		if (renderPassIndex >= m_registeredRenderPasses.Size())
 		{
 			return;
 		}
 
-		RenderPassVk* pCurrRenderPass = m_registeredRenderPasses[renderPassIndex];
+		RenderPassVk* pCurrRenderPass = m_registeredRenderPasses.Get(renderPassIndex);
 		if (pCurrRenderPass->m_inputResources.none())
 		{
 			return;
@@ -1444,7 +1446,7 @@ namespace PHX
 				continue;
 			}
 
-			RenderPassVk* pPrevRenderPass = m_registeredRenderPasses[i];
+			RenderPassVk* pPrevRenderPass = m_registeredRenderPasses.Get(i);
 
 			const ResourceIndexBitset rawHazardResources = (pPrevRenderPass->m_outputResources & pCurrRenderPass->m_inputResources);
 			const ResourceIndexBitset warHazardResources = (pPrevRenderPass->m_inputResources  & pCurrRenderPass->m_outputResources);
@@ -1469,7 +1471,7 @@ namespace PHX
 		// Traverse dependency tree and tag all passes which contribute to the final pass.
 		// A pass reachable via multiple dependency paths (diamond-shaped graphs) is visited
 		// more than once by the DFS, so de-duplicate here to avoid processing/executing it twice.
-		const u32 passCount = static_cast<u32>(m_registeredRenderPasses.size());
+		const u32 passCount = static_cast<u32>(m_registeredRenderPasses.Size());
 		std::vector<i32> alreadyActive(passCount, -1);
 
 		TraverseDependencyTree(finalPassIndex, [&](const RenderPassVk& currRenderPass)
@@ -1504,7 +1506,7 @@ namespace PHX
 		// 2. For all those resource usages, generate a barrier. Only generate pipeline barriers for now, and ignore cross-queue synchronization
 		for (u32 activeRenderPassIndex : activeRenderPasses)
 		{
-			RenderPassVk* pDstRenderPass = m_registeredRenderPasses[activeRenderPassIndex];
+			RenderPassVk* pDstRenderPass = m_registeredRenderPasses.Get(activeRenderPassIndex);
 			const BIND_POINT dstBindPoint = pDstRenderPass->m_bindPoint;
 
 			// Every active pass needs an entry in m_outputBarriers for each of its texture outputs so
@@ -1766,12 +1768,12 @@ namespace PHX
 	void RenderGraphVk::TraverseDependencyTree(u32 renderPassIndex, TraverseDependenciesCallbackFn callback)
 	{
 		// Depth-first traversal
-		if (renderPassIndex >= static_cast<u32>(m_registeredRenderPasses.size()))
+		if (renderPassIndex >= static_cast<u32>(m_registeredRenderPasses.Size()))
 		{
 			return;
 		}
 
-		const RenderPassVk* pCurrRenderPass = m_registeredRenderPasses[renderPassIndex];
+		const RenderPassVk* pCurrRenderPass = m_registeredRenderPasses.Get(renderPassIndex);
 		if (callback != nullptr)
 		{
 			callback(*pCurrRenderPass);
@@ -1799,23 +1801,23 @@ namespace PHX
 
 	void RenderGraphVk::TraverseRenderPassInputs(u32 renderPassIndex, TraverseResourceCallbackFn callback) const
 	{
-		if (renderPassIndex >= static_cast<u32>(m_registeredRenderPasses.size()))
+		if (renderPassIndex >= static_cast<u32>(m_registeredRenderPasses.Size()))
 		{
 			return;
 		}
 
-		const RenderPassVk* pRenderPass = m_registeredRenderPasses[renderPassIndex];
+		const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(renderPassIndex);
 		TraverseResources(pRenderPass->m_inputResources, callback);
 	}
 
 	void RenderGraphVk::TraverseRenderPassOutputs(u32 renderPassIndex, TraverseResourceCallbackFn callback) const
 	{
-		if (renderPassIndex >= static_cast<u32>(m_registeredRenderPasses.size()))
+		if (renderPassIndex >= static_cast<u32>(m_registeredRenderPasses.Size()))
 		{
 			return;
 		}
 
-		const RenderPassVk* pRenderPass = m_registeredRenderPasses[renderPassIndex];
+		const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(renderPassIndex);
 		TraverseResources(pRenderPass->m_outputResources, callback);
 	}
 
@@ -1851,7 +1853,7 @@ namespace PHX
 
 	void RenderGraphVk::UpdateTextureLayouts(u32 renderPassIndex)
 	{
-		RenderPassVk* pRenderPass = m_registeredRenderPasses[renderPassIndex];
+		RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(renderPassIndex);
 		for (const auto& iter : pRenderPass->m_outputBarriers)
 		{
 			u64 resourceID = iter.first;
@@ -1926,10 +1928,10 @@ namespace PHX
 		size_t seed = 0;
 
 		// Render passes
-		HashCombine(seed, m_registeredRenderPasses.size());
-		for (u32 i = 0; i < static_cast<u32>(m_registeredRenderPasses.size()); i++)
+		HashCombine(seed, m_registeredRenderPasses.Size());
+		for (u32 i = 0; i < static_cast<u32>(m_registeredRenderPasses.Size()); i++)
 		{
-			const RenderPassVk* pCurrRenderPass = m_registeredRenderPasses[i];
+			const RenderPassVk* pCurrRenderPass = m_registeredRenderPasses.Get(i);
 			HashCombine(seed, pCurrRenderPass->m_inputResources);
 			HashCombine(seed, pCurrRenderPass->m_outputResources);
 			// Ignore callbacks

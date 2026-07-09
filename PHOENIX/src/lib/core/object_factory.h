@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 
+#include "core/handle/handle_list.h"
 #include "core/handle/handle_owner.h"
 #include "PHX/interface/render_device.h"
 #include "PHX/interface/swap_chain.h"
@@ -35,7 +36,7 @@ namespace PHX
 		STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice);
 
 	private:
-		std::vector<IWindow*> m_windows;
-		std::vector<IRenderDevice*> m_renderDevices;
+		HandleList<IWindow> m_windows;
+		HandleList<IRenderDevice> m_renderDevices;
 	};
 }

@@ -4,6 +4,7 @@
 #include <functional>
 #include <vector>
 
+#include "core/handle/handle_list.h"
 #include "core/interface_types/render_graph_interface.h"
 #include "framebuffer_vk.h"
 #include "pipeline_vk.h"
@@ -189,7 +190,7 @@ namespace PHX
 
 	private:
 
-		std::vector<RenderPassVk*> m_registeredRenderPasses;
+		HandleList<RenderPassVk> m_registeredRenderPasses;
 		std::vector<ResourceUsage> m_resourceUsages;
 		std::vector<RenderResource> m_physicalResources;
 		RenderDeviceVk* m_pRenderDevice;

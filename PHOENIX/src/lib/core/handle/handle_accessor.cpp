@@ -3,9 +3,9 @@
 
 namespace PHX
 {
-	void HandleAccessor::PopulateHandle(Handle& handle, HandleOwner* pOwner, u32 index, u8 generation)
+	void HandleAccessor::PopulateHandle(Handle& handle, HandleOwner* pOwner, u32 index)
 	{
-		handle.PopulateHandle(pOwner, index, generation);
+		handle.PopulateHandle(pOwner, index);
 	}
 
 	HandleOwner* HandleAccessor::GetOwner(const Handle& handle)

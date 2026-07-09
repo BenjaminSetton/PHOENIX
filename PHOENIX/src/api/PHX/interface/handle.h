@@ -29,12 +29,11 @@ namespace PHX
 		bool IsValid() const;
 
 		u32 GetIndex() const;
-		u32 GetGeneration() const;
 		HANDLE_TYPE GetType() const;
 
 	private:
 		void Reset();
-		void PopulateHandle(HandleOwner* pOwner, u32 index, u8 generation);
+		void PopulateHandle(HandleOwner* pOwner, u32 index);
 		bool IsSame(const Handle& handleA, const Handle& handleB) const;
 
 		void IncrementRefCount();
@@ -43,7 +42,6 @@ namespace PHX
 	protected:
 		HandleOwner* m_pOwner;
 		u32 m_index;
-		u8 m_generation;
 		HANDLE_TYPE m_type;
 	};
 
