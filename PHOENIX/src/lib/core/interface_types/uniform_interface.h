@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/ref.h"
+#include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/texture.h"
 #include "PHX/types/status_code.h"
@@ -24,6 +25,7 @@ namespace PHX
 		// Queue a buffer update. A size of U64_MAX is used to indicate a "whole buffer" update
 		virtual STATUS_CODE QueueBufferUpdate(BufferHandle buffer, u32 set, u32 binding, u64 offset, u64 size) = 0;
 		virtual STATUS_CODE QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex) = 0;
+		virtual STATUS_CODE QueueAccelerationStructureUpdate(AccelerationStructureHandle accelerationStructure, u32 set, u32 binding) = 0;
 		virtual STATUS_CODE FlushUpdateQueue() = 0;
 	};
 }

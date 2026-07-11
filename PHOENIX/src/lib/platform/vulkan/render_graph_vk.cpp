@@ -41,9 +41,14 @@ namespace PHX
 	{
 		switch (bindPoint)
 		{
-		case BIND_POINT::COMPUTE:  return QUEUE_TYPE::COMPUTE;
-		case BIND_POINT::GRAPHICS: return QUEUE_TYPE::GRAPHICS;
-		case BIND_POINT::TRANSFER: return QUEUE_TYPE::TRANSFER;
+		case BIND_POINT::COMPUTE:      return QUEUE_TYPE::COMPUTE;
+		case BIND_POINT::GRAPHICS:     return QUEUE_TYPE::GRAPHICS;
+		case BIND_POINT::TRANSFER:     return QUEUE_TYPE::TRANSFER;
+		case BIND_POINT::RAY_TRACING:  return QUEUE_TYPE::GRAPHICS;
+		default:
+		{
+			break;
+		}
 		}
 
 		ASSERT_ALWAYS("Failed to convert bind point to queue type!");
@@ -59,6 +64,10 @@ namespace PHX
 		case (ASPECT_TYPE_FLAG_DEPTH | ASPECT_TYPE_FLAG_STENCIL): return ATTACHMENT_TYPE::DEPTH_STENCIL;
 		case ASPECT_TYPE_FLAG_DEPTH:                              return ATTACHMENT_TYPE::DEPTH;
 		case ASPECT_TYPE_FLAG_STENCIL:                            return ATTACHMENT_TYPE::STENCIL;
+		default:
+		{
+			break;
+		}
 		}
 
 		LogError("Failed to calculate attachment type from texture's aspect flags. No valid combination was found for aspect flags %u", aspectFlags);
@@ -150,6 +159,12 @@ namespace PHX
 				}
 				case RESOURCE_TYPE::TEXTURE:
 				{
+					if (bindPoint == BIND_POINT::RAY_TRACING)
+					{
+						flags |= VK_ACCESS_SHADER_WRITE_BIT;
+						break;
+					}
+
 					switch (usage.attachmentType)
 					{
 					case ATTACHMENT_TYPE::COLOR:
@@ -298,6 +313,11 @@ namespace PHX
 			flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		}
+		case BIND_POINT::RAY_TRACING:
+		{
+			flags |= VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+			break;
+		}
 		default:
 		{
 			ASSERT_ALWAYS("Failed to calculate resource pipeline stage flags. Unknown bind point!");
@@ -339,6 +359,10 @@ namespace PHX
 			{
 				return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 			}
+			case BIND_POINT::RAY_TRACING:
+			{
+				return VK_IMAGE_LAYOUT_GENERAL;
+			}
 			default:
 			{
 				break;
@@ -379,6 +403,10 @@ namespace PHX
 			case BIND_POINT::TRANSFER:
 			{
 				return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			}
+			case BIND_POINT::RAY_TRACING:
+			{
+				return VK_IMAGE_LAYOUT_GENERAL;
 			}
 			default:
 			{
@@ -553,6 +581,11 @@ namespace PHX
 	void RenderPassVk::SetPipelineDescription(const ComputePipelineDesc& computePipelineDesc)
 	{
 		computeDesc = computePipelineDesc;
+	}
+
+	void RenderPassVk::SetPipelineDescription(const RayTracingPipelineDesc& rayTracingPipelineDesc)
+	{
+		rayTracingDesc = rayTracingPipelineDesc;
 	}
 
 	void RenderPassVk::SetExecuteCallback(ExecuteRenderPassCallbackFn callback)
@@ -802,6 +835,26 @@ namespace PHX
 
 					break;
 				}
+				case BIND_POINT::RAY_TRACING:
+				{
+					// Get or create pipeline from render device
+					// NOTE - The render pass isn't used for ray tracing pipeline creation, so it can
+					// be ignored by passing in VK_NULL_HANDLE
+					PipelineVk* pPipeline = CreatePipeline(currRenderPass, VK_NULL_HANDLE);
+
+					pDeviceContext->SetContextualPipeline(pPipeline);
+					if (currRenderPass.m_execCallback)
+					{
+						currRenderPass.m_execCallback(deviceContext);
+					}
+					pDeviceContext->ResetContextualPipeline();
+
+					// Update the layout of the render pass' textures to reflect the implicit
+					// layout transition from the render pass
+					UpdateTextureLayouts(activeRenderPassIndex);
+
+					break;
+				}
 			}
 		}
 
@@ -881,6 +934,7 @@ namespace PHX
 			if (pRenderPass->m_bindPoint == BIND_POINT::GRAPHICS)       fillColor = "#5DADE2";
 			else if (pRenderPass->m_bindPoint == BIND_POINT::COMPUTE)   fillColor = "#58D68D";
 			else if (pRenderPass->m_bindPoint == BIND_POINT::TRANSFER)  fillColor = "#EB984E";
+			else if (pRenderPass->m_bindPoint == BIND_POINT::RAY_TRACING) fillColor = "#AF7AC5";
 
 			const bool isFinalPass = PassWritesResource(pRenderPass->m_index, m_presentResID);
 
@@ -1031,6 +1085,7 @@ namespace PHX
 		dot << "\t\t<TR><TD BGCOLOR=\"#5DADE2\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Graphics pass</TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"#58D68D\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Compute pass</TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"#EB984E\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Transfer pass</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#AF7AC5\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Ray tracing pass</TD></TR>\n";
 
 		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Resources</B></FONT></TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"#EBF5FB\" BORDER=\"1\" COLOR=\"#2E86C1\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Texture</TD></TR>\n";
@@ -1329,6 +1384,11 @@ namespace PHX
 		case BIND_POINT::COMPUTE:
 		{
 			pipeline = m_pRenderDevice->CreateComputePipeline(renderPass.computeDesc);
+			break;
+		}
+		case BIND_POINT::RAY_TRACING:
+		{
+			pipeline = m_pRenderDevice->CreateRayTracingPipeline(renderPass.rayTracingDesc);
 			break;
 		}
 		default:
@@ -1954,6 +2014,12 @@ namespace PHX
 			}
 			case BIND_POINT::TRANSFER:
 			{
+				break;
+			}
+			case BIND_POINT::RAY_TRACING:
+			{
+				RayTracingPipelineDescHasher hasher;
+				HashCombine(seed, hasher(pCurrRenderPass->rayTracingDesc));
 				break;
 			}
 			default:

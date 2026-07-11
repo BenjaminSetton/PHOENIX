@@ -40,6 +40,8 @@ namespace PHX
 	struct Settings
 	{
 		/* [MANDATORY] */ GRAPHICS_API backendAPI;                                             // Select the graphics backend API
+		/* [MANDATORY] */ i32 backendAPIMajorVersion                                = -1;      // Set the major version of the selected graphics API (e.g. 1.X)
+		/* [MANDATORY] */ i32 backendAPIMinorVersion                                = -1;      // Set the minor version of the selected graphics API (e.g. X.1)
 		/* [MANDATORY] */ fpSwapChainOutdatedCallback swapChainOutdatedCallback     = nullptr; // Callback for when swap chain object became suboptimal or outdated
 		/* [MANDATORY] */ fpWindowResizedCallback windowResizedCallback             = nullptr; // Callback for when the window is resized
 		/* [MANDATORY] */ fpWindowFocusChangedCallback windowFocusChangedCallback   = nullptr; // Callback for when the window focus changes (e.g. minimize, maximize, clicking on other windows, etc)

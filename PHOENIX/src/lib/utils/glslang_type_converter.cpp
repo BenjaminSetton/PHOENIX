@@ -1,6 +1,7 @@
 
 #include "glslang_type_converter.h"
 
+#include "core/global_settings.h"
 #include "sanity.h"
 #include "logger.h"
 
@@ -8,15 +9,21 @@ namespace PHX
 {
 	namespace GLSLANG_UTILS
 	{
-		STATIC_ASSERT(static_cast<u8>(SHADER_STAGE::MAX) == 4);
+		STATIC_ASSERT(static_cast<u8>(SHADER_STAGE::MAX) == 10);
 		EShLanguage ConvertShaderStage(SHADER_STAGE kind)
 		{
 			switch (kind)
 			{
-			case SHADER_STAGE::VERTEX:   return EShLangVertex;
-			case SHADER_STAGE::GEOMETRY: return EShLangGeometry;
-			case SHADER_STAGE::FRAGMENT: return EShLangFragment;
-			case SHADER_STAGE::COMPUTE:  return EShLangCompute;
+			case SHADER_STAGE::VERTEX:       return EShLangVertex;
+			case SHADER_STAGE::GEOMETRY:     return EShLangGeometry;
+			case SHADER_STAGE::FRAGMENT:     return EShLangFragment;
+			case SHADER_STAGE::COMPUTE:      return EShLangCompute;
+			case SHADER_STAGE::RAYGEN:       return EShLangRayGen;
+			case SHADER_STAGE::INTERSECTION: return EShLangIntersect;
+			case SHADER_STAGE::ANY_HIT:      return EShLangAnyHit;
+			case SHADER_STAGE::CLOSEST_HIT:  return EShLangClosestHit;
+			case SHADER_STAGE::MISS:         return EShLangMiss;
+			case SHADER_STAGE::CALLABLE:     return EShLangCallable;
 			}
 
 			LogError("Failed to convert shader kind. SHADER_KIND::COUNT is not a valid value!");
@@ -69,12 +76,12 @@ namespace PHX
 					case EShLangGeometryMask:       { flagResult |= SHADER_STAGE_FLAG_GEOMETRY; break; }
 					case EShLangFragmentMask:       { flagResult |= SHADER_STAGE_FLAG_FRAGMENT; break; }
 					case EShLangComputeMask:        { flagResult |= SHADER_STAGE_FLAG_COMPUTE; break; }
-					case EShLangRayGenMask:         { TODO(); break; }
-					case EShLangIntersectMask:      { TODO(); break; }
-					case EShLangAnyHitMask:         { TODO(); break; }
-					case EShLangClosestHitMask:     { TODO(); break; }
-					case EShLangMissMask:           { TODO(); break; }
-					case EShLangCallableMask:       { TODO(); break; }
+					case EShLangRayGenMask:         { flagResult |= SHADER_STAGE_FLAG_RAYGEN; break; }
+					case EShLangIntersectMask:      { flagResult |= SHADER_STAGE_FLAG_INTERSECTION; break; }
+					case EShLangAnyHitMask:         { flagResult |= SHADER_STAGE_FLAG_ANY_HIT; break; }
+					case EShLangClosestHitMask:     { flagResult |= SHADER_STAGE_FLAG_CLOSEST_HIT; break; }
+					case EShLangMissMask:           { flagResult |= SHADER_STAGE_FLAG_MISS; break; }
+					case EShLangCallableMask:       { flagResult |= SHADER_STAGE_FLAG_CALLABLE; break; }
 					case EShLangTaskMask:           { TODO(); break; }
 					case EShLangMeshMask:           { TODO(); break; }
 					}
@@ -122,6 +129,80 @@ namespace PHX
 
 			ASSERT_ALWAYS("Failed to convert IO type to base format. Unhandled type or vector size!");
 			return BASE_FORMAT::INVALID;
+		}
+
+		glslang::EShTargetClientVersion GetClientVersion()
+		{
+			const Settings& settings = GlobalSettings::Get().GetSettings();
+			const GRAPHICS_API& api = settings.backendAPI;
+			const i32& majorVer = settings.backendAPIMajorVersion;
+			const i32& minorVer = settings.backendAPIMinorVersion;
+
+			switch (api)
+			{
+			case GRAPHICS_API::VULKAN:
+			{
+				if (majorVer == 1 && minorVer == 0)
+				{
+					return glslang::EShTargetClientVersion::EShTargetVulkan_1_0;
+				}
+				else if (majorVer == 1 && minorVer == 1)
+				{
+					return glslang::EShTargetClientVersion::EShTargetVulkan_1_1;
+				}
+				else if (majorVer == 1 && minorVer == 2)
+				{
+					return glslang::EShTargetClientVersion::EShTargetVulkan_1_2;
+				}
+				else if (majorVer == 1 && minorVer == 3)
+				{
+					return glslang::EShTargetClientVersion::EShTargetVulkan_1_3;
+				}
+
+				// No match found
+				break;
+			}
+			/*
+			case GRAPHICS_API::OPENGL
+			{
+				return glslang::EShTargetClientVersion::EShTargetOpenGL_450;
+			}
+			*/
+			default:
+			{
+				TODO();
+				break;
+			}
+			}
+
+			return glslang::EShTargetClientVersion::EShTargetClientVersionCount;
+		}
+
+		glslang::EShClient GetClient()
+		{
+			const Settings& settings = GlobalSettings::Get().GetSettings();
+			const GRAPHICS_API& api = settings.backendAPI;
+
+			switch (api)
+			{
+			case GRAPHICS_API::VULKAN:
+			{
+				return glslang::EShClient::EShClientVulkan;
+			}
+			/*
+			case GRAPHICS_API::OPENGL
+			{
+				return glslang::EShClient::EShClientOpenGL;
+			}
+			*/
+			default:
+			{
+				break;
+			}
+			}
+
+			ASSERT_ALWAYS("Failed to get glslang EShClient. Unsupported backendAPI!");
+			return glslang::EShClient::EShClientNone;
 		}
 	}
 }

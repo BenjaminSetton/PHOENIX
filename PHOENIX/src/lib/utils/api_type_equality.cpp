@@ -191,4 +191,44 @@ namespace PHX
 	}
 
 	////////////////////////////////////////////////////////////////////////////////
+
+	bool RayTracingPipelineDesc::operator==(const RayTracingPipelineDesc& other) const
+	{
+		// SHADERS
+		if (shaderCount != other.shaderCount)
+		{
+			return false;
+		}
+
+		for (u32 i = 0; i < shaderCount; i++)
+		{
+			const ShaderHandle& shaderA = pShaders[i];
+			const ShaderHandle& shaderB = other.pShaders[i];
+			if (!CanHandlesBeUsedForComparison(shaderA, shaderB))
+			{
+				return false;
+			}
+
+			if (AreHandlesValid(shaderA, shaderB) && !AreShadersEqual(shaderA, shaderB))
+			{
+				return false;
+			}
+		}
+
+		// UNIFORMS
+		if (!CanHandlesBeUsedForComparison(uniformCollection, other.uniformCollection))
+		{
+			return false;
+		}
+
+		if (AreHandlesValid(uniformCollection, other.uniformCollection) && 
+			!AreUniformsEqual(uniformCollection, other.uniformCollection))
+		{
+			return false;
+		}
+
+		return true;
+	}
+
+	////////////////////////////////////////////////////////////////////////////////
 }

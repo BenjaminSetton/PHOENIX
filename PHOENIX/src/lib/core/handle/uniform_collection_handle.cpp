@@ -65,6 +65,18 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
+	STATUS_CODE UniformCollectionHandle::QueueAccelerationStructureUpdate(AccelerationStructureHandle accelerationStructure, u32 set, u32 binding)
+	{
+		IUniformCollection* pUniformCollection = HANDLE_UTILS::ResolveHandle(*this);
+		if (pUniformCollection != nullptr)
+		{
+			return pUniformCollection->QueueAccelerationStructureUpdate(accelerationStructure, set, binding);
+		}
+
+		LogError("Failed to queue acceleration structure update. Could not resolve uniform collection handle!");
+		return STATUS_CODE::ERR_INTERNAL;
+	}
+
 	STATUS_CODE UniformCollectionHandle::FlushUpdateQueue()
 	{
 		IUniformCollection* pUniformCollection = HANDLE_UTILS::ResolveHandle(*this);

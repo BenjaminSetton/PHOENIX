@@ -44,6 +44,10 @@ namespace PHX
 		STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex, u32 vertexOffset, u32 instanceOffset) override;
 
 		STATUS_CODE Dispatch(Vec3u dimensions) override;
+		STATUS_CODE TraceRays(Vec3u dimensions) override;
+
+		STATUS_CODE BuildBottomLevelAccelerationStructure(AccelerationStructureHandle handle) override;
+		STATUS_CODE BuildTopLevelAccelerationStructure(AccelerationStructureHandle handle, BufferHandle instanceBuffer, u32 instanceCount) override;
 
 		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) override;
 		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes) override;

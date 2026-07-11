@@ -106,6 +106,15 @@ namespace PHX
 		}
 	}
 
+	void RenderPassHandle::SetPipelineDescription(const RayTracingPipelineDesc& rayTracingPipelineDesc)
+	{
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
+		if (pPass != nullptr)
+		{
+			return pPass->SetPipelineDescription(rayTracingPipelineDesc);
+		}
+	}
+
 	void RenderPassHandle::SetExecuteCallback(ExecuteRenderPassCallbackFn callback)
 	{
 		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);

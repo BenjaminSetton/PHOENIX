@@ -5,7 +5,8 @@
 
 #define RESOLVE_HELPER(handle, HandleT) \
 	HandleOwner* pOwner = HandleAccessor::GetOwner(handle); \
-	return static_cast<HandleT*>(pOwner->ResolveHandle(handle));
+	if(pOwner != nullptr) return static_cast<HandleT*>(pOwner->ResolveHandle(handle)); \
+	else return nullptr;
 
 namespace PHX
 {
@@ -59,6 +60,11 @@ namespace PHX
 		IWindow* ResolveHandle(const WindowHandle& handle)
 		{
 			RESOLVE_HELPER(handle, IWindow);
+		}
+
+		IAccelerationStructure* ResolveHandle(const AccelerationStructureHandle& handle)
+		{
+			RESOLVE_HELPER(handle, IAccelerationStructure);
 		}
 	}
 }

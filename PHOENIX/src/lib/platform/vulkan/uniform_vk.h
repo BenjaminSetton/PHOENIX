@@ -24,6 +24,7 @@ namespace PHX
 
 		STATUS_CODE QueueBufferUpdate(BufferHandle buffer, u32 set, u32 binding, u64 offset, u64 size) override;
 		STATUS_CODE QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex) override;
+		STATUS_CODE QueueAccelerationStructureUpdate(AccelerationStructureHandle accelerationStructure, u32 set, u32 binding) override;
 		STATUS_CODE FlushUpdateQueue() override;
 
 		const VkDescriptorSet* GetDescriptorSets() const;
@@ -36,6 +37,8 @@ namespace PHX
 
 		void CacheUniformGroupData(const UniformDataGroup* pDataGroups, u32 groupCount);
 		bool IsImageInAppropriateLayout(VkImageLayout layout) const;
+
+		UNIFORM_TYPE GetUniformType(u32 set, u32 binding) const;
 
 	private:
 
@@ -51,5 +54,7 @@ namespace PHX
 		std::vector<VkWriteDescriptorSet> m_descriptorWrites;
 		std::vector<VkDescriptorBufferInfo> m_writeBufferInfo;
 		std::vector<VkDescriptorImageInfo> m_writeImageInfo;
+		std::vector<VkWriteDescriptorSetAccelerationStructureKHR> m_writeAccelerationStructureInfo;
+		std::vector<VkAccelerationStructureKHR> m_writeAccelerationStructureHandles;
 	};
 }

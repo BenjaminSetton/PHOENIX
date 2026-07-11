@@ -35,6 +35,18 @@ namespace PHX
 		return 0;
 	}
 
+	bool RenderDeviceHandle::IsRayTracingSupported() const
+	{
+		IRenderDevice* pDevice = HANDLE_UTILS::ResolveHandle(*this);
+		if (pDevice != nullptr)
+		{
+			return pDevice->IsRayTracingSupported();
+		}
+
+		ASSERT_ALWAYS("Failed to query ray tracing support. Could not resolve render device handle!");
+		return false;
+	}
+
 	STATUS_CODE RenderDeviceHandle::AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& buffer)
 	{
 		IRenderDevice* pDevice = HANDLE_UTILS::ResolveHandle(*this);
@@ -116,6 +128,18 @@ namespace PHX
 		}
 
 		ASSERT_ALWAYS("Failed to allocate device context. Could not resolve render device handle!");
+		return STATUS_CODE::ERR_INTERNAL;
+	}
+
+	STATUS_CODE RenderDeviceHandle::AllocateAccelerationStructure(const AccelerationStructureCreateInfo& createInfo, AccelerationStructureHandle& accelerationStructure)
+	{
+		IRenderDevice* pDevice = HANDLE_UTILS::ResolveHandle(*this);
+		if (pDevice != nullptr)
+		{
+			return pDevice->AllocateAccelerationStructure(createInfo, accelerationStructure);
+		}
+
+		ASSERT_ALWAYS("Failed to allocate acceleration structure. Could not resolve render device handle!");
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 }

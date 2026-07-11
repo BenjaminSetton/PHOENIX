@@ -5,6 +5,7 @@
 
 #include "../../utils/logger.h"
 #include "../../utils/sanity.h"
+#include "acceleration_structure_vk.h"
 #include "buffer_vk.h"
 #include "render_device_vk.h"
 #include "texture_vk.h"
@@ -103,6 +104,8 @@ namespace PHX
 		// Allocate enough space in the write descriptor arrays for a maximum amount of write entries
 		m_writeBufferInfo.reserve(MAX_DESCRIPTOR_WRITE_ARRAY_SIZE);
 		m_writeImageInfo.reserve(MAX_DESCRIPTOR_WRITE_ARRAY_SIZE);
+		m_writeAccelerationStructureInfo.reserve(MAX_DESCRIPTOR_WRITE_ARRAY_SIZE);
+		m_writeAccelerationStructureHandles.reserve(MAX_DESCRIPTOR_WRITE_ARRAY_SIZE);
 		m_descriptorWrites.reserve(2 * MAX_DESCRIPTOR_WRITE_ARRAY_SIZE); // Must hold MAX image _and_ buffer write requests
 	}
 
@@ -276,16 +279,22 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		const UNIFORM_TYPE uniformType = GetUniformType(set, binding);
+		if (uniformType == UNIFORM_TYPE::MAX)
+		{
+			LogError("Failed to queue image update! Could not find uniform type for set %u, binding %u", set, binding);
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		const VkDescriptorType descType = UNIFORM_UTILS::ConvertUniformType(uniformType);
+
 		VkDescriptorSet vkDescSet = m_descriptorSets.at(set);
 
 		m_writeImageInfo.push_back({});
 		VkDescriptorImageInfo& imageInfo = m_writeImageInfo.back();
 		imageInfo.imageLayout = layout;
 		imageInfo.imageView = imageView;
-		imageInfo.sampler = textureVk->GetSampler();
-
-		// TODO - Determine if this is wanted behavior
-		VkDescriptorType descType = (imageInfo.sampler == VK_NULL_HANDLE) ? VK_DESCRIPTOR_TYPE_STORAGE_IMAGE : VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		imageInfo.sampler = (uniformType == UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER) ? textureVk->GetSampler() : VK_NULL_HANDLE;
 
 		VkWriteDescriptorSet writeDescSet{};
 		writeDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -295,6 +304,47 @@ namespace PHX
 		writeDescSet.descriptorType = descType;
 		writeDescSet.descriptorCount = 1;
 		writeDescSet.pImageInfo = &imageInfo;
+
+		m_descriptorWrites.push_back(writeDescSet);
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE UniformCollectionVk::QueueAccelerationStructureUpdate(AccelerationStructureHandle accelerationStructure, u32 set, u32 binding)
+	{
+		AccelerationStructureVk* pAccelerationStructure = static_cast<AccelerationStructureVk*>(m_pRenderDevice->ResolveHandle(accelerationStructure));
+		if ((pAccelerationStructure == nullptr) || (pAccelerationStructure->GetAccelerationStructure() == nullptr))
+		{
+			LogError("Failed to queue acceleration structure update. Acceleration structure is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		if (set >= m_descriptorSets.size())
+		{
+			LogError("Failed to queue acceleration structure update! Set number is invalid (expected 0 to %u)", static_cast<u32>(m_descriptorSets.size()));
+			return STATUS_CODE::ERR_API;
+		}
+
+		VkAccelerationStructureKHR vkAccelerationStructure = pAccelerationStructure->GetAccelerationStructure();
+
+		m_writeAccelerationStructureHandles.push_back(vkAccelerationStructure);
+
+		m_writeAccelerationStructureInfo.emplace_back();
+		VkWriteDescriptorSetAccelerationStructureKHR& asInfo = m_writeAccelerationStructureInfo.back();
+		asInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
+		asInfo.pNext = nullptr;
+		asInfo.accelerationStructureCount = 1;
+		asInfo.pAccelerationStructures = &m_writeAccelerationStructureHandles.back();
+
+		VkDescriptorSet vkDescSet = m_descriptorSets.at(set);
+
+		VkWriteDescriptorSet writeDescSet{};
+		writeDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writeDescSet.pNext = &asInfo;
+		writeDescSet.dstSet = vkDescSet;
+		writeDescSet.dstBinding = binding;
+		writeDescSet.dstArrayElement = 0;
+		writeDescSet.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+		writeDescSet.descriptorCount = 1;
 
 		m_descriptorWrites.push_back(writeDescSet);
 		return STATUS_CODE::SUCCESS;
@@ -319,6 +369,8 @@ namespace PHX
 		m_descriptorWrites.clear();
 		m_writeImageInfo.clear();
 		m_writeBufferInfo.clear();
+		m_writeAccelerationStructureInfo.clear();
+		m_writeAccelerationStructureHandles.clear();
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -410,5 +462,24 @@ namespace PHX
 		}
 
 		return false;
+	}
+
+	UNIFORM_TYPE UniformCollectionVk::GetUniformType(u32 set, u32 binding) const
+	{
+		if (set >= m_uniformGroups.size())
+		{
+			return UNIFORM_TYPE::MAX;
+		}
+
+		const UniformDataGroup& dataGroup = m_uniformGroups.at(set);
+		for (u32 i = 0; i < dataGroup.uniformArrayCount; i++)
+		{
+			if (dataGroup.uniformArray[i].binding == binding)
+			{
+				return dataGroup.uniformArray[i].type;
+			}
+		}
+
+		return UNIFORM_TYPE::MAX;
 	}
 }

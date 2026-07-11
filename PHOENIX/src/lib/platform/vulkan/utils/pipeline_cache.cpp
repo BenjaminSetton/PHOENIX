@@ -9,7 +9,53 @@
 
 namespace PHX
 {
-	
+	static void HashCombineUniformCollection(const UniformCollectionHandle& uniformCollection, size_t& out_seed)
+	{
+		if (uniformCollection.IsValid())
+		{
+			const u32 uniformGroupCount = uniformCollection.GetGroupCount();
+			HashCombine(out_seed, uniformGroupCount);
+
+			for (u32 i = 0; i < uniformGroupCount; i++)
+			{
+				const UniformDataGroup& currUniformGroup = *(uniformCollection.GetGroup(i));
+				const u32 uniformArrayCount = currUniformGroup.uniformArrayCount;
+
+				HashCombine(out_seed, currUniformGroup.set);
+
+				if (currUniformGroup.uniformArray != nullptr)
+				{
+					HashCombine(out_seed, uniformArrayCount);
+
+					for (u32 j = 0; j < uniformArrayCount; j++)
+					{
+						const UniformData& currUniformData = currUniformGroup.uniformArray[j];
+						HashCombine(out_seed, currUniformData.binding);
+						HashCombine(out_seed, currUniformData.shaderStage);
+						HashCombine(out_seed, currUniformData.type);
+					}
+				}
+			}
+		}
+	}
+
+	static void HashCombineShaderArray(const ShaderHandle* pShaders, u32 shaderCount, size_t& out_seed)
+	{
+		if (pShaders != nullptr)
+		{
+			HashCombine(out_seed, shaderCount);
+
+			for (u32 i = 0; i < shaderCount; i++)
+			{
+				const ShaderHandle& currShader = pShaders[i];
+				if (currShader != INVALID_HANDLE)
+				{
+					HashCombine(out_seed, currShader.GetStage());
+				}
+			}
+		}
+	}
+
 	size_t GraphicsPipelineDescHasher::operator()(const GraphicsPipelineDesc& desc) const
 	{
 		//STATIC_ASSERT_MSG(sizeof(desc) == SOME_SIZE, "If graphics pipeline description changed, make sure to change this hashing function!");
@@ -93,48 +139,10 @@ namespace PHX
 		HashCombine(seed, desc.blendState.colorWriteMask);
 
 		// Uniform collection
-		if (desc.uniformCollection.IsValid())
-		{
-			const u32 uniformGroupCount = desc.uniformCollection.GetGroupCount();
-			HashCombine(seed, uniformGroupCount);
-
-			for (u32 i = 0; i < uniformGroupCount; i++)
-			{
-				const UniformDataGroup& currUniformGroup = *(desc.uniformCollection.GetGroup(i));
-				const u32 uniformArrayCount = currUniformGroup.uniformArrayCount;
-
-				HashCombine(seed, currUniformGroup.set);
-
-				if (currUniformGroup.uniformArray != nullptr)
-				{
-					HashCombine(seed, uniformArrayCount);
-
-					for (u32 j = 0; j < uniformArrayCount; j++)
-					{
-						const UniformData& currUniformData = currUniformGroup.uniformArray[j];
-						HashCombine(seed, currUniformData.binding);
-						HashCombine(seed, currUniformData.shaderStage);
-						HashCombine(seed, currUniformData.type);
-					}
-				}
-			}
-		}
+		HashCombineUniformCollection(desc.uniformCollection, seed);
 
 		// Shader info
-		if (desc.pShaders != nullptr)
-		{
-			const u32 shaderCount = desc.shaderCount;
-			HashCombine(seed, shaderCount);
-
-			for (u32 i = 0; i < shaderCount; i++)
-			{
-				const ShaderHandle& currShader = desc.pShaders[i];
-				if (currShader != INVALID_HANDLE)
-				{
-					HashCombine(seed, currShader.GetStage());
-				}
-			}
-		}
+		HashCombineShaderArray(desc.pShaders, desc.shaderCount, seed);
 
 		return seed;
 	}
@@ -146,38 +154,25 @@ namespace PHX
 		size_t seed = 0;
 
 		// Shader info
-		if (desc.shader != INVALID_HANDLE)
-		{
-			HashCombine(seed, desc.shader.GetStage());
-		}
+		HashCombineShaderArray(&desc.shader, 1, seed);
 
 		// Uniform collection
-		if (desc.uniformCollection.IsValid())
-		{
-			const u32 uniformGroupCount = desc.uniformCollection.GetGroupCount();
-			HashCombine(seed, uniformGroupCount);
+		HashCombineUniformCollection(desc.uniformCollection, seed);
 
-			for (u32 i = 0; i < uniformGroupCount; i++)
-			{
-				const UniformDataGroup& currUniformGroup = *(desc.uniformCollection.GetGroup(i));
-				const u32 uniformArrayCount = currUniformGroup.uniformArrayCount;
+		return seed;
+	}
 
-				HashCombine(seed, currUniformGroup.set);
+	size_t RayTracingPipelineDescHasher::operator()(const RayTracingPipelineDesc& desc) const
+	{
+		//STATIC_ASSERT_MSG(sizeof(desc) == SOME_SIZE, "If ray tracing pipeline description changed, make sure to change this hashing function!");
 
-				if (currUniformGroup.uniformArray != nullptr)
-				{
-					HashCombine(seed, uniformArrayCount);
+		size_t seed = 0;
 
-					for (u32 j = 0; j < uniformArrayCount; j++)
-					{
-						const UniformData& currUniformData = currUniformGroup.uniformArray[j];
-						HashCombine(seed, currUniformData.binding);
-						HashCombine(seed, currUniformData.shaderStage);
-						HashCombine(seed, currUniformData.type);
-					}
-				}
-			}
-		}
+		// Shader info
+		HashCombineShaderArray(desc.pShaders, desc.shaderCount, seed);
+
+		// Uniform collection
+		HashCombineUniformCollection(desc.uniformCollection, seed);
 
 		return seed;
 	}
@@ -211,6 +206,12 @@ namespace PHX
 			delete iter.second;
 		}
 		m_computePipelineCache.clear();
+
+		for (auto iter : m_rayTracingPipelineCache)
+		{
+			delete iter.second;
+		}
+		m_rayTracingPipelineCache.clear();
 
 		vkDestroyPipelineCache(m_renderDevice->GetLogicalDevice(), m_vkCache, nullptr);
 	}
@@ -289,6 +290,44 @@ namespace PHX
 	void PipelineCache::Delete(const ComputePipelineDesc& desc)
 	{
 		m_computePipelineCache.erase(desc);
+	}
+
+	// RAY TRACING
+	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, const RayTracingPipelineDesc& desc)
+	{
+		PipelineVk* res = nullptr;
+
+		auto iter = m_rayTracingPipelineCache.find(desc);
+		if (iter == m_rayTracingPipelineCache.end())
+		{
+			PipelineVk* newPipeline = new PipelineVk(pRenderDevice, m_vkCache, desc);
+			m_rayTracingPipelineCache.insert({ desc, newPipeline });
+			res = newPipeline;
+
+			LogDebug("Ray tracing pipeline added to cache. New cache size: %u", m_rayTracingPipelineCache.size());
+		}
+		else
+		{
+			res = iter->second;
+		}
+
+		return res;
+	}
+
+	PipelineVk* PipelineCache::Find(const RayTracingPipelineDesc& desc)
+	{
+		auto iter = m_rayTracingPipelineCache.find(desc);
+		if (iter != m_rayTracingPipelineCache.end())
+		{
+			return iter->second;
+		}
+
+		return nullptr;
+	}
+
+	void PipelineCache::Delete(const RayTracingPipelineDesc& desc)
+	{
+		m_rayTracingPipelineCache.erase(desc);
 	}
 
 }

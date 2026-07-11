@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/uniform.h"
 #include "PHX/types/clear_color.h"
@@ -31,6 +32,10 @@ namespace PHX
 		STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex = 0, u32 vertexOffset = 0, u32 instanceOffset = 0);
 
 		STATUS_CODE Dispatch(Vec3u dimensions);
+		STATUS_CODE TraceRays(Vec3u dimensions);
+
+		STATUS_CODE BuildBottomLevelAccelerationStructure(AccelerationStructureHandle handle);
+		STATUS_CODE BuildTopLevelAccelerationStructure(AccelerationStructureHandle handle, BufferHandle instanceBuffer, u32 instanceCount);
 
 		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes);
 		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes);

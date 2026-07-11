@@ -36,6 +36,7 @@ namespace PHX
 		// Pipeline data
 		virtual void SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc) = 0;
 		virtual void SetPipelineDescription(const ComputePipelineDesc& computePipelineDesc) = 0;
+		virtual void SetPipelineDescription(const RayTracingPipelineDesc& rayTracingPipelineDesc) = 0;
 
 		// Callbacks
 		virtual void SetExecuteCallback(ExecuteRenderPassCallbackFn callback) = 0;

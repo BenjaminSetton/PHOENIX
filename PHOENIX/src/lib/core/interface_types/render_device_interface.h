@@ -2,6 +2,7 @@
 
 #include "core/handle/handle_owner.h"
 #include "core/ref.h"
+#include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
 #include "PHX/interface/render_graph.h"
@@ -21,6 +22,7 @@ namespace PHX
 		// Query device stats
 		virtual const char* GetDeviceName() const = 0;
 		virtual u32 GetFramesInFlight() const = 0;
+		virtual bool IsRayTracingSupported() const = 0;
 
 		// Allocations
 		virtual STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle) = 0;
@@ -30,5 +32,6 @@ namespace PHX
 		virtual STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader) = 0;
 		virtual STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain) = 0;
 		virtual STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext) = 0;
+		virtual STATUS_CODE AllocateAccelerationStructure(const AccelerationStructureCreateInfo& createInfo, AccelerationStructureHandle& handle) = 0;
 	};
 }

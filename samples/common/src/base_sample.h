@@ -26,6 +26,8 @@ namespace Common
 		virtual void Init();
 		virtual void Shutdown();
 
+		virtual void OverrideSettings(PHX::Settings& settings);
+
 		virtual void CreateWindow();
 		virtual void CreateSwapChain();
 		virtual void CreateRenderDevice();

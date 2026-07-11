@@ -53,21 +53,27 @@ namespace Common
 		CreateWindow();
 
 		Settings settings{};
-		settings.backendAPI                    = GRAPHICS_API::VULKAN;
-		settings.logCallback                   = nullptr;
+		settings.backendAPI = GRAPHICS_API::VULKAN;
+		settings.backendAPIMajorVersion = 1;
+		settings.backendAPIMinorVersion = 2;
+		settings.logCallback = nullptr;
 
-		settings.enableValidation              = true; // TODO - Add DEBUG project define for samples and guard this setting based on that
-		settings.swapChainOutdatedCallback     = OnSwapChainOutdatedCallback;
-		settings.windowFocusChangedCallback    = OnWindowFocusChangedCallback;
-		settings.windowMaximizedCallback       = OnWindowMaximizedCallback;
-		settings.windowMinimizedCallback       = OnWindowMinimizedCallback;
-		settings.windowResizedCallback         = OnWindowResizedCallback;
-		settings.windowKeyDownCallback         = [=](KeyCode keycode) { this->OnKeyDown(keycode); };
-		settings.windowKeyUpCallback           = [=](KeyCode keycode) { this->OnKeyUp(keycode); };
-		settings.mouseMovedCallback            = [=](float newX, float newY) { this->OnMouseMoved(newX, newY); };
+		settings.enableValidation = true; // TODO - Add DEBUG project define for samples and guard this setting based on that
+		settings.swapChainOutdatedCallback = OnSwapChainOutdatedCallback;
+		settings.windowFocusChangedCallback = OnWindowFocusChangedCallback;
+		settings.windowMaximizedCallback = OnWindowMaximizedCallback;
+		settings.windowMinimizedCallback = OnWindowMinimizedCallback;
+		settings.windowResizedCallback = OnWindowResizedCallback;
+		settings.windowKeyDownCallback = [=](KeyCode keycode) { this->OnKeyDown(keycode); };
+		settings.windowKeyUpCallback = [=](KeyCode keycode) { this->OnKeyUp(keycode); };
+		settings.mouseMovedCallback = [=](float newX, float newY) { this->OnMouseMoved(newX, newY); };
 		settings.windowMouseButtonDownCallback = [=](MouseButtonCode mouseButton) { this->OnMouseButtonDown(mouseButton); };
-		settings.windowMouseButtonUpCallback   = [=](MouseButtonCode mouseButton) { this->OnMouseButtonUp(mouseButton); };
-		settings.windowKeyRepeatCallback       = nullptr;
+		settings.windowMouseButtonUpCallback = [=](MouseButtonCode mouseButton) { this->OnMouseButtonUp(mouseButton); };
+		settings.windowKeyRepeatCallback = nullptr;
+
+		// TODO - Move init calls out of constructor so overridden functions work as expected
+		// Allow derived classes to cherry-pick settings to override
+		OverrideSettings(settings);
 
 		STATUS_CODE phxRes = PHX::Initialize(settings, m_window);
 		CHECK_PHX_RES(phxRes);
@@ -93,6 +99,12 @@ namespace Common
 		}
 
 		return m_window.ShouldClose();
+	}
+
+	void BaseSample::OverrideSettings(PHX::Settings& settings)
+	{
+		// unused
+		(void)settings;
 	}
 
 	void BaseSample::CreateWindow()

@@ -23,6 +23,7 @@ include "PHOENIX/premake5.lua"
 -- Samples
 group "Samples"
 include "samples/HelloTriangle/premake5.lua"
+include "samples/RayTracing/premake5.lua"
 include "samples/BasicModel/premake5.lua"
 include "samples/TexturedModel/premake5.lua"
 include "samples/ComputeParticles/premake5.lua"

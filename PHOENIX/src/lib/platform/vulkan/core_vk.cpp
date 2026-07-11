@@ -99,6 +99,9 @@ namespace PHX
 
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
+		// Set the API version
+		m_apiVersion = VK_MAKE_API_VERSION(0, settings.backendAPIMajorVersion, settings.backendAPIMinorVersion, 0);
+
 		res = CreateInstance(settings.enableValidation);
 		if (res != STATUS_CODE::SUCCESS)
 		{
@@ -131,10 +134,8 @@ namespace PHX
 		return m_apiVersion;
 	}
 
-	CoreVk::CoreVk() : m_instance(VK_NULL_HANDLE), m_surface(VK_NULL_HANDLE), m_apiVersion(0)
+	CoreVk::CoreVk() : m_instance(VK_NULL_HANDLE), m_surface(VK_NULL_HANDLE), m_validationMessenger(VK_NULL_HANDLE), m_apiVersion(0)
 	{
-		// 1.0.0
-		m_apiVersion = VK_MAKE_API_VERSION(0, 1, 0, 0);
 	}
 
 	CoreVk::~CoreVk()

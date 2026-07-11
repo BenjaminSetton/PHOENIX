@@ -20,6 +20,7 @@
 
 #include "render_device_vk.h"
 
+#include "acceleration_structure_vk.h"
 #include "buffer_vk.h"
 #include "core/handle/handle_utils.h"
 #include "core_vk.h"
@@ -41,16 +42,27 @@ namespace PHX
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME
 	};
 
-	static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
+	static const std::vector<const char*> rayTracingExtensions =
 	{
-		u32 extensionCount;
+		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+		VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
+		VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
+		VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
+		VK_KHR_SPIRV_1_4_EXTENSION_NAME
+	};
+
+	static bool SupportsAllExtensions(VkPhysicalDevice device, const std::vector<const char*>& extensions)
+	{
+		u32 extensionCount = 0;
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
 
 		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
 		// Must be std::string so comparisons in erase() below work correctly
-		std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+		std::set<std::string> requiredExtensions(extensions.begin(), extensions.end());
 
 		for (const auto& extension : availableExtensions)
 		{
@@ -58,6 +70,39 @@ namespace PHX
 		}
 
 		return requiredExtensions.empty();
+	}
+
+	static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
+	{
+
+		return SupportsAllExtensions(device, deviceExtensions);
+	}
+
+	static bool CheckRayTracingExtensionSupport(VkPhysicalDevice device)
+	{
+		if (!SupportsAllExtensions(device, rayTracingExtensions))
+		{
+			return false;
+		}
+
+		VkPhysicalDeviceBufferDeviceAddressFeatures bdaFeatures{};
+		bdaFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR asFeatures{};
+		asFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+		asFeatures.pNext = &bdaFeatures;
+
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtpFeatures{};
+		rtpFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+		rtpFeatures.pNext = &asFeatures;
+
+		VkPhysicalDeviceFeatures2 features2{};
+		features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		features2.pNext = &rtpFeatures;
+
+		vkGetPhysicalDeviceFeatures2(device, &features2);
+
+		return (bdaFeatures.bufferDeviceAddress && asFeatures.accelerationStructure && rtpFeatures.rayTracingPipeline);
 	}
 
 	static bool IsDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface)
@@ -80,8 +125,10 @@ namespace PHX
 	//-----------------------------------------------------------------------------------//
 
 	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
-		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_descriptorPool(VK_NULL_HANDLE),
-		m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_renderGraphs()
+		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_rayTracingPipelineProperties(), m_descriptorPool(VK_NULL_HANDLE),
+		m_rayTracingSupported(false), m_pfnCreateRayTracingPipelines(nullptr), m_pfnGetRayTracingShaderGroupHandles(nullptr), m_pfnGetBufferDeviceAddress(nullptr), m_pfnCmdTraceRays(nullptr),
+		m_pfnCreateAccelerationStructure(nullptr), m_pfnDestroyAccelerationStructure(nullptr), m_pfnGetAccelerationStructureBuildSizes(nullptr), m_pfnGetAccelerationStructureDeviceAddress(nullptr), m_pfnCmdBuildAccelerationStructures(nullptr),
+		m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_renderGraphs(), m_accelerationStructures()
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
@@ -184,6 +231,11 @@ namespace PHX
 		return m_framesInFlight;
 	}
 
+	bool RenderDeviceVk::IsRayTracingSupported() const
+	{
+		return m_rayTracingSupported;
+	}
+
 	STATUS_CODE RenderDeviceVk::AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle)
 	{
 		BufferVk* pBuffer = new BufferVk(this, createInfo);
@@ -278,18 +330,35 @@ namespace PHX
 		return HANDLE_UTILS::AllocateHandle(m_deviceContexts, pContext, this, handle);
 	}
 
+	STATUS_CODE RenderDeviceVk::AllocateAccelerationStructure(const AccelerationStructureCreateInfo& createInfo, AccelerationStructureHandle& handle)
+	{
+		AccelerationStructureVk* pAccelerationStructure = new AccelerationStructureVk(this, createInfo);
+		if (pAccelerationStructure == nullptr)
+		{
+			LogError("Failed to allocate acceleration structure. Memory allocation failed!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+		return HANDLE_UTILS::AllocateHandle(m_accelerationStructures, pAccelerationStructure, this, handle);
+	}
+
+	AccelerationStructureVk* RenderDeviceVk::GetAccelerationStructure(const AccelerationStructureHandle& handle)
+	{
+		return m_accelerationStructures.Resolve(handle.GetIndex());
+	}
+
 	void* RenderDeviceVk::ResolveHandle(const Handle& handle)
 	{
 		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
-		case HANDLE_TYPE::BUFFER:          return m_buffers.Resolve(handle.GetIndex());
-		case HANDLE_TYPE::TEXTURE:         return m_textures.Resolve(handle.GetIndex());
-		case HANDLE_TYPE::UNIFORM:         return m_uniformCollections.Resolve(handle.GetIndex());
-		case HANDLE_TYPE::DEVICE_CONTEXT:  return m_deviceContexts.Resolve(handle.GetIndex());
-		case HANDLE_TYPE::SHADER:          return m_shaders.Resolve(handle.GetIndex());
-		case HANDLE_TYPE::SWAP_CHAIN:      return m_swapChains.Resolve(handle.GetIndex());
-		case HANDLE_TYPE::RENDER_GRAPH:    return m_renderGraphs.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::BUFFER:                 return m_buffers.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::TEXTURE:                return m_textures.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::UNIFORM:                return m_uniformCollections.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::DEVICE_CONTEXT:         return m_deviceContexts.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::SHADER:                 return m_shaders.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::SWAP_CHAIN:             return m_swapChains.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::RENDER_GRAPH:           return m_renderGraphs.Resolve(handle.GetIndex());
+		case HANDLE_TYPE::ACCELERATION_STRUCTURE: return m_accelerationStructures.Resolve(handle.GetIndex());
 		default:
 		{
 			break;
@@ -305,13 +374,14 @@ namespace PHX
 		const HANDLE_TYPE handleType = handle.GetType();
 		switch (handleType)
 		{
-		case HANDLE_TYPE::BUFFER:         m_buffers.IncrementRefCount(handle.GetIndex());            break;
-		case HANDLE_TYPE::TEXTURE:        m_textures.IncrementRefCount(handle.GetIndex());           break;
-		case HANDLE_TYPE::UNIFORM:        m_uniformCollections.IncrementRefCount(handle.GetIndex()); break;
-		case HANDLE_TYPE::DEVICE_CONTEXT: m_deviceContexts.IncrementRefCount(handle.GetIndex());     break;
-		case HANDLE_TYPE::RENDER_GRAPH:   m_renderGraphs.IncrementRefCount(handle.GetIndex());       break;
-		case HANDLE_TYPE::SHADER:         m_shaders.IncrementRefCount(handle.GetIndex());            break;
-		case HANDLE_TYPE::SWAP_CHAIN:     m_swapChains.IncrementRefCount(handle.GetIndex());         break;
+		case HANDLE_TYPE::BUFFER:                 m_buffers.IncrementRefCount(handle.GetIndex());            	 break;
+		case HANDLE_TYPE::TEXTURE:                m_textures.IncrementRefCount(handle.GetIndex());           	 break;
+		case HANDLE_TYPE::UNIFORM:                m_uniformCollections.IncrementRefCount(handle.GetIndex()); 	 break;
+		case HANDLE_TYPE::DEVICE_CONTEXT:         m_deviceContexts.IncrementRefCount(handle.GetIndex());     	 break;
+		case HANDLE_TYPE::RENDER_GRAPH:           m_renderGraphs.IncrementRefCount(handle.GetIndex());       	 break;
+		case HANDLE_TYPE::SHADER:                 m_shaders.IncrementRefCount(handle.GetIndex());            	 break;
+		case HANDLE_TYPE::SWAP_CHAIN:             m_swapChains.IncrementRefCount(handle.GetIndex());         break;
+		case HANDLE_TYPE::ACCELERATION_STRUCTURE: m_accelerationStructures.IncrementRefCount(handle.GetIndex()); break;
 		default:
 		{
 			ASSERT_ALWAYS("Failed to increment ref count. Unrecognized handle type!");
@@ -325,13 +395,14 @@ namespace PHX
 		const HANDLE_TYPE handleType = handle.GetType();
 		switch (handleType)
 		{
-		case HANDLE_TYPE::BUFFER:         m_buffers.DecrementRefCount(handle.GetIndex());            break;
-		case HANDLE_TYPE::TEXTURE:        m_textures.DecrementRefCount(handle.GetIndex());           break;
-		case HANDLE_TYPE::UNIFORM:        m_uniformCollections.DecrementRefCount(handle.GetIndex()); break;
-		case HANDLE_TYPE::DEVICE_CONTEXT: m_deviceContexts.DecrementRefCount(handle.GetIndex());     break;
-		case HANDLE_TYPE::RENDER_GRAPH:   m_renderGraphs.DecrementRefCount(handle.GetIndex());       break;
-		case HANDLE_TYPE::SHADER:         m_shaders.DecrementRefCount(handle.GetIndex());            break;
-		case HANDLE_TYPE::SWAP_CHAIN:     m_swapChains.DecrementRefCount(handle.GetIndex());         break;
+		case HANDLE_TYPE::BUFFER:                 m_buffers.DecrementRefCount(handle.GetIndex());            	 break;
+		case HANDLE_TYPE::TEXTURE:                m_textures.DecrementRefCount(handle.GetIndex());           	 break;
+		case HANDLE_TYPE::UNIFORM:                m_uniformCollections.DecrementRefCount(handle.GetIndex()); 	 break;
+		case HANDLE_TYPE::DEVICE_CONTEXT:         m_deviceContexts.DecrementRefCount(handle.GetIndex());     	 break;
+		case HANDLE_TYPE::RENDER_GRAPH:           m_renderGraphs.DecrementRefCount(handle.GetIndex());       	 break;
+		case HANDLE_TYPE::SHADER:                 m_shaders.DecrementRefCount(handle.GetIndex());            	 break;
+		case HANDLE_TYPE::SWAP_CHAIN:             m_swapChains.DecrementRefCount(handle.GetIndex());         	 break;
+		case HANDLE_TYPE::ACCELERATION_STRUCTURE: m_accelerationStructures.DecrementRefCount(handle.GetIndex()); break;
 		default:
 		{
 			ASSERT_ALWAYS("Failed to decrement ref count. Unrecognized handle type!");
@@ -386,11 +457,6 @@ namespace PHX
 		m_pipelineCache->Delete(desc);
 	}
 
-	PipelineVk* RenderDeviceVk::GetGraphicsPipeline(const GraphicsPipelineDesc& desc)
-	{
-		return m_pipelineCache->Find(desc);
-	}
-
 	PipelineVk* RenderDeviceVk::CreateComputePipeline(const ComputePipelineDesc& desc)
 	{
 		PipelineVk* pipeline = m_pipelineCache->FindOrCreate(this, desc);
@@ -405,11 +471,6 @@ namespace PHX
 	void RenderDeviceVk::DestroyComputePipeline(const ComputePipelineDesc& desc)
 	{
 		m_pipelineCache->Delete(desc);
-	}
-
-	PipelineVk* RenderDeviceVk::GetComputePipeline(const ComputePipelineDesc& desc)
-	{
-		return m_pipelineCache->Find(desc);
 	}
 
 	void RenderDeviceVk::InvalidateBackbufferFramebuffers()
@@ -521,13 +582,18 @@ namespace PHX
 		info.device = m_logicalDevice;
 		info.physicalDevice = m_physicalDevice;
 		info.instance = CoreVk::Get().GetInstance();
-		info.flags = 0; // TODO - can this be 0??
+		info.flags = 0;
 		info.vulkanApiVersion = CoreVk::Get().GetAPIVersion();
 		info.pHeapSizeLimit = nullptr;
 		info.pTypeExternalMemoryHandleTypes = nullptr;
 		info.pVulkanFunctions = nullptr;
 		// [OPTIONAL] info.preferredLargeHeapBlockSize
 		// [OPTIONAL] info.pDeviceMemoryCallbacks
+
+		if (m_rayTracingSupported)
+		{
+			info.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+		}
 
 		VkResult res = vmaCreateAllocator(&info, &m_allocator);
 		if (res != VK_SUCCESS)
@@ -561,8 +627,26 @@ namespace PHX
 				vkGetPhysicalDeviceProperties(device, &m_physicalDeviceProperties);
 				vkGetPhysicalDeviceFeatures(device, &m_physicalDeviceFeatures);
 				vkGetPhysicalDeviceMemoryProperties(device, &m_physicalDeviceMemoryProperties);
-
 				LogInfo("Using physical device: \"%s\"", m_physicalDeviceProperties.deviceName);
+
+				m_rayTracingSupported = CheckRayTracingExtensionSupport(device);
+				if (m_rayTracingSupported)
+				{
+					LogInfo("Ray tracing is supported on this device.");
+
+					m_rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+					m_rayTracingPipelineProperties.pNext = nullptr;
+
+					VkPhysicalDeviceProperties2 properties2{};
+					properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+					properties2.pNext = &m_rayTracingPipelineProperties;
+					vkGetPhysicalDeviceProperties2(device, &properties2);
+				}
+				else
+				{
+					LogWarning("Ray tracing is not supported on this device.");
+				}
+				
 				m_physicalDevice = device;
 				return STATUS_CODE::SUCCESS;
 			}
@@ -608,17 +692,42 @@ namespace PHX
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
-		VkPhysicalDeviceFeatures deviceFeatures{};
-		deviceFeatures.samplerAnisotropy = VK_TRUE;
-		deviceFeatures.geometryShader = VK_TRUE;
+		VkPhysicalDeviceBufferDeviceAddressFeatures bdaFeatures{};
+		bdaFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
+
+		VkPhysicalDeviceAccelerationStructureFeaturesKHR asFeatures{};
+		asFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR;
+		asFeatures.pNext = &bdaFeatures;
+
+		VkPhysicalDeviceRayTracingPipelineFeaturesKHR rtpFeatures{};
+		rtpFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
+		rtpFeatures.pNext = &asFeatures;
+
+		VkPhysicalDeviceFeatures2 deviceFeatures{};
+		deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+		deviceFeatures.pNext = nullptr;
+		deviceFeatures.features.samplerAnisotropy = VK_TRUE;
+		deviceFeatures.features.geometryShader = VK_TRUE;
+
+		std::vector<const char*> enabledExtensions = deviceExtensions;
+		if (m_rayTracingSupported)
+		{
+			enabledExtensions.insert(enabledExtensions.end(), rayTracingExtensions.begin(), rayTracingExtensions.end());
+
+			bdaFeatures.bufferDeviceAddress = VK_TRUE;
+			asFeatures.accelerationStructure = VK_TRUE;
+			rtpFeatures.rayTracingPipeline = VK_TRUE;
+			deviceFeatures.pNext = &rtpFeatures;
+		}
 
 		VkDeviceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+		createInfo.pNext = &deviceFeatures;
 		createInfo.pQueueCreateInfos = queueCreateInfos.data();
-		createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
-		createInfo.pEnabledFeatures = &deviceFeatures;
-		createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-		createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+		createInfo.queueCreateInfoCount = static_cast<u32>(queueCreateInfos.size());
+		createInfo.pEnabledFeatures = nullptr;
+		createInfo.enabledExtensionCount = static_cast<u32>(enabledExtensions.size());
+		createInfo.ppEnabledExtensionNames = enabledExtensions.data();
 
 		VkResult res = vkCreateDevice(physicalDevice, &createInfo, nullptr, &m_logicalDevice);
 		if (res != VK_SUCCESS)
@@ -635,6 +744,16 @@ namespace PHX
 
 		m_queueFamilyIndices = indices;
 
+		if (m_rayTracingSupported)
+		{
+			STATUS_CODE rtFnsRes = LoadRayTracingFunctions();
+			if (rtFnsRes != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to load ray tracing function pointers!");
+				return rtFnsRes;
+			}
+		}
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -644,13 +763,24 @@ namespace PHX
 		// These are temporary so we can get this working. Completely random numbers
 		const u32 numUniformBuffers = 50;
 		const u32 numImageSamplers = 50;
+		const u32 numStorageBuffers = 50;
+		const u32 numStorageImages = 50;
+		const u32 numAccelerationStructures = 50;
 		const u32 maxSets = 500;
 
-		std::array<VkDescriptorPoolSize, 2> poolSizes{};
+		std::array<VkDescriptorPoolSize, 6> poolSizes{};
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		poolSizes[0].descriptorCount = numUniformBuffers/* * CONFIG::MaxFramesInFlight*/;
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 		poolSizes[1].descriptorCount = numImageSamplers/* * CONFIG::MaxFramesInFlight*/;
+		poolSizes[2].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+		poolSizes[2].descriptorCount = numImageSamplers/* * CONFIG::MaxFramesInFlight*/;
+		poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		poolSizes[3].descriptorCount = numStorageBuffers/* * CONFIG::MaxFramesInFlight*/;
+		poolSizes[4].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+		poolSizes[4].descriptorCount = numStorageImages/* * CONFIG::MaxFramesInFlight*/;
+		poolSizes[5].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
+		poolSizes[5].descriptorCount = numAccelerationStructures/* * CONFIG::MaxFramesInFlight*/;
 
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -756,6 +886,189 @@ namespace PHX
 		}
 
 		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE RenderDeviceVk::LoadRayTracingFunctions()
+	{
+		m_pfnCreateRayTracingPipelines = (PFN_vkCreateRayTracingPipelinesKHR)vkGetDeviceProcAddr(m_logicalDevice, "vkCreateRayTracingPipelinesKHR");
+		if (m_pfnCreateRayTracingPipelines == nullptr)
+		{
+			LogError("Failed to load vkCreateRayTracingPipelinesKHR!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		m_pfnGetRayTracingShaderGroupHandles = (PFN_vkGetRayTracingShaderGroupHandlesKHR)vkGetDeviceProcAddr(m_logicalDevice, "vkGetRayTracingShaderGroupHandlesKHR");
+		if (m_pfnGetRayTracingShaderGroupHandles == nullptr)
+		{
+			LogError("Failed to load vkGetRayTracingShaderGroupHandlesKHR!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		m_pfnGetBufferDeviceAddress = (PFN_vkGetBufferDeviceAddressKHR)vkGetDeviceProcAddr(m_logicalDevice, "vkGetBufferDeviceAddressKHR");
+		if (m_pfnGetBufferDeviceAddress == nullptr)
+		{
+			m_pfnGetBufferDeviceAddress = (PFN_vkGetBufferDeviceAddressKHR)vkGetDeviceProcAddr(m_logicalDevice, "vkGetBufferDeviceAddress");
+			if (m_pfnGetBufferDeviceAddress == nullptr)
+			{
+				LogError("Failed to load vkGetBufferDeviceAddressKHR!");
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+		}
+
+		m_pfnCmdTraceRays = (PFN_vkCmdTraceRaysKHR)vkGetDeviceProcAddr(m_logicalDevice, "vkCmdTraceRaysKHR");
+		if (m_pfnCmdTraceRays == nullptr)
+		{
+			LogError("Failed to load vkCmdTraceRaysKHR!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		m_pfnCreateAccelerationStructure = (PFN_vkCreateAccelerationStructureKHR)vkGetDeviceProcAddr(m_logicalDevice, "vkCreateAccelerationStructureKHR");
+		if (m_pfnCreateAccelerationStructure == nullptr)
+		{
+			LogError("Failed to load vkCreateAccelerationStructureKHR!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		m_pfnDestroyAccelerationStructure = (PFN_vkDestroyAccelerationStructureKHR)vkGetDeviceProcAddr(m_logicalDevice, "vkDestroyAccelerationStructureKHR");
+		if (m_pfnDestroyAccelerationStructure == nullptr)
+		{
+			LogError("Failed to load vkDestroyAccelerationStructureKHR!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		m_pfnGetAccelerationStructureBuildSizes = (PFN_vkGetAccelerationStructureBuildSizesKHR)vkGetDeviceProcAddr(m_logicalDevice, "vkGetAccelerationStructureBuildSizesKHR");
+		if (m_pfnGetAccelerationStructureBuildSizes == nullptr)
+		{
+			LogError("Failed to load vkGetAccelerationStructureBuildSizesKHR!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		m_pfnGetAccelerationStructureDeviceAddress = (PFN_vkGetAccelerationStructureDeviceAddressKHR)vkGetDeviceProcAddr(m_logicalDevice, "vkGetAccelerationStructureDeviceAddressKHR");
+		if (m_pfnGetAccelerationStructureDeviceAddress == nullptr)
+		{
+			LogError("Failed to load vkGetAccelerationStructureDeviceAddressKHR!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		m_pfnCmdBuildAccelerationStructures = (PFN_vkCmdBuildAccelerationStructuresKHR)vkGetDeviceProcAddr(m_logicalDevice, "vkCmdBuildAccelerationStructuresKHR");
+		if (m_pfnCmdBuildAccelerationStructures == nullptr)
+		{
+			LogError("Failed to load vkCmdBuildAccelerationStructuresKHR!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	const VkPhysicalDeviceRayTracingPipelinePropertiesKHR& RenderDeviceVk::GetRayTracingPipelineProperties() const
+	{
+		return m_rayTracingPipelineProperties;
+	}
+
+	VkResult RenderDeviceVk::CreateRayTracingPipelinesKHR(VkPipelineCache pipelineCache, const VkRayTracingPipelineCreateInfoKHR& createInfo, VkPipeline* pPipeline)
+	{
+		if (m_pfnCreateRayTracingPipelines == nullptr)
+		{
+			return VK_ERROR_FEATURE_NOT_PRESENT;
+		}
+
+		return m_pfnCreateRayTracingPipelines(m_logicalDevice, VK_NULL_HANDLE, pipelineCache, 1, &createInfo, nullptr, pPipeline);
+	}
+
+	VkResult RenderDeviceVk::GetRayTracingShaderGroupHandlesKHR(VkPipeline pipeline, u32 firstGroup, u32 groupCount, u64 dataSize, void* pData)
+	{
+		if (m_pfnGetRayTracingShaderGroupHandles == nullptr)
+		{
+			return VK_ERROR_FEATURE_NOT_PRESENT;
+		}
+
+		return m_pfnGetRayTracingShaderGroupHandles(m_logicalDevice, pipeline, firstGroup, groupCount, static_cast<size_t>(dataSize), pData);
+	}
+
+	VkDeviceAddress RenderDeviceVk::GetBufferDeviceAddressKHR(const VkBufferDeviceAddressInfo* pInfo)
+	{
+		if (m_pfnGetBufferDeviceAddress == nullptr)
+		{
+			return 0;
+		}
+
+		return m_pfnGetBufferDeviceAddress(m_logicalDevice, pInfo);
+	}
+
+	void RenderDeviceVk::CmdTraceRaysKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, u32 width, u32 height, u32 depth)
+	{
+		if (m_pfnCmdTraceRays == nullptr)
+		{
+			return;
+		}
+
+		m_pfnCmdTraceRays(commandBuffer, pRaygenShaderBindingTable, pMissShaderBindingTable, pHitShaderBindingTable, pCallableShaderBindingTable, width, height, depth);
+	}
+
+	VkResult RenderDeviceVk::CreateAccelerationStructureKHR(const VkAccelerationStructureCreateInfoKHR* pCreateInfo, VkAccelerationStructureKHR* pAccelerationStructure)
+	{
+		if (m_pfnCreateAccelerationStructure == nullptr)
+		{
+			return VK_ERROR_FEATURE_NOT_PRESENT;
+		}
+
+		return m_pfnCreateAccelerationStructure(m_logicalDevice, pCreateInfo, nullptr, pAccelerationStructure);
+	}
+
+	void RenderDeviceVk::DestroyAccelerationStructureKHR(VkAccelerationStructureKHR accelerationStructure)
+	{
+		if (m_pfnDestroyAccelerationStructure == nullptr)
+		{
+			return;
+		}
+
+		m_pfnDestroyAccelerationStructure(m_logicalDevice, accelerationStructure, nullptr);
+	}
+
+	void RenderDeviceVk::GetAccelerationStructureBuildSizesKHR(VkAccelerationStructureBuildTypeKHR buildType, const VkAccelerationStructureBuildGeometryInfoKHR* pBuildInfo, const u32* pMaxPrimitiveCounts, VkAccelerationStructureBuildSizesInfoKHR* pSizeInfo)
+	{
+		if (m_pfnGetAccelerationStructureBuildSizes == nullptr)
+		{
+			return;
+		}
+
+		m_pfnGetAccelerationStructureBuildSizes(m_logicalDevice, buildType, pBuildInfo, pMaxPrimitiveCounts, pSizeInfo);
+	}
+
+	VkDeviceAddress RenderDeviceVk::GetAccelerationStructureDeviceAddressKHR(const VkAccelerationStructureDeviceAddressInfoKHR* pInfo)
+	{
+		if (m_pfnGetAccelerationStructureDeviceAddress == nullptr)
+		{
+			return 0;
+		}
+
+		return m_pfnGetAccelerationStructureDeviceAddress(m_logicalDevice, pInfo);
+	}
+
+	void RenderDeviceVk::CmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer, u32 infoCount, const VkAccelerationStructureBuildGeometryInfoKHR* pInfos, const VkAccelerationStructureBuildRangeInfoKHR* const* ppBuildRangeInfos)
+	{
+		if (m_pfnCmdBuildAccelerationStructures == nullptr)
+		{
+			return;
+		}
+
+		m_pfnCmdBuildAccelerationStructures(commandBuffer, infoCount, pInfos, ppBuildRangeInfos);
+	}
+
+	PipelineVk* RenderDeviceVk::CreateRayTracingPipeline(const RayTracingPipelineDesc& desc)
+	{
+		PipelineVk* pipeline = m_pipelineCache->FindOrCreate(this, desc);
+		if (pipeline == nullptr)
+		{
+			ASSERT_ALWAYS("Failed to create ray tracing pipeline!");
+		}
+
+		return pipeline;
+	}
+
+	void RenderDeviceVk::DestroyRayTracingPipeline(const RayTracingPipelineDesc& desc)
+	{
+		m_pipelineCache->Delete(desc);
 	}
 }
 

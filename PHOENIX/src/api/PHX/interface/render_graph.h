@@ -20,7 +20,8 @@ namespace PHX
 	{
 		GRAPHICS = 0,
 		COMPUTE,
-		TRANSFER
+		TRANSFER,
+		RAY_TRACING
 	};
 
 	struct RenderPassHandle : public Handle
@@ -46,6 +47,7 @@ namespace PHX
 		// Pipeline data
 		void SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc);
 		void SetPipelineDescription(const ComputePipelineDesc& computePipelineDesc);
+		void SetPipelineDescription(const RayTracingPipelineDesc& rayTracingPipelineDesc);
 
 		// Callbacks
 		void SetExecuteCallback(ExecuteRenderPassCallbackFn callback);

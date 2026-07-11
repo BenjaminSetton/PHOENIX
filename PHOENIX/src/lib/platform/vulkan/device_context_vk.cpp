@@ -3,6 +3,7 @@
 
 #include "device_context_vk.h"
 
+#include "acceleration_structure_vk.h"
 #include "buffer_vk.h"
 #include "framebuffer_vk.h"
 #include "pipeline_vk.h"
@@ -233,6 +234,254 @@ namespace PHX
 		}
 
 		vkCmdDispatch(cmdBuffer, dimensions.GetX(), dimensions.GetY(), dimensions.GetZ());
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE DeviceContextVk::TraceRays(Vec3u dimensions)
+	{
+		ASSERT_PTR(m_contextualPipeline);
+
+		QUEUE_TYPE cmdQueueType = GetQueueTypeFromBindPoint(m_contextualPipeline->GetBindPoint());
+		if (cmdQueueType == QUEUE_TYPE::COUNT)
+		{
+			LogError("Failed to issue trace rays call! Could not convert bind point to queue type");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		STATUS_CODE res = GetOrCreateCommandBuffer(cmdQueueType, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to issue trace rays call! Could not get or create command buffer");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		m_pRenderDevice->CmdTraceRaysKHR(
+			cmdBuffer,
+			m_contextualPipeline->GetRayGenSBTRegion(),
+			m_contextualPipeline->GetMissSBTRegion(),
+			m_contextualPipeline->GetHitSBTRegion(),
+			m_contextualPipeline->GetCallableSBTRegion(),
+			dimensions.GetX(),
+			dimensions.GetY(),
+			dimensions.GetZ()
+		);
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE DeviceContextVk::BuildBottomLevelAccelerationStructure(AccelerationStructureHandle handle)
+	{
+		ASSERT_MSG(m_pRenderDevice->IsRayTracingSupported(), "Failed to build acceleration structure. Ray tracing is not supported on this device!");
+
+		AccelerationStructureVk* pAS = static_cast<AccelerationStructureVk*>(m_pRenderDevice->ResolveHandle(handle));
+		if (pAS == nullptr)
+		{
+			LogError("Failed to build acceleration structure. Handle is invalid!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		if (pAS->GetType() != ACCELERATION_STRUCTURE_TYPE::BOTTOM_LEVEL)
+		{
+			LogError("Failed to build acceleration structure. The acceleration structure is not a bottom-level acceleration structure!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		BufferData& scratchBuffer = pAS->GetScratchBuffer();
+		if (!scratchBuffer.isValid)
+		{
+			LogError("Failed to build acceleration structure. Scratch buffer is invalid!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to build acceleration structure. Could not get or create command buffer!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		const u32 geometryCount = pAS->GetGeometryCount();
+		const GeometryData* pGeometries = pAS->GetGeometries();
+
+		std::vector<VkAccelerationStructureGeometryKHR> geometries;
+		std::vector<VkAccelerationStructureBuildRangeInfoKHR> buildRangeInfos;
+		geometries.reserve(geometryCount);
+		buildRangeInfos.reserve(geometryCount);
+
+		auto GetBufferAddress = [&](VkBuffer buffer) -> VkDeviceAddress
+		{
+			VkBufferDeviceAddressInfo addressInfo{};
+			addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+			addressInfo.buffer = buffer;
+			return m_pRenderDevice->GetBufferDeviceAddressKHR(&addressInfo);
+		};
+
+		for (u32 i = 0; i < geometryCount; i++)
+		{
+			const GeometryData& geometry = pGeometries[i];
+			VkAccelerationStructureGeometryKHR asGeometry{};
+			asGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+			asGeometry.geometryType = geometry.type == GEOMETRY_TYPE::TRIANGLES ? VK_GEOMETRY_TYPE_TRIANGLES_KHR : VK_GEOMETRY_TYPE_AABBS_KHR;
+			asGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+
+			if (geometry.type == GEOMETRY_TYPE::TRIANGLES)
+			{
+				BufferVk* pVertexBuffer = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(geometry.vertexBuffer));
+				if (pVertexBuffer == nullptr)
+				{
+					LogError("Failed to build acceleration structure. Vertex buffer is invalid!");
+					return STATUS_CODE::ERR_API;
+				}
+
+				BufferVk* pIndexBuffer = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(geometry.indexBuffer));
+				if (pIndexBuffer == nullptr)
+				{
+					LogError("Failed to build acceleration structure. Index buffer is invalid!");
+					return STATUS_CODE::ERR_API;
+				}
+
+				const VkIndexType indexType = geometry.indexType == INDEX_TYPE::U16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32;
+
+				asGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
+				asGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
+				asGeometry.geometry.triangles.vertexData.deviceAddress = GetBufferAddress(pVertexBuffer->GetBuffer());
+				asGeometry.geometry.triangles.vertexStride = geometry.vertexStride;
+				asGeometry.geometry.triangles.maxVertex = geometry.vertexCount;
+				asGeometry.geometry.triangles.indexType = indexType;
+				asGeometry.geometry.triangles.indexData.deviceAddress = GetBufferAddress(pIndexBuffer->GetBuffer());
+
+				VkAccelerationStructureBuildRangeInfoKHR rangeInfo{};
+				rangeInfo.primitiveCount = geometry.indexBuffer.IsValid() ? (geometry.indexCount / 3) : (geometry.vertexCount / 3);
+				rangeInfo.primitiveOffset = 0;
+				rangeInfo.firstVertex = 0;
+				rangeInfo.transformOffset = 0;
+				buildRangeInfos.push_back(rangeInfo);
+			}
+			else if (geometry.type == GEOMETRY_TYPE::AABBS)
+			{
+				BufferVk* pAABBBuffer = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(geometry.aabbBuffer));
+				if (pAABBBuffer == nullptr)
+				{
+					LogError("Failed to build acceleration structure. AABB buffer is invalid!");
+					return STATUS_CODE::ERR_API;
+				}
+
+				asGeometry.geometry.aabbs.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR;
+				asGeometry.geometry.aabbs.data.deviceAddress = GetBufferAddress(pAABBBuffer->GetBuffer());
+				asGeometry.geometry.aabbs.stride = sizeof(VkAabbPositionsKHR);
+
+				VkAccelerationStructureBuildRangeInfoKHR rangeInfo{};
+				rangeInfo.primitiveCount = geometry.aabbCount;
+				rangeInfo.primitiveOffset = 0;
+				rangeInfo.firstVertex = 0;
+				rangeInfo.transformOffset = 0;
+				buildRangeInfos.push_back(rangeInfo);
+			}
+
+			geometries.push_back(asGeometry);
+		}
+
+		VkDeviceAddress scratchAddress = GetBufferAddress(scratchBuffer.buffer);
+
+		VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
+		buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+		buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
+		buildInfo.flags = static_cast<VkBuildAccelerationStructureFlagsKHR>(static_cast<u32>(pAS->GetBuildFlags()));
+		buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		buildInfo.dstAccelerationStructure = pAS->GetAccelerationStructure();
+		buildInfo.geometryCount = static_cast<u32>(geometries.size());
+		buildInfo.pGeometries = geometries.data();
+		buildInfo.scratchData.deviceAddress = scratchAddress;
+
+		const VkAccelerationStructureBuildRangeInfoKHR* pBuildRangeInfos = buildRangeInfos.data();
+		m_pRenderDevice->CmdBuildAccelerationStructuresKHR(cmdBuffer, 1, &buildInfo, &pBuildRangeInfos);
+
+		pAS->SetBuilt(true);
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE DeviceContextVk::BuildTopLevelAccelerationStructure(AccelerationStructureHandle handle, BufferHandle instanceBuffer, u32 instanceCount)
+	{
+		ASSERT_MSG(m_pRenderDevice->IsRayTracingSupported(), "Failed to build top-level acceleration structure. Ray tracing is not supported on this device!");
+
+		AccelerationStructureVk* pAS = static_cast<AccelerationStructureVk*>(m_pRenderDevice->ResolveHandle(handle));
+		if (pAS == nullptr)
+		{
+			LogError("Failed to build top-level acceleration structure. Handle is invalid!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		if (pAS->GetType() != ACCELERATION_STRUCTURE_TYPE::TOP_LEVEL)
+		{
+			LogError("Failed to build top-level acceleration structure. The acceleration structure is not a top-level acceleration structure!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		BufferVk* pInstanceBuffer = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(instanceBuffer));
+		if (pInstanceBuffer == nullptr)
+		{
+			LogError("Failed to build top-level acceleration structure. Instance buffer is invalid!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		BufferData& scratchBuffer = pAS->GetScratchBuffer();
+		if (!scratchBuffer.isValid)
+		{
+			LogError("Failed to build top-level acceleration structure. Scratch buffer is invalid!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to build top-level acceleration structure. Could not get or create command buffer!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		auto GetBufferAddress = [&](VkBuffer buffer) -> VkDeviceAddress
+		{
+			VkBufferDeviceAddressInfo addressInfo{};
+			addressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+			addressInfo.buffer = buffer;
+			return m_pRenderDevice->GetBufferDeviceAddressKHR(&addressInfo);
+		};
+
+		VkDeviceAddress instanceAddress = GetBufferAddress(pInstanceBuffer->GetBuffer());
+
+		VkAccelerationStructureGeometryKHR geometry{};
+		geometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
+		geometry.geometryType = VK_GEOMETRY_TYPE_INSTANCES_KHR;
+		geometry.geometry.instances.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR;
+		geometry.geometry.instances.arrayOfPointers = VK_FALSE;
+		geometry.geometry.instances.data.deviceAddress = instanceAddress;
+
+		VkAccelerationStructureBuildRangeInfoKHR rangeInfo{};
+		rangeInfo.primitiveCount = instanceCount;
+		rangeInfo.primitiveOffset = 0;
+		rangeInfo.firstVertex = 0;
+		rangeInfo.transformOffset = 0;
+
+		VkDeviceAddress scratchAddress = GetBufferAddress(scratchBuffer.buffer);
+
+		VkAccelerationStructureBuildGeometryInfoKHR buildInfo{};
+		buildInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
+		buildInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
+		buildInfo.flags = static_cast<VkBuildAccelerationStructureFlagsKHR>(static_cast<u32>(pAS->GetBuildFlags()));
+		buildInfo.mode = VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
+		buildInfo.dstAccelerationStructure = pAS->GetAccelerationStructure();
+		buildInfo.geometryCount = 1;
+		buildInfo.pGeometries = &geometry;
+		buildInfo.scratchData.deviceAddress = scratchAddress;
+
+		const VkAccelerationStructureBuildRangeInfoKHR* pRangeInfo = &rangeInfo;
+		m_pRenderDevice->CmdBuildAccelerationStructuresKHR(cmdBuffer, 1, &buildInfo, &pRangeInfo);
+
+		pAS->SetBuilt(true);
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -730,6 +979,11 @@ namespace PHX
 		case VK_PIPELINE_BIND_POINT_COMPUTE:
 		{
 			cmdQueueType = QUEUE_TYPE::COMPUTE;
+			break;
+		}
+		case VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR:
+		{
+			cmdQueueType = QUEUE_TYPE::GRAPHICS;
 			break;
 		}
 		default:

@@ -81,6 +81,7 @@ namespace PHX
 		// Pipeline
 		void SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc) override;
 		void SetPipelineDescription(const ComputePipelineDesc& computePipelineDesc) override;
+		void SetPipelineDescription(const RayTracingPipelineDesc& rayTracingPipelineDesc) override;
 
 		// Callbacks
 		void SetExecuteCallback(ExecuteRenderPassCallbackFn callback) override;
@@ -99,9 +100,10 @@ namespace PHX
 		RegisterResourceCallbackFn m_registerResourceCallback;	// Callback used to register resources into the render graph
 		u32 m_index;											// Index of the render pass in the context of the render graph
 
-		// TODO - Consider using union?
+		// TODO - Use union
 		GraphicsPipelineDesc graphicsDesc;
 		ComputePipelineDesc computeDesc;
+		RayTracingPipelineDesc rayTracingDesc;
 		BIND_POINT m_bindPoint;
 
 		std::vector<DependencyInfo> m_dependencyInfos;

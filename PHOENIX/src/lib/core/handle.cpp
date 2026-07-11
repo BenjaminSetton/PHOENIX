@@ -116,9 +116,7 @@ namespace PHX
 
 	bool Handle::IsSame(const Handle& handleA, const Handle& handleB) const
 	{
-		return (handleA.m_pOwner == handleB.m_pOwner &&
-				handleA.m_index == handleB.m_index &&
-				handleA.m_type == handleB.m_type);
+		return (memcmp(&handleA, &handleB, sizeof(Handle)) == 0);
 	}
 
 	void Handle::IncrementRefCount()

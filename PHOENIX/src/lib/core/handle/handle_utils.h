@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
 #include "PHX/interface/render_device.h"
@@ -28,6 +29,7 @@ namespace PHX
 	class ISwapChain;
 	class IRenderDevice;
 	class IWindow;
+	class IAccelerationStructure;
 
 	namespace HANDLE_UTILS
 	{
@@ -41,6 +43,7 @@ namespace PHX
 		ISwapChain* ResolveHandle(const SwapChainHandle& handle);
 		IRenderDevice* ResolveHandle(const RenderDeviceHandle& handle);
 		IWindow* ResolveHandle(const WindowHandle& handle);
+		IAccelerationStructure* ResolveHandle(const AccelerationStructureHandle& handle);
 
 		///////////////////////////////////
 		// ALLOCATE HANDLE

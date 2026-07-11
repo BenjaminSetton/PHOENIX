@@ -88,16 +88,6 @@ namespace PHX
 		u32 reference;
 	};
 
-	struct ComputePipelineDesc
-	{
-		ShaderHandle shader							= INVALID_HANDLE;
-		UniformCollectionHandle uniformCollection	= INVALID_HANDLE;
-
-		////////
-		bool operator==(const ComputePipelineDesc& other) const;
-		////////
-	};
-
 	enum class BLEND_FACTOR
 	{
 		ZERO = 0,
@@ -212,6 +202,27 @@ namespace PHX
 
 		////////
 		bool GraphicsPipelineDesc::operator==(const GraphicsPipelineDesc& other) const;
+		////////
+	};
+
+	struct ComputePipelineDesc
+	{
+		ShaderHandle shader = INVALID_HANDLE;
+		UniformCollectionHandle uniformCollection = INVALID_HANDLE;
+
+		////////
+		bool operator==(const ComputePipelineDesc& other) const;
+		////////
+	};
+
+	struct RayTracingPipelineDesc
+	{
+		ShaderHandle* pShaders = nullptr;
+		u32 shaderCount = 0;
+		UniformCollectionHandle uniformCollection = INVALID_HANDLE;
+
+		////////
+		bool operator==(const RayTracingPipelineDesc& other) const;
 		////////
 	};
 }

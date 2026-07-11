@@ -15,10 +15,10 @@ namespace PHX
 	// INIT
 	STATUS_CODE Initialize(const Settings& initSettings, WindowHandle window);
 
-	// Returns the combined versions into a single u32
+	// Returns the combined PHX library versions into a single u32
 	u32 GetFullVersion();
 
-	// Returns the individual version components
+	// Returns the individual PHX library version components
 	u32 GetMajorVersion();
 	u32 GetMinorVersion();
 	u32 GetPatchVersion();

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/ref.h"
+#include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/uniform.h"
 #include "PHX/types/status_code.h"
@@ -24,6 +25,10 @@ namespace PHX
 		virtual STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex, u32 vertexOffset, u32 instanceOffset) = 0;
 
 		virtual STATUS_CODE Dispatch(Vec3u dimensions) = 0;
+		virtual STATUS_CODE TraceRays(Vec3u dimensions) = 0;
+
+		virtual STATUS_CODE BuildBottomLevelAccelerationStructure(AccelerationStructureHandle handle) = 0;
+		virtual STATUS_CODE BuildTopLevelAccelerationStructure(AccelerationStructureHandle handle, BufferHandle instanceBuffer, u32 instanceCount) = 0;
 
 		virtual STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) = 0;
 		virtual STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes) = 0;

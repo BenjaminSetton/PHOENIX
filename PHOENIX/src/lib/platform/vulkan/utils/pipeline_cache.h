@@ -17,6 +17,11 @@ namespace PHX
 		size_t operator()(const ComputePipelineDesc& desc) const;
 	};
 
+	struct RayTracingPipelineDescHasher
+	{
+		size_t operator()(const RayTracingPipelineDesc& desc) const;
+	};
+
 	class PipelineCache
 	{
 	public:
@@ -37,6 +42,11 @@ namespace PHX
 		PipelineVk* Find(const ComputePipelineDesc& desc);
 		void Delete(const ComputePipelineDesc& desc);
 
+		// Ray tracing pipeline
+		PipelineVk* FindOrCreate(RenderDeviceVk* pRenderDevice, const RayTracingPipelineDesc& desc);
+		PipelineVk* Find(const RayTracingPipelineDesc& desc);
+		void Delete(const RayTracingPipelineDesc& desc);
+
 	private:
 
 		RenderDeviceVk* m_renderDevice;
@@ -44,6 +54,7 @@ namespace PHX
 		// PipelineVk caches
 		std::unordered_map<GraphicsPipelineDesc, PipelineVk*, GraphicsPipelineDescHasher> m_graphicsPipelineCache;
 		std::unordered_map<ComputePipelineDesc, PipelineVk*, ComputePipelineDescHasher> m_computePipelineCache;
+		std::unordered_map<RayTracingPipelineDesc, PipelineVk*, RayTracingPipelineDescHasher> m_rayTracingPipelineCache;
 
 		// VkPipeline cache
 		VkPipelineCache m_vkCache;

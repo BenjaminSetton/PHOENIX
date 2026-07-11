@@ -4,6 +4,7 @@
 #include "render_graph_type_converter.h"
 
 #include "utils/logger.h"
+#include "utils/sanity.h"
 
 namespace PHX
 {
@@ -13,11 +14,16 @@ namespace PHX
 		{
 			switch (bindPoint)
 			{
-			case BIND_POINT::GRAPHICS: return VK_PIPELINE_BIND_POINT_GRAPHICS;
-			case BIND_POINT::COMPUTE:  return VK_PIPELINE_BIND_POINT_COMPUTE;
+			case BIND_POINT::GRAPHICS:     return VK_PIPELINE_BIND_POINT_GRAPHICS;
+			case BIND_POINT::COMPUTE:      return VK_PIPELINE_BIND_POINT_COMPUTE;
+			case BIND_POINT::RAY_TRACING:  return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+			default:
+			{
+				break;
+			}
 			}
 
-			LogError("Failed to convert bind point to VkPipelineBindPoint");
+			ASSERT_ALWAYS("Failed to convert bind point to VkPipelineBindPoint");
 			return VK_PIPELINE_BIND_POINT_MAX_ENUM;
 		}
 
@@ -25,11 +31,18 @@ namespace PHX
 		{
 			switch (bp)
 			{
-			case BIND_POINT::GRAPHICS: return "GRAPHICS";
-			case BIND_POINT::COMPUTE:  return "COMPUTE";
-			case BIND_POINT::TRANSFER: return "TRANSFER";
-			default:                   return "UNKNOWN";
+			case BIND_POINT::GRAPHICS:     return "GRAPHICS";
+			case BIND_POINT::COMPUTE:      return "COMPUTE";
+			case BIND_POINT::TRANSFER:     return "TRANSFER";
+			case BIND_POINT::RAY_TRACING:  return "RAY_TRACING";
+			default:
+			{
+				break;
 			}
+			}
+
+			ASSERT_ALWAYS("Failed to convert bind point to string");
+			return "UNKNOWN";
 		}
 
 		// Strips a leading prefix from a string if present (used to make Vulkan enum names compact)

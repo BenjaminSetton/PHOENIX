@@ -118,6 +118,42 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
+	STATUS_CODE DeviceContextHandle::TraceRays(Vec3u dimensions)
+	{
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
+		if (pContext != nullptr)
+		{
+			return pContext->TraceRays(dimensions);
+		}
+
+		LogError("Failed to issue trace rays call. Could not resolve device context handle!");
+		return STATUS_CODE::ERR_INTERNAL;
+	}
+
+	STATUS_CODE DeviceContextHandle::BuildBottomLevelAccelerationStructure(AccelerationStructureHandle handle)
+	{
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
+		if (pContext != nullptr)
+		{
+			return pContext->BuildBottomLevelAccelerationStructure(handle);
+		}
+
+		LogError("Failed to build acceleration structure. Could not resolve device context handle!");
+		return STATUS_CODE::ERR_INTERNAL;
+	}
+
+	STATUS_CODE DeviceContextHandle::BuildTopLevelAccelerationStructure(AccelerationStructureHandle handle, BufferHandle instanceBuffer, u32 instanceCount)
+	{
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
+		if (pContext != nullptr)
+		{
+			return pContext->BuildTopLevelAccelerationStructure(handle, instanceBuffer, instanceCount);
+		}
+
+		LogError("Failed to build top-level acceleration structure. Could not resolve device context handle!");
+		return STATUS_CODE::ERR_INTERNAL;
+	}
+
 	STATUS_CODE DeviceContextHandle::CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes)
 	{
 		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);

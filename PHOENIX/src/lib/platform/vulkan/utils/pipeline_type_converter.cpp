@@ -102,13 +102,11 @@ namespace PHX
 		{
 			switch (inputRate)
 			{
-			case VERTEX_INPUT_RATE::PER_VERTEX:
+			case VERTEX_INPUT_RATE::PER_VERTEX:   return VK_VERTEX_INPUT_RATE_VERTEX;
+			case VERTEX_INPUT_RATE::PER_INSTANCE: return VK_VERTEX_INPUT_RATE_INSTANCE;
+			default:
 			{
-				return VK_VERTEX_INPUT_RATE_VERTEX;
-			}
-			case VERTEX_INPUT_RATE::PER_INSTANCE:
-			{
-				return VK_VERTEX_INPUT_RATE_INSTANCE;
+				break;
 			}
 			}
 
@@ -120,15 +118,10 @@ namespace PHX
 		{
 			switch (bindPoint)
 			{
-			case BIND_POINT::GRAPHICS:
-			{
-				return VK_PIPELINE_BIND_POINT_GRAPHICS;
-			}
-			case BIND_POINT::COMPUTE:
-			{
-				return VK_PIPELINE_BIND_POINT_COMPUTE;
-			}
-			case BIND_POINT::TRANSFER: // No valid conversion
+			case BIND_POINT::GRAPHICS:    return VK_PIPELINE_BIND_POINT_GRAPHICS;
+			case BIND_POINT::COMPUTE:     return VK_PIPELINE_BIND_POINT_COMPUTE;
+			case BIND_POINT::RAY_TRACING: return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+			case BIND_POINT::TRANSFER:    // No valid conversion
 			default:
 			{
 				break;

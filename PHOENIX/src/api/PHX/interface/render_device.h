@@ -1,5 +1,6 @@
 #pragma once
 
+#include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
 #include "PHX/interface/render_graph.h"
@@ -27,6 +28,7 @@ namespace PHX
 
 		const char* GetDeviceName() const;
 		u32 GetFramesInFlight() const;
+		bool IsRayTracingSupported() const;
 
 		// Allocations
 		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& buffer);
@@ -36,5 +38,6 @@ namespace PHX
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader);
 		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain);
 		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext);
+		STATUS_CODE AllocateAccelerationStructure(const AccelerationStructureCreateInfo& createInfo, AccelerationStructureHandle& accelerationStructure);
 	};
 }

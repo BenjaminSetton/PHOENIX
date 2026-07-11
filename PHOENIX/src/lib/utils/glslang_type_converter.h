@@ -6,6 +6,7 @@
 
 #include "PHX/types/shader_desc.h"
 #include "PHX/types/texture_desc.h"
+#include "PHX/types/settings.h"
 
 namespace PHX
 {
@@ -18,5 +19,9 @@ namespace PHX
 
 		ShaderStageFlags ConvertShaderStageFlags(EShLanguageMask stageMask);
 		BASE_FORMAT ConvertIOTypeToBaseFormat(glslang::TBasicType type, u32 vectorSize);
+
+		// Return appropriate value from GlobalSettings
+		glslang::EShTargetClientVersion GetClientVersion();
+		glslang::EShClient GetClient();
 	}
 }

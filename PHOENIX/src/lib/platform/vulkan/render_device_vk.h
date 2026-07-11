@@ -19,6 +19,7 @@
 namespace PHX
 {
 	// Forward declarations
+	class AccelerationStructureVk;
 	class BufferVk;
 	class DeviceContextVk;
 	class RenderGraphVk;
@@ -36,6 +37,7 @@ namespace PHX
 
 		const char* GetDeviceName() const;
 		u32 GetFramesInFlight() const override;
+		bool IsRayTracingSupported() const override;
 		
 		// Allocations
 		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle) override;
@@ -46,6 +48,7 @@ namespace PHX
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& handle) override;
 		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& handle) override;
 		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& handle) override;
+		STATUS_CODE AllocateAccelerationStructure(const AccelerationStructureCreateInfo& createInfo, AccelerationStructureHandle& handle) override;
 
 		// Handles
 		void* ResolveHandle(const Handle& handle) override;
@@ -63,11 +66,14 @@ namespace PHX
 
 		PipelineVk* CreateGraphicsPipeline(const GraphicsPipelineDesc& desc, VkRenderPass renderPass);
 		void DestroyGraphicsPipeline(const GraphicsPipelineDesc& desc);
-		PipelineVk* GetGraphicsPipeline(const GraphicsPipelineDesc& desc);
 
 		PipelineVk* CreateComputePipeline(const ComputePipelineDesc& desc);
 		void DestroyComputePipeline(const ComputePipelineDesc& desc);
-		PipelineVk* GetComputePipeline(const ComputePipelineDesc& desc);
+
+		PipelineVk* CreateRayTracingPipeline(const RayTracingPipelineDesc& desc);
+		void DestroyRayTracingPipeline(const RayTracingPipelineDesc& desc);
+		
+		AccelerationStructureVk* GetAccelerationStructure(const AccelerationStructureHandle& handle);
 
 		// Removes all framebuffer entries in the cache related to the backbuffer. 
 		// This is used to clean up old framebuffers after a window resize, for example
@@ -87,6 +93,20 @@ namespace PHX
 		const VkPhysicalDeviceProperties& GetDeviceProperties() const;
 		const VkPhysicalDeviceFeatures& GetDeviceFeatures() const;
 		const VkPhysicalDeviceMemoryProperties GetDeviceMemoryProperties() const;
+		const VkPhysicalDeviceRayTracingPipelinePropertiesKHR& GetRayTracingPipelineProperties() const;
+
+		// Ray tracing Vulkan wrappers
+		VkResult CreateRayTracingPipelinesKHR(VkPipelineCache pipelineCache, const VkRayTracingPipelineCreateInfoKHR& createInfo, VkPipeline* pPipeline);
+		VkResult GetRayTracingShaderGroupHandlesKHR(VkPipeline pipeline, u32 firstGroup, u32 groupCount, size_t dataSize, void* pData);
+		VkDeviceAddress GetBufferDeviceAddressKHR(const VkBufferDeviceAddressInfo* pInfo);
+		void CmdTraceRaysKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, u32 width, u32 height, u32 depth);
+
+		// Acceleration structure Vulkan wrappers
+		VkResult CreateAccelerationStructureKHR(const VkAccelerationStructureCreateInfoKHR* pCreateInfo, VkAccelerationStructureKHR* pAccelerationStructure);
+		void DestroyAccelerationStructureKHR(VkAccelerationStructureKHR accelerationStructure);
+		void GetAccelerationStructureBuildSizesKHR(VkAccelerationStructureBuildTypeKHR buildType, const VkAccelerationStructureBuildGeometryInfoKHR* pBuildInfo, const u32* pMaxPrimitiveCounts, VkAccelerationStructureBuildSizesInfoKHR* pSizeInfo);
+		VkDeviceAddress GetAccelerationStructureDeviceAddressKHR(const VkAccelerationStructureDeviceAddressInfoKHR* pInfo);
+		void CmdBuildAccelerationStructuresKHR(VkCommandBuffer commandBuffer, u32 infoCount, const VkAccelerationStructureBuildGeometryInfoKHR* pInfos, const VkAccelerationStructureBuildRangeInfoKHR* const* ppBuildRangeInfos);
 
 	private:
 
@@ -112,11 +132,28 @@ namespace PHX
 		QueueFamilyIndices m_queueFamilyIndices;
 
 		u32 m_framesInFlight;
+		bool m_rayTracingSupported;
 
 		// Physical device cache
 		VkPhysicalDeviceProperties m_physicalDeviceProperties;
 		VkPhysicalDeviceFeatures m_physicalDeviceFeatures;
 		VkPhysicalDeviceMemoryProperties m_physicalDeviceMemoryProperties;
+		VkPhysicalDeviceRayTracingPipelinePropertiesKHR m_rayTracingPipelineProperties;
+
+		// Ray tracing function pointers
+		PFN_vkCreateRayTracingPipelinesKHR m_pfnCreateRayTracingPipelines;
+		PFN_vkGetRayTracingShaderGroupHandlesKHR m_pfnGetRayTracingShaderGroupHandles;
+		PFN_vkGetBufferDeviceAddressKHR m_pfnGetBufferDeviceAddress;
+		PFN_vkCmdTraceRaysKHR m_pfnCmdTraceRays;
+
+		// Acceleration structure function pointers
+		PFN_vkCreateAccelerationStructureKHR m_pfnCreateAccelerationStructure;
+		PFN_vkDestroyAccelerationStructureKHR m_pfnDestroyAccelerationStructure;
+		PFN_vkGetAccelerationStructureBuildSizesKHR m_pfnGetAccelerationStructureBuildSizes;
+		PFN_vkGetAccelerationStructureDeviceAddressKHR m_pfnGetAccelerationStructureDeviceAddress;
+		PFN_vkCmdBuildAccelerationStructuresKHR m_pfnCmdBuildAccelerationStructures;
+
+		STATUS_CODE LoadRayTracingFunctions();
 
 		// Descriptor pool
 		VkDescriptorPool m_descriptorPool;
@@ -141,5 +178,6 @@ namespace PHX
 		HandleList<ShaderVk> m_shaders;
 		HandleList<SwapChainVk> m_swapChains; // Possibly support multiple windows?
 		HandleList<RenderGraphVk> m_renderGraphs;
+		HandleList<AccelerationStructureVk> m_accelerationStructures;
 	};
 }
