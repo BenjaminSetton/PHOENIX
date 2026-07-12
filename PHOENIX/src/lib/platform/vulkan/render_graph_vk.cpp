@@ -4,6 +4,7 @@
 
 #include "render_graph_vk.h"
 
+#include "acceleration_structure_vk.h"
 #include "buffer_vk.h"
 #include "core/handle/handle_accessor.h"
 #include "core/handle/handle_utils.h"
@@ -76,12 +77,22 @@ namespace PHX
 
 	static VkAccessFlags CalculateResourceAccessFlags(const ResourceUsage& usage, const RenderResource& resource, BIND_POINT bindPoint)
 	{
+		// Acceleration structures use their own access flags regardless of bind point
+		if (resource.type == RESOURCE_TYPE::ACCELERATION_STRUCTURE)
+		{
+			return (usage.io == RESOURCE_IO::INPUT) ? VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR : VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+		}
+
 		VkAccessFlags flags = 0;
 		switch (usage.io)
 		{
 		case RESOURCE_IO::INPUT:
 		{
-			if (bindPoint == BIND_POINT::TRANSFER)
+			if (bindPoint == BIND_POINT::TRANSFER && resource.type == RESOURCE_TYPE::BUFFER && usage.bufferUsage == BUFFER_USAGE::ACCELERATION_STRUCTURE_BUILD_INPUT)
+			{
+				flags |= VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+			}
+			else if (bindPoint == BIND_POINT::TRANSFER)
 			{
 				flags |= VK_ACCESS_TRANSFER_READ_BIT;
 			}
@@ -107,6 +118,12 @@ namespace PHX
 					case BUFFER_USAGE::STORAGE_BUFFER:
 					case BUFFER_USAGE::UNIFORM_BUFFER: // fall-thru
 					{
+						flags |= VK_ACCESS_SHADER_READ_BIT;
+						break;
+					}
+					case BUFFER_USAGE::ACCELERATION_STRUCTURE_BUILD_INPUT:
+					{
+						// These buffers have STORAGE_BUFFER_BIT and may be read as storage buffers in shaders
 						flags |= VK_ACCESS_SHADER_READ_BIT;
 						break;
 					}
@@ -225,6 +242,16 @@ namespace PHX
 		if (accessFlag == 0)
 		{
 			return (isSrcFlag ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+		}
+
+		// Acceleration structure access flags are independent of the pass bind point
+		if (accessFlag == VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR)
+		{
+			return (bindPoint == BIND_POINT::RAY_TRACING) ? VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR : VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+		}
+		if (accessFlag == VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR || accessFlag == VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR)
+		{
+			return VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
 		}
 
 		VkPipelineStageFlags flags = 0;
@@ -454,7 +481,7 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::IGNORE;
 		usage.loadOp = ATTACHMENT_LOAD_OP::LOAD;
 
-		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
+		const ResourceIndex resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_inputResources.set(resourceIndex);
 	}
 
@@ -470,7 +497,7 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::INVALID;
 		usage.loadOp = ATTACHMENT_LOAD_OP::INVALID;
 
-		const u8 resourceIndex = m_registerResourceCallback(buffer, RESOURCE_TYPE::BUFFER, usage);
+		const ResourceIndex resourceIndex = m_registerResourceCallback(buffer, RESOURCE_TYPE::BUFFER, usage);
 		m_inputResources.set(resourceIndex);
 	}
 
@@ -486,7 +513,22 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::INVALID;
 		usage.loadOp = ATTACHMENT_LOAD_OP::INVALID;
 
-		const u8 resourceIndex = m_registerResourceCallback(uniformCollection, RESOURCE_TYPE::UNIFORM, usage);
+		const ResourceIndex resourceIndex = m_registerResourceCallback(uniformCollection, RESOURCE_TYPE::UNIFORM, usage);
+		m_inputResources.set(resourceIndex);
+	}
+
+	void RenderPassVk::SetAccelerationStructureInput(AccelerationStructureHandle accelerationStructure)
+	{
+		ResourceUsage usage{};
+		usage.io = RESOURCE_IO::INPUT;
+		usage.passIndex = m_index;
+
+		// Not a texture resource
+		usage.attachmentType = ATTACHMENT_TYPE::INVALID;
+		usage.storeOp = ATTACHMENT_STORE_OP::INVALID;
+		usage.loadOp = ATTACHMENT_LOAD_OP::INVALID;
+
+		const ResourceIndex resourceIndex = m_registerResourceCallback(accelerationStructure, RESOURCE_TYPE::ACCELERATION_STRUCTURE, usage);
 		m_inputResources.set(resourceIndex);
 	}
 
@@ -507,7 +549,7 @@ namespace PHX
 		usage.clearValue.depthStencil.depthClear = 1.0f;
 		usage.clearValue.depthStencil.stencilClear = 0;
 
-		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
+		const ResourceIndex resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
@@ -521,7 +563,7 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
 		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
+		const ResourceIndex resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
@@ -535,7 +577,7 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::STORE;
 		usage.loadOp = ATTACHMENT_LOAD_OP::CLEAR;
 
-		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
+		const ResourceIndex resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
@@ -553,7 +595,7 @@ namespace PHX
 		usage.loadOp = loadOp;
 		usage.clearValue = clearValue;
 
-		const u8 resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
+		const ResourceIndex resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
@@ -569,7 +611,22 @@ namespace PHX
 		usage.storeOp = ATTACHMENT_STORE_OP::INVALID;
 		usage.loadOp = ATTACHMENT_LOAD_OP::INVALID;
 
-		const u8 resourceIndex = m_registerResourceCallback(buffer, RESOURCE_TYPE::BUFFER, usage);
+		const ResourceIndex resourceIndex = m_registerResourceCallback(buffer, RESOURCE_TYPE::BUFFER, usage);
+		m_outputResources.set(resourceIndex);
+	}
+
+	void RenderPassVk::SetAccelerationStructureOutput(AccelerationStructureHandle accelerationStructure)
+	{
+		ResourceUsage usage{};
+		usage.io = RESOURCE_IO::OUTPUT;
+		usage.passIndex = m_index;
+
+		// Not a texture resource
+		usage.attachmentType = ATTACHMENT_TYPE::INVALID;
+		usage.storeOp = ATTACHMENT_STORE_OP::INVALID;
+		usage.loadOp = ATTACHMENT_LOAD_OP::INVALID;
+
+		const ResourceIndex resourceIndex = m_registerResourceCallback(accelerationStructure, RESOURCE_TYPE::ACCELERATION_STRUCTURE, usage);
 		m_outputResources.set(resourceIndex);
 	}
 
@@ -994,6 +1051,13 @@ namespace PHX
 				fill    = "#FEF9E7";
 				border  = "#B7950B";
 			}
+			else if (resource.type == RESOURCE_TYPE::ACCELERATION_STRUCTURE)
+			{
+				displayName = GetResourceName(resource);
+				typeTag = "ACCELERATION STRUCTURE";
+				fill    = "#E8F8F5";
+				border  = "#1ABC9C";
+			}
 			else // TEXTURE
 			{
 				displayName = GetResourceName(resource);
@@ -1401,19 +1465,20 @@ namespace PHX
 		return pipeline;
 	}
 
-	u8 RenderGraphVk::RegisterResource(Handle resource, RESOURCE_TYPE type, const ResourceUsage& usage)
+	ResourceIndex RenderGraphVk::RegisterResource(Handle resource, RESOURCE_TYPE type, const ResourceUsage& usage)
 	{
-		if (static_cast<u8>(m_physicalResources.size()) > U8_MAX)
+		const ResourceIndex numPhysicalResources = static_cast<ResourceIndex>(m_physicalResources.size());
+		if (numPhysicalResources > MAX_REGISTERED_RESOURCES)
 		{
-			LogError("Failed to register resource. Physical resource limit (%u) reached!", U8_MAX);
+			LogError("Failed to register resource. Physical resource limit (%u) reached!", MAX_REGISTERED_RESOURCES);
 			return 0;
 		}
 
 		const u64 resourceID = HashResource(resource, type);
-		u8 physicalResourceIndex = U8_MAX;
+		ResourceIndex physicalResourceIndex = MAX_REGISTERED_RESOURCES;
 
 		// Try to find an existing physical resource
-		for (u8 i = 0; i < static_cast<u8>(m_physicalResources.size()); i++)
+		for (ResourceIndex i = 0; i < numPhysicalResources; i++)
 		{
 			const RenderResource& physicalResource = m_physicalResources[i];
 			if (physicalResource.resourceID == resourceID)
@@ -1424,7 +1489,7 @@ namespace PHX
 			}
 		}
 		
-		if (physicalResourceIndex == U8_MAX)
+		if (physicalResourceIndex == MAX_REGISTERED_RESOURCES)
 		{
 			// Couldn't find existing physical resource, create one instead
 			// TODO - Defer physical resource creation until baking?
@@ -1433,7 +1498,7 @@ namespace PHX
 			newPhysicalResource.resourceID = resourceID;
 			newPhysicalResource.type = type;
 
-			physicalResourceIndex = static_cast<u8>(m_physicalResources.size());
+			physicalResourceIndex = numPhysicalResources;
 			m_physicalResources.push_back(newPhysicalResource);
 		}
 
@@ -1490,7 +1555,7 @@ namespace PHX
 		}
 
 		RenderPassVk* pCurrRenderPass = m_registeredRenderPasses.Get(renderPassIndex);
-		if (pCurrRenderPass->m_inputResources.none())
+		if (pCurrRenderPass->m_inputResources.none() && pCurrRenderPass->m_outputResources.none())
 		{
 			return;
 		}
@@ -1666,31 +1731,44 @@ namespace PHX
 			const ResourceIndexBitset rootInputResources = (pDstRenderPass->m_inputResources & ~coveredResources);
 			TraverseResources(rootInputResources, [&](const RenderResource& resource)
 			{
-				if (resource.type != RESOURCE_TYPE::TEXTURE)
-				{
-					return;
-				}
-				TextureVk* pTexture = ResolveTexture(resource);
-				ASSERT_PTR(pTexture);
-
 				const u64& resourceID = resource.resourceID;
 				const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(*pDstRenderPass, resourceID);
 				ASSERT_PTR(dstResourceUsage); // Should never be null
 
-				// Only insert barriers if the layout is not compatible with the render passes' usage
-				const VkImageLayout srcLayout = pTexture->GetLayout();
-				const VkImageLayout dstLayout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
-				if (srcLayout != dstLayout)
+				if (resource.type == RESOURCE_TYPE::ACCELERATION_STRUCTURE)
 				{
+					// Root AS resources are assumed to have been produced by an AS build in a previous frame
 					Barrier newDstBarrier;
-					newDstBarrier.srcAccessMask = 0; // TOP_OF_PIPE cannot have a non-zero access mask
+					newDstBarrier.srcAccessMask = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
 					newDstBarrier.dstAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resource, dstBindPoint);
-					newDstBarrier.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+					newDstBarrier.srcStageMask = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
 					newDstBarrier.dstStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.dstAccessMask, false);
-					newDstBarrier.oldLayout = srcLayout;
-					newDstBarrier.newLayout = dstLayout;
+					newDstBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+					newDstBarrier.newLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
 					pDstRenderPass->m_inputBarriers.insert({ resourceID, newDstBarrier });
+					return;
+				}
+				else if (resource.type == RESOURCE_TYPE::TEXTURE)
+				{
+					TextureVk* pTexture = ResolveTexture(resource);
+					ASSERT_PTR(pTexture);
+
+					// Only insert barriers if the layout is not compatible with the render passes' usage
+					const VkImageLayout srcLayout = pTexture->GetLayout();
+					const VkImageLayout dstLayout = CalculateResourceImageLayout(*dstResourceUsage, dstBindPoint);
+					if (srcLayout != dstLayout)
+					{
+						Barrier newDstBarrier;
+						newDstBarrier.srcAccessMask = 0; // TOP_OF_PIPE cannot have a non-zero access mask
+						newDstBarrier.dstAccessMask = CalculateResourceAccessFlags(*dstResourceUsage, resource, dstBindPoint);
+						newDstBarrier.srcStageMask = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+						newDstBarrier.dstStageMask = CalculateResourcePipelineStageFlags(dstBindPoint, newDstBarrier.dstAccessMask, false);
+						newDstBarrier.oldLayout = srcLayout;
+						newDstBarrier.newLayout = dstLayout;
+
+						pDstRenderPass->m_inputBarriers.insert({ resourceID, newDstBarrier });
+					}
 				}
 			});
 
@@ -1723,8 +1801,8 @@ namespace PHX
 					}
 
 					// Add the barrier information to both src and dst pass
-					pDstRenderPass->m_inputBarriers.insert({ resourceID, newDstBarrier });
-					pSrcRenderPass->m_outputBarriers.insert({ resourceID, newDstBarrier });
+					pDstRenderPass->m_inputBarriers[resourceID] = newDstBarrier;
+					pSrcRenderPass->m_outputBarriers[resourceID] = newDstBarrier;
 				});
 			}
 		}
@@ -1784,6 +1862,26 @@ namespace PHX
 				if (res != STATUS_CODE::SUCCESS)
 				{
 					LogError("Failed to insert dependency barriers. Could not insert buffer memory barrier!");
+					return res;
+				}
+
+				break;
+			}
+			case RESOURCE_TYPE::ACCELERATION_STRUCTURE:
+			{
+				AccelerationStructureVk* pAccelerationStructure = ResolveAccelerationStructure(*resourceBarrier);
+				res = pDeviceContext->InsertAccelerationStructureMemoryBarrier(
+					pAccelerationStructure,
+					ConvertBindPointToQueueType(renderPass.m_bindPoint),
+					currBarrier.srcStageMask,
+					currBarrier.dstStageMask,
+					currBarrier.srcAccessMask,
+					currBarrier.dstAccessMask
+				);
+
+				if (res != STATUS_CODE::SUCCESS)
+				{
+					LogError("Failed to insert dependency barriers. Could not insert acceleration structure memory barrier!");
 					return res;
 				}
 
@@ -1947,6 +2045,15 @@ namespace PHX
 		return pBuffer;
 	}
 
+	AccelerationStructureVk* RenderGraphVk::ResolveAccelerationStructure(const RenderResource& resource)
+	{
+		ASSERT_MSG(resource.type == RESOURCE_TYPE::ACCELERATION_STRUCTURE, "Failed to resolve resource into acceleration structure. Resource is not an acceleration structure type!");
+
+		const AccelerationStructureHandle handle = static_cast<const AccelerationStructureHandle>(resource.handle);
+		AccelerationStructureVk* pAccelerationStructure = static_cast<AccelerationStructureVk*>(m_pRenderDevice->ResolveHandle(handle));
+		return pAccelerationStructure;
+	}
+
 	const char* RenderGraphVk::GetResourceName(const RenderResource& resource)
 	{
 		switch (resource.type)
@@ -1969,17 +2076,27 @@ namespace PHX
 			}
 			break;
 		}
+		case RESOURCE_TYPE::ACCELERATION_STRUCTURE:
+		{
+			AccelerationStructureVk* pAccelerationStructure = ResolveAccelerationStructure(resource);
+			if (pAccelerationStructure != nullptr)
+			{
+				return pAccelerationStructure->GetName();
+			}
+			break;
+		}
 		case RESOURCE_TYPE::UNIFORM:
 		{
+			// Unnamed
 			break;
 		}
 		default:
 		{
+			ASSERT_ALWAYS("Failed to get resource name. Unknown resource type!");
 			break;
 		}
 		}
 
-		ASSERT_ALWAYS("Failed to get resource name. Unknown resource type!");
 		return nullptr;
 	}
 

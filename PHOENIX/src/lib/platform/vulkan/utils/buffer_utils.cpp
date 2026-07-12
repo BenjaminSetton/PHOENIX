@@ -3,12 +3,12 @@
 #include <vulkan/vk_enum_string_helper.h>
 
 #include "buffer_utils.h"
-
+#include "platform/vulkan/utils/debug_utils.h"
 #include "utils/logger.h"
 
 namespace PHX
 {
-	BufferData CreateBuffer(RenderDeviceVk* pRenderDevice, u64 size, VkBufferUsageFlags usageFlags, VmaAllocationCreateFlags allocFlags, VkMemoryPropertyFlags requiredFlags, VkMemoryPropertyFlags preferredFlags)
+	BufferData CreateBuffer(RenderDeviceVk* pRenderDevice, const char* pName, u64 size, VkBufferUsageFlags usageFlags, VmaAllocationCreateFlags allocFlags, VkMemoryPropertyFlags requiredFlags, VkMemoryPropertyFlags preferredFlags)
 	{
 		VkBufferCreateInfo vkBufferInfo{};
 		vkBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -36,6 +36,8 @@ namespace PHX
 			LogError("Failed to allocate buffer! Got result: %s", string_VkResult(res));
 			newData.isValid = false;
 		}
+
+		DEBUG_UTILS::SetObjectName(pRenderDevice->GetLogicalDevice(), VK_OBJECT_TYPE_BUFFER, reinterpret_cast<uint64_t>(newData.buffer), pName);
 
 		return newData;
 	}

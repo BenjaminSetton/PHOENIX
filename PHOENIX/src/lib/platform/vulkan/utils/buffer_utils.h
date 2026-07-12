@@ -16,7 +16,7 @@ namespace PHX
 		VmaAllocationInfo allocInfo = {};
 	};
 
-	BufferData CreateBuffer(RenderDeviceVk* pRenderDevice, u64 size, VkBufferUsageFlags usageFlags, VmaAllocationCreateFlags allocFlags, VkMemoryPropertyFlags requiredFlags, VkMemoryPropertyFlags preferredFlags);
+	BufferData CreateBuffer(RenderDeviceVk* pRenderDevice, const char* pName, u64 size, VkBufferUsageFlags usageFlags, VmaAllocationCreateFlags allocFlags, VkMemoryPropertyFlags requiredFlags, VkMemoryPropertyFlags preferredFlags);
 	void DestroyBuffer(RenderDeviceVk* pRenderDevice, BufferData& buffer);
 
 	bool ShouldUseDirectMemoryMapping(BUFFER_USAGE usage);

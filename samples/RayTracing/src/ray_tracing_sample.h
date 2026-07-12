@@ -1,10 +1,13 @@
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include <glm.hpp>
 
 #include "../../common/src/base_sample.h"
+#include "../../common/src/camera/freefly_camera.h"
+#include "asset_loader.h"
 
 struct BlitVertex
 {
@@ -32,6 +35,11 @@ private:
 	void CreateUniformCollections();
 	void UploadBlitVertices();
 
+	void LoadSceneAssets();
+	void CreateSceneGeometryBuffers();
+	void BuildSceneAccelerationStructures();
+	void UpdateCameraData(float dt);
+
 private:
 
 	bool m_rayTracingSupported = false;
@@ -49,4 +57,31 @@ private:
 	std::vector<PHX::ShaderHandle> m_blitPipelineShaders;
 
 	std::vector<PHX::InputAttribute> m_blitInputAttributes;
+
+	Common::AssetHandle m_assetHandle = Common::INVALID_ASSET_HANDLE;
+	const AssetType* m_pAsset = nullptr;
+
+	PHX::BufferHandle m_sceneVertexBuffer;
+	PHX::BufferHandle m_sceneIndexBuffer;
+	PHX::BufferHandle m_instanceBuffer;
+	PHX::BufferHandle m_cameraUniformBuffer;
+	PHX::BufferHandle m_geometryInfoBuffer;
+
+	PHX::AccelerationStructureHandle m_tlas;
+	std::vector<PHX::AccelerationStructureHandle> m_blas;
+	std::vector<std::string> m_blasNames;
+
+	glm::mat4 m_projMatrix = glm::mat4(1.0f);
+
+	struct CameraData
+	{
+		glm::mat4 viewInverse;
+		glm::mat4 projInverse;
+		glm::vec3 cameraPosition;
+		float padding0;
+		glm::vec2 viewport;
+		glm::vec2 padding1;
+	};
+	CameraData m_cameraData{};
+
 };

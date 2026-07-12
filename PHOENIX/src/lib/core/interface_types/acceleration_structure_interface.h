@@ -11,7 +11,9 @@ namespace PHX
 
 		virtual ~IAccelerationStructure() { }
 
+		virtual const char* GetName() const = 0;
 		virtual ACCELERATION_STRUCTURE_TYPE GetType() const = 0;
 		virtual bool IsBuilt() const = 0;
+		virtual u64 GetDeviceAddress() const = 0;
 	};
 }

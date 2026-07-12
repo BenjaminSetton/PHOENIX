@@ -13,9 +13,11 @@
 
 namespace PHX
 {
-	static constexpr u8 MAX_REGISTERED_RESOURCES = U8_MAX;
+	using ResourceIndex = u16;
+	static constexpr ResourceIndex MAX_REGISTERED_RESOURCES = U16_MAX;
 
 	// Forward declarations
+	class AccelerationStructureVk;
 	class DeviceContextVk;
 	class RenderDeviceVk;
 	class RenderGraphVk;
@@ -23,13 +25,14 @@ namespace PHX
 	class TextureVk;
 	class BufferVk;
 
+
 	// Callback used by the render pass class to register resources into
 	// the render graph. The render graph owns the resources, and once
 	// they're registered this function will return the resource index
 	// that should then be cached in the render pass's input/output bitsets.
 	// Parameters are the handle (Handle), resource type (RESOURCE_TYPE), and 
 	// resource usage (ResourceUsage)
-	typedef std::function<u8(Handle, RESOURCE_TYPE, const ResourceUsage&)> RegisterResourceCallbackFn;
+	typedef std::function<ResourceIndex(Handle, RESOURCE_TYPE, const ResourceUsage&)> RegisterResourceCallbackFn;
 
 	// Called for every render pass touched when traversing the dependency tree
 	typedef std::function<void(const RenderPassVk&)> TraverseDependenciesCallbackFn;
@@ -69,6 +72,7 @@ namespace PHX
 		void SetTextureInput(TextureHandle texture) override;
 		void SetBufferInput(BufferHandle buffer) override; // Not sure if I want to keep this
 		void SetUniformInput(UniformCollectionHandle uniformCollection) override; // Not sure if I want to keep this
+		void SetAccelerationStructureInput(AccelerationStructureHandle accelerationStructure) override;
 
 		// Outputs
 		void SetTextureOutput(TextureHandle texture, ATTACHMENT_LOAD_OP loadOp, ATTACHMENT_STORE_OP storeOp, ClearValues clearValue = {}) override;
@@ -77,6 +81,7 @@ namespace PHX
 		void SetDepthStencilOutput(TextureHandle texture) override;
 		void SetResolveOutput(TextureHandle texture) override;
 		void SetBufferOutput(BufferHandle buffer) override;
+		void SetAccelerationStructureOutput(AccelerationStructureHandle accelerationStructure) override;
 
 		// Pipeline
 		void SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc) override;
@@ -138,6 +143,7 @@ namespace PHX
 		IDeviceContext* GetDeviceContext() override;
 		DeviceContextHandle GetDeviceContextHandle() override;
 
+		// Handles
 		void* ResolveHandle(const Handle& handle) override;
 		void IncrementHandleRefCount(const Handle& handle) override;
 		void DecrementHandleRefCount(const Handle& handle) override;
@@ -147,7 +153,7 @@ namespace PHX
 		VkRenderPass CreateRenderPass(const RenderPassVk& renderPass);
 		FramebufferVk* CreateFramebuffer(const RenderPassVk& renderPass, VkRenderPass renderPassVk, bool isBackBuffer);
 		PipelineVk* CreatePipeline(const RenderPassVk& renderPass, VkRenderPass renderPassVk);
-		u8 RegisterResource(Handle resource, RESOURCE_TYPE type, const ResourceUsage& usage);
+		ResourceIndex RegisterResource(Handle resource, RESOURCE_TYPE type, const ResourceUsage& usage);
 
 		// Returns the index of the pass that owns presentation: the last (highest submission index)
 		// active pass that writes to the current swapchain image. Earlier swapchain writers are pulled
@@ -185,6 +191,7 @@ namespace PHX
 
 		TextureVk* ResolveTexture(const RenderResource& resource);
 		BufferVk* ResolveBuffer(const RenderResource& resource);
+		AccelerationStructureVk* ResolveAccelerationStructure(const RenderResource& resource);
 		const char* GetResourceName(const RenderResource& resource);
 
 		// Returns a hash of the state of the render graph in the current frame

@@ -584,7 +584,7 @@ namespace PHX
 		const VkBufferUsageFlags sbtBufferUsage = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
 		const VmaAllocationCreateFlags sbtAllocFlags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
 
-		BufferData sbtBuffer = CreateBuffer(pRenderDevice, sbtSize, sbtBufferUsage, sbtAllocFlags, 0, 0);
+		BufferData sbtBuffer = CreateBuffer(pRenderDevice, "ShaderBindingTableBuffer", sbtSize, sbtBufferUsage, sbtAllocFlags, 0, 0);
 		if (!sbtBuffer.isValid)
 		{
 			LogError("Failed to create ray tracing shader binding table buffer!");

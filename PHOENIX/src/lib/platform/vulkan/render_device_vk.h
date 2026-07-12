@@ -101,7 +101,8 @@ namespace PHX
 		VkDeviceAddress GetBufferDeviceAddressKHR(const VkBufferDeviceAddressInfo* pInfo);
 		void CmdTraceRaysKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, u32 width, u32 height, u32 depth);
 
-		// Acceleration structure Vulkan wrappers
+		// Acceleration structure Vulkan wrappers around VK extension function pointers. 
+		// If ray tracing is unsupported, these result in no-ops
 		VkResult CreateAccelerationStructureKHR(const VkAccelerationStructureCreateInfoKHR* pCreateInfo, VkAccelerationStructureKHR* pAccelerationStructure);
 		void DestroyAccelerationStructureKHR(VkAccelerationStructureKHR accelerationStructure);
 		void GetAccelerationStructureBuildSizesKHR(VkAccelerationStructureBuildTypeKHR buildType, const VkAccelerationStructureBuildGeometryInfoKHR* pBuildInfo, const u32* pMaxPrimitiveCounts, VkAccelerationStructureBuildSizesInfoKHR* pSizeInfo);

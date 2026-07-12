@@ -5,7 +5,6 @@
 #include "buffer_vk.h"
 #include "utils/logger.h"
 #include "utils/buffer_type_converter.h"
-#include "utils/debug_utils.h"
 
 namespace PHX
 {
@@ -35,7 +34,7 @@ namespace PHX
 		}
 
 		const VkBufferUsageFlags bufferUsageFlags = BUFFER_UTILS::ConvertBufferUsage(createInfo.bufferUsage) | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-		newBuffer = CreateBuffer(m_renderDevice, createInfo.sizeBytes, bufferUsageFlags, bufferCreateFlags, 0, 0);
+		newBuffer = CreateBuffer(m_renderDevice, createInfo.pName, createInfo.sizeBytes, bufferUsageFlags, bufferCreateFlags, 0, 0);
 		if (!newBuffer.isValid)
 		{
 			LogError("Failed to create buffer!");
@@ -45,8 +44,6 @@ namespace PHX
 		m_pName = createInfo.pName;
 		m_buffer = newBuffer;
 		m_usage = createInfo.bufferUsage;
-
-		DEBUG_UTILS::SetObjectName(m_renderDevice->GetLogicalDevice(), VK_OBJECT_TYPE_BUFFER, reinterpret_cast<uint64_t>(newBuffer.buffer), m_pName);
 	}
 
 	BufferVk::~BufferVk()

@@ -90,6 +90,15 @@ namespace PHX
 			VkAccessFlags dstAccessMask
 		);
 
+		STATUS_CODE InsertAccelerationStructureMemoryBarrier(
+			AccelerationStructureVk* pAS,
+			QUEUE_TYPE queueType,
+			VkPipelineStageFlags srcStageMask,
+			VkPipelineStageFlags dstStageMask,
+			VkAccessFlags srcAccessMask,
+			VkAccessFlags dstAccessMask
+		);
+
 	private:
 
 		STATUS_CODE GetOrCreateCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer);

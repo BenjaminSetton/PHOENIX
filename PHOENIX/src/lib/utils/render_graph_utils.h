@@ -7,9 +7,10 @@ namespace PHX
 {
 	enum class RESOURCE_TYPE
 	{
-		TEXTURE,	// ITexture
-		BUFFER,		// IBuffer
-		UNIFORM		// IUniformCollection
+		TEXTURE,				// ITexture
+		BUFFER,					// IBuffer
+		UNIFORM,				// IUniformCollection
+		ACCELERATION_STRUCTURE	// IAccelerationStructure
 	};
 
 	enum class RESOURCE_IO

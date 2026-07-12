@@ -26,6 +26,8 @@ namespace PHX
 		u32 vertexCount = 0;
 		u32 indexCount  = 0;
 		u32 vertexStride = 0; // Stride in bytes between vertices
+		u32 firstVertex = 0;  // Offset (in vertices) into the shared vertex buffer
+		u64 indexByteOffset = 0; // Offset (in bytes) into the shared index buffer
 		INDEX_TYPE indexType = INDEX_TYPE::U32;
 
 		// AABB geometry

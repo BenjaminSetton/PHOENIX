@@ -7,9 +7,6 @@
 
 namespace PHX
 {
-	// Forward declarations
-	class IRenderDevice;
-
 	struct TextureBaseCreateInfo
 	{
 		const char* pName         = "";

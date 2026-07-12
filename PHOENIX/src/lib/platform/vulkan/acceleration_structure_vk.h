@@ -9,6 +9,7 @@
 
 namespace PHX
 {
+	// Forward declarations
 	class RenderDeviceVk;
 
 	class AccelerationStructureVk : public IAccelerationStructure
@@ -18,12 +19,13 @@ namespace PHX
 		AccelerationStructureVk(RenderDeviceVk* pRenderDevice, const AccelerationStructureCreateInfo& createInfo);
 		~AccelerationStructureVk() override;
 
+		const char* GetName() const override;
 		ACCELERATION_STRUCTURE_TYPE GetType() const override;
 		AccelerationStructureBuildFlags GetBuildFlags() const;
 		bool IsBuilt() const override;
 
 		VkAccelerationStructureKHR GetAccelerationStructure() const;
-		VkDeviceAddress GetDeviceAddress() const;
+		u64 GetDeviceAddress() const override;
 
 		// Bottom-level geometry
 		const GeometryData* GetGeometries() const;
@@ -39,13 +41,14 @@ namespace PHX
 
 	private:
 
-		STATUS_CODE Create(RenderDeviceVk* pRenderDevice);
+		STATUS_CODE Create(RenderDeviceVk* pRenderDevice, const AccelerationStructureCreateInfo& createInfo);
 		void Delete();
 
 	private:
 
 		RenderDeviceVk* m_pRenderDevice;
 
+		const char* m_pName;
 		ACCELERATION_STRUCTURE_TYPE m_type;
 		AccelerationStructureBuildFlags m_buildFlags;
 
@@ -53,8 +56,12 @@ namespace PHX
 		u32 m_maxInstanceCount;
 
 		VkAccelerationStructureKHR m_accelerationStructure;
+
 		BufferData m_resultBuffer;
+		char* m_resultBufferName;
+
 		BufferData m_scratchBuffer;
+		char* m_scratchBufferName;
 
 		bool m_built;
 	};

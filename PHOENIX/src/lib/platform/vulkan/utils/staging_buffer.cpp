@@ -19,7 +19,7 @@ namespace PHX
 
 		const VmaAllocationCreateFlags stagingBufferCreateFlags = VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 		const VkBufferUsageFlags stagingBufferUsageFlags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-		BufferData newBuffer = CreateBuffer(m_renderDevice, createInfo.sizeBytes, stagingBufferUsageFlags, stagingBufferCreateFlags, 0, 0);
+		BufferData newBuffer = CreateBuffer(m_renderDevice, createInfo.pName, createInfo.sizeBytes, stagingBufferUsageFlags, stagingBufferCreateFlags, 0, 0);
 		if (!newBuffer.isValid)
 		{
 			LogError("Failed to create staging buffer!");

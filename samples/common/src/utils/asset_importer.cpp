@@ -74,9 +74,9 @@ namespace Common
 		Assimp::Importer importer;
 
 #if defined(FAST_IMPORT)
-		uint32_t importFlags = aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace;
+		uint32_t importFlags = aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_PreTransformVertices;
 #else
-		uint32_t importFlags = aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_FixInfacingNormals | aiProcess_FindInvalidData;
+		uint32_t importFlags = aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_FixInfacingNormals | aiProcess_FindInvalidData | aiProcess_PreTransformVertices;
 #endif
 		const aiScene* scene = importer.ReadFile(filePath.string(), importFlags);
 		if (scene == nullptr || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) == 1 || scene->mRootNode == nullptr)
@@ -85,8 +85,7 @@ namespace Common
 			return nullptr;
 		}
 
-		aiMesh* importedMesh = scene->mMeshes[0];
-		if (importedMesh == nullptr)
+		if (scene->mNumMeshes == 0)
 		{
 			return nullptr;
 		}
@@ -94,37 +93,76 @@ namespace Common
 		std::shared_ptr<AssetDisk> asset = std::make_shared<AssetDisk>();
 		asset->name = filePath.stem().string();
 
-		// VERTICES
-		const uint32_t vertexCount = importedMesh->mNumVertices;
-		asset->vertices.reserve(vertexCount);
-		for (uint32_t i = 0; i < vertexCount; i++)
+		asset->meshes.reserve(scene->mNumMeshes);
+		asset->materials.reserve(scene->mNumMaterials);
+
+		uint32_t totalVertexCount = 0;
+		uint32_t totalIndexCount = 0;
+		for (uint32_t meshIdx = 0; meshIdx < scene->mNumMeshes; meshIdx++)
 		{
-			const aiVector3D& importedPos = importedMesh->mVertices[i];
-			const aiVector3D& importedNormal = importedMesh->mNormals[i];
-			const aiVector3D& importedTangent = importedMesh->mTangents[i];
-			const aiVector3D& importedBitangent = importedMesh->mBitangents[i];
-			const aiVector3D& importedUVs = importedMesh->HasTextureCoords(0) ? importedMesh->mTextureCoords[0][i] : aiVector3D(0, 0, 0);
+			totalVertexCount += scene->mMeshes[meshIdx]->mNumVertices;
+			totalIndexCount += scene->mMeshes[meshIdx]->mNumFaces * 3;
+		}
+		asset->vertices.reserve(totalVertexCount);
+		asset->indices.reserve(totalIndexCount);
 
-			AssetDiskVertex vertex{};
-			vertex.position = { importedPos.x, importedPos.y, importedPos.z };
-			vertex.normal = { importedNormal.x, importedNormal.y, importedNormal.z };
-			vertex.tangent = { importedTangent.x, importedTangent.y, importedTangent.z };
-			vertex.bitangent = { importedBitangent.x, importedBitangent.y, importedBitangent.z };
-			vertex.uv = { importedUVs.x, importedUVs.y };
+		// MESHES
+		for (uint32_t meshIdx = 0; meshIdx < scene->mNumMeshes; meshIdx++)
+		{
+			aiMesh* importedMesh = scene->mMeshes[meshIdx];
 
-			asset->vertices.push_back(vertex);
+			AssetDiskMesh mesh{};
+			mesh.firstVertex = static_cast<uint32_t>(asset->vertices.size());
+			mesh.vertexCount = importedMesh->mNumVertices;
+			mesh.firstIndex = static_cast<uint32_t>(asset->indices.size());
+			mesh.materialIndex = importedMesh->mMaterialIndex;
+
+			// VERTICES
+			for (uint32_t i = 0; i < importedMesh->mNumVertices; i++)
+			{
+				const aiVector3D& importedPos = importedMesh->mVertices[i];
+				const aiVector3D& importedNormal = importedMesh->HasNormals() ? importedMesh->mNormals[i] : aiVector3D(0, 0, 0);
+				const aiVector3D& importedTangent = importedMesh->HasTangentsAndBitangents() ? importedMesh->mTangents[i] : aiVector3D(0, 0, 0);
+				const aiVector3D& importedBitangent = importedMesh->HasTangentsAndBitangents() ? importedMesh->mBitangents[i] : aiVector3D(0, 0, 0);
+				const aiVector3D& importedUVs = importedMesh->HasTextureCoords(0) ? importedMesh->mTextureCoords[0][i] : aiVector3D(0, 0, 0);
+
+				AssetDiskVertex vertex{};
+				vertex.position = { importedPos.x, importedPos.y, importedPos.z };
+				vertex.normal = { importedNormal.x, importedNormal.y, importedNormal.z };
+				vertex.tangent = { importedTangent.x, importedTangent.y, importedTangent.z };
+				vertex.bitangent = { importedBitangent.x, importedBitangent.y, importedBitangent.z };
+				vertex.uv = { importedUVs.x, importedUVs.y };
+
+				asset->vertices.push_back(vertex);
+			}
+
+			// INDICES
+			for (uint32_t j = 0; j < importedMesh->mNumFaces; j++)
+			{
+				const aiFace& importedFace = importedMesh->mFaces[j];
+
+				asset->indices.push_back(importedFace.mIndices[0]);
+				asset->indices.push_back(importedFace.mIndices[1]);
+				asset->indices.push_back(importedFace.mIndices[2]);
+			}
+
+			mesh.indexCount = static_cast<uint32_t>(asset->indices.size()) - mesh.firstIndex;
+			asset->meshes.push_back(mesh);
 		}
 
-		// INDICES
-		const uint32_t faceCount = importedMesh->mNumFaces;
-		asset->indices.reserve(faceCount * 3);
-		for (uint32_t j = 0; j < faceCount; j++)
+		// MATERIALS
+		for (uint32_t i = 0; i < scene->mNumMaterials; i++)
 		{
-			const aiFace& importedFace = importedMesh->mFaces[j];
+			aiMaterial* pAIMaterial = scene->mMaterials[i];
 
-			asset->indices.push_back(importedFace.mIndices[0]);
-			asset->indices.push_back(importedFace.mIndices[1]);
-			asset->indices.push_back(importedFace.mIndices[2]);
+			AssetDiskMaterial material{};
+			aiString matName;
+			if (pAIMaterial->Get(AI_MATKEY_NAME, matName) == AI_SUCCESS)
+			{
+				material.name = matName.C_Str();
+			}
+
+			asset->materials.push_back(material);
 		}
 
 		// TEXTURES (loading standalone for now)
@@ -143,10 +181,10 @@ namespace Common
 		}
 
 		// MATERIALS (interpreted as textures)
-		uint32_t numMaterials = scene->mNumMaterials;
-		for (uint32_t i = 0; i < numMaterials; i++)
+		for (uint32_t i = 0; i < scene->mNumMaterials; i++)
 		{
 			aiMaterial* currentAIMaterial = scene->mMaterials[i];
+			AssetDiskMaterial* pMaterial = &asset->materials[i];
 
 			// Get all the supported textures
 			for (const auto& aiType : SUPPORTED_TEXTURE_TYPES)
@@ -176,7 +214,6 @@ namespace Common
 						stbi_uc* pixels = stbi_load(textureSourceFilePathStr.c_str(), &width, &height, &channels, STBI_rgb_alpha);
 						if (pixels == nullptr)
 						{
-							//LogError("Failed to load texture! '%s'", textureSourceFilePathStr.c_str());
 							std::cout << "Failed to load texture! \"" << textureSourceFilePathStr.c_str() << "\"" << std::endl;
 							continue;
 						}
@@ -194,6 +231,7 @@ namespace Common
 						PHX::Vec2u texSize = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
 
 						AssetDiskTexture newTexture = AllocateTexture(textureName.string().c_str(), pixels, texSize, 4, texType);
+						pMaterial->textureIndices.push_back(static_cast<uint32_t>(asset->textures.size()));
 						asset->textures.push_back(newTexture);
 
 						/*LogInfo("\tMaterial %u: Loaded %s texture '%s' from disk",

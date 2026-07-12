@@ -161,6 +161,7 @@ namespace PHX
 		case BUFFER_USAGE::VERTEX_BUFFER:
 		case BUFFER_USAGE::INDEX_BUFFER:
 		case BUFFER_USAGE::INDIRECT_BUFFER:
+		case BUFFER_USAGE::ACCELERATION_STRUCTURE:
 		{
 			LogError("Failed to queue buffer update. Buffer usage is invalid! Expected storage or uniform buffer, but found %u", static_cast<u32>(usage));
 			return STATUS_CODE::ERR_API;
@@ -225,6 +226,7 @@ namespace PHX
 			break;
 		}
 		case BUFFER_USAGE::STORAGE_BUFFER:
+		case BUFFER_USAGE::ACCELERATION_STRUCTURE_BUILD_INPUT:
 		{
 			descType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 			break;

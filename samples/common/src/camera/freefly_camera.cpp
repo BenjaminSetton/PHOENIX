@@ -77,12 +77,12 @@ namespace Common
 		if (inputManager.IsKeyPressed(PHX::KeyCode::KEY_SPACEBAR))
 		{
 			// Move up (global space)
-			globalMovementVec.y -= m_speed * dt;
+			globalMovementVec.y += m_speed * dt;
 		}
 		if (inputManager.IsKeyPressed(PHX::KeyCode::KEY_LSHIFT) || inputManager.IsKeyPressed(PHX::KeyCode::KEY_RSHIFT))
 		{
 			// Move downwards (global space)
-			globalMovementVec.y += m_speed * dt;
+			globalMovementVec.y -= m_speed * dt;
 		}
 #pragma endregion
 
@@ -94,7 +94,7 @@ namespace Common
 			inputManager.GetMouseDelta(rotationVec.x, rotationVec.y);
 		}
 
-		m_rotation += (rotationVec * m_sensitivity);
+		m_rotation += (glm::vec3(rotationVec.x, -rotationVec.y, 0.0f) * m_sensitivity);
 
 		constexpr float minPitch = -90.0f;
 		constexpr float maxPitch = 90.0f;

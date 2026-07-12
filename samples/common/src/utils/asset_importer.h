@@ -51,6 +51,21 @@ namespace Common
 		PHX::u32 bytesPerPixel	= 0;
 	};
 
+	struct AssetDiskMaterial
+	{
+		std::string name;
+		std::vector<PHX::u32> textureIndices;
+	};
+
+	struct AssetDiskMesh
+	{
+		PHX::u32 firstVertex = 0;
+		PHX::u32 vertexCount = 0;
+		PHX::u32 firstIndex = 0;
+		PHX::u32 indexCount = 0;
+		PHX::u32 materialIndex = 0;
+	};
+
 	// A raw representation of an asset on disk. This is a generalization of common 3D asset extensions such as OBJ, FBX,
 	// glTF, etc. Instances of AssetDisk are never stored. Instead, they must be converted into AssetResources instances
 	// during import calls and only then is the data stored in the AssetManager
@@ -60,6 +75,8 @@ namespace Common
 		std::vector<AssetDiskVertex> vertices;
 		std::vector<AssetIndexType> indices;
 		std::vector<AssetDiskTexture> textures;
+		std::vector<AssetDiskMesh> meshes;
+		std::vector<AssetDiskMaterial> materials;
 	};
 
 	std::shared_ptr<AssetDisk> ImportAsset(std::filesystem::path filePath);

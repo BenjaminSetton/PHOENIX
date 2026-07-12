@@ -3,6 +3,7 @@
 
 #include "device_context_vk.h"
 
+#include "PHX/types/acceleration_structure_desc.h"
 #include "acceleration_structure_vk.h"
 #include "buffer_vk.h"
 #include "framebuffer_vk.h"
@@ -16,6 +17,9 @@
 #include "utils/staging_buffer.h"
 #include "utils/texture_type_converter.h"
 #include "utils/pipeline_type_converter.h"
+
+STATIC_ASSERT_MSG(sizeof(PHX::AccelerationStructureInstance) == sizeof(VkAccelerationStructureInstanceKHR), "PHX::AccelerationStructureInstance size mismatch with VkAccelerationStructureInstanceKHR");
+STATIC_ASSERT_MSG(alignof(PHX::AccelerationStructureInstance) == alignof(VkAccelerationStructureInstanceKHR), "PHX::AccelerationStructureInstance alignment mismatch with VkAccelerationStructureInstanceKHR");
 
 #define VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, msg) if(cmdBuffer == VK_NULL_HANDLE) { LogError(msg); return STATUS_CODE::ERR_INTERNAL; }
 
@@ -346,11 +350,11 @@ namespace PHX
 
 				asGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 				asGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-				asGeometry.geometry.triangles.vertexData.deviceAddress = GetBufferAddress(pVertexBuffer->GetBuffer());
+				asGeometry.geometry.triangles.vertexData.deviceAddress = GetBufferAddress(pVertexBuffer->GetBuffer()) + static_cast<VkDeviceAddress>(geometry.firstVertex) * geometry.vertexStride;
 				asGeometry.geometry.triangles.vertexStride = geometry.vertexStride;
-				asGeometry.geometry.triangles.maxVertex = geometry.vertexCount;
+				asGeometry.geometry.triangles.maxVertex = geometry.vertexCount > 0 ? geometry.vertexCount - 1 : 0;
 				asGeometry.geometry.triangles.indexType = indexType;
-				asGeometry.geometry.triangles.indexData.deviceAddress = GetBufferAddress(pIndexBuffer->GetBuffer());
+				asGeometry.geometry.triangles.indexData.deviceAddress = GetBufferAddress(pIndexBuffer->GetBuffer()) + geometry.indexByteOffset;
 
 				VkAccelerationStructureBuildRangeInfoKHR rangeInfo{};
 				rangeInfo.primitiveCount = geometry.indexBuffer.IsValid() ? (geometry.indexCount / 3) : (geometry.vertexCount / 3);
@@ -375,7 +379,7 @@ namespace PHX
 				VkAccelerationStructureBuildRangeInfoKHR rangeInfo{};
 				rangeInfo.primitiveCount = geometry.aabbCount;
 				rangeInfo.primitiveOffset = 0;
-				rangeInfo.firstVertex = 0;
+				rangeInfo.firstVertex = geometry.firstVertex;
 				rangeInfo.transformOffset = 0;
 				buildRangeInfos.push_back(rangeInfo);
 			}
@@ -884,6 +888,54 @@ namespace PHX
 			0, nullptr, // No memory barriers
 			1, &bufferBarrier,
 			0, nullptr	// No image barriers
+		);
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE DeviceContextVk::InsertAccelerationStructureMemoryBarrier(AccelerationStructureVk* pAS, QUEUE_TYPE queueType, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask)
+	{
+		ASSERT_MSG(m_pRenderDevice->IsRayTracingSupported(), "Failed to insert acceleration structure memory barrier. Ray tracing is not supported on this device!");
+
+		if (pAS == nullptr)
+		{
+			LogError("Failed to insert acceleration structure memory barrier. Acceleration structure pointer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		BufferData& resultBuffer = pAS->GetResultBuffer();
+		if (!resultBuffer.isValid)
+		{
+			LogError("Failed to insert acceleration structure memory barrier. Result buffer is invalid!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		STATUS_CODE res = GetOrCreateCommandBuffer(queueType, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to insert acceleration structure memory barrier. Could not get or create command buffer!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		VkBufferMemoryBarrier bufferBarrier{};
+		bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+		bufferBarrier.srcAccessMask = srcAccessMask;
+		bufferBarrier.dstAccessMask = dstAccessMask;
+		bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		bufferBarrier.buffer = resultBuffer.buffer;
+		bufferBarrier.offset = 0;
+		bufferBarrier.size = resultBuffer.size;
+
+		vkCmdPipelineBarrier(
+			cmdBuffer,
+			srcStageMask,
+			dstStageMask,
+			0,
+			0, nullptr,
+			1, &bufferBarrier,
+			0, nullptr
 		);
 
 		return STATUS_CODE::SUCCESS;

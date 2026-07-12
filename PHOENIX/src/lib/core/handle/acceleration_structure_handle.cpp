@@ -29,4 +29,15 @@ namespace PHX
 
 		return false;
 	}
+
+	u64 AccelerationStructureHandle::GetDeviceAddress() const
+	{
+		IAccelerationStructure* pAS = static_cast<IAccelerationStructure*>(HANDLE_UTILS::ResolveHandle(*this));
+		if (pAS != nullptr)
+		{
+			return pAS->GetDeviceAddress();
+		}
+
+		return 0;
+	}
 }

@@ -257,6 +257,7 @@ void ComputeParticlesSample::Init()
 	const float aspectRatio = static_cast<float>(m_swapChain.GetWidth()) / m_swapChain.GetHeight();
 	m_cameraData.view = m_pCamera->GetViewMatrix();
 	m_cameraData.proj = glm::perspective(fov, aspectRatio, 0.01f, 1000.0f);
+	m_cameraData.proj[1][1] *= -1.0f;
 
 	// UNIFORM COLLECTIONS
 	CreateUniformCollection();

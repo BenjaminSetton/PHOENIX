@@ -36,6 +36,7 @@ static TransformData InitializeTransform(const Common::BaseCamera* pCamera, floa
 
 	// Perspective
 	data.projMat = glm::perspective(FOV, aspectRatio, 0.01f, 1000.0f);
+	data.projMat[1][1] *= -1.0f;
 
 	return data;
 }

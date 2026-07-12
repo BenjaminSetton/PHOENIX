@@ -24,17 +24,21 @@ namespace PHX
 	};
 	using AccelerationStructureBuildFlags = u8;
 
-	struct AccelerationStructureCreateInfo
+	enum ACCELERATION_STRUCTURE_INSTANCE_FLAG : u32
 	{
-		ACCELERATION_STRUCTURE_TYPE type = ACCELERATION_STRUCTURE_TYPE::BOTTOM_LEVEL;
+		AS_INSTANCE_FLAG_TRIANGLE_FACING_CULL_DISABLE     = 1 << 0,
+		AS_INSTANCE_FLAG_TRIANGLE_FRONT_COUNTERCLOCKWISE  = 1 << 1,
+		AS_INSTANCE_FLAG_FORCE_OPAQUE                     = 1 << 2,
+		AS_INSTANCE_FLAG_FORCE_NO_OPAQUE                  = 1 << 3,
+	};
 
-		// For bottom-level acceleration structures
-		GeometryData* pGeometries = nullptr;
-		u32 geometryCount = 0;
-
-		// For top-level acceleration structures
-		u32 maxInstanceCount = 0;
-
-		AccelerationStructureBuildFlags buildFlags = AS_FLAG_NONE;
+	struct AccelerationStructureInstance
+	{
+		float transform[3][4]; // TODO - Replace with mat3 type
+		u32 instanceCustomIndex : 24;
+		u32 mask : 8;
+		u32 instanceShaderBindingTableRecordOffset : 24;
+		u32 flags : 8;
+		u64 accelerationStructureReference;
 	};
 }

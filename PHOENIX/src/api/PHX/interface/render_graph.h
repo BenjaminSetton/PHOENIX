@@ -2,6 +2,7 @@
 
 #include <functional>
 
+#include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
 #include "PHX/interface/handle.h"
@@ -32,6 +33,7 @@ namespace PHX
 		void SetTextureInput(TextureHandle texture);
 		void SetBufferInput(BufferHandle buffer);
 		void SetUniformInput(UniformCollectionHandle uniformCollection); // Not sure if I want to keep this
+		void SetAccelerationStructureInput(AccelerationStructureHandle accelerationStructure);
 
 		// Outputs
 		// SetTextureOutput is the generic texture-write entry point. The attachment type (color/depth/
@@ -43,6 +45,7 @@ namespace PHX
 		void SetDepthStencilOutput(TextureHandle texture);
 		void SetResolveOutput(TextureHandle texture);
 		void SetBufferOutput(BufferHandle buffer);
+		void SetAccelerationStructureOutput(AccelerationStructureHandle accelerationStructure);
 
 		// Pipeline data
 		void SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc);

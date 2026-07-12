@@ -1,4 +1,5 @@
 
+#include <cstdio>
 #include <vulkan/vk_enum_string_helper.h>
 
 #include "acceleration_structure_vk.h"
@@ -13,7 +14,8 @@
 namespace PHX
 {
 	AccelerationStructureVk::AccelerationStructureVk(RenderDeviceVk* pRenderDevice, const AccelerationStructureCreateInfo& createInfo) :
-		m_pRenderDevice(nullptr), m_type(createInfo.type), m_buildFlags(createInfo.buildFlags), m_maxInstanceCount(0), m_accelerationStructure(VK_NULL_HANDLE), m_resultBuffer{}, m_scratchBuffer{}, m_built(false)
+		m_pRenderDevice(nullptr), m_pName(""), m_type(createInfo.type), m_buildFlags(createInfo.buildFlags), m_maxInstanceCount(0),
+		m_accelerationStructure(VK_NULL_HANDLE), m_resultBuffer{}, m_resultBufferName(nullptr), m_scratchBuffer{}, m_scratchBufferName(nullptr), m_built(false)
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -34,12 +36,6 @@ namespace PHX
 				LogError("Failed to create bottom-level acceleration structure. No geometry data provided!");
 				return;
 			}
-
-			m_geometries.reserve(createInfo.geometryCount);
-			for (u32 i = 0; i < createInfo.geometryCount; i++)
-			{
-				m_geometries.push_back(createInfo.pGeometries[i]);
-			}
 		}
 		else if (createInfo.type == ACCELERATION_STRUCTURE_TYPE::TOP_LEVEL)
 		{
@@ -48,7 +44,6 @@ namespace PHX
 				LogError("Failed to create top-level acceleration structure. Max instance count is 0!");
 				return;
 			}
-			m_maxInstanceCount = createInfo.maxInstanceCount;
 		}
 		else
 		{
@@ -56,7 +51,7 @@ namespace PHX
 			return;
 		}
 
-		STATUS_CODE res = Create(pRenderDevice);
+		STATUS_CODE res = Create(pRenderDevice, createInfo);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return;
@@ -68,6 +63,11 @@ namespace PHX
 	AccelerationStructureVk::~AccelerationStructureVk()
 	{
 		Delete();
+	}
+
+	const char* AccelerationStructureVk::GetName() const
+	{
+		return m_pName;
 	}
 
 	ACCELERATION_STRUCTURE_TYPE AccelerationStructureVk::GetType() const
@@ -90,7 +90,7 @@ namespace PHX
 		return m_accelerationStructure;
 	}
 
-	VkDeviceAddress AccelerationStructureVk::GetDeviceAddress() const
+	u64 AccelerationStructureVk::GetDeviceAddress() const
 	{
 		if (m_pRenderDevice == nullptr || m_accelerationStructure == VK_NULL_HANDLE)
 		{
@@ -133,18 +133,20 @@ namespace PHX
 		m_built = built;
 	}
 
-	STATUS_CODE AccelerationStructureVk::Create(RenderDeviceVk* pRenderDevice)
+	STATUS_CODE AccelerationStructureVk::Create(RenderDeviceVk* pRenderDevice, const AccelerationStructureCreateInfo& createInfo)
 	{
 		std::vector<VkAccelerationStructureGeometryKHR> geometries;
 		std::vector<u32> maxPrimitiveCounts;
 
 		if (m_type == ACCELERATION_STRUCTURE_TYPE::BOTTOM_LEVEL)
 		{
-			geometries.reserve(m_geometries.size());
-			maxPrimitiveCounts.reserve(m_geometries.size());
+			geometries.reserve(createInfo.geometryCount);
+			maxPrimitiveCounts.reserve(createInfo.geometryCount);
 
-			for (const GeometryData& geometry : m_geometries)
+			for (u32 i = 0; i < createInfo.geometryCount; i++)
 			{
+				const GeometryData& geometry = createInfo.pGeometries[i];
+
 				VkAccelerationStructureGeometryKHR asGeometry{};
 				asGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
 				asGeometry.geometryType = ConvertGeometryType(geometry.type);
@@ -165,14 +167,14 @@ namespace PHX
 					VkDeviceAddress indexAddress = 0;
 					if (pIndexBuffer != nullptr)
 					{
-						indexAddress = GetBufferDeviceAddress(pRenderDevice, pIndexBuffer->GetBuffer());
+						indexAddress = GetBufferDeviceAddress(pRenderDevice, pIndexBuffer->GetBuffer()) + geometry.indexByteOffset;
 					}
 
 					asGeometry.geometry.triangles.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_TRIANGLES_DATA_KHR;
 					asGeometry.geometry.triangles.vertexFormat = VK_FORMAT_R32G32B32_SFLOAT;
-					asGeometry.geometry.triangles.vertexData.deviceAddress = vertexAddress;
+					asGeometry.geometry.triangles.vertexData.deviceAddress = vertexAddress + static_cast<VkDeviceAddress>(geometry.firstVertex) * geometry.vertexStride;
 					asGeometry.geometry.triangles.vertexStride = geometry.vertexStride;
-					asGeometry.geometry.triangles.maxVertex = geometry.vertexCount;
+					asGeometry.geometry.triangles.maxVertex = geometry.vertexCount > 0 ? geometry.vertexCount - 1 : 0;
 					asGeometry.geometry.triangles.indexType = pIndexBuffer != nullptr ? (geometry.indexType == INDEX_TYPE::U16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32) : VK_INDEX_TYPE_NONE_KHR;
 					asGeometry.geometry.triangles.indexData.deviceAddress = indexAddress;
 				}
@@ -203,8 +205,15 @@ namespace PHX
 			asGeometry.geometry.instances.arrayOfPointers = VK_FALSE;
 			asGeometry.geometry.instances.data.deviceAddress = 0;
 			geometries.push_back(asGeometry);
-			maxPrimitiveCounts.push_back(m_maxInstanceCount);
+			maxPrimitiveCounts.push_back(createInfo.maxInstanceCount);
 		}
+
+		// Create scratch and result buffer names
+		const char* pBaseName = createInfo.pName != nullptr ? createInfo.pName : "";
+		m_resultBufferName = new char[128];
+		m_scratchBufferName = new char[128];
+		snprintf(m_resultBufferName, 128, "%s_ResultBuffer", pBaseName);
+		snprintf(m_scratchBufferName, 128, "%s_ScratchBuffer", pBaseName);
 
 		VkAccelerationStructureBuildGeometryInfoKHR buildGeometryInfo{};
 		buildGeometryInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_BUILD_GEOMETRY_INFO_KHR;
@@ -218,15 +227,15 @@ namespace PHX
 		pRenderDevice->GetAccelerationStructureBuildSizesKHR(VK_ACCELERATION_STRUCTURE_BUILD_TYPE_DEVICE_KHR, &buildGeometryInfo, maxPrimitiveCounts.data(), &buildSizesInfo);
 
 		const VkBufferUsageFlags resultBufferUsage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-		m_resultBuffer = CreateBuffer(pRenderDevice, buildSizesInfo.accelerationStructureSize, resultBufferUsage, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, 0, 0);
+		m_resultBuffer = CreateBuffer(pRenderDevice, m_resultBufferName, buildSizesInfo.accelerationStructureSize, resultBufferUsage, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, 0, 0);
 		if (!m_resultBuffer.isValid)
 		{
 			LogError("Failed to create acceleration structure result buffer!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		const VkBufferUsageFlags scratchBufferUsage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
-		m_scratchBuffer = CreateBuffer(pRenderDevice, buildSizesInfo.buildScratchSize, scratchBufferUsage, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, 0, 0);
+		const VkBufferUsageFlags scratchBufferUsage = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		m_scratchBuffer = CreateBuffer(pRenderDevice, m_scratchBufferName, buildSizesInfo.buildScratchSize, scratchBufferUsage, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, 0, 0);
 		if (!m_scratchBuffer.isValid)
 		{
 			LogError("Failed to create acceleration structure scratch buffer!");
@@ -247,6 +256,15 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		m_pName = createInfo.pName;
+
+		m_geometries.reserve(createInfo.geometryCount);
+		for (u32 i = 0; i < createInfo.geometryCount; i++)
+		{
+			m_geometries.push_back(createInfo.pGeometries[i]);
+		}
+		m_maxInstanceCount = createInfo.maxInstanceCount;
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -265,6 +283,16 @@ namespace PHX
 		if (m_scratchBuffer.isValid)
 		{
 			DestroyBuffer(m_pRenderDevice, m_scratchBuffer);
+		}
+
+		if (m_scratchBufferName != nullptr)
+		{
+			SAFE_DEL_ARR(m_scratchBufferName);
+		}
+
+		if (m_resultBufferName != nullptr)
+		{
+			SAFE_DEL_ARR(m_resultBufferName);
 		}
 	}
 }

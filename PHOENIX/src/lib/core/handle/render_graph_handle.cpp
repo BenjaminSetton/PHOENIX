@@ -34,6 +34,15 @@ namespace PHX
 		}
 	}
 
+	void RenderPassHandle::SetAccelerationStructureInput(AccelerationStructureHandle accelerationStructure)
+	{
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
+		if (pPass != nullptr)
+		{
+			return pPass->SetAccelerationStructureInput(accelerationStructure);
+		}
+	}
+
 	void RenderPassHandle::SetColorOutput(TextureHandle texture)
 	{
 		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
@@ -85,6 +94,15 @@ namespace PHX
 		if (pPass != nullptr)
 		{
 			return pPass->SetBufferOutput(buffer);
+		}
+	}
+
+	void RenderPassHandle::SetAccelerationStructureOutput(AccelerationStructureHandle accelerationStructure)
+	{
+		IRenderPass* pPass = HANDLE_UTILS::ResolveHandle(*this);
+		if (pPass != nullptr)
+		{
+			return pPass->SetAccelerationStructureOutput(accelerationStructure);
 		}
 	}
 

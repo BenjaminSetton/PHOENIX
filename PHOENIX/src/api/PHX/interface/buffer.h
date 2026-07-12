@@ -9,9 +9,9 @@ namespace PHX
 {
 	struct BufferCreateInfo
 	{
-		const char* pName;
-		u64 sizeBytes;
-		BUFFER_USAGE bufferUsage;
+		const char* pName		 = "";
+		u64 sizeBytes			 = 0;
+		BUFFER_USAGE bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER; // No clear default
 	};
 
 	struct BufferHandle : public Handle

@@ -3,6 +3,7 @@
 #include "core/handle/handle_owner.h"
 #include "core/interface_types/device_context_interface.h"
 #include "core/ref.h"
+#include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/device_context.h"
 #include "PHX/interface/render_graph.h"
@@ -24,6 +25,7 @@ namespace PHX
 		virtual void SetTextureInput(TextureHandle texture) = 0;
 		virtual void SetBufferInput(BufferHandle buffer) = 0;							// Not sure if I want to keep this
 		virtual void SetUniformInput(UniformCollectionHandle uniformCollection) = 0;	// Not sure if I want to keep this
+		virtual void SetAccelerationStructureInput(AccelerationStructureHandle accelerationStructure) = 0;
 
 		// Outputs
 		virtual void SetTextureOutput(TextureHandle handle, ATTACHMENT_LOAD_OP loadOp, ATTACHMENT_STORE_OP storeOp, ClearValues clearValue = {}) = 0;
@@ -32,6 +34,7 @@ namespace PHX
 		virtual void SetDepthStencilOutput(TextureHandle handle) = 0;
 		virtual void SetResolveOutput(TextureHandle handle) = 0;
 		virtual void SetBufferOutput(BufferHandle handle) = 0;
+		virtual void SetAccelerationStructureOutput(AccelerationStructureHandle accelerationStructure) = 0;
 
 		// Pipeline data
 		virtual void SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc) = 0;
