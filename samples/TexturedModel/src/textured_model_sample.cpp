@@ -334,11 +334,20 @@ void TexturedModelSample::CreateAssetTextures()
 
 		TextureBaseCreateInfo baseCI{};
 		baseCI.pName = currTex.pName;
-		baseCI.width = currTex.size.GetX();
-		baseCI.height = currTex.size.GetY();
+		baseCI.width = currTex.mipLevels[0].size.GetX();
+		baseCI.height = currTex.mipLevels[0].size.GetY();
 		baseCI.arrayLayers = 1;
 		baseCI.generateMips = false;
-		baseCI.format = (currTex.type == Common::TEXTURE_TYPE::DIFFUSE) ? BASE_FORMAT::R8G8B8A8_SRGB : BASE_FORMAT::R8G8B8A8_UNORM;
+		baseCI.mipLevels = static_cast<u32>(currTex.mipLevels.size());
+
+		if (currTex.IsCompressed())
+		{
+			baseCI.format = currTex.format;
+		}
+		else
+		{
+			baseCI.format = (currTex.type == Common::TEXTURE_TYPE::DIFFUSE) ? BASE_FORMAT::R8G8B8A8_SRGB : BASE_FORMAT::R8G8B8A8_UNORM;
+		}
 		baseCI.usageFlags = USAGE_TYPE_FLAG_SAMPLED | USAGE_TYPE_FLAG_TRANSFER_DST | USAGE_TYPE_FLAG_INPUT_ATTACHMENT;
 
 		TextureViewCreateInfo viewCI{};
@@ -444,8 +453,11 @@ void TexturedModelSample::UploadMeshDataToGPU()
 		{
 			const Texture& texSrc = pAsset->textures[i];
 			TextureHandle texDst = m_assetTextures[i];
-			u64 sizeBytes = (texSrc.size.GetX() * texSrc.size.GetY() * texSrc.bytesPerPixel);
-			deviceContext.CopyDataToTexture(texDst, texSrc.data, sizeBytes);
+
+			for (u32 mip = 0; mip < texSrc.mipLevels.size(); mip++)
+			{
+				deviceContext.CopyDataToTexture(texDst, texSrc.mipLevels[mip].data, texSrc.mipLevels[mip].dataSize, mip);
+			}
 		}
 	});
 }

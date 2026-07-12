@@ -25,6 +25,7 @@ namespace PHX
 		u32 binding;
 		UNIFORM_TYPE type;
 		SHADER_STAGE shaderStage;
+		u32 count = 1; // Number of descriptors in this binding (for arrays)
 
 		////////
 		bool operator==(const UniformData& other) const;

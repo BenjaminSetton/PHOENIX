@@ -129,9 +129,61 @@ namespace PHX
 		{
 			return 32;
 		}
+		case BASE_FORMAT::BC1_RGB_UNORM:
+		case BASE_FORMAT::BC1_RGB_SRGB:
+		case BASE_FORMAT::BC1_RGBA_UNORM:
+		case BASE_FORMAT::BC1_RGBA_SRGB:
+		case BASE_FORMAT::BC4_UNORM:
+		case BASE_FORMAT::BC4_SNORM:
+		{
+			// 8 bytes per 4x4 block
+			return 8;
+		}
+		case BASE_FORMAT::BC3_UNORM:
+		case BASE_FORMAT::BC3_SRGB:
+		case BASE_FORMAT::BC5_UNORM:
+		case BASE_FORMAT::BC5_SNORM:
+		case BASE_FORMAT::BC6H_UFLOAT:
+		case BASE_FORMAT::BC6H_SFLOAT:
+		case BASE_FORMAT::BC7_UNORM:
+		case BASE_FORMAT::BC7_SRGB:
+		{
+			// 16 bytes per 4x4 block
+			return 16;
+		}
 		}
 
 		LogError("Failed to calculate bytes per texel for format %u", static_cast<u32>(format));
 		return 0;
+	}
+
+	bool IsCompressedFormat(BASE_FORMAT format)
+	{
+		switch (format)
+		{
+		case BASE_FORMAT::BC1_RGB_UNORM:
+		case BASE_FORMAT::BC1_RGB_SRGB:
+		case BASE_FORMAT::BC1_RGBA_UNORM:
+		case BASE_FORMAT::BC1_RGBA_SRGB:
+		case BASE_FORMAT::BC3_UNORM:
+		case BASE_FORMAT::BC3_SRGB:
+		case BASE_FORMAT::BC4_UNORM:
+		case BASE_FORMAT::BC4_SNORM:
+		case BASE_FORMAT::BC5_UNORM:
+		case BASE_FORMAT::BC5_SNORM:
+		case BASE_FORMAT::BC6H_UFLOAT:
+		case BASE_FORMAT::BC6H_SFLOAT:
+		case BASE_FORMAT::BC7_UNORM:
+		case BASE_FORMAT::BC7_SRGB:
+		{
+			return true;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		return false;
 	}
 }

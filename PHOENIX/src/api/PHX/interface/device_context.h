@@ -38,6 +38,6 @@ namespace PHX
 		STATUS_CODE BuildTopLevelAccelerationStructure(AccelerationStructureHandle handle, BufferHandle instanceBuffer, u32 instanceCount);
 
 		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes);
-		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes);
+		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel = 0);
 	};
 }

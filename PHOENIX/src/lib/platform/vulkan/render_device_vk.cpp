@@ -762,7 +762,7 @@ namespace PHX
 		// TODO - Fix these!
 		// These are temporary so we can get this working. Completely random numbers
 		const u32 numUniformBuffers = 50;
-		const u32 numImageSamplers = 50;
+		const u32 numImageSamplers = 1024;
 		const u32 numStorageBuffers = 50;
 		const u32 numStorageImages = 50;
 		const u32 numAccelerationStructures = 50;

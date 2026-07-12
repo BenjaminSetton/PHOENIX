@@ -55,10 +55,23 @@ void RayTracingSample::Draw()
 		rayTracingPass.SetBufferInput(m_sceneVertexBuffer);
 		rayTracingPass.SetBufferInput(m_sceneIndexBuffer);
 		rayTracingPass.SetBufferInput(m_geometryInfoBuffer);
+		for (u32 i = 0; i < m_sceneTextures.size(); i++)
+		{
+			rayTracingPass.SetTextureInput(m_sceneTextures[i]);
+		}
 		rayTracingPass.SetPipelineDescription(m_rayTracingPipelineDesc);
 		rayTracingPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 		{
 			deviceContext.CopyDataToBuffer(m_cameraUniformBuffer, &m_cameraData, sizeof(CameraData));
+
+			if (!m_texturesBound)
+			{
+				for (u32 i = 0; i < m_sceneTextures.size(); i++)
+				{
+					m_rayTracingUniformCollection.QueueImageUpdate(m_sceneTextures[i], 2, 0, 0, i);
+				}
+				m_texturesBound = true;
+			}
 
 			m_rayTracingUniformCollection.QueueImageUpdate(m_rayTracingOutput, 0, 0, 0);
 			m_rayTracingUniformCollection.FlushUpdateQueue();
@@ -181,6 +194,7 @@ void RayTracingSample::Init()
 
 	// SCENE
 	LoadSceneAssets();
+	CreateSceneTextures();
 	CreateSceneGeometryBuffers();
 	if (m_rayTracingSupported)
 	{
@@ -276,6 +290,61 @@ void RayTracingSample::LoadSceneAssets()
 	}
 }
 
+void RayTracingSample::CreateSceneTextures()
+{
+	if (m_pAsset == nullptr)
+	{
+		return;
+	}
+
+	for (u32 i = 0; i < static_cast<u32>(m_pAsset->textures.size()); i++)
+	{
+		const Texture& currTex = m_pAsset->textures[i];
+
+		const u32 numMips = static_cast<u32>(currTex.mipLevels.size());
+		if (numMips == 0)
+		{
+			continue;
+		}
+
+		TextureBaseCreateInfo baseCI{};
+		baseCI.pName = currTex.pName;
+		baseCI.width = currTex.mipLevels[0].size.GetX();
+		baseCI.height = currTex.mipLevels[0].size.GetY();
+		baseCI.arrayLayers = 1;
+		baseCI.generateMips = false;
+		baseCI.mipLevels = numMips;
+
+		if (currTex.IsCompressed())
+		{
+			baseCI.format = currTex.format;
+		}
+		else
+		{
+			baseCI.format = (currTex.type == Common::TEXTURE_TYPE::DIFFUSE) ? BASE_FORMAT::R8G8B8A8_SRGB : BASE_FORMAT::R8G8B8A8_UNORM;
+		}
+		baseCI.usageFlags = USAGE_TYPE_FLAG_SAMPLED | USAGE_TYPE_FLAG_TRANSFER_DST;
+
+		TextureViewCreateInfo viewCI{};
+		viewCI.type = VIEW_TYPE::TYPE_2D;
+		viewCI.scope = VIEW_SCOPE::ENTIRE;
+		viewCI.aspectFlags = ASPECT_TYPE_FLAG_COLOR;
+
+		TextureSamplerCreateInfo samplerCI{};
+		samplerCI.addressModeUVW = SAMPLER_ADDRESS_MODE::REPEAT;
+		samplerCI.enableAnisotropicFiltering = false;
+		samplerCI.magnificationFilter = FILTER_MODE::LINEAR;
+		samplerCI.minificationFilter = FILTER_MODE::LINEAR;
+		samplerCI.samplerMipMapFilter = FILTER_MODE::LINEAR;
+
+		TextureHandle texHandle;
+		STATUS_CODE res = m_renderDevice.AllocateTexture(baseCI, viewCI, samplerCI, texHandle);
+		CHECK_PHX_RES(res);
+
+		m_sceneTextures.push_back(texHandle);
+	}
+}
+
 void RayTracingSample::CreateSceneGeometryBuffers()
 {
 	if (m_pAsset == nullptr)
@@ -304,7 +373,7 @@ void RayTracingSample::CreateSceneGeometryBuffers()
 		PHX::u32 firstVertex;
 		PHX::u32 firstIndex;
 		PHX::u32 materialIndex;
-		PHX::u32 padding;
+		PHX::u32 textureIndex;
 	};
 	std::vector<GeometryInfo> geometryInfos;
 	geometryInfos.reserve(m_pAsset->meshes.size());
@@ -314,6 +383,7 @@ void RayTracingSample::CreateSceneGeometryBuffers()
 		info.firstVertex = mesh.firstVertex;
 		info.firstIndex = mesh.firstIndex;
 		info.materialIndex = mesh.materialIndex;
+		info.textureIndex = m_pAsset->materials[mesh.materialIndex].textureIndices.empty() ? 0 : m_pAsset->materials[mesh.materialIndex].textureIndices[0];
 		geometryInfos.push_back(info);
 	}
 
@@ -397,6 +467,10 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 	uploadGeometryPass.SetBufferOutput(m_sceneVertexBuffer);
 	uploadGeometryPass.SetBufferOutput(m_sceneIndexBuffer);
 	uploadGeometryPass.SetBufferOutput(m_geometryInfoBuffer);
+	for (u32 i = 0; i < m_sceneTextures.size(); i++)
+	{
+		uploadGeometryPass.SetTextureOutput(m_sceneTextures[i], ATTACHMENT_LOAD_OP::IGNORE, ATTACHMENT_STORE_OP::STORE, {});
+	}
 	uploadGeometryPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
 		deviceContext.CopyDataToBuffer(m_sceneVertexBuffer, m_pAsset->vertices.data(), sizeof(AssetVertex) * m_pAsset->vertices.size());
@@ -407,7 +481,7 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 			PHX::u32 firstVertex;
 			PHX::u32 firstIndex;
 			PHX::u32 materialIndex;
-			PHX::u32 padding;
+			PHX::u32 textureIndex;
 		};
 		std::vector<GeometryInfo> geometryInfos;
 		geometryInfos.reserve(m_pAsset->meshes.size());
@@ -417,9 +491,19 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 			info.firstVertex = mesh.firstVertex;
 			info.firstIndex = mesh.firstIndex;
 			info.materialIndex = mesh.materialIndex;
+			info.textureIndex = m_pAsset->materials[mesh.materialIndex].textureIndices.empty() ? 0 : m_pAsset->materials[mesh.materialIndex].textureIndices[0];
 			geometryInfos.push_back(info);
 		}
 		deviceContext.CopyDataToBuffer(m_geometryInfoBuffer, geometryInfos.data(), sizeof(GeometryInfo) * geometryInfos.size());
+
+		for (u32 i = 0; i < m_sceneTextures.size(); i++)
+		{
+			const Texture& texSrc = m_pAsset->textures[i];
+			for (u32 mip = 0; mip < texSrc.mipLevels.size(); mip++)
+			{
+				deviceContext.CopyDataToTexture(m_sceneTextures[i], texSrc.mipLevels[mip].data, texSrc.mipLevels[mip].dataSize, mip);
+			}
+		}
 	});
 
 	RenderPassHandle buildBLASPass;
@@ -581,17 +665,38 @@ void RayTracingSample::CreateUniformCollections()
 	cameraData.shaderStage = SHADER_STAGE::RAYGEN;
 	cameraData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
-	UniformDataGroup rtDataGroups[2];
+	// Set 2: Scene textures (single descriptor array binding, only if textures exist)
+	const u32 texCount = static_cast<u32>(m_sceneTextures.size());
+	std::vector<UniformData> texUniforms;
+	UniformDataGroup texDataGroup{};
+	texDataGroup.set = 2;
+
+	if (texCount > 0)
+	{
+		texUniforms.resize(1);
+		texUniforms[0].binding = 0;
+		texUniforms[0].shaderStage = SHADER_STAGE::CLOSEST_HIT;
+		texUniforms[0].type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
+		texUniforms[0].count = texCount;
+
+		texDataGroup.uniformArray = texUniforms.data();
+		texDataGroup.uniformArrayCount = 1;
+	}
+
+	UniformDataGroup rtDataGroups[3];
 	rtDataGroups[0].set = 0;
 	rtDataGroups[0].uniformArray = rtData;
 	rtDataGroups[0].uniformArrayCount = 5;
 	rtDataGroups[1].set = 1;
 	rtDataGroups[1].uniformArray = &cameraData;
 	rtDataGroups[1].uniformArrayCount = 1;
+	rtDataGroups[2] = texDataGroup;
+
+	const u32 groupCount = (texCount > 0) ? 3 : 2;
 
 	UniformCollectionCreateInfo rtUniformCollectionCI{};
 	rtUniformCollectionCI.dataGroups = rtDataGroups;
-	rtUniformCollectionCI.groupCount = 2;
+	rtUniformCollectionCI.groupCount = groupCount;
 
 	phxRes = m_renderDevice.AllocateUniformCollection(rtUniformCollectionCI, m_rayTracingUniformCollection);
 	CHECK_PHX_RES(phxRes);

@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <functional>
 #include <PHX/types/vec_types.h>
+#include <PHX/types/texture_desc.h>
 #include <string>
 #include <vector>
 #include <memory.h>
@@ -42,13 +43,25 @@ namespace Common
 		PHX::Vec2f uv;
 	};
 
+	struct AssetDiskMipLevel
+	{
+		void* pData = nullptr;
+		PHX::u32 width = 0;
+		PHX::u32 height = 0;
+		PHX::u64 dataSize = 0;
+	};
+
 	struct AssetDiskTexture
 	{
 		char* pName				= nullptr;
-		void* pData				= nullptr;
-		PHX::Vec2u size			= { 0, 0 };
+		void* pData				= nullptr;      // Base mip data (for uncompressed textures, or mip 0 of compressed)
+		PHX::Vec2u size			= { 0, 0 };     // Base dimensions
 		TEXTURE_TYPE type		= TEXTURE_TYPE::MAX;
-		PHX::u32 bytesPerPixel	= 0;
+		PHX::u32 bytesPerPixel	= 0;            // 0 for compressed textures
+
+		// Compressed texture support
+		PHX::BASE_FORMAT format = PHX::BASE_FORMAT::INVALID; 	// Set for DDS/compressed textures
+		std::vector<AssetDiskMipLevel> mipLevels;    			// Per-mip data (mipLevels[0].pData == pData for compressed)
 	};
 
 	struct AssetDiskMaterial

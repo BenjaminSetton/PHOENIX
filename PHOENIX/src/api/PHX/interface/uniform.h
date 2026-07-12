@@ -27,7 +27,7 @@ namespace PHX
 
 		// Queue a buffer update. A size of U64_MAX is used to indicate a "whole buffer" update
 		STATUS_CODE QueueBufferUpdate(BufferHandle buffer, u32 set, u32 binding, u64 offset, u64 size = U64_MAX);
-		STATUS_CODE QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex);
+		STATUS_CODE QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex, u32 arrayElement = 0);
 		STATUS_CODE QueueAccelerationStructureUpdate(AccelerationStructureHandle accelerationStructure, u32 set, u32 binding);
 		STATUS_CODE FlushUpdateQueue();
 	};

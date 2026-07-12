@@ -36,6 +36,7 @@ private:
 	void UploadBlitVertices();
 
 	void LoadSceneAssets();
+	void CreateSceneTextures();
 	void CreateSceneGeometryBuffers();
 	void BuildSceneAccelerationStructures();
 	void UpdateCameraData(float dt);
@@ -66,6 +67,9 @@ private:
 	PHX::BufferHandle m_instanceBuffer;
 	PHX::BufferHandle m_cameraUniformBuffer;
 	PHX::BufferHandle m_geometryInfoBuffer;
+
+	std::vector<PHX::TextureHandle> m_sceneTextures;
+	bool m_texturesBound = false;
 
 	PHX::AccelerationStructureHandle m_tlas;
 	std::vector<PHX::AccelerationStructureHandle> m_blas;

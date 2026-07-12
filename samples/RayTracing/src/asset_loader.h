@@ -19,13 +19,21 @@ struct AssetVertex
 	float _pad4[2];
 };
 
+struct TextureMipLevel
+{
+	void* data			= nullptr;
+	PHX::Vec2u size		= {};
+	PHX::u64 dataSize; // Represents bytesPerPixel for uncompressed textures (e.g. RGBA8) and blockSize for compressed (e.g. BC1)
+};
+
 struct Texture
 {
-	const char* pName;
-	void* data;
-	PHX::Vec2u size;
-	Common::TEXTURE_TYPE type;
-	PHX::u32 bytesPerPixel;
+	const char* pName						= "UnnamedTexture";
+	Common::TEXTURE_TYPE type				= Common::TEXTURE_TYPE::MAX;
+	PHX::BASE_FORMAT format					= PHX::BASE_FORMAT::INVALID;
+	std::vector<TextureMipLevel> mipLevels	= {};
+
+	bool IsCompressed() const { return format != PHX::BASE_FORMAT::INVALID; }
 };
 
 struct Mesh

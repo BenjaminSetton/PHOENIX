@@ -1,4 +1,5 @@
 
+#include <algorithm>
 #include <vulkan/vk_enum_string_helper.h>
 
 #include "device_context_vk.h"
@@ -558,7 +559,7 @@ namespace PHX
 		return res;
 	}
 
-	STATUS_CODE DeviceContextVk::CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes)
+	STATUS_CODE DeviceContextVk::CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel)
 	{
 		TextureVk* textureVk = static_cast<TextureVk*>(m_pRenderDevice->ResolveHandle(texture));
 		if (textureVk == nullptr)
@@ -608,18 +609,22 @@ namespace PHX
 			return res;
 		}
 
+		// Calculate mip-level dimensions from the base texture size
+		const u32 mipWidth = std::max(1u, textureVk->GetWidth() >> mipLevel);
+		const u32 mipHeight = std::max(1u, textureVk->GetHeight() >> mipLevel);
+
 		VkBufferImageCopy copyRegion{};
 		copyRegion.bufferOffset = 0;
 		copyRegion.bufferRowLength = 0;
 		copyRegion.bufferImageHeight = 0;
 
 		copyRegion.imageSubresource.aspectMask = TEX_UTILS::ConvertAspectFlags(textureVk->GetAspectFlags());
-		copyRegion.imageSubresource.mipLevel = 0; // TODO - Expose as parameter when mip levels are implemented
+		copyRegion.imageSubresource.mipLevel = mipLevel;
 		copyRegion.imageSubresource.baseArrayLayer = 0;
 		copyRegion.imageSubresource.layerCount = textureVk->GetArrayLayers();
 
 		copyRegion.imageOffset = { 0, 0, 0 };
-		copyRegion.imageExtent = { textureVk->GetWidth(), textureVk->GetHeight(), 1 };
+		copyRegion.imageExtent = { mipWidth, mipHeight, 1 };
 
 		vkCmdCopyBufferToImage(cmdBuffer, pStagingBuffer->GetBuffer(), textureVk->GetBaseImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 

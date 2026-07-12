@@ -36,10 +36,29 @@ Common::AssetHandle ConvertAssetDiskToAssetType(const Common::AssetDisk* pAssetD
 
 		Texture newTex;
 		newTex.pName = diskTex.pName;
-		newTex.data = diskTex.pData; // Move the pointer over, no copying
-		newTex.size = diskTex.size;
 		newTex.type = diskTex.type;
-		newTex.bytesPerPixel = diskTex.bytesPerPixel;
+		newTex.format = diskTex.format;
+
+		if (!diskTex.mipLevels.empty())
+		{
+			// Compressed texture - copy mip chain
+			newTex.mipLevels.resize(diskTex.mipLevels.size());
+			for (size_t mip = 0; mip < diskTex.mipLevels.size(); mip++)
+			{
+				newTex.mipLevels[mip].data = diskTex.mipLevels[mip].pData;
+				newTex.mipLevels[mip].size = { diskTex.mipLevels[mip].width, diskTex.mipLevels[mip].height };
+				newTex.mipLevels[mip].dataSize = diskTex.mipLevels[mip].dataSize;
+			}
+		}
+		else
+		{
+			// Uncompressed texture - single mip level from flat data
+			TextureMipLevel mip{};
+			mip.data = diskTex.pData;
+			mip.size = diskTex.size;
+			mip.dataSize = static_cast<PHX::u64>(diskTex.size.GetX()) * diskTex.size.GetY() * diskTex.bytesPerPixel;
+			newTex.mipLevels.push_back(mip);
+		}
 
 		newAsset.textures.push_back(newTex);
 	}

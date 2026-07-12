@@ -14,7 +14,7 @@
 
 namespace PHX
 {
-	static constexpr u32 MAX_DESCRIPTOR_WRITE_ARRAY_SIZE = 50;
+	static constexpr u32 MAX_DESCRIPTOR_WRITE_ARRAY_SIZE = 1024;
 
 	UniformCollectionVk::UniformCollectionVk(RenderDeviceVk* pRenderDevice, const UniformCollectionCreateInfo& createInfo)
 	{
@@ -61,7 +61,7 @@ namespace PHX
 				VkDescriptorSetLayoutBinding vkSetLayoutBinding;
 				vkSetLayoutBinding.binding = uniformData.binding;
 				vkSetLayoutBinding.descriptorType = UNIFORM_UTILS::ConvertUniformType(uniformData.type);
-				vkSetLayoutBinding.descriptorCount = 1;
+				vkSetLayoutBinding.descriptorCount = uniformData.count;
 				vkSetLayoutBinding.stageFlags = SHADER_UTILS::ConvertShaderStage(uniformData.shaderStage);
 				vkSetLayoutBinding.pImmutableSamplers = nullptr; // Optional
 
@@ -251,7 +251,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE UniformCollectionVk::QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex)
+	STATUS_CODE UniformCollectionVk::QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex, u32 arrayElement)
 	{
 		TextureVk* textureVk = static_cast<TextureVk*>(m_pRenderDevice->ResolveHandle(texture));
 		if (textureVk == nullptr)
@@ -302,7 +302,7 @@ namespace PHX
 		writeDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writeDescSet.dstSet = vkDescSet;
 		writeDescSet.dstBinding = binding;
-		writeDescSet.dstArrayElement = 0;
+		writeDescSet.dstArrayElement = arrayElement;
 		writeDescSet.descriptorType = descType;
 		writeDescSet.descriptorCount = 1;
 		writeDescSet.pImageInfo = &imageInfo;

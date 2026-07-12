@@ -50,7 +50,7 @@ namespace PHX
 		STATUS_CODE BuildTopLevelAccelerationStructure(AccelerationStructureHandle handle, BufferHandle instanceBuffer, u32 instanceCount) override;
 
 		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) override;
-		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes) override;
+		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel) override;
 
 		// This is called by the current render pass during baking, so that the device context
 		// is aware of the pipeline contextually and can use it directly. This is different

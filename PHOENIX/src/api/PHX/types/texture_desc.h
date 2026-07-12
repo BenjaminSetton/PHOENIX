@@ -198,5 +198,21 @@ namespace PHX
 		// Surface formats
 		B8G8R8A8_SRGB,
 		B8G8R8A8_UNORM,
+
+		// Block-compressed formats (BC1-BC7, 4x4 texel blocks)
+		BC1_RGB_UNORM,
+		BC1_RGB_SRGB,
+		BC1_RGBA_UNORM,
+		BC1_RGBA_SRGB,
+		BC3_UNORM,
+		BC3_SRGB,
+		BC4_UNORM,
+		BC4_SNORM,
+		BC5_UNORM,
+		BC5_SNORM,
+		BC6H_UFLOAT,
+		BC6H_SFLOAT,
+		BC7_UNORM,
+		BC7_SRGB,
 	};
 }

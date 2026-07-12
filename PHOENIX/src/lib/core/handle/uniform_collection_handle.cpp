@@ -53,12 +53,12 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	STATUS_CODE UniformCollectionHandle::QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex)
+	STATUS_CODE UniformCollectionHandle::QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex, u32 arrayElement)
 	{
 		IUniformCollection* pUniformCollection = HANDLE_UTILS::ResolveHandle(*this);
 		if (pUniformCollection != nullptr)
 		{
-			return pUniformCollection->QueueImageUpdate(texture, set, binding, imageViewIndex);
+			return pUniformCollection->QueueImageUpdate(texture, set, binding, imageViewIndex, arrayElement);
 		}
 
 		LogError("Failed to queue image update. Could not resolve uniform collection handle!");

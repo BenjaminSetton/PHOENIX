@@ -166,12 +166,12 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	STATUS_CODE DeviceContextHandle::CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes)
+	STATUS_CODE DeviceContextHandle::CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel)
 	{
 		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
 		if (pContext != nullptr)
 		{
-			return pContext->CopyDataToTexture(texture, data, sizeBytes);
+			return pContext->CopyDataToTexture(texture, data, sizeBytes, mipLevel);
 		}
 
 		LogError("Failed to copy data to texture. Could not resolve device context handle!");
