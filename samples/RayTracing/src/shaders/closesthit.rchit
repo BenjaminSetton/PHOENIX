@@ -3,6 +3,7 @@
 #extension GL_EXT_nonuniform_qualifier : require
 
 layout(location = 0) rayPayloadInEXT vec3 hitColor;
+layout(location = 1) rayPayloadEXT float shadowFactor;
 
 hitAttributeEXT vec2 baryCoords;
 
@@ -14,6 +15,8 @@ struct Vertex
     vec3 bitangent;
     vec2 uv;
 };
+
+layout(set = 0, binding = 1) uniform accelerationStructureEXT topLevelAS;
 
 layout(set = 0, binding = 2) buffer Vertices
 {
@@ -63,6 +66,12 @@ void main()
     vec3 lightDir = normalize(vec3(gl_WorldToObjectEXT * vec4(0.5, 1.0, 0.3, 0.0)));
     float nDotL = max(dot(normal, lightDir), 0.0);
 
+    vec3 worldHitPos = vec3(gl_ObjectToWorldEXT * vec4(v0.position * bary.x + v1.position * bary.y + v2.position * bary.z, 1.0));
+    vec3 worldLightDir = normalize(vec3(0.5, 1.0, 0.3));
+
+    shadowFactor = 0.0;
+    traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xff, 0, 0, 1, worldHitPos, 0.001, worldLightDir, 1000.0, 1);
+
     vec3 baseColor = texture(textures[info.textureIndex], uv).rgb;
-    hitColor = baseColor * (0.2 + 0.8 * nDotL);
+    hitColor = baseColor * (0.2 + 0.8 * nDotL * shadowFactor);
 }

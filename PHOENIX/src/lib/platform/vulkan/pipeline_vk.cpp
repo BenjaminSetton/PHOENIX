@@ -352,8 +352,9 @@ namespace PHX
 				{
 					const UniformData& uniformData = dataGroup->uniformArray[j];
 
-					const u32 shaderStage = static_cast<u32>(uniformData.shaderStage);
-					if (shaderStage >= static_cast<u32>(SHADER_STAGE::MAX))
+					const ShaderStageFlags shaderStage = uniformData.shaderStage;
+					const ShaderStageFlags maxShaderStage = (1 << static_cast<u32>(SHADER_STAGE::MAX));
+					if (shaderStage >= maxShaderStage)
 					{
 						LogWarning("Attempting to create a ray tracing pipeline, but the shader stage from data group %u at index %u is invalid (%i)", i, j, shaderStage);
 					}
@@ -530,7 +531,7 @@ namespace PHX
 		pipelineInfo.pStages = shaderStages.data();
 		pipelineInfo.groupCount = groupCount;
 		pipelineInfo.pGroups = shaderGroups.data();
-		pipelineInfo.maxPipelineRayRecursionDepth = 1;
+		pipelineInfo.maxPipelineRayRecursionDepth = 2;
 		pipelineInfo.layout = m_layout;
 		
 		vkRes = pRenderDevice->CreateRayTracingPipelinesKHR(cache, pipelineInfo, &m_pipeline);

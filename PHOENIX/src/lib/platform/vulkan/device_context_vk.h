@@ -8,11 +8,11 @@
 #include "core/interface_types/device_context_interface.h"
 #include "render_device_vk.h"
 #include "texture_vk.h"
+#include "utils/staging_buffer_pool.h"
 
 namespace PHX
 {
 	// Forward declarations
-	class StagingBufferVk;
 	class SwapChainVk;
 
 	using CommandBufferList = std::vector<VkCommandBuffer>;
@@ -111,8 +111,8 @@ namespace PHX
 
 		STATUS_CODE FlushInternal(QUEUE_TYPE queueType, const VkCommandBuffer* pCommandBuffers, u32 commandBufferCount, const FlushSyncData& syncData);
 
-		StagingBufferVk* CreateStagingBuffer(const BufferCreateInfo& createInfo);
-		void DestroyStagingBuffers();
+		StagingAllocation AllocateStaging(u64 sizeBytes, u64 alignment = 16);
+		void ResetStagingPool();
 
 	private:
 
@@ -121,13 +121,13 @@ namespace PHX
 		// Stores all command buffers from all supported queues
 		std::array<CommandBufferList, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_cmdBuffers;
 
-		// Cache the staging buffers used in the current frame. Since staging buffer are RAII objects, they must
-		// live outside the scope of the functions that create them at least until the commands that reference
-		// the buffers are executed
-		std::vector<StagingBufferVk*> m_stagingBuffers;
+		// Staging buffer pool for efficient sub-allocation. Avoids creating thousands
+		// of individual VMA allocations when uploading many textures/mip levels
+		StagingBufferPool m_stagingPool;
 
 		bool m_wasWorkSubmitted;
 
+		// Non-owning
 		PipelineVk* m_contextualPipeline;
 	};
 }

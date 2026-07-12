@@ -237,7 +237,7 @@ void BasicModelSample::CreateUniformCollection()
 {
 	UniformData uniformData;
 	uniformData.binding = 0;
-	uniformData.shaderStage = SHADER_STAGE::VERTEX;
+	uniformData.shaderStage = SHADER_STAGE_FLAG_VERTEX;
 	uniformData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
 	UniformDataGroup dataGroup;

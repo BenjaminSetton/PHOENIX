@@ -320,13 +320,13 @@ void ComputeParticlesSample::CreateUniformCollection()
 	// SET 0, BINDING 0
 	UniformData particleBufferData;
 	particleBufferData.binding = 0;
-	particleBufferData.shaderStage = SHADER_STAGE::COMPUTE;
+	particleBufferData.shaderStage = SHADER_STAGE_FLAG_COMPUTE;
 	particleBufferData.type = UNIFORM_TYPE::STORAGE_BUFFER;
 
 	// SET 0, BINDING 1
 	UniformData simParamsData;
 	simParamsData.binding = 1;
-	simParamsData.shaderStage = SHADER_STAGE::COMPUTE;
+	simParamsData.shaderStage = SHADER_STAGE_FLAG_COMPUTE;
 	simParamsData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
 	std::array<UniformData, 2> uniformData =
@@ -358,13 +358,13 @@ void ComputeParticlesSample::CreateDrawUniformCollection()
 	// SET 0, BINDING 0 - particle storage buffer, read by the vertex shader
 	UniformData particleBufferData;
 	particleBufferData.binding = 0;
-	particleBufferData.shaderStage = SHADER_STAGE::VERTEX;
+	particleBufferData.shaderStage = SHADER_STAGE_FLAG_VERTEX;
 	particleBufferData.type = UNIFORM_TYPE::STORAGE_BUFFER;
 
 	// SET 0, BINDING 1 - camera view / projection matrices
 	UniformData cameraData;
 	cameraData.binding = 1;
-	cameraData.shaderStage = SHADER_STAGE::VERTEX;
+	cameraData.shaderStage = SHADER_STAGE_FLAG_VERTEX;
 	cameraData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
 	std::array<UniformData, 2> uniformData =
@@ -396,7 +396,7 @@ void ComputeParticlesSample::CreateOutlineUniformCollection()
 	// SET 0, BINDING 0 - camera view / projection matrices, read by the vertex shader
 	UniformData cameraData;
 	cameraData.binding = 0;
-	cameraData.shaderStage = SHADER_STAGE::VERTEX;
+	cameraData.shaderStage = SHADER_STAGE_FLAG_VERTEX;
 	cameraData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
 	std::array<UniformData, 1> uniformData =

@@ -25,7 +25,7 @@ struct Texture
 {
 	const char* pName						= "UnnamedTexture";
 	Common::TEXTURE_TYPE type				= Common::TEXTURE_TYPE::MAX;
-	PHX::BASE_FORMAT format					= PHX::BASE_FORMAT::INVALID;
+	PHX::BASE_FORMAT format					= PHX::BASE_FORMAT::INVALID; // Only used for compressed textures
 	std::vector<TextureMipLevel> mipLevels	= {};
 
 	bool IsCompressed() const { return format != PHX::BASE_FORMAT::INVALID; }

@@ -9,5 +9,6 @@ namespace PHX
 	namespace SHADER_UTILS
 	{
 		VkShaderStageFlagBits ConvertShaderStage(SHADER_STAGE stage);
+		VkShaderStageFlags ConvertShaderStageFlags(ShaderStageFlags flags);
 	}
 }

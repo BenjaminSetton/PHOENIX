@@ -15,7 +15,6 @@
 #include "utils/buffer_type_converter.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
-#include "utils/staging_buffer.h"
 #include "utils/texture_type_converter.h"
 #include "utils/pipeline_type_converter.h"
 
@@ -27,7 +26,7 @@ STATIC_ASSERT_MSG(alignof(PHX::AccelerationStructureInstance) == alignof(VkAccel
 namespace PHX
 {
 	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo) : m_pRenderDevice(nullptr),
-		m_cmdBuffers(), m_wasWorkSubmitted(true), m_contextualPipeline(nullptr)
+		m_cmdBuffers(), m_stagingPool(pRenderDevice), m_wasWorkSubmitted(true), m_contextualPipeline(nullptr)
 	{
 		UNUSED(createInfo);
 
@@ -42,6 +41,7 @@ namespace PHX
 	DeviceContextVk::~DeviceContextVk()
 	{
 		DeallocateCommandBuffers();
+		m_stagingPool.Destroy();
 	}
 
 	STATUS_CODE DeviceContextVk::BindVertexBuffer(BufferHandle vertexBuffer)
@@ -522,12 +522,10 @@ namespace PHX
 		{
 			// All other buffers must copy to staging buffer and then issue
 			// a transfer command to copy the data over to the GPU
-			BufferCreateInfo stagingBufferCI{}; // Buffer usage is unused in this case
-			stagingBufferCI.sizeBytes = sizeBytes;
-			StagingBufferVk* pStagingBuffer = CreateStagingBuffer(stagingBufferCI);
-			if (!pStagingBuffer->IsValid())
+			StagingAllocation stagingAlloc = AllocateStaging(sizeBytes);
+			if (!stagingAlloc.isValid)
 			{
-				LogError("Failed to copy data to buffer. Could not create staging buffer!");
+				LogError("Failed to copy data to buffer. Could not allocate staging memory!");
 				return STATUS_CODE::ERR_INTERNAL;
 			}
 
@@ -541,19 +539,14 @@ namespace PHX
 				return res;
 			}
 
-			res = pStagingBuffer->CopyData(data, sizeBytes);
-			if (res != STATUS_CODE::SUCCESS)
-			{
-				LogError("Failed to copy data to staging buffer!");
-				return res;
-			}
+			memcpy(stagingAlloc.mappedData, data, sizeBytes);
 
 			// Copy from staging buffer to GPU buffer
 			VkBufferCopy copyRegion{};
-			copyRegion.srcOffset = 0; // Optional
-			copyRegion.dstOffset = 0; // Optional
+			copyRegion.srcOffset = stagingAlloc.offset;
+			copyRegion.dstOffset = 0;
 			copyRegion.size = sizeBytes;
-			vkCmdCopyBuffer(cmdBuffer, pStagingBuffer->GetBuffer(), bufferVk->GetBuffer(), 1, &copyRegion);
+			vkCmdCopyBuffer(cmdBuffer, stagingAlloc.buffer, bufferVk->GetBuffer(), 1, &copyRegion);
 		}
 
 		return res;
@@ -591,30 +584,22 @@ namespace PHX
 			return res;
 		}
 
-		// Create a staging buffer and copy data into staging buffer
-		BufferCreateInfo stagingBufferCI{}; // Buffer usage is unused in this case
-		stagingBufferCI.sizeBytes = sizeBytes;
-		StagingBufferVk* pStagingBuffer = CreateStagingBuffer(stagingBufferCI);
-		ASSERT_PTR(pStagingBuffer);
-		if (!pStagingBuffer->IsValid())
+		// Sub-allocate from staging pool and copy data
+		StagingAllocation stagingAlloc = AllocateStaging(sizeBytes);
+		if (!stagingAlloc.isValid)
 		{
-			LogError("Failed to copy data to texture. Could not create staging buffer!");
+			LogError("Failed to copy data to texture. Could not allocate staging memory!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		res = pStagingBuffer->CopyData(data, sizeBytes);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to copy data to texture! Could not copy data into staging buffer");
-			return res;
-		}
+		memcpy(stagingAlloc.mappedData, data, sizeBytes);
 
 		// Calculate mip-level dimensions from the base texture size
 		const u32 mipWidth = std::max(1u, textureVk->GetWidth() >> mipLevel);
 		const u32 mipHeight = std::max(1u, textureVk->GetHeight() >> mipLevel);
 
 		VkBufferImageCopy copyRegion{};
-		copyRegion.bufferOffset = 0;
+		copyRegion.bufferOffset = stagingAlloc.offset;
 		copyRegion.bufferRowLength = 0;
 		copyRegion.bufferImageHeight = 0;
 
@@ -626,7 +611,7 @@ namespace PHX
 		copyRegion.imageOffset = { 0, 0, 0 };
 		copyRegion.imageExtent = { mipWidth, mipHeight, 1 };
 
-		vkCmdCopyBufferToImage(cmdBuffer, pStagingBuffer->GetBuffer(), textureVk->GetBaseImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+		vkCmdCopyBufferToImage(cmdBuffer, stagingAlloc.buffer, textureVk->GetBaseImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -714,14 +699,17 @@ namespace PHX
 			}
 		}
 
-		// Free allocated memory for command buffers and any resources linked to the command buffers
-		DestroyStagingBuffers();
-		DeallocateCommandBuffers();
-
-		if (flushRes == STATUS_CODE::SUCCESS)
+		m_wasWorkSubmitted = (flushRes == STATUS_CODE::SUCCESS);
+		if (flushRes != STATUS_CODE::SUCCESS)
 		{
-			m_wasWorkSubmitted = true;
+			// If we failed to flush, we cannot delete resources because they 
+			// might still be in-use by the GPU
+			return flushRes;
 		}
+
+		// Free allocated memory for command buffers and reset staging pool for reuse
+		ResetStagingPool();
+		DeallocateCommandBuffers();
 
 		return flushRes;
 	}
@@ -1085,21 +1073,14 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	StagingBufferVk* DeviceContextVk::CreateStagingBuffer(const BufferCreateInfo& createInfo)
+	StagingAllocation DeviceContextVk::AllocateStaging(u64 sizeBytes, u64 alignment)
 	{
-		StagingBufferVk* stagingBuffer = new StagingBufferVk(m_pRenderDevice, createInfo);
-		m_stagingBuffers.push_back(stagingBuffer);
-
-		return stagingBuffer;
+		return m_stagingPool.Allocate(sizeBytes, alignment);
 	}
 
-	void DeviceContextVk::DestroyStagingBuffers()
+	void DeviceContextVk::ResetStagingPool()
 	{
-		for (u32 i = 0; i < static_cast<u32>(m_stagingBuffers.size()); i++)
-		{
-			delete m_stagingBuffers[i];
-		}
-		m_stagingBuffers.clear();
+		m_stagingPool.Reset();
 	}
 
 	STATUS_CODE DeviceContextVk::SetContextualPipeline(PipelineVk* pPipeline)
