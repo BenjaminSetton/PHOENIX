@@ -21,7 +21,6 @@ namespace PHX
 		TextureHandle GetCurrentImage() const;
 		u32 GetImageCount() const;
 		u32 GetCurrentImageIndex() const;
-		STATUS_CODE Present();
 		void Resize(u32 newWidth, u32 newHeight);
 
 		u32 GetWidth() const;

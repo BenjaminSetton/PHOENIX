@@ -32,7 +32,6 @@
 #include "texture_vk.h"
 #include "uniform_vk.h"
 #include "utils/logger.h"
-#include "utils/queue_family_indices.h"
 #include "utils/swap_chain_helpers.h"
 
 namespace PHX
@@ -127,8 +126,8 @@ namespace PHX
 	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
 		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_rayTracingPipelineProperties(), m_descriptorPool(VK_NULL_HANDLE),
 		m_rayTracingSupported(false), m_pfnCreateRayTracingPipelines(nullptr), m_pfnGetRayTracingShaderGroupHandles(nullptr), m_pfnGetBufferDeviceAddress(nullptr), m_pfnCmdTraceRays(nullptr),
-		m_pfnCreateAccelerationStructure(nullptr), m_pfnDestroyAccelerationStructure(nullptr), m_pfnGetAccelerationStructureBuildSizes(nullptr), m_pfnGetAccelerationStructureDeviceAddress(nullptr), m_pfnCmdBuildAccelerationStructures(nullptr),
-		m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_renderGraphs(), m_accelerationStructures()
+		m_pfnCreateAccelerationStructure(nullptr), m_pfnDestroyAccelerationStructure(nullptr), m_pfnGetAccelerationStructureBuildSizes(nullptr), m_pfnGetAccelerationStructureDeviceAddress(nullptr), 
+		m_pfnCmdBuildAccelerationStructures(nullptr), m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_renderGraphs(), m_accelerationStructures()
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
@@ -151,13 +150,13 @@ namespace PHX
 			return;
 		}
 
-		res = AllocateDescriptorPool();
+		res = AllocateDescriptorPool(ci.framesInFlight);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
 
-		res = AllocateCommandPools();
+		res = AllocateCommandPools(ci.framesInFlight);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return;
@@ -172,7 +171,6 @@ namespace PHX
 		m_framebufferCache = new FramebufferCache();
 		m_renderPassCache = new RenderPassCache(this);
 		m_pipelineCache = new PipelineCache(this);
-
 		m_framesInFlight = ci.framesInFlight;
 
 		LogInfo("Successfully constructed Vk device!");
@@ -189,19 +187,33 @@ namespace PHX
 		// Destroy sync objects
 		for (u32 i = 0; i < m_framesInFlight; i++)
 		{
-			vkDestroyFence(m_logicalDevice, m_inFlightFences[i], nullptr);
 			vkDestroySemaphore(m_logicalDevice, m_imageAvailableSemaphores[i], nullptr);
-		}
-		m_inFlightFences.clear();
-		m_imageAvailableSemaphores.clear();
+			vkDestroySemaphore(m_logicalDevice, m_renderFinishedSemaphores[i], nullptr);
 
-		// Destroy command pools
-		for (auto& iter : m_commandPools)
-		{
-			VkCommandPool& pool = iter.second;
-			vkDestroyCommandPool(m_logicalDevice, pool, nullptr);
+			for (u32 j = 0; j < static_cast<u32>(QUEUE_TYPE::COUNT); j++)
+			{
+				if (m_queueFences[j].size() > i)
+				{
+					vkDestroyFence(m_logicalDevice, m_queueFences[j][i], nullptr);
+				}
+			}
 		}
-		m_commandPools.clear();
+		m_imageAvailableSemaphores.clear();
+		m_renderFinishedSemaphores.clear();
+		for (auto& fences : m_queueFences)
+		{
+			fences.clear();
+		}
+
+		// Destroy command pools (per queue type, per frame-in-flight)
+		for (u32 q = 0; q < static_cast<u32>(QUEUE_TYPE::COUNT); q++)
+		{
+			for (VkCommandPool pool : m_commandPools[q])
+			{
+				vkDestroyCommandPool(m_logicalDevice, pool, nullptr);
+			}
+			m_commandPools[q].clear();
+		}
 
 		// Delete resources
 		m_textures.DeleteAll();
@@ -341,11 +353,6 @@ namespace PHX
 		return HANDLE_UTILS::AllocateHandle(m_accelerationStructures, pAccelerationStructure, this, handle);
 	}
 
-	AccelerationStructureVk* RenderDeviceVk::GetAccelerationStructure(const AccelerationStructureHandle& handle)
-	{
-		return m_accelerationStructures.Resolve(handle.GetIndex());
-	}
-
 	void* RenderDeviceVk::ResolveHandle(const Handle& handle)
 	{
 		const HANDLE_TYPE type = handle.GetType();
@@ -419,11 +426,6 @@ namespace PHX
 	void RenderDeviceVk::DestroyFramebuffer(const FramebufferDescription& desc)
 	{
 		m_framebufferCache->Delete(desc);
-	}
-
-	FramebufferVk* RenderDeviceVk::GetFramebuffer(const FramebufferDescription& desc) const
-	{
-		return m_framebufferCache->Find(desc);
 	}
 
 	VkRenderPass RenderDeviceVk::GetOrCreateRenderPass(const RenderPassDescription& desc)
@@ -519,15 +521,21 @@ namespace PHX
 		return m_descriptorPool;
 	}
 
-	VkCommandPool RenderDeviceVk::GetCommandPool(QUEUE_TYPE type) const
+	VkCommandPool RenderDeviceVk::GetCommandPool(QUEUE_TYPE type, u32 frameIndex) const
 	{
-		auto iter = m_commandPools.find(type);
-		if (iter == m_commandPools.end())
+		u32 queueIdx = static_cast<u32>(type);
+		if (queueIdx >= static_cast<u32>(QUEUE_TYPE::COUNT) || frameIndex >= m_framesInFlight)
 		{
 			return VK_NULL_HANDLE;
 		}
 
-		return iter->second;
+		const auto& pools = m_commandPools[queueIdx];
+		if (frameIndex >= pools.size())
+		{
+			return VK_NULL_HANDLE;
+		}
+
+		return pools[frameIndex];
 	}
 
 	VkQueue RenderDeviceVk::GetQueue(QUEUE_TYPE type) const
@@ -551,14 +559,25 @@ namespace PHX
 		return m_imageAvailableSemaphores[index];
 	}
 
-	VkFence RenderDeviceVk::GetInFlightFence(u32 index) const
+	VkSemaphore RenderDeviceVk::GetRenderFinishedSemaphore(u32 index) const
 	{
 		if (index >= m_framesInFlight)
 		{
 			return VK_NULL_HANDLE;
 		}
 
-		return m_inFlightFences[index];
+		return m_renderFinishedSemaphores[index];
+	}
+
+	VkFence RenderDeviceVk::GetQueueFence(QUEUE_TYPE type, u32 index) const
+	{
+		u32 queueIdx = static_cast<u32>(type);
+		if (queueIdx >= static_cast<u32>(QUEUE_TYPE::COUNT) || index >= m_framesInFlight)
+		{
+			return VK_NULL_HANDLE;
+		}
+
+		return m_queueFences[queueIdx][index];
 	}
 
 	const VkPhysicalDeviceProperties& RenderDeviceVk::GetDeviceProperties() const
@@ -757,30 +776,31 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateDescriptorPool()
+	STATUS_CODE RenderDeviceVk::AllocateDescriptorPool(u32 framesInFlight)
 	{
 		// TODO - Fix these!
 		// These are temporary so we can get this working. Completely random numbers
-		const u32 numUniformBuffers = 50;
-		const u32 numImageSamplers = 1024;
-		const u32 numStorageBuffers = 50;
-		const u32 numStorageImages = 50;
-		const u32 numAccelerationStructures = 50;
-		const u32 maxSets = 500;
+		// Multiplied by framesInFlight because each uniform collection allocates one set per frame
+		const u32 numUniformBuffers = 50 * framesInFlight;
+		const u32 numImageSamplers = 1024 * framesInFlight;
+		const u32 numStorageBuffers = 50 * framesInFlight;
+		const u32 numStorageImages = 50 * framesInFlight;
+		const u32 numAccelerationStructures = 50 * framesInFlight;
+		const u32 maxSets = 500 * framesInFlight;
 
 		std::array<VkDescriptorPoolSize, 6> poolSizes{};
 		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizes[0].descriptorCount = numUniformBuffers/* * CONFIG::MaxFramesInFlight*/;
+		poolSizes[0].descriptorCount = numUniformBuffers;
 		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizes[1].descriptorCount = numImageSamplers/* * CONFIG::MaxFramesInFlight*/;
+		poolSizes[1].descriptorCount = numImageSamplers;
 		poolSizes[2].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-		poolSizes[2].descriptorCount = numImageSamplers/* * CONFIG::MaxFramesInFlight*/;
+		poolSizes[2].descriptorCount = numImageSamplers;
 		poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		poolSizes[3].descriptorCount = numStorageBuffers/* * CONFIG::MaxFramesInFlight*/;
+		poolSizes[3].descriptorCount = numStorageBuffers;
 		poolSizes[4].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		poolSizes[4].descriptorCount = numStorageImages/* * CONFIG::MaxFramesInFlight*/;
+		poolSizes[4].descriptorCount = numStorageImages;
 		poolSizes[5].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-		poolSizes[5].descriptorCount = numAccelerationStructures/* * CONFIG::MaxFramesInFlight*/;
+		poolSizes[5].descriptorCount = numAccelerationStructures;
 
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -798,23 +818,23 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateCommandPools()
+	STATUS_CODE RenderDeviceVk::AllocateCommandPools(u32 framesInFlight)
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
-		res = AllocateCommandPool_Helper(QUEUE_TYPE::GRAPHICS, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+		res = AllocateCommandPool_Helper(QUEUE_TYPE::GRAPHICS, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, framesInFlight);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return res;
 		}
 
-		res = AllocateCommandPool_Helper(QUEUE_TYPE::COMPUTE, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+		res = AllocateCommandPool_Helper(QUEUE_TYPE::COMPUTE, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, framesInFlight);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return res;
 		}
 
-		res = AllocateCommandPool_Helper(QUEUE_TYPE::TRANSFER, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT);
+		res = AllocateCommandPool_Helper(QUEUE_TYPE::TRANSFER, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, framesInFlight);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return res;
@@ -823,7 +843,7 @@ namespace PHX
 		return res;
 	}
 
-	STATUS_CODE RenderDeviceVk::AllocateCommandPool_Helper(QUEUE_TYPE type, VkCommandPoolCreateFlags flags)
+	STATUS_CODE RenderDeviceVk::AllocateCommandPool_Helper(QUEUE_TYPE type, VkCommandPoolCreateFlags flags, u32 framesInFlight)
 	{
 		u32 queueFamilyIndex = m_queueFamilyIndices.GetIndex(type);
 		if (!m_queueFamilyIndices.IsValid(queueFamilyIndex))
@@ -832,19 +852,23 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		// Allocate the pool object in the map
-		m_commandPools.insert({type, VK_NULL_HANDLE});
+		u32 queueIndex = static_cast<u32>(type);
+		auto& pools = m_commandPools[queueIndex];
+		pools.resize(framesInFlight);
 
 		VkCommandPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
 		poolInfo.flags = flags;
 		poolInfo.queueFamilyIndex = queueFamilyIndex;
 
-		VkResult res = vkCreateCommandPool(GetLogicalDevice(), &poolInfo, nullptr, &m_commandPools[type]);
-		if (res != VK_SUCCESS)
+		for (u32 i = 0; i < framesInFlight; i++)
 		{
-			LogError("Failed to create command pool of type %u! Got error: \"%s\"", static_cast<u32>(type), string_VkResult(res));
-			return STATUS_CODE::ERR_INTERNAL;
+			VkResult res = vkCreateCommandPool(GetLogicalDevice(), &poolInfo, nullptr, &pools[i]);
+			if (res != VK_SUCCESS)
+			{
+				LogError("Failed to create command pool of type %u for frame %u! Got error: \"%s\"", static_cast<u32>(type), i, string_VkResult(res));
+				return STATUS_CODE::ERR_INTERNAL;
+			}
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -864,7 +888,14 @@ namespace PHX
 		fenceCI.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
 		m_imageAvailableSemaphores.resize(framesInFlight);
-		m_inFlightFences.resize(framesInFlight);
+		m_renderFinishedSemaphores.resize(framesInFlight);
+
+		// Only GRAPHICS, COMPUTE, and TRANSFER queues need fences
+		const QUEUE_TYPE fencedQueues[] = { QUEUE_TYPE::GRAPHICS, QUEUE_TYPE::COMPUTE, QUEUE_TYPE::TRANSFER };
+		for (QUEUE_TYPE queueType : fencedQueues)
+		{
+			m_queueFences[static_cast<u32>(queueType)].resize(framesInFlight);
+		}
 
 		for (uint32_t i = 0; i < framesInFlight; i++)
 		{
@@ -876,12 +907,29 @@ namespace PHX
 				return STATUS_CODE::ERR_INTERNAL;
 			}
 
-			// IN-FLIGHT FENCE
-			res = vkCreateFence(m_logicalDevice, &fenceCI, nullptr, &(m_inFlightFences[i]));
+			// RENDER FINISHED SEMAPHORE
+			res = vkCreateSemaphore(m_logicalDevice, &semaphoreCI, nullptr, &(m_renderFinishedSemaphores[i]));
 			if (res != VK_SUCCESS)
 			{
-				LogError("Failed to create in-flight fence! Got error: \"%s\"", string_VkResult(res));
+				LogError("Failed to create render finished semaphore! Got error: \"%s\"", string_VkResult(res));
 				return STATUS_CODE::ERR_INTERNAL;
+			}
+
+			// PER-QUEUE FENCES
+			for (u32 queueIndex = 0; queueIndex < static_cast<u32>(QUEUE_TYPE::COUNT); queueIndex++)
+			{
+				QUEUE_TYPE queueType = static_cast<QUEUE_TYPE>(queueIndex);
+				if (!NeedsSynchronization(queueType))
+				{
+					continue;
+				}
+
+				res = vkCreateFence(m_logicalDevice, &fenceCI, nullptr, &(m_queueFences[queueIndex][i]));
+				if (res != VK_SUCCESS)
+				{
+					LogError("Failed to create queue fence! Got error: \"%s\"", string_VkResult(res));
+					return STATUS_CODE::ERR_INTERNAL;
+				}
 			}
 		}
 
@@ -1064,11 +1112,6 @@ namespace PHX
 		}
 
 		return pipeline;
-	}
-
-	void RenderDeviceVk::DestroyRayTracingPipeline(const RayTracingPipelineDesc& desc)
-	{
-		m_pipelineCache->Delete(desc);
 	}
 }
 

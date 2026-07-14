@@ -669,11 +669,15 @@ namespace PHX
 
 		m_pRenderDevice = pRenderDevice;
 
+		// Device contexts
 		const u32 framesInFlight = m_pRenderDevice->GetFramesInFlight();
 		for (u32 i = 0; i < framesInFlight; i++)
 		{
+			DeviceContextCreateInfo deviceContextCI{};
+			deviceContextCI.assignedFrameIndex = i;
+
 			DeviceContextHandle deviceContext;
-			STATUS_CODE res = m_pRenderDevice->AllocateDeviceContext({}, deviceContext);
+			STATUS_CODE res = m_pRenderDevice->AllocateDeviceContext(deviceContextCI, deviceContext);
 			if (res != STATUS_CODE::SUCCESS)
 			{
 				LogError("Failed to construct render graph. Device context creation failed!");
@@ -685,6 +689,7 @@ namespace PHX
 
 	RenderGraphVk::~RenderGraphVk()
 	{
+		m_deviceContextHandles.clear();
 		m_registeredRenderPasses.DeleteAll();
 	}
 
@@ -701,8 +706,8 @@ namespace PHX
 		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(m_pRenderDevice->ResolveHandle(swapChain));
 		ASSERT_PTR(swapChainVk);
 
-		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetDeviceContext());
-		res = pDeviceContext->BeginFrame(swapChainVk, m_frameInFlightIndex);
+		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
+		res = pDeviceContext->BeginFrame(swapChainVk);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to begin frame. Device context could not begin frame!");
@@ -712,15 +717,31 @@ namespace PHX
 		return res;
 	}
 
-	STATUS_CODE RenderGraphVk::EndFrame()
+	STATUS_CODE RenderGraphVk::EndFrame(SwapChainHandle swapChain)
 	{
+		if (!swapChain.IsValid())
+		{
+			LogError("Failed to begin frame. Swap chain handle is invalid!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		SwapChainVk* swapChainVk = static_cast<SwapChainVk*>(m_pRenderDevice->ResolveHandle(swapChain));
+		ASSERT_PTR(swapChainVk);
+
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
-		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetDeviceContext());
-		res = pDeviceContext->EndFrame(m_frameInFlightIndex);
+		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
+		res = pDeviceContext->EndFrame();
 		if (res != STATUS_CODE::SUCCESS)
 		{
-			LogError("Failed to end frame. Device context could not flush!");
+			LogError("Failed to end frame #%u. Device context could not flush!", m_frameNumber);
+		}
+
+		// Present
+		res = swapChainVk->Present(m_frameInFlightIndex);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to end frame #%u. Swap chain present failed!", m_frameNumber);
 		}
 
 		// Now that all the work has been done for the current frame, move onto the next one
@@ -789,8 +810,8 @@ namespace PHX
 		// 3. Call the execute callback and pass in the device context
 		std::reverse(activeRenderPassIndices.begin(), activeRenderPassIndices.end());
 
-		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetDeviceContext());
-		DeviceContextHandle deviceContext = GetDeviceContextHandle();
+		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
+		DeviceContextHandle deviceContext = GetCurrentDeviceContextHandle();
 
 		for (u32 activeRenderPassIndex : activeRenderPassIndices)
 		{
@@ -1187,7 +1208,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	IDeviceContext* RenderGraphVk::GetDeviceContext()
+	IDeviceContext* RenderGraphVk::GetCurrentDeviceContext()
 	{
 		if (m_frameInFlightIndex >= m_deviceContextHandles.size())
 		{
@@ -1200,7 +1221,7 @@ namespace PHX
 		return HANDLE_UTILS::ResolveHandle(deviceContext);
 	}
 
-	DeviceContextHandle RenderGraphVk::GetDeviceContextHandle()
+	DeviceContextHandle RenderGraphVk::GetCurrentDeviceContextHandle()
 	{
 		ASSERT(m_frameInFlightIndex < m_deviceContextHandles.size());
 		return m_deviceContextHandles[m_frameInFlightIndex];
@@ -1821,7 +1842,7 @@ namespace PHX
 	STATUS_CODE RenderGraphVk::InsertResourceBarriers(const RenderPassVk& renderPass)
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
-		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetDeviceContext());
+		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
 
 		for (auto& barrierIter : renderPass.m_inputBarriers)
 		{

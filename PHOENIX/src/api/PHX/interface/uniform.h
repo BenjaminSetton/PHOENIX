@@ -29,6 +29,5 @@ namespace PHX
 		STATUS_CODE QueueBufferUpdate(BufferHandle buffer, u32 set, u32 binding, u64 offset, u64 size = U64_MAX);
 		STATUS_CODE QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex, u32 arrayElement = 0);
 		STATUS_CODE QueueAccelerationStructureUpdate(AccelerationStructureHandle accelerationStructure, u32 set, u32 binding);
-		STATUS_CODE FlushUpdateQueue();
 	};
 }

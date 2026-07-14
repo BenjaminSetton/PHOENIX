@@ -9,7 +9,7 @@
 #include "PHX/types/queue_type.h"
 #include "utils/logger.h"
 #include "utils/math.h"
-#include "utils/queue_family_indices.h"
+#include "utils/queue_utils.h"
 #include "utils/sanity.h"
 #include "utils/swap_chain_helpers.h"
 #include "utils/texture_type_converter.h"
@@ -131,12 +131,14 @@ namespace PHX
 		return m_currImageIndex;
 	}
 
-	STATUS_CODE SwapChainVk::Present()
+	STATUS_CODE SwapChainVk::Present(u32 currentFrameIndex)
 	{
+		VkSemaphore renderFinishedSemaphore = m_renderDevice->GetRenderFinishedSemaphore(currentFrameIndex);
+
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-		presentInfo.waitSemaphoreCount = 0; // TODO
-		presentInfo.pWaitSemaphores = nullptr;
+		presentInfo.waitSemaphoreCount = 1;
+		presentInfo.pWaitSemaphores = &renderFinishedSemaphore;
 		presentInfo.swapchainCount = 1;
 		presentInfo.pSwapchains = &m_swapChain;
 		presentInfo.pImageIndices = &m_currImageIndex;

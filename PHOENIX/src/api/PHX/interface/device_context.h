@@ -14,7 +14,7 @@ namespace PHX
 {
 	struct DeviceContextCreateInfo
 	{
-		// command pool
+		u32 assignedFrameIndex;
 	};
 
 	struct DeviceContextHandle : public Handle
@@ -24,6 +24,7 @@ namespace PHX
 		STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer);
 		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType = INDEX_TYPE::U32);
 		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection);
+		STATUS_CODE FlushUniformUpdates(UniformCollectionHandle uniformCollection);
 		STATUS_CODE SetViewport(Vec2u size, Vec2u offset);
 		STATUS_CODE SetScissor(Vec2u size, Vec2u offset);
 

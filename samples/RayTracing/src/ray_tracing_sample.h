@@ -69,7 +69,6 @@ private:
 	PHX::BufferHandle m_geometryInfoBuffer;
 
 	std::vector<PHX::TextureHandle> m_sceneTextures;
-	bool m_texturesBound = false;
 
 	PHX::AccelerationStructureHandle m_tlas;
 	std::vector<PHX::AccelerationStructureHandle> m_blas;

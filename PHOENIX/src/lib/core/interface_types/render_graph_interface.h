@@ -52,7 +52,7 @@ namespace PHX
 		virtual ~IRenderGraph() { }
 
 		virtual STATUS_CODE BeginFrame(SwapChainHandle swapChain) = 0;
-		virtual STATUS_CODE EndFrame() = 0;
+		virtual STATUS_CODE EndFrame(SwapChainHandle swapChain) = 0;
 		virtual STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) = 0;
 		virtual STATUS_CODE Bake(SwapChainHandle swapChain) = 0;
 
@@ -68,7 +68,7 @@ namespace PHX
 
 		// LIB-ONLY FUNCTIONS - THESE WILL NOT BE PUBLIC ONCE THIS IS MOVED TO LIB SIDE
 
-		virtual IDeviceContext* GetDeviceContext() = 0; // Used lib-only
-		virtual DeviceContextHandle GetDeviceContextHandle() = 0; // Used to pass to client in exec callback
+		virtual IDeviceContext* GetCurrentDeviceContext() = 0; // Used lib-only
+		virtual DeviceContextHandle GetCurrentDeviceContextHandle() = 0; // Used to pass to client in exec callback
 	};
 }

@@ -61,7 +61,7 @@ namespace PHX
 		DECLARE_PHX_HANDLE(RenderGraphHandle);
 
 		STATUS_CODE BeginFrame(SwapChainHandle swapChain);
-		STATUS_CODE EndFrame();
+		STATUS_CODE EndFrame(SwapChainHandle swapChain);
 		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass);
 
 		// Bakes and executes the render graph. The swap chain is passed in so the graph can identify

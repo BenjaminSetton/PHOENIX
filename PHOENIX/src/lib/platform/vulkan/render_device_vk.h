@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <unordered_map>
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -12,7 +13,7 @@
 #include "core/interface_types/render_device_interface.h"
 #include "utils/framebuffer_cache.h"
 #include "utils/pipeline_cache.h"
-#include "utils/queue_family_indices.h"
+#include "utils/queue_utils.h"
 #include "utils/render_pass_cache.h"
 #include "utils/sanity.h"
 
@@ -38,7 +39,7 @@ namespace PHX
 		const char* GetDeviceName() const;
 		u32 GetFramesInFlight() const override;
 		bool IsRayTracingSupported() const override;
-		
+
 		// Allocations
 		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle) override;
 		STATUS_CODE AllocateTexture(const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo, TextureHandle& handle) override;
@@ -58,8 +59,7 @@ namespace PHX
 		// Cached creation calls - vulkan only
 		FramebufferVk* CreateFramebuffer(const FramebufferDescription& desc);
 		void DestroyFramebuffer(const FramebufferDescription& desc);
-		FramebufferVk* GetFramebuffer(const FramebufferDescription& desc) const;
-		
+
 		VkRenderPass GetOrCreateRenderPass(const RenderPassDescription& desc);
 		void DestroyRenderPass(const RenderPassDescription& desc);
 		VkRenderPass GetRenderPass(const RenderPassDescription& desc) const;
@@ -72,8 +72,6 @@ namespace PHX
 
 		PipelineVk* CreateRayTracingPipeline(const RayTracingPipelineDesc& desc);
 		void DestroyRayTracingPipeline(const RayTracingPipelineDesc& desc);
-		
-		AccelerationStructureVk* GetAccelerationStructure(const AccelerationStructureHandle& handle);
 
 		// Removes all framebuffer entries in the cache related to the backbuffer. 
 		// This is used to clean up old framebuffers after a window resize, for example
@@ -84,10 +82,11 @@ namespace PHX
 		VkPhysicalDevice GetPhysicalDevice() const;
 		VmaAllocator GetAllocator() const;
 		VkDescriptorPool GetDescriptorPool() const;
-		VkCommandPool GetCommandPool(QUEUE_TYPE type) const;
+		VkCommandPool GetCommandPool(QUEUE_TYPE type, u32 frameIndex) const;
 		VkQueue GetQueue(QUEUE_TYPE type) const;
 		VkSemaphore GetImageAvailableSemaphore(u32 index) const;
-		VkFence GetInFlightFence(u32 index) const;
+		VkSemaphore GetRenderFinishedSemaphore(u32 index) const;
+		VkFence GetQueueFence(QUEUE_TYPE type, u32 index) const;
 
 		// Device info
 		const VkPhysicalDeviceProperties& GetDeviceProperties() const;
@@ -116,12 +115,14 @@ namespace PHX
 		STATUS_CODE CreatePhysicalDevice(VkSurfaceKHR surface);
 		STATUS_CODE CreateLogicalDevice(VkSurfaceKHR surface);
 
-		STATUS_CODE AllocateDescriptorPool();
+		STATUS_CODE AllocateDescriptorPool(u32 framesInFlight);
 
-		STATUS_CODE AllocateCommandPools();
-		STATUS_CODE AllocateCommandPool_Helper(QUEUE_TYPE type, VkCommandPoolCreateFlags flags);
+		STATUS_CODE AllocateCommandPools(u32 framesInFlight);
+		STATUS_CODE AllocateCommandPool_Helper(QUEUE_TYPE type, VkCommandPoolCreateFlags flags, u32 framesInFlight);
 
 		STATUS_CODE AllocateSyncObjects(u32 framesInFlight);
+
+		STATUS_CODE LoadRayTracingFunctions();
 
 	private:
 
@@ -154,13 +155,11 @@ namespace PHX
 		PFN_vkGetAccelerationStructureDeviceAddressKHR m_pfnGetAccelerationStructureDeviceAddress;
 		PFN_vkCmdBuildAccelerationStructuresKHR m_pfnCmdBuildAccelerationStructures;
 
-		STATUS_CODE LoadRayTracingFunctions();
-
 		// Descriptor pool
 		VkDescriptorPool m_descriptorPool;
 
-		// Command pools
-		std::unordered_map<QUEUE_TYPE, VkCommandPool> m_commandPools;
+		// Command pools (per queue type, per frame-in-flight)
+		std::array<std::vector<VkCommandPool>, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_commandPools;
 
 		// Object caches
 		FramebufferCache* m_framebufferCache;
@@ -169,7 +168,9 @@ namespace PHX
 
 		// Sync objects
 		std::vector<VkSemaphore> m_imageAvailableSemaphores;
-		std::vector<VkFence> m_inFlightFences;
+		std::vector<VkSemaphore> m_renderFinishedSemaphores;
+
+		std::array<std::vector<VkFence>, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_queueFences;
 
 		// Resource objects
 		HandleList<TextureVk> m_textures;
@@ -181,4 +182,5 @@ namespace PHX
 		HandleList<RenderGraphVk> m_renderGraphs;
 		HandleList<AccelerationStructureVk> m_accelerationStructures;
 	};
+
 }

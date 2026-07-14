@@ -46,6 +46,18 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
+	STATUS_CODE DeviceContextHandle::FlushUniformUpdates(UniformCollectionHandle uniformCollection)
+	{
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
+		if (pContext != nullptr)
+		{
+			return pContext->FlushUniformUpdates(uniformCollection);
+		}
+
+		LogError("Failed to flush uniform updates. Could not resolve device context handle!");
+		return STATUS_CODE::ERR_INTERNAL;
+	}
+
 	STATUS_CODE DeviceContextHandle::SetViewport(Vec2u size, Vec2u offset)
 	{
 		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);

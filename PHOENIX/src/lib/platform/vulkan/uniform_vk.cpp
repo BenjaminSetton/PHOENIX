@@ -86,19 +86,25 @@ namespace PHX
 			m_descriptorSetLayouts.push_back(vkDescriptorSetLayout);
 		}
 
-		// Create descriptor sets
+		// Create descriptor sets — one set per frame-in-flight
+		u32 numFramesInFlight = pRenderDevice->GetFramesInFlight();
+		m_perFrameDescriptorSets.resize(numFramesInFlight);
+
 		VkDescriptorSetAllocateInfo allocInfo{};
 		allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
 		allocInfo.descriptorPool = pRenderDevice->GetDescriptorPool();
 		allocInfo.descriptorSetCount = static_cast<u32>(m_descriptorSetLayouts.size());
 		allocInfo.pSetLayouts = m_descriptorSetLayouts.data();
 
-		m_descriptorSets.resize(numDataGroups);
-		res = vkAllocateDescriptorSets(logicalDevice, &allocInfo, m_descriptorSets.data());
-		if (res != VK_SUCCESS)
+		for (u32 f = 0; f < numFramesInFlight; f++)
 		{
-			LogError("Failed to allocate descriptor sets! Got error: \"%s\"", string_VkResult(res));
-			return;
+			m_perFrameDescriptorSets[f].resize(numDataGroups);
+			res = vkAllocateDescriptorSets(logicalDevice, &allocInfo, m_perFrameDescriptorSets[f].data());
+			if (res != VK_SUCCESS)
+			{
+				LogError("Failed to allocate descriptor sets for frame %u! Got error: \"%s\"", f, string_VkResult(res));
+				return;
+			}
 		}
 
 		// Allocate enough space in the write descriptor arrays for a maximum amount of write entries
@@ -173,9 +179,9 @@ namespace PHX
 		}
 		}
 
-		if (set >= m_descriptorSets.size())
+		if (set >= m_descriptorSetLayouts.size())
 		{
-			LogError("Failed to queue buffer update! Set number is invalid (expected 0 to %u)", static_cast<u32>(m_descriptorSets.size()));
+			LogError("Failed to queue buffer update! Set number is invalid (expected 0 to %u)", static_cast<u32>(m_descriptorSetLayouts.size()));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
@@ -207,7 +213,6 @@ namespace PHX
 			}
 		}
 
-		VkDescriptorSet vkDescSet = m_descriptorSets.at(set);
 		u64 range = (size == U64_MAX) ? bufferVk->GetSize() : size;
 
 		m_writeBufferInfo.push_back({});
@@ -240,7 +245,7 @@ namespace PHX
 
 		VkWriteDescriptorSet writeDescSet{};
 		writeDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writeDescSet.dstSet = vkDescSet;
+		writeDescSet.dstSet = VK_NULL_HANDLE; // Patched in FlushForFrame
 		writeDescSet.dstBinding = binding;
 		writeDescSet.dstArrayElement = 0;
 		writeDescSet.descriptorType = descType;
@@ -248,6 +253,7 @@ namespace PHX
 		writeDescSet.pBufferInfo = &bufferInfo;
 
 		m_descriptorWrites.push_back(writeDescSet);
+		m_writeSetIndices.push_back(set);
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -267,9 +273,9 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		if (set >= m_descriptorSets.size())
+		if (set >= m_descriptorSetLayouts.size())
 		{
-			LogError("Failed to queue image update! Set number is invalid (expected 0 to %u)", static_cast<u32>(m_descriptorSets.size()));
+			LogError("Failed to queue image update! Set number is invalid (expected 0 to %u)", static_cast<u32>(m_descriptorSetLayouts.size()));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
@@ -290,8 +296,6 @@ namespace PHX
 
 		const VkDescriptorType descType = UNIFORM_UTILS::ConvertUniformType(uniformType);
 
-		VkDescriptorSet vkDescSet = m_descriptorSets.at(set);
-
 		m_writeImageInfo.push_back({});
 		VkDescriptorImageInfo& imageInfo = m_writeImageInfo.back();
 		imageInfo.imageLayout = layout;
@@ -300,7 +304,7 @@ namespace PHX
 
 		VkWriteDescriptorSet writeDescSet{};
 		writeDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writeDescSet.dstSet = vkDescSet;
+		writeDescSet.dstSet = VK_NULL_HANDLE; // Patched in FlushForFrame
 		writeDescSet.dstBinding = binding;
 		writeDescSet.dstArrayElement = arrayElement;
 		writeDescSet.descriptorType = descType;
@@ -308,6 +312,7 @@ namespace PHX
 		writeDescSet.pImageInfo = &imageInfo;
 
 		m_descriptorWrites.push_back(writeDescSet);
+		m_writeSetIndices.push_back(set);
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -320,9 +325,9 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
-		if (set >= m_descriptorSets.size())
+		if (set >= m_descriptorSetLayouts.size())
 		{
-			LogError("Failed to queue acceleration structure update! Set number is invalid (expected 0 to %u)", static_cast<u32>(m_descriptorSets.size()));
+			LogError("Failed to queue acceleration structure update! Set number is invalid (expected 0 to %u)", static_cast<u32>(m_descriptorSetLayouts.size()));
 			return STATUS_CODE::ERR_API;
 		}
 
@@ -337,38 +342,46 @@ namespace PHX
 		asInfo.accelerationStructureCount = 1;
 		asInfo.pAccelerationStructures = &m_writeAccelerationStructureHandles.back();
 
-		VkDescriptorSet vkDescSet = m_descriptorSets.at(set);
-
 		VkWriteDescriptorSet writeDescSet{};
 		writeDescSet.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writeDescSet.pNext = &asInfo;
-		writeDescSet.dstSet = vkDescSet;
+		writeDescSet.dstSet = VK_NULL_HANDLE; // Patched in FlushForFrame
 		writeDescSet.dstBinding = binding;
 		writeDescSet.dstArrayElement = 0;
 		writeDescSet.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
 		writeDescSet.descriptorCount = 1;
 
 		m_descriptorWrites.push_back(writeDescSet);
+		m_writeSetIndices.push_back(set);
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE UniformCollectionVk::FlushUpdateQueue()
+	STATUS_CODE UniformCollectionVk::Flush(u32 frameIndex)
 	{
 		if (m_pRenderDevice == nullptr)
 		{
-			LogError("Failed to flush update queue! Render device is null");
+			LogError("Failed to flush descriptor writes for frame %u! Render device is null", frameIndex);
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		if (m_descriptorWrites.size() == 0)
+		if (m_descriptorWrites.empty())
 		{
 			LogWarning("Attempted to flush update queue while queue was empty!");
 			return STATUS_CODE::SUCCESS;
 		}
 
+		// Patch dstSet on each write to point to the correct per-frame descriptor set
+		const auto& frameSets = m_perFrameDescriptorSets[frameIndex];
+		for (size_t i = 0; i < m_descriptorWrites.size(); i++)
+		{
+			u32 setIndex = m_writeSetIndices[i];
+			m_descriptorWrites[i].dstSet = frameSets[setIndex];
+		}
+
 		vkUpdateDescriptorSets(m_pRenderDevice->GetLogicalDevice(), static_cast<u32>(m_descriptorWrites.size()), m_descriptorWrites.data(), 0, nullptr);
 
 		m_descriptorWrites.clear();
+		m_writeSetIndices.clear();
 		m_writeImageInfo.clear();
 		m_writeBufferInfo.clear();
 		m_writeAccelerationStructureInfo.clear();
@@ -377,14 +390,22 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	const VkDescriptorSet* UniformCollectionVk::GetDescriptorSets() const
+	const VkDescriptorSet* UniformCollectionVk::GetDescriptorSets(u32 frameIndex) const
 	{
-		return m_descriptorSets.data();
+		if (frameIndex >= m_perFrameDescriptorSets.size())
+		{
+			return nullptr;
+		}
+		return m_perFrameDescriptorSets[frameIndex].data();
 	}
 
-	u32 UniformCollectionVk::GetDescriptorSetCount() const
+	u32 UniformCollectionVk::GetDescriptorSetCount(u32 frameIndex) const
 	{
-		return static_cast<u32>(m_descriptorSets.size());
+		if (frameIndex >= m_perFrameDescriptorSets.size())
+		{
+			return 0;
+		}
+		return static_cast<u32>(m_perFrameDescriptorSets[frameIndex].size());
 	}
 
 	const VkDescriptorSetLayout* UniformCollectionVk::GetDescriptorSetLayouts() const

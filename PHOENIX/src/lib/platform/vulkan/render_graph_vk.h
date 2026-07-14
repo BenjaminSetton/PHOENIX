@@ -134,14 +134,14 @@ namespace PHX
 		~RenderGraphVk() override;
 
 		STATUS_CODE BeginFrame(SwapChainHandle swapChain) override;
-		STATUS_CODE EndFrame() override;
+		STATUS_CODE EndFrame(SwapChainHandle swapChain) override;
 		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) override;
 		STATUS_CODE Bake(SwapChainHandle swapChain) override;
 		u32 GetFrameNumber() const override;
 		STATUS_CODE GenerateVisualization(const char* fileName, bool generateIfUnique) override;
 
-		IDeviceContext* GetDeviceContext() override;
-		DeviceContextHandle GetDeviceContextHandle() override;
+		IDeviceContext* GetCurrentDeviceContext() override;
+		DeviceContextHandle GetCurrentDeviceContextHandle() override;
 
 		// Handles
 		void* ResolveHandle(const Handle& handle) override;

@@ -15,7 +15,7 @@ namespace PHX
 		virtual TextureHandle GetCurrentImage() const = 0;
 		virtual u32 GetImageCount() const = 0;
 		virtual u32 GetCurrentImageIndex() const = 0;
-		virtual STATUS_CODE Present() = 0;
+		virtual STATUS_CODE Present(u32 currentFrameIndex) = 0;
 		virtual void Resize(u32 newWidth, u32 newHeight) = 0;
 
 		virtual u32 GetWidth() const = 0;

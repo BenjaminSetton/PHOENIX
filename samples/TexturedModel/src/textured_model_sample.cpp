@@ -91,6 +91,9 @@ void TexturedModelSample::Draw()
 
 	m_renderGraph.BeginFrame(m_swapChain);
 
+	// TODO - Upload passes should be in Init, but currently cause validation errors due to frame-in-flight synchronization
+	UploadMeshDataToGPU();
+
 	// Setup a new render pass for PBRPass
 	RenderPassHandle renderPass;
 	phxRes = m_renderGraph.RegisterPass("PBRPass", BIND_POINT::GRAPHICS, renderPass);
@@ -123,8 +126,7 @@ void TexturedModelSample::Draw()
 		cameraData.cameraPos = m_pCamera->GetPosition();
 		deviceContext.CopyDataToBuffer(m_cameraBuffer, &cameraData, sizeof(CameraData));
 		m_uniformCollection.QueueBufferUpdate(m_cameraBuffer, 2, 0, 0);
-
-		m_uniformCollection.FlushUpdateQueue();
+		deviceContext.FlushUniformUpdates(m_uniformCollection);
 
 		// Draw commands
 		deviceContext.BindUniformCollection(m_uniformCollection);
@@ -145,9 +147,7 @@ void TexturedModelSample::Draw()
 		m_renderGraph.GenerateVisualization(renderGraphVisName);
 	}
 
-	m_renderGraph.EndFrame();
-
-	m_swapChain.Present();
+	m_renderGraph.EndFrame(m_swapChain);
 }
 
 void TexturedModelSample::Init()
@@ -306,9 +306,6 @@ void TexturedModelSample::Init()
 
 	// ASSET TEXTURES
 	CreateAssetTextures();
-
-	// Create a new render pass to upload the mesh data to the GPU
-	UploadMeshDataToGPU();
 }
 
 void TexturedModelSample::Shutdown()

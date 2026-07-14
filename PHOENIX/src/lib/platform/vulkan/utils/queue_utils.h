@@ -31,6 +31,9 @@ namespace PHX
 		std::unordered_map<QUEUE_TYPE, u32> queueFamilies;
 	};
 
+	// Returns true for all queue types that require synchronization (i.e. all except PRESENT)
+	bool NeedsSynchronization(QUEUE_TYPE type);
+
 	// Global function
 	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface);
 }

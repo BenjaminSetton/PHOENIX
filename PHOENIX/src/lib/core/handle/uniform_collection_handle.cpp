@@ -77,15 +77,4 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	STATUS_CODE UniformCollectionHandle::FlushUpdateQueue()
-	{
-		IUniformCollection* pUniformCollection = HANDLE_UTILS::ResolveHandle(*this);
-		if (pUniformCollection != nullptr)
-		{
-			return pUniformCollection->FlushUpdateQueue();
-		}
-		
-		LogError("Failed to flush update queue. Could not resolve uniform collection handle!");
-		return STATUS_CODE::ERR_INTERNAL;
-	}
 }

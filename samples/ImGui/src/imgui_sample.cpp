@@ -54,8 +54,7 @@ void ImGuiSample::Draw()
 		m_renderGraph.GenerateVisualization(renderGraphVisName);
 	}
 
-	m_renderGraph.EndFrame();
-	m_swapChain.Present();
+	m_renderGraph.EndFrame(m_swapChain);
 }
 
 void ImGuiSample::Init()

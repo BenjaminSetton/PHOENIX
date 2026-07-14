@@ -2,7 +2,6 @@
 
 #include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
-#include "PHX/interface/device_context.h"
 #include "PHX/interface/render_graph.h"
 #include "PHX/interface/shader.h"
 #include "PHX/interface/texture.h"
@@ -37,7 +36,6 @@ namespace PHX
 		STATUS_CODE AllocateRenderGraph(RenderGraphHandle& renderGraph);
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader);
 		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain);
-		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext);
 		STATUS_CODE AllocateAccelerationStructure(const AccelerationStructureCreateInfo& createInfo, AccelerationStructureHandle& accelerationStructure);
 	};
 }

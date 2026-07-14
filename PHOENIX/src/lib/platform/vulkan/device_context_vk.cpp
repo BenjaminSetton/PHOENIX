@@ -26,7 +26,7 @@ STATIC_ASSERT_MSG(alignof(PHX::AccelerationStructureInstance) == alignof(VkAccel
 namespace PHX
 {
 	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo) : m_pRenderDevice(nullptr),
-		m_cmdBuffers(), m_stagingPool(pRenderDevice), m_wasWorkSubmitted(true), m_contextualPipeline(nullptr)
+		m_cmdBuffers(), m_stagingPool(pRenderDevice), m_queueWorkSubmitted(), m_assignedFrameIndex(0), m_contextualPipeline(nullptr)
 	{
 		UNUSED(createInfo);
 
@@ -36,6 +36,12 @@ namespace PHX
 			return;
 		}
 		m_pRenderDevice = pRenderDevice;
+
+		// Initialize to true so that BeginFrame waits on (and resets) fences on the first frame.
+		// Fences are created in the signaled state, so the initial wait returns immediately.
+		m_queueWorkSubmitted.fill(true);
+
+		m_assignedFrameIndex = createInfo.assignedFrameIndex;
 	}
 
 	DeviceContextVk::~DeviceContextVk()
@@ -131,9 +137,22 @@ namespace PHX
 		}
 
 		// TODO - Consider switching to a contextual pipeline object instead of just the bind point, mainly because of GetLayout() below
-		vkCmdBindDescriptorSets(cmdBuffer, m_contextualPipeline->GetBindPoint(), m_contextualPipeline->GetLayout(), 0, uniformCollectionVk->GetDescriptorSetCount(), uniformCollectionVk->GetDescriptorSets(), 0, nullptr);
+		const VkDescriptorSet* descriptorSets = uniformCollectionVk->GetDescriptorSets(m_assignedFrameIndex);
+		vkCmdBindDescriptorSets(cmdBuffer, m_contextualPipeline->GetBindPoint(), m_contextualPipeline->GetLayout(), 0, uniformCollectionVk->GetDescriptorSetCount(m_assignedFrameIndex), descriptorSets, 0, nullptr);
 
 		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE DeviceContextVk::FlushUniformUpdates(UniformCollectionHandle uniformCollection)
+	{
+		UniformCollectionVk* uniformCollectionVk = static_cast<UniformCollectionVk*>(m_pRenderDevice->ResolveHandle(uniformCollection));
+		if (uniformCollectionVk == nullptr)
+		{
+			LogError("Attempting to flush uniform updates but the uniform collection is invalid!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		return uniformCollectionVk->Flush(m_assignedFrameIndex);
 	}
 
 	STATUS_CODE DeviceContextVk::SetViewport(Vec2u size, Vec2u offset)
@@ -616,7 +635,7 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex)
+	STATUS_CODE DeviceContextVk::BeginFrame(SwapChainVk* pSwapChain)
 	{
 		if (m_pRenderDevice == nullptr)
 		{
@@ -632,15 +651,30 @@ namespace PHX
 
 		STATUS_CODE res;
 
-		// Only block on the in-flight fence if work was submitted for the corresponding frame
-		VkFence inFlightFence = m_pRenderDevice->GetInFlightFence(frameIndex);
-		if (m_wasWorkSubmitted)
+		// Wait on per-queue fences for queues that submitted work in the previous frame with the same index.
+		// This ensures the GPU has finished using the command buffers and staging memory before we free them
+		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
 		{
-			// Wait until rendering is done for the last frame-in-flight with the same index
-			vkWaitForFences(m_pRenderDevice->GetLogicalDevice(), 1, &inFlightFence, VK_TRUE, UINT64_MAX);
+			QUEUE_TYPE queueType = static_cast<QUEUE_TYPE>(i);
+			if (!NeedsSynchronization(queueType))
+			{
+				continue;
+			}
+
+			if (m_queueWorkSubmitted[i])
+			{
+				VkFence queueFence = m_pRenderDevice->GetQueueFence(queueType, m_assignedFrameIndex);
+				vkWaitForFences(m_pRenderDevice->GetLogicalDevice(), 1, &queueFence, VK_TRUE, UINT64_MAX);
+				vkResetFences(m_pRenderDevice->GetLogicalDevice(), 1, &queueFence);
+			}
 		}
 
-		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(frameIndex);
+		// Reset staging pool for reuse. The fence waits above guarantee the GPU is done
+		// with the staging memory from the previous frame with the same index.
+		ResetStagingPool();
+		ResetCommandBuffers();
+
+		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(m_assignedFrameIndex);
 		res = pSwapChain->AcquireNextImage(imageAvailableSemaphore);
 		if (res != STATUS_CODE::SUCCESS)
 		{
@@ -648,18 +682,13 @@ namespace PHX
 			return res;
 		}
 
-		// Only reset the fence if we're submitting work, otherwise we might deadlock
-		if (m_wasWorkSubmitted)
-		{
-			vkResetFences(m_pRenderDevice->GetLogicalDevice(), 1, &inFlightFence);
-		}
-
-		m_wasWorkSubmitted = false;
+		// Reset per-queue work submission tracking
+		m_queueWorkSubmitted.fill(false);
 
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::EndFrame(u32 frameIndex)
+	STATUS_CODE DeviceContextVk::EndFrame()
 	{
 		// Flush the recorded commands from all queues
 		STATUS_CODE flushRes = STATUS_CODE::SUCCESS;
@@ -667,49 +696,49 @@ namespace PHX
 		{
 			QUEUE_TYPE currQueue = static_cast<QUEUE_TYPE>(i);
 
-			// HACK - Use hard-coded sync data for the graphics queue. Later we should probably switch
-			//        to storing this information per queue
+			if (!NeedsSynchronization(currQueue))
+			{
+				continue;
+			}
+
+			FlushSyncData syncData{};
+
 			if (currQueue == QUEUE_TYPE::GRAPHICS)
 			{
-				VkFence inFlightFence = m_pRenderDevice->GetInFlightFence(frameIndex);
-				VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(frameIndex);
+				VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(m_assignedFrameIndex);
+				VkSemaphore renderFinishedSemaphore = m_pRenderDevice->GetRenderFinishedSemaphore(m_assignedFrameIndex);
 
-				FlushSyncData syncData{};
 				syncData.pWaitSemaphores = &imageAvailableSemaphore;
 				syncData.waitSemaphoreCount = 1;
-				syncData.signalFence = inFlightFence;
-
-				flushRes = Flush(currQueue, syncData);
-				if (flushRes != STATUS_CODE::SUCCESS)
-				{
-					LogError("Failed to end frame. Could not flush queue at index %u!", i);
-					break;
-				}
+				syncData.pSignalSemaphores = &renderFinishedSemaphore;
+				syncData.signalSemaphoreCount = 1;
+				syncData.signalFence = m_pRenderDevice->GetQueueFence(currQueue, m_assignedFrameIndex);
 			}
 			else
 			{
-				// No sync data for now
-				FlushSyncData syncData{};
-				flushRes = Flush(currQueue, syncData);
-				if (flushRes != STATUS_CODE::SUCCESS)
-				{
-					LogError("Failed to end frame. Could not flush queue at index %u!", i);
-					break;
-				}
+				// COMPUTE and TRANSFER queues: no semaphores, just a fence for CPU-GPU sync
+				syncData.signalFence = m_pRenderDevice->GetQueueFence(currQueue, m_assignedFrameIndex);
 			}
+
+			flushRes = Flush(currQueue, syncData);
+			if (flushRes != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to end frame. Could not flush queue at index %u!", i);
+				break;
+			}
+
+			// Track that this queue submitted work so BeginFrame knows to wait on its fence.
+			// Only set this if there were actually command buffers to submit, otherwise
+			// BeginFrame would wait on a fence that was never signaled.
+			m_queueWorkSubmitted[i] = (m_cmdBuffers.at(i).size() > 0);
 		}
 
-		m_wasWorkSubmitted = (flushRes == STATUS_CODE::SUCCESS);
 		if (flushRes != STATUS_CODE::SUCCESS)
 		{
 			// If we failed to flush, we cannot delete resources because they 
 			// might still be in-use by the GPU
 			return flushRes;
 		}
-
-		// Free allocated memory for command buffers and reset staging pool for reuse
-		ResetStagingPool();
-		DeallocateCommandBuffers();
 
 		return flushRes;
 	}
@@ -955,7 +984,7 @@ namespace PHX
 			VkCommandBufferAllocateInfo allocInfo{};
 			allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 			allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-			allocInfo.commandPool = m_pRenderDevice->GetCommandPool(type);
+			allocInfo.commandPool = m_pRenderDevice->GetCommandPool(type, m_assignedFrameIndex);
 			allocInfo.commandBufferCount = 1;
 
 			VkResult res = vkAllocateCommandBuffers(m_pRenderDevice->GetLogicalDevice(), &allocInfo, &out_cmdBuffer);
@@ -989,25 +1018,27 @@ namespace PHX
 
 	void DeviceContextVk::DeallocateCommandBuffers()
 	{
+		// Command pools are owned by RenderDeviceVk and destroyed there.
+		// We just need to clear our references — vkDeviceWaitIdle is called
+		// in RenderDeviceVk's destructor before pools are destroyed.
 		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
 		{
-			const QUEUE_TYPE currQueueType = static_cast<QUEUE_TYPE>(i);
-			VkCommandPool currPool = m_pRenderDevice->GetCommandPool(currQueueType);
-			if (currPool == VK_NULL_HANDLE)
-			{
-				// Not all queue types have a command pool (e.g. PRESENT)
-				continue;
-			}
+			m_cmdBuffers[i].clear();
+		}
+	}
 
-			// TODO - Reuse command buffers
-			CommandBufferList& cmdBufferList = m_cmdBuffers[i];
-			if (!cmdBufferList.empty())
+	void DeviceContextVk::ResetCommandBuffers()
+	{
+		// vkResetCommandPool recycles all command buffers from the pool in one call
+		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
+		{
+			QUEUE_TYPE queueType = static_cast<QUEUE_TYPE>(i);
+			VkCommandPool pool = m_pRenderDevice->GetCommandPool(queueType, m_assignedFrameIndex);
+			if (pool != VK_NULL_HANDLE)
 			{
-				vkFreeCommandBuffers(m_pRenderDevice->GetLogicalDevice(), currPool, static_cast<u32>(cmdBufferList.size()), cmdBufferList.data());
+				vkResetCommandPool(m_pRenderDevice->GetLogicalDevice(), pool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
 			}
-
-			vkResetCommandPool(m_pRenderDevice->GetLogicalDevice(), currPool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
-			cmdBufferList.clear();
+			m_cmdBuffers[i].clear();
 		}
 	}
 
@@ -1051,22 +1082,14 @@ namespace PHX
 		vkSubmitInfo.pWaitDstStageMask = &waitDstFlags;
 		vkSubmitInfo.commandBufferCount = commandBufferCount;
 		vkSubmitInfo.pCommandBuffers = pCommandBuffers;
-		vkSubmitInfo.signalSemaphoreCount = 0; // TODO
-		vkSubmitInfo.pSignalSemaphores = nullptr; // TODO
+		vkSubmitInfo.signalSemaphoreCount = syncData.signalSemaphoreCount;
+		vkSubmitInfo.pSignalSemaphores = syncData.pSignalSemaphores;
 
 		VkQueue queue = m_pRenderDevice->GetQueue(queueType);
 		VkResult res = vkQueueSubmit(queue, 1, &vkSubmitInfo, syncData.signalFence);
 		if (res != VK_SUCCESS)
 		{
 			LogError("Failed to flush command buffers! Submit call failed with error: %s", string_VkResult(res));
-			return STATUS_CODE::ERR_INTERNAL;
-		}
-
-		// TODO - Remove this waitIdle call, prefer synchronization from render graph instead
-		res = vkQueueWaitIdle(queue);
-		if (res != VK_SUCCESS)
-		{
-			LogError("Failed to wait until queue became idle after submitting! Got error: %s", string_VkResult(res));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 

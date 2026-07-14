@@ -44,18 +44,6 @@ namespace PHX
 		return 0;
 	}
 
-	STATUS_CODE SwapChainHandle::Present()
-	{
-		ISwapChain* pSwapChain = HANDLE_UTILS::ResolveHandle(*this);
-		if (pSwapChain != nullptr)
-		{
-			return pSwapChain->Present();
-		}
-
-		ASSERT_ALWAYS("Failed to present. Could not resolve swap chain handle!");
-		return STATUS_CODE::ERR_INTERNAL;
-	}
-
 	void SwapChainHandle::Resize(u32 newWidth, u32 newHeight)
 	{
 		ISwapChain* pSwapChain = HANDLE_UTILS::ResolveHandle(*this);

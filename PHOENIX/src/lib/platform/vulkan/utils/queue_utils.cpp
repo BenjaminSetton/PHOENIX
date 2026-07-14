@@ -1,5 +1,5 @@
 
-#include "queue_family_indices.h"
+#include "queue_utils.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
 
@@ -137,6 +137,11 @@ namespace PHX
 		}
 
 		return indices;
+	}
+
+	bool NeedsSynchronization(QUEUE_TYPE type)
+	{
+		return (type != QUEUE_TYPE::PRESENT);
 	}
 }
 

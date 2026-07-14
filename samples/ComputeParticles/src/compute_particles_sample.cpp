@@ -47,6 +47,10 @@ void ComputeParticlesSample::Draw()
 
 	m_renderGraph.BeginFrame(m_swapChain);
 
+	// TODO - Upload passes should be in Init, but currently cause validation errors due to frame-in-flight synchronization
+	InitializeParticleBuffer();
+	InitializeOutlineBuffers();
+
 	// Update pass - compute shader writes the particle buffer
 	RenderPassHandle updatePass;
 	phxRes = m_renderGraph.RegisterPass("ParticleUpdatePass", BIND_POINT::COMPUTE, updatePass);
@@ -62,7 +66,7 @@ void ComputeParticlesSample::Draw()
 
 			m_uniformCollection.QueueBufferUpdate(m_particlesBuffer, 0, 0, 0);
 			m_uniformCollection.QueueBufferUpdate(m_simDataBuffer, 0, 1, 0);
-			m_uniformCollection.FlushUpdateQueue();
+			deviceContext.FlushUniformUpdates(m_uniformCollection);
 
 			// Dispatch
 			deviceContext.BindUniformCollection(m_uniformCollection);
@@ -89,7 +93,7 @@ void ComputeParticlesSample::Draw()
 
 			m_drawUniformCollection.QueueBufferUpdate(m_particlesBuffer, 0, 0, 0);
 			m_drawUniformCollection.QueueBufferUpdate(m_cameraBuffer, 0, 1, 0);
-			m_drawUniformCollection.FlushUpdateQueue();
+			deviceContext.FlushUniformUpdates(m_drawUniformCollection);
 
 			// Draw commands - 6 vertices (2 triangles) per particle, no vertex/index buffer
 			deviceContext.BindUniformCollection(m_drawUniformCollection);
@@ -112,7 +116,7 @@ void ComputeParticlesSample::Draw()
 	outlinePass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
 		m_outlineUniformCollection.QueueBufferUpdate(m_cameraBuffer, 0, 0, 0);
-		m_outlineUniformCollection.FlushUpdateQueue();
+		deviceContext.FlushUniformUpdates(m_outlineUniformCollection);
 
 		deviceContext.BindUniformCollection(m_outlineUniformCollection);
 		deviceContext.SetScissor({ m_swapChain.GetWidth(), m_swapChain.GetHeight() }, { 0, 0 });
@@ -132,9 +136,7 @@ void ComputeParticlesSample::Draw()
 		m_renderGraph.GenerateVisualization(renderGraphVisName);
 	}
 
-	m_renderGraph.EndFrame();
-
-	m_swapChain.Present();
+	m_renderGraph.EndFrame(m_swapChain);
 }
 
 void ComputeParticlesSample::Init()
@@ -299,10 +301,6 @@ void ComputeParticlesSample::Init()
 	m_outlinePipelineDesc.uniformCollection = m_outlineUniformCollection;
 	m_outlinePipelineDesc.enableDepthTest   = false;
 	m_outlinePipelineDesc.enableDepthWrite  = false;
-
-	// Initialize buffers
-	InitializeParticleBuffer();
-	InitializeOutlineBuffers();
 }
 
 void ComputeParticlesSample::Shutdown()
@@ -441,14 +439,14 @@ void ComputeParticlesSample::InitializeParticleBuffer()
 				// Spawn at the top plane (world max = bottom on screen due to Vulkan Y-flip).
 				glm::vec3 position(
 					(fx - 0.5f) * 20.0f,
-					static_cast<float>(m_volumeMaxBound) - 1.0f,
+					static_cast<float>(m_volumeMinBound) + 1.0f,
 					(fz - 0.5f) * 20.0f
 				);
 
 				// Random downward velocity (world space = upward on screen).
 				glm::vec3 velocity(
 					(fy - 0.5f) * 4.0f,
-					-(1.0f + fx * 5.0f + fy * 2.0f),
+					1.0f + fx * 5.0f + fy * 2.0f,
 					(fz - 0.5f) * 4.0f
 				);
 

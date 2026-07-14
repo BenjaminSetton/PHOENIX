@@ -187,12 +187,12 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	STATUS_CODE RenderGraphHandle::EndFrame()
+	STATUS_CODE RenderGraphHandle::EndFrame(SwapChainHandle swapChain)
 	{
 		IRenderGraph* pGraph = HANDLE_UTILS::ResolveHandle(*this);
 		if (pGraph != nullptr)
 		{
-			return pGraph->EndFrame();
+			return pGraph->EndFrame(swapChain);
 		}
 
 		ASSERT_ALWAYS("Failed to end frame. Could not resolve render graph handle!");

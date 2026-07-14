@@ -44,6 +44,9 @@ void HelloTriangleSample::Draw()
 
 	m_renderGraph.BeginFrame(m_swapChain);
 
+	// TODO - Upload passes should be in Init, but currently cause validation errors due to frame-in-flight synchronization
+	UploadMeshDataToGPU();
+
 	RenderPassHandle renderPass;
 	STATUS_CODE phxRes = m_renderGraph.RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS, renderPass);
 	CHECK_PHX_RES(phxRes);
@@ -55,7 +58,7 @@ void HelloTriangleSample::Draw()
 	{
 		deviceContext.CopyDataToBuffer(m_uniformBuffer, &m_testUBO, sizeof(TestUBO));
 		m_uniformCollection.QueueBufferUpdate(m_uniformBuffer, 0, 0, 0);
-		m_uniformCollection.FlushUpdateQueue();
+		deviceContext.FlushUniformUpdates(m_uniformCollection);
 
 		deviceContext.BindUniformCollection(m_uniformCollection);
 		deviceContext.BindVertexBuffer(m_vertexBuffer);
@@ -75,9 +78,7 @@ void HelloTriangleSample::Draw()
 		m_renderGraph.GenerateVisualization(renderGraphVisName);
 	}
 
-	m_renderGraph.EndFrame();
-
-	m_swapChain.Present();
+	m_renderGraph.EndFrame(m_swapChain);
 }
 
 void HelloTriangleSample::Init()
@@ -149,9 +150,6 @@ void HelloTriangleSample::Init()
 	m_pipelineDesc.shaderCount = static_cast<u32>(m_shaders.size());
 	m_pipelineDesc.cullMode = CULL_MODE::NONE;
 	m_pipelineDesc.uniformCollection = m_uniformCollection;
-
-	// Upload mesh to GPU
-	UploadMeshDataToGPU();
 }
 
 void HelloTriangleSample::Shutdown()

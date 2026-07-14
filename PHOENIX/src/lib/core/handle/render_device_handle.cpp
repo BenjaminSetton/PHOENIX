@@ -119,18 +119,6 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	STATUS_CODE RenderDeviceHandle::AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext)
-	{
-		IRenderDevice* pDevice = HANDLE_UTILS::ResolveHandle(*this);
-		if (pDevice != nullptr)
-		{
-			return pDevice->AllocateDeviceContext(createInfo, deviceContext);
-		}
-
-		ASSERT_ALWAYS("Failed to allocate device context. Could not resolve render device handle!");
-		return STATUS_CODE::ERR_INTERNAL;
-	}
-
 	STATUS_CODE RenderDeviceHandle::AllocateAccelerationStructure(const AccelerationStructureCreateInfo& createInfo, AccelerationStructureHandle& accelerationStructure)
 	{
 		IRenderDevice* pDevice = HANDLE_UTILS::ResolveHandle(*this);

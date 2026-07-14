@@ -19,7 +19,7 @@ namespace PHX
 		TextureHandle GetCurrentImage() const override;
 		u32 GetImageCount() const override;
 		u32 GetCurrentImageIndex() const override;
-		STATUS_CODE Present() override;
+		STATUS_CODE Present(u32 currentFrameIndex) override;
 		void Resize(u32 newWidth, u32 newHeight) override;
 
 		u32 GetWidth() const override;

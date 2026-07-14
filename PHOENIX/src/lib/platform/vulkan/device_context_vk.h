@@ -36,6 +36,7 @@ namespace PHX
 		STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer) override;
 		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType) override;
 		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection) override;
+		STATUS_CODE FlushUniformUpdates(UniformCollectionHandle uniformCollection) override;
 		STATUS_CODE SetViewport(Vec2u size, Vec2u offset) override;
 		STATUS_CODE SetScissor(Vec2u size, Vec2u offset) override;
 
@@ -59,8 +60,8 @@ namespace PHX
 		STATUS_CODE SetContextualPipeline(PipelineVk* pPipeline);
 		void ResetContextualPipeline();
 
-		STATUS_CODE BeginFrame(SwapChainVk* pSwapChain, u32 frameIndex);
-		STATUS_CODE EndFrame(u32 frameIndex);
+		STATUS_CODE BeginFrame(SwapChainVk* pSwapChain);
+		STATUS_CODE EndFrame();
 
 		STATUS_CODE BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount);
 		STATUS_CODE EndRenderPass();
@@ -102,8 +103,9 @@ namespace PHX
 	private:
 
 		STATUS_CODE GetOrCreateCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer);
-		void DeallocateCommandBuffers();
 
+		void DeallocateCommandBuffers();
+		void ResetCommandBuffers();
 
 		// TODO - MOVE TO UTILS!
 		// Returns the queue type from the bind point. May return invalid result in the form of QUEUE_TYPE::COUNT!
@@ -125,7 +127,10 @@ namespace PHX
 		// of individual VMA allocations when uploading many textures/mip levels
 		StagingBufferPool m_stagingPool;
 
-		bool m_wasWorkSubmitted;
+		std::array<bool, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_queueWorkSubmitted;
+
+		// Assigned frame index, unique per device context
+		u32 m_assignedFrameIndex;
 
 		// Non-owning
 		PipelineVk* m_contextualPipeline;

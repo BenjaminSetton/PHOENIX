@@ -335,7 +335,7 @@ namespace Common
 				deviceContext.CopyDataToBuffer(m_transformBuffer, transformData, sizeof(transformData));
 				m_uniformCollection.QueueBufferUpdate(m_transformBuffer, 0, 0, 0);
 				m_uniformCollection.QueueImageUpdate(m_fontTexture, 1, 0, 0);
-				m_uniformCollection.FlushUpdateQueue();
+				deviceContext.FlushUniformUpdates(m_uniformCollection);
 
 				deviceContext.BindUniformCollection(m_uniformCollection);
 				deviceContext.SetViewport({ swapChain.GetWidth(), swapChain.GetHeight() }, { 0, 0 });

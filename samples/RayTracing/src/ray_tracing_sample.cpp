@@ -64,17 +64,19 @@ void RayTracingSample::Draw()
 		{
 			deviceContext.CopyDataToBuffer(m_cameraUniformBuffer, &m_cameraData, sizeof(CameraData));
 
-			if (!m_texturesBound)
+			for (u32 i = 0; i < m_sceneTextures.size(); i++)
 			{
-				for (u32 i = 0; i < m_sceneTextures.size(); i++)
-				{
-					m_rayTracingUniformCollection.QueueImageUpdate(m_sceneTextures[i], 2, 0, 0, i);
-				}
-				m_texturesBound = true;
+				m_rayTracingUniformCollection.QueueImageUpdate(m_sceneTextures[i], 2, 0, 0, i);
 			}
 
+			m_rayTracingUniformCollection.QueueAccelerationStructureUpdate(m_tlas, 0, 1);
+			m_rayTracingUniformCollection.QueueBufferUpdate(m_sceneVertexBuffer, 0, 2, 0);
+			m_rayTracingUniformCollection.QueueBufferUpdate(m_sceneIndexBuffer, 0, 3, 0);
+			m_rayTracingUniformCollection.QueueBufferUpdate(m_geometryInfoBuffer, 0, 4, 0);
+
+			m_rayTracingUniformCollection.QueueBufferUpdate(m_cameraUniformBuffer, 1, 0, 0);
 			m_rayTracingUniformCollection.QueueImageUpdate(m_rayTracingOutput, 0, 0, 0);
-			m_rayTracingUniformCollection.FlushUpdateQueue();
+			deviceContext.FlushUniformUpdates(m_rayTracingUniformCollection);
 
 			deviceContext.BindUniformCollection(m_rayTracingUniformCollection);
 			deviceContext.TraceRays({ m_swapChain.GetWidth(), m_swapChain.GetHeight(), 1 });
@@ -92,7 +94,7 @@ void RayTracingSample::Draw()
 		blitPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 		{
 			m_blitUniformCollection.QueueImageUpdate(m_rayTracingOutput, 0, 0, 0);
-			m_blitUniformCollection.FlushUpdateQueue();
+			deviceContext.FlushUniformUpdates(m_blitUniformCollection);
 
 			deviceContext.BindUniformCollection(m_blitUniformCollection);
 			deviceContext.BindVertexBuffer(m_blitVertexBuffer);
@@ -125,9 +127,7 @@ void RayTracingSample::Draw()
 		m_renderGraph.GenerateVisualization(renderGraphVisName);
 	}
 
-	m_renderGraph.EndFrame();
-
-	m_swapChain.Present();
+	m_renderGraph.EndFrame(m_swapChain);
 }
 
 void RayTracingSample::Init()
@@ -196,10 +196,12 @@ void RayTracingSample::Init()
 	LoadSceneAssets();
 	CreateSceneTextures();
 	CreateSceneGeometryBuffers();
+
 	if (m_rayTracingSupported)
 	{
 		BuildSceneAccelerationStructures();
 	}
+	UploadBlitVertices();
 
 	// UNIFORM COLLECTIONS
 	CreateUniformCollections();
@@ -267,8 +269,6 @@ void RayTracingSample::Init()
 		m_rayTracingPipelineDesc.shaderCount = static_cast<u32>(m_rayTracingPipelineShaders.size());
 		m_rayTracingPipelineDesc.uniformCollection = m_rayTracingUniformCollection;
 	}
-
-	UploadBlitVertices();
 }
 
 void RayTracingSample::Shutdown()
@@ -707,13 +707,6 @@ void RayTracingSample::CreateUniformCollections()
 
 	phxRes = m_renderDevice.AllocateUniformCollection(rtUniformCollectionCI, m_rayTracingUniformCollection);
 	CHECK_PHX_RES(phxRes);
-
-	m_rayTracingUniformCollection.QueueAccelerationStructureUpdate(m_tlas, 0, 1);
-	m_rayTracingUniformCollection.QueueBufferUpdate(m_sceneVertexBuffer, 0, 2, 0);
-	m_rayTracingUniformCollection.QueueBufferUpdate(m_sceneIndexBuffer, 0, 3, 0);
-	m_rayTracingUniformCollection.QueueBufferUpdate(m_geometryInfoBuffer, 0, 4, 0);
-	m_rayTracingUniformCollection.QueueBufferUpdate(m_cameraUniformBuffer, 1, 0, 0);
-	m_rayTracingUniformCollection.FlushUpdateQueue();
 }
 
 void RayTracingSample::UploadBlitVertices()

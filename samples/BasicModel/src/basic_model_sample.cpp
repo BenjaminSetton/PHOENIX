@@ -16,6 +16,7 @@ static TransformData InitializeTransform(glm::vec3 initialCameraPos, float FOV, 
 
 	// World
 	data.worldMat = glm::identity<glm::mat4>();
+	data.worldMat = glm::scale(data.worldMat, glm::vec3(0.01f));
 
 	// View (toward -Z)
 	glm::vec3 eye = initialCameraPos;
@@ -65,6 +66,9 @@ void BasicModelSample::Draw()
 
 	m_renderGraph.BeginFrame(m_swapChain);
 
+	// TODO - Upload passes should be in Init, but currently cause validation errors due to frame-in-flight synchronization
+	UploadMeshDataToGPU();
+
 	RenderPassHandle renderPass;
 	STATUS_CODE phxRes = m_renderGraph.RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS, renderPass);
 	CHECK_PHX_RES(phxRes);
@@ -79,7 +83,7 @@ void BasicModelSample::Draw()
 		// Update the transform uniform data
 		deviceContext.CopyDataToBuffer(m_uniformBuffer, &m_transform, sizeof(TransformData));
 		m_uniformCollection.QueueBufferUpdate(m_uniformBuffer, 0, 0, 0);
-		m_uniformCollection.FlushUpdateQueue();
+		deviceContext.FlushUniformUpdates(m_uniformCollection);
 		deviceContext.BindUniformCollection(m_uniformCollection);
 
 		deviceContext.BindMesh(m_vertexBuffer, m_indexBuffer);
@@ -99,9 +103,7 @@ void BasicModelSample::Draw()
 		m_renderGraph.GenerateVisualization(renderGraphVisName);
 	}
 
-	m_renderGraph.EndFrame();
-
-	m_swapChain.Present();
+	m_renderGraph.EndFrame(m_swapChain);
 }
 
 void BasicModelSample::Init()
@@ -223,9 +225,6 @@ void BasicModelSample::Init()
 	m_pipelineDesc.uniformCollection = m_uniformCollection;
 	m_pipelineDesc.enableDepthTest = true;
 	m_pipelineDesc.enableDepthWrite = true;
-
-	// Upload mesh to GPU
-	UploadMeshDataToGPU();
 }
 
 void BasicModelSample::Shutdown()

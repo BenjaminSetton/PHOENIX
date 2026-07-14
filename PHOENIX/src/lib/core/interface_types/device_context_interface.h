@@ -17,6 +17,7 @@ namespace PHX
 		virtual STATUS_CODE BindVertexBuffer(BufferHandle vertexBuffer) = 0;
 		virtual STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType) = 0;
 		virtual STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection) = 0;
+		virtual STATUS_CODE FlushUniformUpdates(UniformCollectionHandle uniformCollection) = 0;
 		virtual STATUS_CODE SetViewport(Vec2u size, Vec2u offset) = 0;
 		virtual STATUS_CODE SetScissor(Vec2u size, Vec2u offset) = 0;
 
