@@ -4,6 +4,8 @@
 
 #include "../../common/src/utils/asset_importer.h"
 #include "../../common/src/asset_manager.h"
+#include "../../common/src/serializer.h"
+#include "../../common/src/asset_file_format.h"
 
 struct AssetVertex
 {
@@ -17,28 +19,17 @@ struct AssetType
 	std::vector<Common::AssetIndexType> indices;
 };
 
-using AssetManager = Common::GenericAssetManager<AssetType>;
+using AssetManager = Common::AssetManager<AssetType>;
 
-static Common::AssetHandle ConvertAssetDiskToAssetType(const Common::AssetDisk* pAssetDisk)
+namespace Common
 {
-	AssetType newAsset;
-	const uint32_t vertexCount = static_cast<uint32_t>(pAssetDisk->vertices.size());
-
-	// VERTICES
-	for (uint32_t i = 0; i < vertexCount; i++)
+	template<>
+	struct Serializer<AssetType>
 	{
-		const Common::AssetDiskVertex& diskVert = pAssetDisk->vertices[i];
-		AssetVertex newVert;
-		newVert.position = diskVert.position;
-		newVert.normal = diskVert.normal;
+		static constexpr uint32_t TypeHash = HashTypeName("BasicModel::AssetType");
 
-		newAsset.vertices.push_back(newVert);
-	}
-
-	// INDICES
-	newAsset.indices = pAssetDisk->indices;
-
-	Common::AssetHandle id = AssetManager::Get().AddAsset(newAsset);
-
-	return id;
+		static void Write(std::ostream& os, const AssetType& asset, const std::filesystem::path& outputDir);
+		static AssetType* Read(std::istream& is, const std::filesystem::path& inputDir);
+		static AssetType* FromDisk(const AssetDisk& disk);
+	};
 }

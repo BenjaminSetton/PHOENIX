@@ -67,4 +67,6 @@ project "ComputeParticles"
 		buildoptions { "/fsanitize=address" }
 		linkoptions { "/INCREMENTAL:NO" }
 
-	SamplesCommon_CopyAsanDLL()
+	filter {}
+		SamplesCommon_SetAssetDefines()
+		SamplesCommon_CopyAsanDLL()

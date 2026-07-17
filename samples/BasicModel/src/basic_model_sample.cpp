@@ -114,8 +114,11 @@ void BasicModelSample::Init()
 
 	// LOAD MODEL
 	{
-		std::shared_ptr<Common::AssetDisk> assetDisk = Common::ImportAsset("../../common/assets/suzanne.fbx");
-		m_assetID = ConvertAssetDiskToAssetType(assetDisk.get());
+		m_assetID = AssetManager::Get().LoadOrImport("suzanne.fbx");
+		if (m_assetID == Common::INVALID_ASSET_HANDLE)
+		{
+			return;
+		}
 	}
 	const AssetType* cubeAsset = AssetManager::Get().GetAsset(m_assetID);
 

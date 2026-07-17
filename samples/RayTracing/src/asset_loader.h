@@ -4,6 +4,9 @@
 
 #include "../../common/src/utils/asset_importer.h"
 #include "../../common/src/asset_manager.h"
+#include "../../common/src/texture_type.h"
+#include "../../common/src/serializer.h"
+#include "../../common/src/asset_file_format.h"
 
 struct AssetVertex
 {
@@ -17,23 +20,6 @@ struct AssetVertex
 	float _pad3;
 	PHX::Vec2f uv;
 	float _pad4[2];
-};
-
-struct TextureMipLevel
-{
-	void* data			= nullptr;
-	PHX::Vec2u size		= {};
-	PHX::u64 dataSize; // Represents bytesPerPixel for uncompressed textures (e.g. RGBA8) and blockSize for compressed (e.g. BC1)
-};
-
-struct Texture
-{
-	const char* pName						= "UnnamedTexture";
-	Common::TEXTURE_TYPE type				= Common::TEXTURE_TYPE::MAX;
-	PHX::BASE_FORMAT format					= PHX::BASE_FORMAT::INVALID;
-	std::vector<TextureMipLevel> mipLevels	= {};
-
-	bool IsCompressed() const { return format != PHX::BASE_FORMAT::INVALID; }
 };
 
 struct Mesh
@@ -55,11 +41,22 @@ struct AssetType
 {
 	std::vector<AssetVertex> vertices;
 	std::vector<Common::AssetIndexType> indices;
-	std::vector<Texture> textures;
+	std::vector<Common::TextureType> textures;
 	std::vector<Mesh> meshes;
 	std::vector<Material> materials;
 };
 
-using AssetManager = Common::GenericAssetManager<AssetType>;
+using AssetManager = Common::AssetManager<AssetType>;
 
-Common::AssetHandle ConvertAssetDiskToAssetType(const Common::AssetDisk* pAssetDisk);
+namespace Common
+{
+	template<>
+	struct Serializer<AssetType>
+	{
+		static constexpr uint32_t TypeHash = HashTypeName("RayTracing::AssetType");
+
+		static void Write(std::ostream& os, const AssetType& asset, const std::filesystem::path& outputDir);
+		static AssetType* Read(std::istream& is, const std::filesystem::path& inputDir);
+		static AssetType* FromDisk(const AssetDisk& disk);
+	};
+}

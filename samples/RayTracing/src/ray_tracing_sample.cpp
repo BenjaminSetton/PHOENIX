@@ -282,18 +282,17 @@ void RayTracingSample::Shutdown()
 
 void RayTracingSample::LoadSceneAssets()
 {
-	std::shared_ptr<Common::AssetDisk> pAssetDisk = Common::ImportAsset("../assets/Bistro_v5_2/BistroExterior.fbx");
-	if (pAssetDisk == nullptr)
+	m_assetHandle = AssetManager::Get().LoadOrImport("Bistro_v5_2/BistroExterior.fbx");
+	if (m_assetHandle == Common::INVALID_ASSET_HANDLE)
 	{
-		std::cout << "Failed to import Bistro assets!" << std::endl;
+		std::cout << "Failed to load Bistro assets!" << std::endl;
 		return;
 	}
 
-	m_assetHandle = ConvertAssetDiskToAssetType(pAssetDisk.get());
 	m_pAsset = AssetManager::Get().GetAsset(m_assetHandle);
 	if (m_pAsset == nullptr)
 	{
-		std::cout << "Failed to convert Bistro assets!" << std::endl;
+		std::cout << "Failed to get Bistro asset!" << std::endl;
 	}
 }
 
@@ -306,7 +305,7 @@ void RayTracingSample::CreateSceneTextures()
 
 	for (u32 i = 0; i < static_cast<u32>(m_pAsset->textures.size()); i++)
 	{
-		const Texture& currTex = m_pAsset->textures[i];
+		const Common::TextureType& currTex = m_pAsset->textures[i];
 
 		const u32 numMips = static_cast<u32>(currTex.mipLevels.size());
 		if (numMips == 0)
@@ -315,7 +314,7 @@ void RayTracingSample::CreateSceneTextures()
 		}
 
 		TextureBaseCreateInfo baseCI{};
-		baseCI.pName = currTex.pName;
+		baseCI.pName = currTex.name.c_str();
 		baseCI.width = currTex.mipLevels[0].size.GetX();
 		baseCI.height = currTex.mipLevels[0].size.GetY();
 		baseCI.arrayLayers = 1;
@@ -505,10 +504,10 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 
 		for (u32 i = 0; i < m_sceneTextures.size(); i++)
 		{
-			const Texture& texSrc = m_pAsset->textures[i];
+			const Common::TextureType& texSrc = m_pAsset->textures[i];
 			for (u32 mip = 0; mip < texSrc.mipLevels.size(); mip++)
 			{
-				deviceContext.CopyDataToTexture(m_sceneTextures[i], texSrc.mipLevels[mip].data, texSrc.mipLevels[mip].dataSize, mip);
+				deviceContext.CopyDataToTexture(m_sceneTextures[i], texSrc.mipLevels[mip].data.data(), texSrc.mipLevels[mip].dataSize, mip);
 			}
 		}
 	});

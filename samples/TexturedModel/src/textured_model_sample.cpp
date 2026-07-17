@@ -158,8 +158,11 @@ void TexturedModelSample::Init()
 
 	// LOAD MODEL
 	{
-		std::shared_ptr<Common::AssetDisk> assetDisk = Common::ImportAsset("../assets/axe/scene.gltf");
-		m_assetID = ConvertAssetDiskToAssetType(assetDisk.get());
+		m_assetID = AssetManager::Get().LoadOrImport("axe/scene.gltf");
+		if (m_assetID == Common::INVALID_ASSET_HANDLE)
+		{
+			return;
+		}
 	}
 	const AssetType* axeAsset = AssetManager::Get().GetAsset(m_assetID);
 
@@ -327,7 +330,7 @@ void TexturedModelSample::CreateAssetTextures()
 
 	for (u32 i = 0; i < static_cast<u32>(pAsset->textures.size()); i++)
 	{
-		const Texture& currTex = pAsset->textures[i];
+		const Common::TextureType& currTex = pAsset->textures[i];
 
 		const u32 numMips = static_cast<u32>(currTex.mipLevels.size());
 		if(numMips == 0)
@@ -336,7 +339,7 @@ void TexturedModelSample::CreateAssetTextures()
 		}
 
 		TextureBaseCreateInfo baseCI{};
-		baseCI.pName = currTex.pName;
+		baseCI.pName = currTex.name.c_str();
 		baseCI.width = currTex.mipLevels[0].size.GetX();
 		baseCI.height = currTex.mipLevels[0].size.GetY();
 		baseCI.arrayLayers = 1;
@@ -454,12 +457,12 @@ void TexturedModelSample::UploadMeshDataToGPU()
 
 		for (u32 i = 0; i < m_assetTextures.size(); i++)
 		{
-			const Texture& texSrc = pAsset->textures[i];
+			const Common::TextureType& texSrc = pAsset->textures[i];
 			TextureHandle texDst = m_assetTextures[i];
 
 			for (u32 mip = 0; mip < texSrc.mipLevels.size(); mip++)
 			{
-				deviceContext.CopyDataToTexture(texDst, texSrc.mipLevels[mip].data, texSrc.mipLevels[mip].dataSize, mip);
+				deviceContext.CopyDataToTexture(texDst, texSrc.mipLevels[mip].data.data(), texSrc.mipLevels[mip].dataSize, mip);
 			}
 		}
 	});
