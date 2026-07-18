@@ -25,6 +25,7 @@ cmake --fresh -S %ASSIMP_SRC% -B %ASSIMP_OUT% ^
   -D ASSIMP_BUILD_GLTF_IMPORTER=ON ^
   -D ASSIMP_BUILD_GLTF2_IMPORTER=ON ^
   -D ASSIMP_BUILD_OBJ_IMPORTER=ON ^
+  -D LIBRARY_SUFFIX="-mt" ^
   -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" ^
   -D CMAKE_C_FLAGS_SANITIZER="/fsanitize=address /Zi" ^
   -D CMAKE_CXX_FLAGS_SANITIZER="/fsanitize=address /Zi" ^

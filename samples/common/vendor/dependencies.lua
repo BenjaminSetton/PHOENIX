@@ -9,7 +9,7 @@ SamplesCommon_IncludeDirs["imgui"]               = "%{wks.location}/samples/comm
 
 SamplesCommon_Libraries                          = {}
 SamplesCommon_Libraries["PHOENIX"]               = "%{wks.location}/PHOENIX/out/phx/bin/%{cfg.system}/%{configLower[cfg.buildcfg]}/%{cfg.architecture}/PHOENIX.lib"
-SamplesCommon_Libraries["assimp"]                = "%{wks.location}/samples/common/out/assimp/bin/%{cfg.system}/%{configLower[cfg.buildcfg]}/%{cfg.architecture}/assimp-vc143-mt%{ConfigMap.debugSuffix[cfg.buildcfg]}.lib"
+SamplesCommon_Libraries["assimp"]                = "%{wks.location}/samples/common/out/assimp/bin/%{cfg.system}/%{configLower[cfg.buildcfg]}/%{cfg.architecture}/assimp-mt%{ConfigMap.debugSuffix[cfg.buildcfg]}.lib"
 SamplesCommon_Libraries["assimp_zlib"]           = "%{wks.location}/samples/common/out/assimp/bin/%{cfg.system}/%{configLower[cfg.buildcfg]}/%{cfg.architecture}/zlibstatic%{ConfigMap.debugSuffix[cfg.buildcfg]}.lib"
 SamplesCommon_Libraries["glm"]                   = "%{wks.location}/samples/common/out/glm/bin/%{cfg.system}/%{configLower[cfg.buildcfg]}/%{cfg.architecture}/glm.lib"
 

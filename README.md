@@ -1,8 +1,13 @@
-# PHOENIX
+<p align="center">
+  <img src="media/logo.png" alt="PHOENIX Logo" />
+</p>
 
-A cross-platform graphics library
+<h3 align="center">A cross-platform graphics library</h3>
 
-![PHOENIX Logo](media/logo.png)
+<p align="center">
+  <a href="../../actions/workflows/ci.yml"><img src="https://github.com/BenjaminSetton/PHOENIX/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" /></a>
+  <a href="../../actions/workflows/ci.yml"><img src="https://github.com/BenjaminSetton/PHOENIX/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI Push" /></a>
+</p>
 
 ## Overview
 
