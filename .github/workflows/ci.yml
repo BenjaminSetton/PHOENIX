@@ -45,9 +45,10 @@ jobs:
           $installer = "$env:TEMP\VulkanSDK-Installer.exe"
           $url = "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/VulkanSDK-$env:VULKAN_SDK_VERSION-Installer.exe"
           Write-Host "Downloading Vulkan SDK from $url"
-          Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+          $ProgressPreference = 'SilentlyContinue'
+          (New-Object System.Net.WebClient).DownloadFile($url, $installer)
           Write-Host "Installing Vulkan SDK to $env:VULKAN_SDK"
-          Start-Process -FilePath $installer -ArgumentList "--accept-all --root $env:VULKAN_SDK" -Wait
+          Start-Process -FilePath $installer -ArgumentList "/S", "/V`"/qn INSTALLDIR=$env:VULKAN_SDK`"" -Wait
           Remove-Item $installer
 
       - name: Build GLFW
