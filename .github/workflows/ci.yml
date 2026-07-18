@@ -40,7 +40,7 @@ jobs:
       - name: Install Vulkan SDK
         if: steps.cache-vulkan.outputs.cache-hit != 'true'
         shell: pwsh
-        timeout-minutes: 15
+        timeout-minutes: 30
         run: |
           $installer = "$env:TEMP\VulkanSDK-Installer.exe"
           $url = "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/VulkanSDK-$env:VULKAN_SDK_VERSION-Installer.exe"
