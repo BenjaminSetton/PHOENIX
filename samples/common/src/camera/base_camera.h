@@ -30,7 +30,7 @@ namespace Common
 
 		glm::mat4 m_cameraMatrix; // Camera world matrix (non-inverse)
 		glm::vec3 m_position;
-		glm::vec3 m_rotation;
+		glm::vec3 m_rotation; // in degrees
 
 	private:
 

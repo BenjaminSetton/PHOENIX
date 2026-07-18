@@ -37,6 +37,18 @@ struct Material
 	std::vector<PHX::u32> textureIndices;
 };
 
+struct MaterialInfo
+{
+	PHX::u32 albedoTexIndex    = 0; // DefaultAlbedo
+	PHX::u32 normalTexIndex    = 1; // DefaultNormal
+	PHX::u32 metallicTexIndex  = 2; // DefaultMetallic
+	PHX::u32 roughnessTexIndex = 3; // DefaultRoughness
+	PHX::u32 aoTexIndex        = 4; // DefaultAO
+	PHX::u32 specularTexIndex  = 5; // DefaultSpecular
+	PHX::u32 lightmapTexIndex  = 6; // DefaultLightmap
+	PHX::u32 padding           = 0;
+};
+
 struct AssetType
 {
 	std::vector<AssetVertex> vertices;

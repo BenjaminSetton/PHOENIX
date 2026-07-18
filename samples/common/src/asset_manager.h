@@ -98,7 +98,12 @@ namespace Common
 				return INVALID_ASSET_HANDLE;
 			}
 
-			std::ifstream file(cachePath, std::ios::binary);
+			constexpr size_t READ_BUFFER_SIZE = 512 * 1024; // Use a 512KB read buffer because we generally load large assets for samples
+			std::vector<char> readBuffer(READ_BUFFER_SIZE);
+
+			std::ifstream file;
+			file.rdbuf()->pubsetbuf(readBuffer.data(), static_cast<std::streamsize>(READ_BUFFER_SIZE));
+			file.open(cachePath, std::ios::binary);
 			if (!file.is_open())
 			{
 				std::cout << "[ASSET] Failed to open cache file: '" << cachePath << "'" << std::endl;

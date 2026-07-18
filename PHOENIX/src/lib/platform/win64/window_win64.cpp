@@ -68,7 +68,6 @@ namespace PHX
 		{ GLFW_KEY_Z, KeyCode::KEY_Z },
 
 		// Utility keys
-		//	KEY_OSKEY,
 		{ GLFW_KEY_LEFT_SHIFT   , KeyCode::KEY_LSHIFT      },
 		{ GLFW_KEY_RIGHT_SHIFT  , KeyCode::KEY_RSHIFT      },
 		{ GLFW_KEY_LEFT_CONTROL , KeyCode::KEY_LCTRL       },
@@ -80,6 +79,7 @@ namespace PHX
 		{ GLFW_KEY_CAPS_LOCK    , KeyCode::KEY_CAPS        },
 		{ GLFW_KEY_ENTER        , KeyCode::KEY_ENTER       },
 		{ GLFW_KEY_BACKSPACE    , KeyCode::KEY_BACKSPACE   },
+		{ GLFW_KEY_LEFT_SUPER   , KeyCode::KEY_OSKEY       },
 		{ GLFW_KEY_ESCAPE       , KeyCode::KEY_ESC         },
 		{ GLFW_KEY_HOME         , KeyCode::KEY_HOME        },
 		{ GLFW_KEY_END          , KeyCode::KEY_END         },
@@ -416,6 +416,12 @@ namespace PHX
 	void WindowWin64::OnWindowKeyEventCallback(int key, int scancode, int action)
 	{
 		UNUSED(scancode);
+
+		if (key == GLFW_KEY_UNKNOWN)
+		{
+			LogWarning("Received unknown key in window key event callback. Ignoring...");
+			return;
+		}
 
 		auto& settings = GetSettings();
 

@@ -29,5 +29,7 @@ void main()
 
     traceRayEXT(topLevelAS, gl_RayFlagsOpaqueEXT, 0xff, 0, 0, 0, origin, tMin, direction, tMax, 0);
 
+    // Store HDR linear color — tone mapping is applied in the blit fragment shader
+    // before writing to the sRGB swapchain.
     imageStore(outputImage, pixel, vec4(hitColor, 1.0));
 }

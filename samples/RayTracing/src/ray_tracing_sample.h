@@ -36,6 +36,7 @@ private:
 	void UploadBlitVertices();
 
 	void LoadSceneAssets();
+	void CreateDefaultTextures();
 	void CreateSceneTextures();
 	void CreateSceneGeometryBuffers();
 	void BuildSceneAccelerationStructures();
@@ -67,8 +68,13 @@ private:
 	PHX::BufferHandle m_instanceBuffer;
 	PHX::BufferHandle m_cameraUniformBuffer;
 	PHX::BufferHandle m_geometryInfoBuffer;
+	PHX::BufferHandle m_materialBuffer;
 
 	std::vector<PHX::TextureHandle> m_sceneTextures;
+	// Maps an index into m_pAsset->textures to its actual slot in m_sceneTextures.
+	// Needed because CreateSceneTextures may skip textures (e.g. 0 mip levels), which
+	// would otherwise desync a naive "textureIndex + defaultTextureCount" offset.
+	std::vector<PHX::u32> m_textureIndexRemap;
 
 	PHX::AccelerationStructureHandle m_tlas;
 	std::vector<PHX::AccelerationStructureHandle> m_blas;

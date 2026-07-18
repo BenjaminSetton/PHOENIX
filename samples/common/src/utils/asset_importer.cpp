@@ -79,7 +79,7 @@ namespace Common
 #if defined(FAST_IMPORT)
 		uint32_t importFlags = aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_PreTransformVertices;
 #else
-		uint32_t importFlags = aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_FixInfacingNormals | aiProcess_FindInvalidData | aiProcess_PreTransformVertices;
+		uint32_t importFlags = aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_CalcTangentSpace | aiProcess_FindInvalidData | aiProcess_PreTransformVertices;
 #endif
 		const aiScene* scene = importer.ReadFile(filePath.string(), importFlags);
 		if (scene == nullptr || (scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE) == 1 || scene->mRootNode == nullptr)

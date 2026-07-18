@@ -20,6 +20,19 @@ static const BlitVertex s_blitTriangle[3] =
 	{ glm::vec2(-1.0f,  3.0f), glm::vec2(0.0f, 2.0f) },
 };
 
+// Default 1x1 texture pixel values (RGBA in memory byte order on little-endian)
+static const u32 s_defaultTexturePixels[] =
+{
+	0xFFFFFFFF, // albedo (white)
+	0xFFFF8080, // normal (flat, pointing +Z)
+	0xFF000000, // metallic (0)
+	0xFF808080, // roughness (~0.5)
+	0xFFFFFFFF, // AO (white)
+	0xFFFFFFFF, // specular (white)
+	0xFFFFFFFF, // lightmap (white)
+};
+static const u32 s_defaultTextureCount = sizeof(s_defaultTexturePixels) / sizeof(s_defaultTexturePixels[0]);
+
 RayTracingSample::RayTracingSample()
 {
 	Init();
@@ -55,6 +68,7 @@ void RayTracingSample::Draw()
 		rayTracingPass.SetBufferInput(m_sceneVertexBuffer);
 		rayTracingPass.SetBufferInput(m_sceneIndexBuffer);
 		rayTracingPass.SetBufferInput(m_geometryInfoBuffer);
+		rayTracingPass.SetBufferInput(m_materialBuffer);
 		for (u32 i = 0; i < m_sceneTextures.size(); i++)
 		{
 			rayTracingPass.SetTextureInput(m_sceneTextures[i]);
@@ -73,6 +87,7 @@ void RayTracingSample::Draw()
 			m_rayTracingUniformCollection.QueueBufferUpdate(m_sceneVertexBuffer, 0, 2, 0);
 			m_rayTracingUniformCollection.QueueBufferUpdate(m_sceneIndexBuffer, 0, 3, 0);
 			m_rayTracingUniformCollection.QueueBufferUpdate(m_geometryInfoBuffer, 0, 4, 0);
+			m_rayTracingUniformCollection.QueueBufferUpdate(m_materialBuffer, 0, 5, 0);
 
 			m_rayTracingUniformCollection.QueueBufferUpdate(m_cameraUniformBuffer, 1, 0, 0);
 			m_rayTracingUniformCollection.QueueImageUpdate(m_rayTracingOutput, 0, 0, 0);
@@ -138,7 +153,9 @@ void RayTracingSample::Init()
 
 	m_rayTracingSupported = m_renderDevice.IsRayTracingSupported();
 
-	m_pCamera = new Common::FreeflyCamera(2.5f, 0.15f, glm::vec3(0.0f, 5.0f, 10.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+	const glm::vec3 startingCameraPos = { -10.5, 2.0, 1.0 };
+	const glm::vec3 startingCameraRot = { 60.0f, -30.0f, 0.0f };
+	m_pCamera = new Common::FreeflyCamera(2.5f, 0.15f, startingCameraPos, startingCameraRot);
 
 	m_projMatrix = glm::perspective(glm::radians(60.0f), static_cast<float>(m_swapChain.GetWidth()) / static_cast<float>(m_swapChain.GetHeight()), 0.1f, 1000.0f);
 	m_projMatrix[1][1] *= -1.0f;
@@ -150,7 +167,7 @@ void RayTracingSample::Init()
 	rtOutputBaseCI.height = m_swapChain.GetHeight();
 	rtOutputBaseCI.mipLevels = 1;
 	rtOutputBaseCI.generateMips = false;
-	rtOutputBaseCI.format = BASE_FORMAT::R8G8B8A8_UNORM;
+	rtOutputBaseCI.format = BASE_FORMAT::R16G16B16A16_FLOAT;
 	rtOutputBaseCI.usageFlags = USAGE_TYPE_FLAG_STORAGE | USAGE_TYPE_FLAG_SAMPLED;
 	rtOutputBaseCI.sampleFlags = SAMPLE_COUNT::COUNT_1;
 
@@ -194,6 +211,7 @@ void RayTracingSample::Init()
 
 	// SCENE
 	LoadSceneAssets();
+	CreateDefaultTextures();
 	CreateSceneTextures();
 	CreateSceneGeometryBuffers();
 
@@ -296,12 +314,66 @@ void RayTracingSample::LoadSceneAssets()
 	}
 }
 
+void RayTracingSample::CreateDefaultTextures()
+{
+	// Default indices: 0=albedo(white), 1=normal(flat), 2=metallic(black), 3=roughness(mid-gray), 4=AO(white), 5=specular(white), 6=lightmap(white)
+	struct DefaultTexData
+	{
+		const char* name;
+		BASE_FORMAT format;
+	};
+
+	static const DefaultTexData defaults[] =
+	{
+		{"DefaultAlbedo",     BASE_FORMAT::R8G8B8A8_SRGB},
+		{"DefaultNormal",     BASE_FORMAT::R8G8B8A8_UNORM},
+		{"DefaultMetallic",   BASE_FORMAT::R8G8B8A8_UNORM},
+		{"DefaultRoughness",  BASE_FORMAT::R8G8B8A8_UNORM},
+		{"DefaultAO",         BASE_FORMAT::R8G8B8A8_UNORM},
+		{"DefaultSpecular",   BASE_FORMAT::R8G8B8A8_UNORM},
+		{"DefaultLightmap",   BASE_FORMAT::R8G8B8A8_UNORM},
+	};
+
+	for (u32 i = 0; i < s_defaultTextureCount; i++)
+	{
+		TextureBaseCreateInfo baseCI{};
+		baseCI.pName = defaults[i].name;
+		baseCI.width = 1;
+		baseCI.height = 1;
+		baseCI.arrayLayers = 1;
+		baseCI.generateMips = false;
+		baseCI.mipLevels = 1;
+		baseCI.format = defaults[i].format;
+		baseCI.usageFlags = USAGE_TYPE_FLAG_SAMPLED | USAGE_TYPE_FLAG_TRANSFER_DST;
+
+		TextureViewCreateInfo viewCI{};
+		viewCI.type = VIEW_TYPE::TYPE_2D;
+		viewCI.scope = VIEW_SCOPE::ENTIRE;
+		viewCI.aspectFlags = ASPECT_TYPE_FLAG_COLOR;
+
+		TextureSamplerCreateInfo samplerCI{};
+		samplerCI.addressModeUVW = SAMPLER_ADDRESS_MODE::REPEAT;
+		samplerCI.enableAnisotropicFiltering = false;
+		samplerCI.magnificationFilter = FILTER_MODE::LINEAR;
+		samplerCI.minificationFilter = FILTER_MODE::LINEAR;
+		samplerCI.samplerMipMapFilter = FILTER_MODE::LINEAR;
+
+		TextureHandle texHandle;
+		STATUS_CODE res = m_renderDevice.AllocateTexture(baseCI, viewCI, samplerCI, texHandle);
+		CHECK_PHX_RES(res);
+
+		m_sceneTextures.push_back(texHandle);
+	}
+}
+
 void RayTracingSample::CreateSceneTextures()
 {
 	if (m_pAsset == nullptr)
 	{
 		return;
 	}
+
+	m_textureIndexRemap.assign(m_pAsset->textures.size(), 0);
 
 	for (u32 i = 0; i < static_cast<u32>(m_pAsset->textures.size()); i++)
 	{
@@ -312,6 +384,8 @@ void RayTracingSample::CreateSceneTextures()
 		{
 			continue;
 		}
+
+		m_textureIndexRemap[i] = static_cast<u32>(m_sceneTextures.size());
 
 		TextureBaseCreateInfo baseCI{};
 		baseCI.pName = currTex.name.c_str();
@@ -379,7 +453,7 @@ void RayTracingSample::CreateSceneGeometryBuffers()
 		PHX::u32 firstVertex;
 		PHX::u32 firstIndex;
 		PHX::u32 materialIndex;
-		PHX::u32 textureIndex;
+		PHX::u32 padding;
 	};
 	std::vector<GeometryInfo> geometryInfos;
 	geometryInfos.reserve(m_pAsset->meshes.size());
@@ -389,7 +463,6 @@ void RayTracingSample::CreateSceneGeometryBuffers()
 		info.firstVertex = mesh.firstVertex;
 		info.firstIndex = mesh.firstIndex;
 		info.materialIndex = mesh.materialIndex;
-		info.textureIndex = m_pAsset->materials[mesh.materialIndex].textureIndices.empty() ? 0 : m_pAsset->materials[mesh.materialIndex].textureIndices[0];
 		geometryInfos.push_back(info);
 	}
 
@@ -398,6 +471,42 @@ void RayTracingSample::CreateSceneGeometryBuffers()
 	gBufferCI.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
 	gBufferCI.sizeBytes = sizeof(GeometryInfo) * geometryInfos.size();
 	phxRes = m_renderDevice.AllocateBuffer(gBufferCI, m_geometryInfoBuffer);
+	CHECK_PHX_RES(phxRes);
+
+	// Build per-material texture index mapping for PBR
+	std::vector<MaterialInfo> materialInfos;
+	materialInfos.reserve(m_pAsset->materials.size());
+	for (const Material& mat : m_pAsset->materials)
+	{
+		MaterialInfo matInfo{};
+		for (u32 texIdx : mat.textureIndices)
+		{
+			if (texIdx >= m_textureIndexRemap.size())
+				continue;
+
+			Common::TEXTURE_TYPE texType = m_pAsset->textures[texIdx].type;
+			u32 offsetIdx = m_textureIndexRemap[texIdx];
+
+			switch (texType)
+			{
+			case Common::TEXTURE_TYPE::DIFFUSE:              matInfo.albedoTexIndex    = offsetIdx; break;
+			case Common::TEXTURE_TYPE::NORMAL:               matInfo.normalTexIndex    = offsetIdx; break;
+			case Common::TEXTURE_TYPE::METALLIC:             matInfo.metallicTexIndex  = offsetIdx; break;
+			case Common::TEXTURE_TYPE::ROUGHNESS:            matInfo.roughnessTexIndex = offsetIdx; break;
+			case Common::TEXTURE_TYPE::AMBIENT_OCCLUSION:    matInfo.aoTexIndex        = offsetIdx; break;
+			case Common::TEXTURE_TYPE::SPECULAR:             matInfo.specularTexIndex  = offsetIdx; break;
+			case Common::TEXTURE_TYPE::LIGHTMAP:             matInfo.lightmapTexIndex  = offsetIdx; break;
+			default: break;
+			}
+		}
+		materialInfos.push_back(matInfo);
+	}
+
+	BufferCreateInfo matBufferCI{};
+	matBufferCI.pName = "MaterialBuffer";
+	matBufferCI.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+	matBufferCI.sizeBytes = sizeof(MaterialInfo) * materialInfos.size();
+	phxRes = m_renderDevice.AllocateBuffer(matBufferCI, m_materialBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	BufferCreateInfo camBufferCI{};
@@ -473,6 +582,7 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 	uploadGeometryPass.SetBufferOutput(m_sceneVertexBuffer);
 	uploadGeometryPass.SetBufferOutput(m_sceneIndexBuffer);
 	uploadGeometryPass.SetBufferOutput(m_geometryInfoBuffer);
+	uploadGeometryPass.SetBufferOutput(m_materialBuffer);
 	for (u32 i = 0; i < m_sceneTextures.size(); i++)
 	{
 		uploadGeometryPass.SetTextureOutput(m_sceneTextures[i], ATTACHMENT_LOAD_OP::IGNORE, ATTACHMENT_STORE_OP::STORE, {});
@@ -487,7 +597,7 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 			PHX::u32 firstVertex;
 			PHX::u32 firstIndex;
 			PHX::u32 materialIndex;
-			PHX::u32 textureIndex;
+			PHX::u32 padding;
 		};
 		std::vector<GeometryInfo> geometryInfos;
 		geometryInfos.reserve(m_pAsset->meshes.size());
@@ -497,17 +607,56 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 			info.firstVertex = mesh.firstVertex;
 			info.firstIndex = mesh.firstIndex;
 			info.materialIndex = mesh.materialIndex;
-			info.textureIndex = m_pAsset->materials[mesh.materialIndex].textureIndices.empty() ? 0 : m_pAsset->materials[mesh.materialIndex].textureIndices[0];
 			geometryInfos.push_back(info);
 		}
 		deviceContext.CopyDataToBuffer(m_geometryInfoBuffer, geometryInfos.data(), sizeof(GeometryInfo) * geometryInfos.size());
 
-		for (u32 i = 0; i < m_sceneTextures.size(); i++)
+		// Build and upload per-material texture index mapping for PBR
+		std::vector<MaterialInfo> materialInfos;
+		materialInfos.reserve(m_pAsset->materials.size());
+		for (const Material& mat : m_pAsset->materials)
+		{
+			MaterialInfo matInfo{};
+			for (u32 texIdx : mat.textureIndices)
+			{
+				if (texIdx >= m_textureIndexRemap.size())
+					continue;
+
+				Common::TEXTURE_TYPE texType = m_pAsset->textures[texIdx].type;
+				u32 offsetIdx = m_textureIndexRemap[texIdx];
+
+				switch (texType)
+				{
+				case Common::TEXTURE_TYPE::DIFFUSE:              matInfo.albedoTexIndex    = offsetIdx; break;
+				case Common::TEXTURE_TYPE::NORMAL:               matInfo.normalTexIndex    = offsetIdx; break;
+				case Common::TEXTURE_TYPE::METALLIC:             matInfo.metallicTexIndex  = offsetIdx; break;
+				case Common::TEXTURE_TYPE::ROUGHNESS:            matInfo.roughnessTexIndex = offsetIdx; break;
+				case Common::TEXTURE_TYPE::AMBIENT_OCCLUSION:    matInfo.aoTexIndex        = offsetIdx; break;
+				case Common::TEXTURE_TYPE::SPECULAR:             matInfo.specularTexIndex  = offsetIdx; break;
+				case Common::TEXTURE_TYPE::LIGHTMAP:             matInfo.lightmapTexIndex  = offsetIdx; break;
+				default: break;
+				}
+			}
+			materialInfos.push_back(matInfo);
+		}
+		deviceContext.CopyDataToBuffer(m_materialBuffer, materialInfos.data(), sizeof(MaterialInfo) * materialInfos.size());
+
+		// Upload default textures (1x1)
+		for (u32 i = 0; i < s_defaultTextureCount; i++)
+		{
+			deviceContext.CopyDataToTexture(m_sceneTextures[i], &s_defaultTexturePixels[i], sizeof(u32), 0);
+		}
+
+		// Upload scene textures (offset by default count)
+		for (u32 i = 0; i < static_cast<u32>(m_pAsset->textures.size()); i++)
 		{
 			const Common::TextureType& texSrc = m_pAsset->textures[i];
+			u32 texHandleIdx = i + s_defaultTextureCount;
+			if (texHandleIdx >= m_sceneTextures.size())
+				break;
 			for (u32 mip = 0; mip < texSrc.mipLevels.size(); mip++)
 			{
-				deviceContext.CopyDataToTexture(m_sceneTextures[i], texSrc.mipLevels[mip].data.data(), texSrc.mipLevels[mip].dataSize, mip);
+				deviceContext.CopyDataToTexture(m_sceneTextures[texHandleIdx], texSrc.mipLevels[mip].data.data(), texSrc.mipLevels[mip].dataSize, mip);
 			}
 		}
 	});
@@ -648,8 +797,8 @@ void RayTracingSample::CreateUniformCollections()
 		return;
 	}
 
-	// Ray tracing pipeline: output image, TLAS, scene buffers and camera
-	UniformData rtData[5];
+	// Ray tracing pipeline: output image, TLAS, scene buffers, material buffer and camera
+	UniformData rtData[6];
 	rtData[0].binding = 0;
 	rtData[0].shaderStage = SHADER_STAGE_FLAG_RAYGEN;
 	rtData[0].type = UNIFORM_TYPE::STORAGE_IMAGE;
@@ -665,6 +814,9 @@ void RayTracingSample::CreateUniformCollections()
 	rtData[4].binding = 4;
 	rtData[4].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT;
 	rtData[4].type = UNIFORM_TYPE::STORAGE_BUFFER;
+	rtData[5].binding = 5;
+	rtData[5].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT;
+	rtData[5].type = UNIFORM_TYPE::STORAGE_BUFFER;
 
 	UniformData cameraData{};
 	cameraData.binding = 0;
@@ -692,7 +844,7 @@ void RayTracingSample::CreateUniformCollections()
 	UniformDataGroup rtDataGroups[3];
 	rtDataGroups[0].set = 0;
 	rtDataGroups[0].uniformArray = rtData;
-	rtDataGroups[0].uniformArrayCount = 5;
+	rtDataGroups[0].uniformArrayCount = 6;
 	rtDataGroups[1].set = 1;
 	rtDataGroups[1].uniformArray = &cameraData;
 	rtDataGroups[1].uniformArrayCount = 1;
