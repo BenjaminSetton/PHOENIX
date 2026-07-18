@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main]
+
+env:
+  VULKAN_SDK_VERSION: '1.3.296.0'
+  VULKAN_SDK: 'C:\VulkanSDK'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release, Sanitizer]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Cache Vulkan SDK
+        id: cache-vulkan
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.VULKAN_SDK }}
+          key: vulkan-sdk-${{ env.VULKAN_SDK_VERSION }}
+
+      - name: Install Vulkan SDK
+        if: steps.cache-vulkan.outputs.cache-hit != 'true'
+        shell: pwsh
+        timeout-minutes: 15
+        run: |
+          $installer = "$env:TEMP\VulkanSDK-Installer.exe"
+          $url = "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/VulkanSDK-$env:VULKAN_SDK_VERSION-Installer.exe"
+          Write-Host "Downloading Vulkan SDK from $url"
+          Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+          Write-Host "Installing Vulkan SDK to $env:VULKAN_SDK"
+          Start-Process -FilePath $installer -ArgumentList "--accept-all --root $env:VULKAN_SDK" -Wait
+          Remove-Item $installer
+
+      - name: Build GLFW
+        shell: pwsh
+        run: |
+          $libOut = "$PWD/PHOENIX/out"
+          cmake --fresh -S PHOENIX/vendor/glfw -B PHOENIX/out/glfw `
+            -D GLFW_BUILD_EXAMPLES=OFF `
+            -D GLFW_BUILD_TESTS=OFF `
+            -D GLFW_BUILD_DOCS=OFF `
+            -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="$libOut/glfw/bin/windows/debug/x86_64" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="$libOut/glfw/bin/windows/release/x86_64" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$libOut/glfw/bin/windows/sanitizer/x86_64" `
+            -D CMAKE_DEBUG_POSTFIX=d `
+            -D CMAKE_SANITIZER_POSTFIX=d `
+            -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
+          cmake --build PHOENIX/out/glfw --config ${{ matrix.config }} --parallel
+
+      - name: Update glslang sources
+        shell: pwsh
+        run: |
+          pushd PHOENIX/vendor/glslang
+          python ./update_glslang_sources.py
+          popd
+
+      - name: Build glslang
+        shell: pwsh
+        run: |
+          $libOut = "$PWD/PHOENIX/out"
+          cmake --fresh -S PHOENIX/vendor/glslang -B PHOENIX/out/glslang `
+            -D GLSLANG_TESTS=OFF `
+            -D ENABLE_GLSLANG_BINARIES=OFF `
+            -D ENABLE_HLSL=OFF `
+            -D ENABLE_OPT=OFF `
+            -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" `
+            -D CMAKE_C_FLAGS_SANITIZER="/fsanitize=address /Zi" `
+            -D CMAKE_CXX_FLAGS_SANITIZER="/fsanitize=address /Zi" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="$libOut/glslang/bin/windows/debug/x86_64" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="$libOut/glslang/bin/windows/release/x86_64" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$libOut/glslang/bin/windows/sanitizer/x86_64" `
+            -D CMAKE_SANITIZER_POSTFIX=d `
+            -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
+          cmake --build PHOENIX/out/glslang --config ${{ matrix.config }} --parallel
+
+      - name: Build assimp
+        shell: pwsh
+        run: |
+          $samplesOut = "$PWD/samples/common/out"
+          cmake --fresh -S samples/common/vendor/assimp -B samples/common/out/assimp `
+            -D BUILD_SHARED_LIBS=OFF `
+            -D ASSIMP_BUILD_TESTS=OFF `
+            -D ASSIMP_BUILD_ZLIB=ON `
+            -D ASSIMP_BUILD_ASSIMP_TOOLS=OFF `
+            -D ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT=OFF `
+            -D ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT=OFF `
+            -D ASSIMP_BUILD_FBX_IMPORTER=ON `
+            -D ASSIMP_BUILD_GLTF_IMPORTER=ON `
+            -D ASSIMP_BUILD_GLTF2_IMPORTER=ON `
+            -D ASSIMP_BUILD_OBJ_IMPORTER=ON `
+            -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" `
+            -D CMAKE_C_FLAGS_SANITIZER="/fsanitize=address /Zi" `
+            -D CMAKE_CXX_FLAGS_SANITIZER="/fsanitize=address /Zi" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="$samplesOut/assimp/bin/windows/debug/x86_64" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="$samplesOut/assimp/bin/windows/release/x86_64" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$samplesOut/assimp/bin/windows/sanitizer/x86_64" `
+            -D CMAKE_SANITIZER_POSTFIX=d `
+            -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
+          cmake --build samples/common/out/assimp --config ${{ matrix.config }} --parallel
+
+      - name: Build glm
+        shell: pwsh
+        run: |
+          $samplesOut = "$PWD/samples/common/out"
+          cmake --fresh -S samples/common/vendor/glm -B samples/common/out/glm `
+            -D GLM_BUILD_LIBRARY=ON `
+            -D GLM_BUILD_TESTS=OFF `
+            -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="$samplesOut/glm/bin/windows/debug/x86_64" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="$samplesOut/glm/bin/windows/release/x86_64" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$samplesOut/glm/bin/windows/sanitizer/x86_64" `
+            -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
+          cmake --build samples/common/out/glm --config ${{ matrix.config }} --parallel
+
+      - name: Generate VS solution
+        shell: pwsh
+        run: |
+          ./PHOENIX/vendor/premake/premake5.exe vs2022
+
+      - name: Build solution
+        shell: pwsh
+        run: |
+          msbuild PHOENIX.sln /p:Configuration=${{ matrix.config }} /m
