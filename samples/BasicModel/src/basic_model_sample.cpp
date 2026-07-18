@@ -16,7 +16,7 @@ static TransformData InitializeTransform(glm::vec3 initialCameraPos, float FOV, 
 
 	// World
 	data.worldMat = glm::identity<glm::mat4>();
-	data.worldMat = glm::scale(data.worldMat, glm::vec3(0.01f));
+	data.worldMat = glm::scale(data.worldMat, glm::vec3(0.025f));
 
 	// View (toward -Z)
 	glm::vec3 eye = initialCameraPos;
@@ -65,9 +65,6 @@ void BasicModelSample::Draw()
 	clearColor.useClearColor = true;
 
 	m_renderGraph.BeginFrame(m_swapChain);
-
-	// TODO - Upload passes should be in Init, but currently cause validation errors due to frame-in-flight synchronization
-	UploadMeshDataToGPU();
 
 	RenderPassHandle renderPass;
 	STATUS_CODE phxRes = m_renderGraph.RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS, renderPass);
@@ -201,7 +198,7 @@ void BasicModelSample::Init()
 	};
 
 	// TRANSFORMS + UNIFORM BUFFER
-	glm::vec3 initialCameraPos = { 0.0f, 1.0f, -7.0f };
+	glm::vec3 initialCameraPos = { 0.0f, 0.0f, -10.0f };
 	float fov = 45.0f;
 	float aspectRatio = static_cast<float>(m_window.GetCurrentWidth()) / m_window.GetCurrentHeight();
 	m_transform = InitializeTransform(initialCameraPos, fov, aspectRatio);
@@ -220,7 +217,8 @@ void BasicModelSample::Init()
 	m_pipelineDesc.viewportPos = { 0, 0 };
 	m_pipelineDesc.polygonMode = POLYGON_MODE::FILL;
 	m_pipelineDesc.topology = PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
-	m_pipelineDesc.cullMode = CULL_MODE::FRONT;
+	m_pipelineDesc.cullMode = CULL_MODE::BACK;
+	m_pipelineDesc.frontFaceWinding = FRONT_FACE_WINDING::COUNTER_CLOCKWISE;
 	m_pipelineDesc.pShaders = m_shaders.data();
 	m_pipelineDesc.shaderCount = static_cast<u32>(m_shaders.size());
 	m_pipelineDesc.pInputAttributes = m_inputAttributes.data();
@@ -228,6 +226,9 @@ void BasicModelSample::Init()
 	m_pipelineDesc.uniformCollection = m_uniformCollection;
 	m_pipelineDesc.enableDepthTest = true;
 	m_pipelineDesc.enableDepthWrite = true;
+
+	// Upload pass
+	UploadMeshDataToGPU();
 }
 
 void BasicModelSample::Shutdown()
@@ -257,18 +258,18 @@ void BasicModelSample::CreateUniformCollection()
 
 void BasicModelSample::UploadMeshDataToGPU()
 {
-	const AssetType* cubeAsset = AssetManager::Get().GetAsset(m_assetID);
-	const u64 vBufferSizeBytes = static_cast<u64>(cubeAsset->vertices.size() * sizeof(AssetVertex));
-	const u64 iBufferSizeBytes = static_cast<u64>(cubeAsset->indices.size() * sizeof(Common::AssetIndexType));
-
 	RenderPassHandle meshUploadPass;
 	STATUS_CODE phxRes = m_renderGraph.RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER, meshUploadPass);
 	CHECK_PHX_RES(phxRes);
 
 	meshUploadPass.SetBufferOutput(m_vertexBuffer);
 	meshUploadPass.SetBufferOutput(m_indexBuffer);
-	meshUploadPass.SetExecuteCallback([&, vBufferSizeBytes, iBufferSizeBytes](DeviceContextHandle deviceContext)
+	meshUploadPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
+		const AssetType* cubeAsset = AssetManager::Get().GetAsset(m_assetID);
+		const u64 vBufferSizeBytes = static_cast<u64>(cubeAsset->vertices.size() * sizeof(AssetVertex));
+		const u64 iBufferSizeBytes = static_cast<u64>(cubeAsset->indices.size() * sizeof(Common::AssetIndexType));
+
 		const AssetType* pAsset = AssetManager::Get().GetAsset(m_assetID);
 		deviceContext.CopyDataToBuffer(m_vertexBuffer, pAsset->vertices.data(), vBufferSizeBytes);
 		deviceContext.CopyDataToBuffer(m_indexBuffer, pAsset->indices.data(), iBufferSizeBytes);

@@ -84,7 +84,7 @@ void main()
     {
         explosionCenter = vec3(
             (Hash(explosionSeed * 7u + 1u) - 0.5) * 40.0,
-            float(m_volumeMax) - Hash(explosionSeed * 11u + 3u) * 20.0,
+            float(m_volumeMin) + Hash(explosionSeed * 11u + 3u) * 20.0,
             (Hash(explosionSeed * 13u + 7u) - 0.5) * 40.0
         );
         vec3 toParticle = position - explosionCenter;
@@ -98,8 +98,8 @@ void main()
         }
     }
 
-    // Buoyancy: hot air rises. In Vulkan's flipped Y, "up on screen" is -Y.
-    velocity.y -= 5.0 * sim.deltaTime;
+    // Buoyancy: hot air rises. World-space +Y is up on screen.
+    velocity.y += 5.0 * sim.deltaTime;
 
     // Turbulent horizontal motion using time-varying noise.
     float t = sim.totalTime + seedA * 6.28;
@@ -121,23 +121,23 @@ void main()
         lifetime = 0.0;
     }
 
-    // Respawn when lifetime expires or particle sinks below the volume.
+    // Respawn when lifetime expires or particle rises above the volume.
     if (lifetime <= 0.0)
     {
-        // Spawn at the top plane (world max = bottom on screen) with random horizontal spread.
+        // Spawn at the bottom plane with random horizontal spread.
         float r1 = Hash(index * 101u + uint(sim.totalTime * 7.0));
         float r2 = Hash(index * 257u + uint(sim.totalTime * 11.0));
         float r3 = Hash(index * 401u + uint(sim.totalTime * 5.0));
         position = vec3(
             (r1 - 0.5) * 24.0,
-            float(m_volumeMax) - 1.0,
+            float(m_volumeMin) + 1.0,
             (r2 - 0.5) * 24.0
         );
 
-        // Random downward velocity (in world space = upward on screen).
+        // Random upward velocity.
         velocity = vec3(
             (seedA - 0.5) * 5.0,
-            -(1.0 + seedB * 6.0 + r3 * 3.0),
+            1.0 + seedB * 6.0 + r3 * 3.0,
             (seedC - 0.5) * 5.0
         );
 
@@ -154,9 +154,9 @@ void main()
     particle.transform = transform;
 
     // --- Color: temperature gradient based on height ---
-    // Fire rises from world max (screen bottom) to world min (screen top).
-    // Hot at spawn point (high Y) → cool at top (low Y).
-    float heightRatio = clamp((float(m_volumeMax) - position.y) / 30.0, 0.0, 1.0);
+    // Fire rises from world min (screen bottom) to world max (screen top).
+    // Hot at spawn point (low Y) → cool at top (high Y).
+    float heightRatio = clamp((position.y - float(m_volumeMin)) / 30.0, 0.0, 1.0);
     float heat = 1.0 - heightRatio;
 
     // Temperature curve: sharp white→orange near base, gradual red→dark higher up.

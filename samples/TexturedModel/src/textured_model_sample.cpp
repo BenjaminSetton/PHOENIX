@@ -55,9 +55,6 @@ TexturedModelSample::~TexturedModelSample()
 
 bool TexturedModelSample::Update(float dt)
 {
-	// Update the asset's transform
-	//m_transform.worldMat = glm::rotate(m_transform.worldMat, 0.01f, { 0.0f, -1.0f, 0.0f });
-
 	// Get the new view matrix from the camera
 	m_transform.viewMat = m_pCamera->GetViewMatrix();
 
@@ -90,9 +87,6 @@ void TexturedModelSample::Draw()
 	};
 
 	m_renderGraph.BeginFrame(m_swapChain);
-
-	// TODO - Upload passes should be in Init, but currently cause validation errors due to frame-in-flight synchronization
-	UploadMeshDataToGPU();
 
 	// Setup a new render pass for PBRPass
 	RenderPassHandle renderPass;
@@ -273,7 +267,7 @@ void TexturedModelSample::Init()
 	// TRANSFORMS + UNIFORM BUFFER
 	const float fov = 45.0f;
 	const float aspectRatio = static_cast<float>(m_window.GetCurrentWidth()) / m_window.GetCurrentHeight();
-	const float scale = 0.005f;
+	const float scale = 0.75f;
 	m_transform = InitializeTransform(m_pCamera, fov, aspectRatio, scale);
 
 	BufferCreateInfo transformUniformBufferCI{};
@@ -298,7 +292,8 @@ void TexturedModelSample::Init()
 	m_pipelineDesc.viewportPos = { 0, 0 };
 	m_pipelineDesc.polygonMode = POLYGON_MODE::FILL;
 	m_pipelineDesc.topology = PRIMITIVE_TOPOLOGY::TRIANGLE_LIST;
-	m_pipelineDesc.cullMode = CULL_MODE::FRONT;
+	m_pipelineDesc.cullMode = CULL_MODE::NONE;
+	m_pipelineDesc.frontFaceWinding = FRONT_FACE_WINDING::COUNTER_CLOCKWISE;
 	m_pipelineDesc.pShaders = m_shaders.data();
 	m_pipelineDesc.shaderCount = static_cast<u32>(m_shaders.size());
 	m_pipelineDesc.pInputAttributes = m_inputAttributes.data();
@@ -309,6 +304,9 @@ void TexturedModelSample::Init()
 
 	// ASSET TEXTURES
 	CreateAssetTextures();
+
+	// UPLOAD PASS
+	UploadMeshDataToGPU();
 }
 
 void TexturedModelSample::Shutdown()

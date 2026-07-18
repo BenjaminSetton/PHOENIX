@@ -17,7 +17,7 @@ namespace PHX
 	{
 		const char* title		= nullptr;
 		Vec2u size				= { 1920, 1080 };
-		Vec2u position			= { 0 , 0 };
+		Vec2u position			= { 0, 0 };
 		CURSOR_TYPE cursorType	= CURSOR_TYPE::SHOWN;
 		bool canResize			= true;
 	};

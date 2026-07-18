@@ -112,6 +112,8 @@ namespace Common
 		WindowCreateInfo windowCI{};
 		windowCI.cursorType = CURSOR_TYPE::SHOWN;
 		windowCI.canResize = false;
+		windowCI.size = { 2560, 1440 };
+		windowCI.position = { 400, 400 };
 
 		STATUS_CODE phxRes = PHX::CreateWindow(windowCI, m_window);
 		CHECK_PHX_RES(phxRes);

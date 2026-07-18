@@ -47,10 +47,6 @@ void ComputeParticlesSample::Draw()
 
 	m_renderGraph.BeginFrame(m_swapChain);
 
-	// TODO - Upload passes should be in Init, but currently cause validation errors due to frame-in-flight synchronization
-	InitializeParticleBuffer();
-	InitializeOutlineBuffers();
-
 	// Update pass - compute shader writes the particle buffer
 	RenderPassHandle updatePass;
 	phxRes = m_renderGraph.RegisterPass("ParticleUpdatePass", BIND_POINT::COMPUTE, updatePass);
@@ -301,6 +297,10 @@ void ComputeParticlesSample::Init()
 	m_outlinePipelineDesc.uniformCollection = m_outlineUniformCollection;
 	m_outlinePipelineDesc.enableDepthTest   = false;
 	m_outlinePipelineDesc.enableDepthWrite  = false;
+
+	// UPLOAD PASSES
+	InitializeParticleBuffer();
+	InitializeOutlineBuffers();
 }
 
 void ComputeParticlesSample::Shutdown()
@@ -436,14 +436,14 @@ void ComputeParticlesSample::InitializeParticleBuffer()
 				float fy = static_cast<float>((i * 179u) % 1000u) / 1000.0f;
 				float fz = static_cast<float>((i * 283u) % 1000u) / 1000.0f;
 
-				// Spawn at the top plane (world max = bottom on screen due to Vulkan Y-flip).
+				// Spawn at the bottom plane with upward velocity (bonfire base).
 				glm::vec3 position(
 					(fx - 0.5f) * 20.0f,
 					static_cast<float>(m_volumeMinBound) + 1.0f,
 					(fz - 0.5f) * 20.0f
 				);
 
-				// Random downward velocity (world space = upward on screen).
+				// Random upward velocity.
 				glm::vec3 velocity(
 					(fy - 0.5f) * 4.0f,
 					1.0f + fx * 5.0f + fy * 2.0f,
