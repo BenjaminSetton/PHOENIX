@@ -223,8 +223,9 @@ namespace Common
 
 		// Populate base texture info
 		const std::string filenameStr = filePath.filename().string();
-		result.pName = new char[filenameStr.size() + 1];
-		std::strcpy(result.pName, filenameStr.c_str());
+		const uint32_t fileNameSize = static_cast<uint32_t>(filenameStr.size()) + 1;
+		result.pName = new char[fileNameSize];
+		strcpy_s(result.pName, fileNameSize, filenameStr.c_str());
 		result.size = { width, height };
 		result.format = format;
 		result.bytesPerPixel = 0; // Compressed

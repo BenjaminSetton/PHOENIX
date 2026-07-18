@@ -2,11 +2,10 @@
   <img src="media/logo.png" alt="PHOENIX Logo" />
 </p>
 
-<h3 align="center">A cross-platform graphics library</h3>
+<h2 align="center">PHOENIX - A cross-platform graphics library</h3>
 
 <p align="center">
-  <a href="../../actions/workflows/ci.yml"><img src="https://github.com/BenjaminSetton/PHOENIX/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI" /></a>
-  <a href="../../actions/workflows/ci.yml"><img src="https://github.com/BenjaminSetton/PHOENIX/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI Push" /></a>
+  <a href="../../actions/workflows/ci.yml"><img src="https://github.com/BenjaminSetton/PHOENIX/actions/workflows/ci.yml/badge.svg?branch=main" alt="Build" /></a>
 </p>
 
 ## Overview
