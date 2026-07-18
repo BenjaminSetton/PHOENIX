@@ -97,6 +97,7 @@ jobs:
         run: |
           Log "Building assimp (${{ matrix.config }})..."
           $samplesOut = "$PWD/samples/common/out"
+          $assimpBase = "$samplesOut/assimp/bin/windows/x86_64"
           cmake --fresh -S samples/common/vendor/assimp -B samples/common/out/assimp `
             -D BUILD_SHARED_LIBS=OFF `
             -D ASSIMP_BUILD_TESTS=OFF `
@@ -111,6 +112,9 @@ jobs:
             -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" `
             -D CMAKE_C_FLAGS_SANITIZER="/fsanitize=address /Zi" `
             -D CMAKE_CXX_FLAGS_SANITIZER="/fsanitize=address /Zi" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY="$assimpBase" `
+            -D CMAKE_RUNTIME_OUTPUT_DIRECTORY="$assimpBase" `
+            -D CMAKE_LIBRARY_OUTPUT_DIRECTORY="$assimpBase" `
             -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="$samplesOut/assimp/bin/windows/debug/x86_64" `
             -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="$samplesOut/assimp/bin/windows/release/x86_64" `
             -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$samplesOut/assimp/bin/windows/sanitizer/x86_64" `
