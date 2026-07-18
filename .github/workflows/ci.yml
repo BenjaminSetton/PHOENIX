@@ -16,11 +16,22 @@ jobs:
       fail-fast: false
       matrix:
         config: [Debug, Release, Sanitizer]
+    defaults:
+      run:
+        shell: pwsh -NoProfile -Command ". ./ci-helpers.ps1; & '{0}'"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Setup CI helpers
+        shell: pwsh
+        run: |
+          @'
+          function Log([string]$msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" }
+          '@ | Out-File -FilePath ci-helpers.ps1 -Encoding utf8
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -39,21 +50,43 @@ jobs:
 
       - name: Install Vulkan SDK
         if: steps.cache-vulkan.outputs.cache-hit != 'true'
-        shell: pwsh
         timeout-minutes: 30
         run: |
           $installer = "$env:TEMP\VulkanSDK-Installer.exe"
           $url = "https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/VulkanSDK-$env:VULKAN_SDK_VERSION-Installer.exe"
-          Write-Host "Downloading Vulkan SDK from $url"
+
+          Log "Downloading Vulkan SDK from $url"
           $ProgressPreference = 'SilentlyContinue'
           (New-Object System.Net.WebClient).DownloadFile($url, $installer)
-          Write-Host "Installing Vulkan SDK to $env:VULKAN_SDK"
-          Start-Process -FilePath $installer -ArgumentList "/S", "/V`"/qn INSTALLDIR=$env:VULKAN_SDK`"" -Wait
+
+          $size = (Get-Item $installer).Length
+          Log "Download complete. File size: $([math]::Round($size / 1MB, 1)) MB"
+
+          if ($size -lt 1MB) {
+            Log "ERROR: Downloaded file is too small — likely an HTML redirect page, not the installer."
+            Log "First 500 bytes of content:"
+            Get-Content $installer -Raw -TotalCount 500
+            exit 1
+          }
+
+          Log "Installing Vulkan SDK to $env:VULKAN_SDK"
+          $proc = Start-Process -FilePath $installer -ArgumentList '/s', '/V"/qn INSTALLDIR=C:\VulkanSDK"' -Wait -PassThru
+          Log "Installer exited with code: $($proc.ExitCode)"
+
+          if (-not (Test-Path "$env:VULKAN_SDK\Lib\vulkan-1.lib")) {
+            Log "ERROR: vulkan-1.lib not found at $env:VULKAN_SDK\Lib\vulkan-1.lib"
+            Log "Contents of $env:VULKAN_SDK :"
+            if (Test-Path $env:VULKAN_SDK) { Get-ChildItem $env:VULKAN_SDK -Recurse -Depth 1 | Select-Object FullName }
+            else { Log "  Directory does not exist." }
+            exit 1
+          }
+
+          Log "Vulkan SDK installed successfully. vulkan-1.lib confirmed."
           Remove-Item $installer
 
       - name: Build GLFW
-        shell: pwsh
         run: |
+          Log "Building GLFW (${{ matrix.config }})..."
           $libOut = "$PWD/PHOENIX/out"
           cmake --fresh -S PHOENIX/vendor/glfw -B PHOENIX/out/glfw `
             -D GLFW_BUILD_EXAMPLES=OFF `
@@ -67,17 +100,19 @@ jobs:
             -D CMAKE_SANITIZER_POSTFIX=d `
             -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
           cmake --build PHOENIX/out/glfw --config ${{ matrix.config }} --parallel
+          Log "GLFW build complete."
 
       - name: Update glslang sources
-        shell: pwsh
         run: |
+          Log "Updating glslang sources..."
           pushd PHOENIX/vendor/glslang
           python ./update_glslang_sources.py
           popd
+          Log "glslang sources updated."
 
       - name: Build glslang
-        shell: pwsh
         run: |
+          Log "Building glslang (${{ matrix.config }})..."
           $libOut = "$PWD/PHOENIX/out"
           cmake --fresh -S PHOENIX/vendor/glslang -B PHOENIX/out/glslang `
             -D GLSLANG_TESTS=OFF `
@@ -93,10 +128,11 @@ jobs:
             -D CMAKE_SANITIZER_POSTFIX=d `
             -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
           cmake --build PHOENIX/out/glslang --config ${{ matrix.config }} --parallel
+          Log "glslang build complete."
 
       - name: Build assimp
-        shell: pwsh
         run: |
+          Log "Building assimp (${{ matrix.config }})..."
           $samplesOut = "$PWD/samples/common/out"
           cmake --fresh -S samples/common/vendor/assimp -B samples/common/out/assimp `
             -D BUILD_SHARED_LIBS=OFF `
@@ -118,10 +154,11 @@ jobs:
             -D CMAKE_SANITIZER_POSTFIX=d `
             -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
           cmake --build samples/common/out/assimp --config ${{ matrix.config }} --parallel
+          Log "assimp build complete."
 
       - name: Build glm
-        shell: pwsh
         run: |
+          Log "Building glm (${{ matrix.config }})..."
           $samplesOut = "$PWD/samples/common/out"
           cmake --fresh -S samples/common/vendor/glm -B samples/common/out/glm `
             -D GLM_BUILD_LIBRARY=ON `
@@ -132,13 +169,16 @@ jobs:
             -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$samplesOut/glm/bin/windows/sanitizer/x86_64" `
             -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
           cmake --build samples/common/out/glm --config ${{ matrix.config }} --parallel
+          Log "glm build complete."
 
       - name: Generate VS solution
-        shell: pwsh
         run: |
+          Log "Generating VS2022 solution via premake5..."
           ./PHOENIX/vendor/premake/premake5.exe vs2022
+          Log "Solution generated."
 
       - name: Build solution
-        shell: pwsh
         run: |
+          Log "Building PHOENIX.sln (${{ matrix.config }})..."
           msbuild PHOENIX.sln /p:Configuration=${{ matrix.config }} /m
+          Log "Solution build complete."
