@@ -2,7 +2,10 @@ workspace "PHOENIX"
 
 	architecture "x64"
 	startproject "ImGui"
-	
+
+	-- Enable multi-threaded builds
+	multiprocessorcompile "On"
+
 	configurations
 	{
 		"Debug",
