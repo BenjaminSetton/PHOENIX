@@ -297,8 +297,17 @@ void RayTracingSample::Init()
 		m_rayTracingHitGroups[0].anyHitShaderIndex = 4;
 		m_rayTracingHitGroups[0].intersectionShaderIndex = UINT32_MAX;
 
+		// Shader indices: 0=raygen, 1=miss, 2=shadowMiss, 3=closestHit, 4=anyHit
+		// Single hit group combining closest-hit + any-hit for alpha testing
+		m_rayTracingHitGroups.resize(1);
+		m_rayTracingHitGroups[0].closestHitShaderIndex = 3;
+		m_rayTracingHitGroups[0].anyHitShaderIndex = 4;
+		m_rayTracingHitGroups[0].intersectionShaderIndex = UINT32_MAX;
+
 		m_rayTracingPipelineDesc.pShaders = m_rayTracingPipelineShaders.data();
 		m_rayTracingPipelineDesc.shaderCount = static_cast<u32>(m_rayTracingPipelineShaders.size());
+		m_rayTracingPipelineDesc.pHitGroups = m_rayTracingHitGroups.data();
+		m_rayTracingPipelineDesc.hitGroupCount = static_cast<u32>(m_rayTracingHitGroups.size());
 		m_rayTracingPipelineDesc.pHitGroups = m_rayTracingHitGroups.data();
 		m_rayTracingPipelineDesc.hitGroupCount = static_cast<u32>(m_rayTracingHitGroups.size());
 		m_rayTracingPipelineDesc.uniformCollection = m_rayTracingUniformCollection;

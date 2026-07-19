@@ -98,6 +98,8 @@ namespace PHX
 		SHADER_ORIGIN origin = SHADER_ORIGIN::MAX;
 		SHADER_OPTIMIZATION_LEVEL optimizationLevel = SHADER_OPTIMIZATION_LEVEL::NONE;
 		bool performReflection = true;
+		const char** includePaths = nullptr; // Array of include search directory paths
+		u32 includePathCount = 0;            // Number of entries in includePaths
 	};
 
 	struct CompiledShader

@@ -1,6 +1,9 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 #extension GL_EXT_nonuniform_qualifier : require
+#extension GL_GOOGLE_include_directive : enable
+
+#include "pbr.glsl"
 
 layout(location = 0) rayPayloadInEXT vec3 hitColor;
 layout(location = 1) rayPayloadEXT float shadowFactor;
@@ -60,47 +63,6 @@ layout(set = 0, binding = 5) buffer MaterialBuffer
 
 #define MAX_TEXTURES 128
 layout(set = 2, binding = 0) uniform sampler2D textures[MAX_TEXTURES];
-
-const float PI = 3.14159265359;
-
-// GGX/Trowbridge-Reitz normal distribution function
-float DistributionGGX(vec3 N, vec3 H, float roughness)
-{
-    float a = roughness * roughness;
-    float a2 = a * a;
-    float NdotH = max(dot(N, H), 0.0);
-    float NdotH2 = NdotH * NdotH;
-    float denom = NdotH2 * (a2 - 1.0) + 1.0;
-    return a2 / max(PI * denom * denom, 0.0001);
-}
-
-// Schlick-Smith geometry function (with k remap for direct lighting)
-float GeometrySchlickGGX(float NdotV, float roughness)
-{
-    float r = roughness + 1.0;
-    float k = (r * r) / 8.0;
-    return NdotV / (NdotV * (1.0 - k) + k);
-}
-
-float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
-{
-    float NdotV = max(dot(N, V), 0.0);
-    float NdotL = max(dot(N, L), 0.0);
-    return GeometrySchlickGGX(NdotV, roughness) * GeometrySchlickGGX(NdotL, roughness);
-}
-
-// Schlick Fresnel approximation
-vec3 FresnelSchlick(float cosTheta, vec3 F0)
-{
-    return F0 + (1.0 - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-// Roughness-aware Fresnel, used for the ambient/environment specular term
-vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
-{
-    vec3 maxF = max(vec3(1.0 - roughness), F0);
-    return F0 + (maxF - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
 
 void main()
 {

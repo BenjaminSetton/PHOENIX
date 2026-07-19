@@ -8,6 +8,7 @@
 #include "core/global_settings.h"
 #include "core/object_factory.h"
 #include "utils/crc32.h"
+#include "utils/glslang_includer.h"
 #include "utils/glslang_type_converter.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
@@ -281,9 +282,19 @@ namespace PHX
 		const EShMessages messageFlags = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 		EProfile defaultProfile = ENoProfile; // NOTE: Only for desktop, before profiles showed up!
 
-		// Forbid includes in shaders for now...
-		LogWarning("Shader includes are not currently supported!");
-		glslang::TShader::ForbidIncluder includer;
+		// Build the includer. If include paths are provided, use the custom filesystem includer.
+		// Otherwise, fall back to ForbidIncluder to preserve existing behavior.
+		std::vector<std::string> includeSearchPaths;
+		for (u32 i = 0; i < srcData.includePathCount; i++)
+		{
+			includeSearchPaths.push_back(srcData.includePaths[i]);
+		}
+
+		GlslangIncluder customIncluder{includeSearchPaths};
+		glslang::TShader::ForbidIncluder forbidIncluder;
+		glslang::TShader::Includer& includer = (srcData.includePathCount > 0)
+			? static_cast<glslang::TShader::Includer&>(customIncluder)
+			: static_cast<glslang::TShader::Includer&>(forbidIncluder);
 
 		std::string preprocessedStr;
 		if (!shader.preprocess(&resources, defaultVersion, defaultProfile, false, forwardCompatible, messageFlags, &preprocessedStr, includer))
