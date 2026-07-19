@@ -248,7 +248,7 @@ namespace Common
 
 			// Register transfer pass to upload vertex/index data (vkCmdCopyBuffer cannot be called inside a render pass)
 			RenderPassHandle transferPass;
-			STATUS_CODE res = renderGraph.RegisterPass("ImGuiDataUpload", BIND_POINT::TRANSFER, transferPass);
+			STATUS_CODE res = renderGraph.RegisterPass("ImGuiDataUpload", PASS_TYPE::TRANSFER, transferPass);
 			if (res != STATUS_CODE::SUCCESS)
 			{
 				return false;
@@ -300,7 +300,7 @@ namespace Common
 		// handles clearing the swapchain. No pipeline or callback is set in that case, so the
 		// render graph skips pipeline creation and just executes begin/end render pass.
 		RenderPassHandle renderPass;
-		STATUS_CODE res = renderGraph.RegisterPass("ImGuiPass", BIND_POINT::GRAPHICS, renderPass);
+		STATUS_CODE res = renderGraph.RegisterPass("ImGuiPass", PASS_TYPE::GRAPHICS, renderPass);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return false;

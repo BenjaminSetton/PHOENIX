@@ -41,6 +41,8 @@ private:
 	void CreateSceneGeometryBuffers();
 	void BuildSceneAccelerationStructures();
 	void UpdateCameraData(float dt);
+	void LoadEnvironmentMap();
+	void CreateAccumulationImages();
 
 private:
 
@@ -71,6 +73,23 @@ private:
 	PHX::BufferHandle m_geometryInfoBuffer;
 	PHX::BufferHandle m_materialBuffer;
 
+	// Environment map
+	PHX::TextureHandle m_equirectTexture;
+	PHX::TextureHandle m_envCubeMap;
+	PHX::BufferHandle m_cubeFaceSizeBuffer;
+
+	// Equirect-to-cube compute pipeline
+	PHX::ComputePipelineDesc m_equirectToCubePipelineDesc;
+	std::vector<PHX::ShaderHandle> m_equirectToCubeShaders;
+	PHX::UniformCollectionHandle m_equirectToCubeUniformCollection;
+
+	// Progressive accumulation
+	PHX::TextureHandle m_accumulationImageA;
+	PHX::u32 m_frameCount = 0;
+	bool m_resetAccumulation = true;
+	glm::vec3 m_prevCameraPosition = glm::vec3(0.0f);
+	glm::vec3 m_prevCameraForward = glm::vec3(0.0f);
+
 	std::vector<PHX::TextureHandle> m_sceneTextures;
 	// Maps an index into m_pAsset->textures to its actual slot in m_sceneTextures.
 	// Needed because CreateSceneTextures may skip textures (e.g. 0 mip levels), which
@@ -90,6 +109,8 @@ private:
 		glm::vec3 cameraPosition;
 		float padding0;
 		glm::vec2 viewport;
+		PHX::u32 frameCount;
+		PHX::u32 resetAccumulation;
 		glm::vec2 padding1;
 	};
 	CameraData m_cameraData{};

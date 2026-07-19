@@ -556,7 +556,7 @@ namespace PHX
 		pipelineInfo.pStages = shaderStages.data();
 		pipelineInfo.groupCount = groupCount;
 		pipelineInfo.pGroups = shaderGroups.data();
-		pipelineInfo.maxPipelineRayRecursionDepth = 2;
+		pipelineInfo.maxPipelineRayRecursionDepth = createInfo.maxRecursionDepth;
 		pipelineInfo.layout = m_layout;
 		
 		vkRes = pRenderDevice->CreateRayTracingPipelinesKHR(cache, pipelineInfo, &m_pipeline);

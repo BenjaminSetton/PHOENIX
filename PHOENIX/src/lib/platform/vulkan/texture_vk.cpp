@@ -27,7 +27,7 @@ namespace PHX
 
 		m_renderDevice = renderDeviceVk;
 
-		if (CreateBaseImage(baseCreateInfo) != STATUS_CODE::SUCCESS)
+		if (CreateBaseImage(baseCreateInfo, true, IsCubeView(viewCreateInfo.type)) != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
@@ -68,7 +68,7 @@ namespace PHX
 		// NOTE - Special constructor which is only called by the swap chain. In this case, we must not make new VkImage objects, since
 		//        the swap chain owns those. Simply populate image information and leave the VkImage object as VK_NULL_HANDLE
 		//
-		if (CreateBaseImage(baseCreateInfo, false) != STATUS_CODE::SUCCESS)
+		if (CreateBaseImage(baseCreateInfo, false, false) != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
@@ -464,7 +464,7 @@ namespace PHX
 		return m_sampler;
 	}
 
-	STATUS_CODE TextureVk::CreateBaseImage(const TextureBaseCreateInfo& createInfo, bool createVkImageHandle)
+	STATUS_CODE TextureVk::CreateBaseImage(const TextureBaseCreateInfo& createInfo, bool createVkImageHandle, bool isCubeMap)
 	{
 		// Re-calculate mip count, if necessary. Vulkan disallows 0 mip levels
 		u32 mipsToUse = 1;
@@ -480,6 +480,18 @@ namespace PHX
 
 		const VkImageLayout initialImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
+		// Compute effective array layers (cube maps require at least 6 layers)
+		u32 effectiveArrayLayers = createInfo.arrayLayers;
+		VkImageCreateFlags imageCreateFlags = 0;
+		if (isCubeMap)
+		{
+			imageCreateFlags |= VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+			if (effectiveArrayLayers < 6)
+			{
+				effectiveArrayLayers = 6;
+			}
+		}
+
 		if (createVkImageHandle)
 		{
 			VkImageCreateInfo imageInfo{};
@@ -489,14 +501,14 @@ namespace PHX
 			imageInfo.extent.height = createInfo.height;
 			imageInfo.extent.depth = 1;
 			imageInfo.mipLevels = mipsToUse;
-			imageInfo.arrayLayers = createInfo.arrayLayers;
+			imageInfo.arrayLayers = effectiveArrayLayers;
 			imageInfo.format = TEX_UTILS::ConvertBaseFormat(createInfo.format);
 			imageInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 			imageInfo.initialLayout = initialImageLayout;
 			imageInfo.usage = TEX_UTILS::ConvertUsageFlags(createInfo.usageFlags);
 			imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 			imageInfo.samples = TEX_UTILS::ConvertSampleCount(createInfo.sampleFlags);
-			imageInfo.flags = 0; // TEMP - No use for these right now
+			imageInfo.flags = imageCreateFlags;
 
 			VmaAllocationCreateInfo allocCreateInfo = {};
 			allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
@@ -529,7 +541,7 @@ namespace PHX
 		m_pName = createInfo.pName;
 		m_width = createInfo.width;
 		m_height = createInfo.height;
-		m_arrayLayers = createInfo.arrayLayers;
+		m_arrayLayers = effectiveArrayLayers;
 		m_format = createInfo.format;
 		m_sampleCount = createInfo.sampleFlags;
 		m_mipLevels = mipsToUse;

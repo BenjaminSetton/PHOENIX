@@ -90,7 +90,7 @@ void TexturedModelSample::Draw()
 
 	// Setup a new render pass for PBRPass
 	RenderPassHandle renderPass;
-	phxRes = m_renderGraph.RegisterPass("PBRPass", BIND_POINT::GRAPHICS, renderPass);
+	phxRes = m_renderGraph.RegisterPass("PBRPass", PASS_TYPE::GRAPHICS, renderPass);
 	CHECK_PHX_RES(phxRes);
 
 	renderPass.SetTextureOutput(m_swapChain.GetCurrentImage(), ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, clearColor);
@@ -433,7 +433,7 @@ void TexturedModelSample::CreateUniformCollection()
 void TexturedModelSample::UploadMeshDataToGPU()
 {
 	RenderPassHandle renderPass;
-	STATUS_CODE phxRes = m_renderGraph.RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER, renderPass);
+	STATUS_CODE phxRes = m_renderGraph.RegisterPass("MeshDataUpload", PASS_TYPE::TRANSFER, renderPass);
 	CHECK_PHX_RES(phxRes);
 
 	renderPass.SetBufferOutput(m_vertexBuffer);

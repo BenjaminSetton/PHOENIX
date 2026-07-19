@@ -67,7 +67,7 @@ void BasicModelSample::Draw()
 	m_renderGraph.BeginFrame(m_swapChain);
 
 	RenderPassHandle renderPass;
-	STATUS_CODE phxRes = m_renderGraph.RegisterPass("BasicCubePass", BIND_POINT::GRAPHICS, renderPass);
+	STATUS_CODE phxRes = m_renderGraph.RegisterPass("BasicCubePass", PASS_TYPE::GRAPHICS, renderPass);
 	CHECK_PHX_RES(phxRes);
 
 	renderPass.SetBufferInput(m_vertexBuffer);
@@ -259,7 +259,7 @@ void BasicModelSample::CreateUniformCollection()
 void BasicModelSample::UploadMeshDataToGPU()
 {
 	RenderPassHandle meshUploadPass;
-	STATUS_CODE phxRes = m_renderGraph.RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER, meshUploadPass);
+	STATUS_CODE phxRes = m_renderGraph.RegisterPass("MeshDataUpload", PASS_TYPE::TRANSFER, meshUploadPass);
 	CHECK_PHX_RES(phxRes);
 
 	meshUploadPass.SetBufferOutput(m_vertexBuffer);

@@ -2,11 +2,11 @@
 
 #include <filesystem>
 #include <functional>
-#include <PHX/types/vec_types.h>
+#include <memory.h>
 #include <PHX/types/texture_desc.h>
+#include <PHX/types/vec_types.h>
 #include <string>
 #include <vector>
-#include <memory.h>
 
 //////////////////////////////////////////////////////////////////////
 //
@@ -93,4 +93,8 @@ namespace Common
 	};
 
 	std::shared_ptr<AssetDisk> ImportAsset(std::filesystem::path filePath);
+
+	// Resolves a relative path against COMMON_ASSET_ROOT_DIR and SAMPLE_ASSET_ROOT_DIR.
+	// Returns an empty path if the file cannot be found.
+	std::filesystem::path FindAssetFile(const std::filesystem::path& relativePath);
 }

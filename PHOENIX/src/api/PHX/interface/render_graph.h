@@ -17,12 +17,13 @@ namespace PHX
 {
 	typedef std::function<void(DeviceContextHandle deviceContext)> ExecuteRenderPassCallbackFn;
 
-	enum class BIND_POINT : u8
+	enum class PASS_TYPE : u8
 	{
 		GRAPHICS = 0,
 		COMPUTE,
 		TRANSFER,
-		RAY_TRACING
+		RAY_TRACING,
+		AS_BUILD
 	};
 
 	struct RenderPassHandle : public Handle
@@ -62,7 +63,7 @@ namespace PHX
 
 		STATUS_CODE BeginFrame(SwapChainHandle swapChain);
 		STATUS_CODE EndFrame(SwapChainHandle swapChain);
-		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass);
+		STATUS_CODE RegisterPass(const char* passName, PASS_TYPE passType, RenderPassHandle& renderPass);
 
 		// Bakes and executes the render graph. The swap chain is passed in so the graph can identify
 		// which passes write to the current swapchain image (the present target). Any number of passes

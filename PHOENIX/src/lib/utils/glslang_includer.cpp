@@ -109,6 +109,9 @@ namespace PHX
 
 	GlslangIncluder::IncludeResult* GlslangIncluder::readIncludeFile(const std::string& fullPath, const char* headerName)
 	{
+		// Unused
+		(void)headerName;
+
 		std::ifstream file(fullPath, std::ios::in | std::ios::binary);
 		if (!file.is_open())
 		{

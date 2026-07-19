@@ -1,16 +1,20 @@
 
+#include "tex_utils.h"
+
+#include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <iostream>
-#include <cstring>
 
-#include "dds_loader.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 namespace Common
 {
-	// DDS magic number
+	// -------- DDS constants and helpers (moved from dds_loader.cpp) --------
+
 	static constexpr uint32_t DDS_MAGIC = 0x20534444; // "DDS "
 
-	// DDS header flags
 	static constexpr uint32_t DDSD_CAPS			= 0x1;
 	static constexpr uint32_t DDSD_HEIGHT		= 0x2;
 	static constexpr uint32_t DDSD_WIDTH		= 0x4;
@@ -20,12 +24,10 @@ namespace Common
 	static constexpr uint32_t DDSD_LINEARSIZE	= 0x80000;
 	static constexpr uint32_t DDSD_DEPTH		= 0x800000;
 
-	// DDS pixel format flags
 	static constexpr uint32_t DDPF_ALPHAPIXELS	= 0x1;
 	static constexpr uint32_t DDPF_FOURCC		= 0x4;
 	static constexpr uint32_t DDPF_RGB			= 0x40;
 
-	// DDS caps2 flags
 	static constexpr uint32_t DDSCAPS2_CUBEMAP	= 0x200;
 
 #pragma pack(push, 1)
@@ -60,7 +62,6 @@ namespace Common
 		uint32_t reserved2;
 	};
 
-	// DDS Header DX10 extension (for BC6H/BC7 which require DX10 header)
 	struct DDSHeaderDXT10
 	{
 		uint32_t dxgiFormat;
@@ -71,17 +72,15 @@ namespace Common
 	};
 #pragma pack(pop)
 
-	// FourCC values for BC formats
-	static constexpr uint32_t FOURCC_DXT1	= 0x31545844; // "DXT1"
-	static constexpr uint32_t FOURCC_DXT3	= 0x33545844; // "DXT3"
-	static constexpr uint32_t FOURCC_DXT5	= 0x35545844; // "DXT5"
-	static constexpr uint32_t FOURCC_BC4U	= 0x55344342; // "BC4U"
-	static constexpr uint32_t FOURCC_BC5U	= 0x55354342; // "BC5U"
-	static constexpr uint32_t FOURCC_ATI1	= 0x31495441; // "ATI1"
-	static constexpr uint32_t FOURCC_ATI2	= 0x32495441; // "ATI2"
-	static constexpr uint32_t FOURCC_DX10	= 0x30315844; // "DX10"
+	static constexpr uint32_t FOURCC_DXT1	= 0x31545844;
+	static constexpr uint32_t FOURCC_DXT3	= 0x33545844;
+	static constexpr uint32_t FOURCC_DXT5	= 0x35545844;
+	static constexpr uint32_t FOURCC_BC4U	= 0x55344342;
+	static constexpr uint32_t FOURCC_BC5U	= 0x55354342;
+	static constexpr uint32_t FOURCC_ATI1	= 0x31495441;
+	static constexpr uint32_t FOURCC_ATI2	= 0x32495441;
+	static constexpr uint32_t FOURCC_DX10	= 0x30315844;
 
-	// DXGI formats for BC1-BC7
 	static constexpr uint32_t DXGI_FORMAT_BC1_UNORM			= 71;
 	static constexpr uint32_t DXGI_FORMAT_BC1_UNORM_SRGB	= 72;
 	static constexpr uint32_t DXGI_FORMAT_BC3_UNORM			= 77;
@@ -120,9 +119,9 @@ namespace Common
 
 		switch (fourCC)
 		{
-		case FOURCC_DXT1:	return PHX::BASE_FORMAT::BC1_RGBA_UNORM; // DXT1 can have alpha, use RGBA variant
-		case FOURCC_DXT3:	return PHX::BASE_FORMAT::BC3_UNORM;      // DXT3 maps to BC3
-		case FOURCC_DXT5:	return PHX::BASE_FORMAT::BC3_UNORM;      // DXT5 maps to BC3
+		case FOURCC_DXT1:	return PHX::BASE_FORMAT::BC1_RGBA_UNORM;
+		case FOURCC_DXT3:	return PHX::BASE_FORMAT::BC3_UNORM;
+		case FOURCC_DXT5:	return PHX::BASE_FORMAT::BC3_UNORM;
 		case FOURCC_BC4U:
 		case FOURCC_ATI1:	return PHX::BASE_FORMAT::BC4_UNORM;
 		case FOURCC_BC5U:
@@ -158,10 +157,90 @@ namespace Common
 
 	static uint64_t CalculateCompressedMipSize(uint32_t width, uint32_t height, uint32_t blockSize)
 	{
-		// BC formats use 4x4 blocks. Each block is 'blockSize' bytes.
 		uint32_t blocksX = (width + 3) / 4;
 		uint32_t blocksY = (height + 3) / 4;
 		return static_cast<uint64_t>(blocksX) * blocksY * blockSize;
+	}
+
+	AssetDiskTexture AllocateTexture(const char* pName, void* ownedData, PHX::Vec2u size, PHX::u32 bytesPerPixel, TEXTURE_TYPE type)
+	{
+		AssetDiskTexture diskTex{};
+		if (ownedData == nullptr)
+		{
+			return diskTex;
+		}
+
+		const uint32_t nameSize = static_cast<uint32_t>(strlen(pName)) + 1;
+		diskTex.pName = new char[nameSize];
+		strcpy_s(diskTex.pName, nameSize, pName);
+
+		diskTex.pData = ownedData;
+		diskTex.size = size;
+		diskTex.type = type;
+		diskTex.bytesPerPixel = bytesPerPixel;
+
+		return diskTex;
+	}
+
+	AssetDiskTexture LoadTexture(const std::filesystem::path& filePath, TEXTURE_TYPE type)
+	{
+		AssetDiskTexture result{};
+
+		std::string filePathStr = filePath.string();
+		int width = 0;
+		int height = 0;
+		int channels = 0;
+		stbi_uc* pixels = stbi_load(filePathStr.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+		if (pixels == nullptr)
+		{
+			std::cout << "[TEXTURE] Failed to load texture '" << filePathStr << "': " << stbi_failure_reason() << std::endl;
+			return result;
+		}
+
+		const uint32_t w = static_cast<uint32_t>(width);
+		const uint32_t h = static_cast<uint32_t>(height);
+		const uint64_t numBytes = static_cast<uint64_t>(w) * h * 4; // RGBA8
+
+		void* ownedData = new char[numBytes];
+		memcpy(ownedData, pixels, numBytes);
+		stbi_image_free(pixels);
+
+		result = AllocateTexture(filePath.filename().string().c_str(), ownedData, { w, h }, 4, type);
+
+		std::cout << "[TEXTURE] Loaded '" << filePath.filename().string() << "' (" << width << "x" << height << ", " << channels << " channels, forced RGBA8)" << std::endl;
+
+		return result;
+	}
+
+	AssetDiskTexture LoadHDRTexture(const std::filesystem::path& filePath, TEXTURE_TYPE type)
+	{
+		AssetDiskTexture result{};
+
+		std::string filePathStr = filePath.string();
+		int width = 0;
+		int height = 0;
+		int channels = 0;
+		float* pixels = stbi_loadf(filePathStr.c_str(), &width, &height, &channels, 4);
+		if (pixels == nullptr)
+		{
+			std::cout << "[TEXTURE] Failed to load HDR texture '" << filePathStr << "': " << stbi_failure_reason() << std::endl;
+			return result;
+		}
+
+		const uint32_t w = static_cast<uint32_t>(width);
+		const uint32_t h = static_cast<uint32_t>(height);
+		const uint64_t numBytes = static_cast<uint64_t>(w) * h * 4 * sizeof(float);
+
+		void* ownedData = new char[numBytes];
+		memcpy(ownedData, pixels, numBytes);
+		stbi_image_free(pixels);
+
+		result = AllocateTexture(filePath.filename().string().c_str(), ownedData, { w, h }, 16, type);
+		result.format = PHX::BASE_FORMAT::R32G32B32A32_FLOAT;
+
+		std::cout << "[TEXTURE] Loaded HDR '" << filePath.filename().string() << "' (" << width << "x" << height << ", " << channels << " channels, forced RGBA32F)" << std::endl;
+
+		return result;
 	}
 
 	AssetDiskTexture LoadDDS(const std::filesystem::path& filePath, TEXTURE_TYPE type)
@@ -176,7 +255,6 @@ namespace Common
 			return result;
 		}
 
-		// Read header
 		DDSHeader header{};
 		file.read(reinterpret_cast<char*>(&header), sizeof(DDSHeader));
 
@@ -192,7 +270,6 @@ namespace Common
 			return result;
 		}
 
-		// Check for DX10 extension
 		DDSHeaderDXT10 dxt10{};
 		DDSHeaderDXT10* pDXT10 = nullptr;
 		if (header.pixelFormat.fourCC == FOURCC_DX10)
@@ -201,7 +278,6 @@ namespace Common
 			pDXT10 = &dxt10;
 		}
 
-		// Determine the BC format
 		PHX::BASE_FORMAT format = FourCCToBaseFormat(header.pixelFormat.fourCC, pDXT10);
 		if (format == PHX::BASE_FORMAT::INVALID)
 		{
@@ -216,22 +292,19 @@ namespace Common
 			return result;
 		}
 
-		// Get texture dimensions and mip count
 		uint32_t width = header.width;
 		uint32_t height = header.height;
 		uint32_t mipCount = (header.flags & DDSD_MIPMAPCOUNT) ? header.mipMapCount : 1;
 
-		// Populate base texture info
 		const std::string filenameStr = filePath.filename().string();
 		const uint32_t fileNameSize = static_cast<uint32_t>(filenameStr.size()) + 1;
 		result.pName = new char[fileNameSize];
 		strcpy_s(result.pName, fileNameSize, filenameStr.c_str());
 		result.size = { width, height };
 		result.format = format;
-		result.bytesPerPixel = 0; // Compressed
+		result.bytesPerPixel = 0;
 		result.mipLevels.resize(mipCount);
 
-		// Read each mip level
 		uint32_t curWidth = width;
 		uint32_t curHeight = height;
 
@@ -249,7 +322,7 @@ namespace Common
 
 			if (mip == 0)
 			{
-				result.pData = pMipData; // mip 0 is also accessible via pData
+				result.pData = pMipData;
 			}
 
 			curWidth = (curWidth > 1) ? curWidth / 2 : 1;
@@ -259,5 +332,35 @@ namespace Common
 		std::cout << "[DDS] Loaded \"" << filePath.filename().string() << "\" (" << width << "x" << height << ", " << mipCount << " mips)" << std::endl;
 
 		return result;
+	}
+
+	void FreeTextureData(AssetDiskTexture& tex)
+	{
+		if (tex.pName != nullptr)
+		{
+			delete[] tex.pName;
+			tex.pName = nullptr;
+		}
+
+		// For DDS textures, mip 0's pData points into mipLevels[0].pData, so we only
+		// need to free the mip chain. For non-DDS textures, pData is a standalone allocation.
+		if (!tex.mipLevels.empty())
+		{
+			for (auto& mip : tex.mipLevels)
+			{
+				if (mip.pData != nullptr)
+				{
+					delete[] static_cast<char*>(mip.pData);
+					mip.pData = nullptr;
+				}
+			}
+			tex.mipLevels.clear();
+			tex.pData = nullptr; // pData was aliased to mipLevels[0]
+		}
+		else if (tex.pData != nullptr)
+		{
+			delete[] static_cast<char*>(tex.pData);
+			tex.pData = nullptr;
+		}
 	}
 }

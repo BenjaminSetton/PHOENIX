@@ -38,6 +38,13 @@ namespace PHX
 			return alloc;
 		}
 
+		const u64 maxBufferSize = m_renderDevice->GetDeviceProperties().limits.maxStorageBufferRange;
+		if (sizeBytes > maxBufferSize)
+		{
+			LogError("Requested staging allocation size (%llu bytes) exceeds device max buffer range (%llu bytes)!", sizeBytes, maxBufferSize);
+			return alloc;
+		}
+
 		if (sizeBytes == 0 || alignment == 0)
 		{
 			LogWarning("Skipped staging pool allocation. Size or alignment is 0!");

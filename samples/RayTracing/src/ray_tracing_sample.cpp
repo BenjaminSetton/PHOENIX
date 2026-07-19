@@ -2,12 +2,16 @@
 #include <array>
 #include <cfloat>
 #include <iostream>
+#include <vector>
 
 #include "ray_tracing_sample.h"
 
 #include <gtc/matrix_transform.hpp>
+#include <gtc/packing.hpp>
 
 #include "../../common/src/utils/shader_utils.h"
+#include "../../common/src/utils/asset_importer.h"
+#include "../../common/src/utils/tex_utils.h"
 
 using namespace PHX;
 
@@ -54,21 +58,30 @@ void RayTracingSample::Draw()
 {
 	STATUS_CODE phxRes;
 
-	m_renderGraph.BeginFrame(m_swapChain);
+	if (m_renderGraph.BeginFrame(m_swapChain) != STATUS_CODE::SUCCESS)
+	{
+		return;
+	}
 
 	if (m_rayTracingSupported)
 	{
+		// Update frame counter and reset state
+		m_cameraData.frameCount = m_frameCount;
+		m_cameraData.resetAccumulation = m_resetAccumulation ? 1u : 0u;
+
 		// Ray tracing pass - writes the output image
 		RenderPassHandle rayTracingPass;
-		phxRes = m_renderGraph.RegisterPass("RayTracingPass", BIND_POINT::RAY_TRACING, rayTracingPass);
+		phxRes = m_renderGraph.RegisterPass("RayTracingPass", PASS_TYPE::RAY_TRACING, rayTracingPass);
 		CHECK_PHX_RES(phxRes);
 
 		rayTracingPass.SetTextureOutput(m_rayTracingOutput, ATTACHMENT_LOAD_OP::IGNORE, ATTACHMENT_STORE_OP::STORE, {});
+		rayTracingPass.SetTextureOutput(m_accumulationImageA, ATTACHMENT_LOAD_OP::IGNORE, ATTACHMENT_STORE_OP::STORE, {});
 		rayTracingPass.SetAccelerationStructureInput(m_tlas);
 		rayTracingPass.SetBufferInput(m_sceneVertexBuffer);
 		rayTracingPass.SetBufferInput(m_sceneIndexBuffer);
 		rayTracingPass.SetBufferInput(m_geometryInfoBuffer);
 		rayTracingPass.SetBufferInput(m_materialBuffer);
+		rayTracingPass.SetTextureInput(m_envCubeMap);
 		for (u32 i = 0; i < m_sceneTextures.size(); i++)
 		{
 			rayTracingPass.SetTextureInput(m_sceneTextures[i]);
@@ -88,6 +101,8 @@ void RayTracingSample::Draw()
 			m_rayTracingUniformCollection.QueueBufferUpdate(m_sceneIndexBuffer, 0, 3, 0);
 			m_rayTracingUniformCollection.QueueBufferUpdate(m_geometryInfoBuffer, 0, 4, 0);
 			m_rayTracingUniformCollection.QueueBufferUpdate(m_materialBuffer, 0, 5, 0);
+			m_rayTracingUniformCollection.QueueImageUpdate(m_envCubeMap, 0, 6, 0);
+			m_rayTracingUniformCollection.QueueImageUpdate(m_accumulationImageA, 0, 7, 0);
 
 			m_rayTracingUniformCollection.QueueBufferUpdate(m_cameraUniformBuffer, 1, 0, 0);
 			m_rayTracingUniformCollection.QueueImageUpdate(m_rayTracingOutput, 0, 0, 0);
@@ -99,7 +114,7 @@ void RayTracingSample::Draw()
 
 		// Blit pass - samples the ray tracing output and draws to the swapchain
 		RenderPassHandle blitPass;
-		phxRes = m_renderGraph.RegisterPass("BlitPass", BIND_POINT::GRAPHICS, blitPass);
+		phxRes = m_renderGraph.RegisterPass("BlitPass", PASS_TYPE::GRAPHICS, blitPass);
 		CHECK_PHX_RES(phxRes);
 
 		blitPass.SetBufferInput(m_blitVertexBuffer);
@@ -117,12 +132,20 @@ void RayTracingSample::Draw()
 			deviceContext.SetScissor({ m_swapChain.GetWidth(), m_swapChain.GetHeight() }, { 0, 0 });
 			deviceContext.Draw(3);
 		});
+
+		// Update accumulation state for next frame
+		if (m_resetAccumulation)
+		{
+			m_frameCount = 0;
+			m_resetAccumulation = false;
+		}
+		m_frameCount++;
 	}
 	else
 	{
 		// Fallback clear-screen pass
 		RenderPassHandle clearPass;
-		phxRes = m_renderGraph.RegisterPass("ClearPass", BIND_POINT::GRAPHICS, clearPass);
+		phxRes = m_renderGraph.RegisterPass("ClearPass", PASS_TYPE::GRAPHICS, clearPass);
 		CHECK_PHX_RES(phxRes);
 
 		ClearValues clearVals{};
@@ -218,6 +241,8 @@ void RayTracingSample::Init()
 	if (m_rayTracingSupported)
 	{
 		BuildSceneAccelerationStructures();
+		LoadEnvironmentMap();
+		CreateAccumulationImages();
 	}
 	UploadBlitVertices();
 
@@ -290,27 +315,31 @@ void RayTracingSample::Init()
 		}
 		m_rayTracingPipelineShaders.push_back(anyHitShader);
 
-		// Shader indices: 0=raygen, 1=miss, 2=shadowMiss, 3=closestHit, 4=anyHit
-		// Single hit group combining closest-hit + any-hit for alpha testing
-		m_rayTracingHitGroups.resize(1);
-		m_rayTracingHitGroups[0].closestHitShaderIndex = 3;
-		m_rayTracingHitGroups[0].anyHitShaderIndex = 4;
-		m_rayTracingHitGroups[0].intersectionShaderIndex = UINT32_MAX;
+		ShaderHandle bounceClosestHitShader;
+		if (!Common::AllocateShader("../src/shaders/bounce_closesthit.rchit", SHADER_STAGE::CLOSEST_HIT, m_renderDevice, bounceClosestHitShader))
+		{
+			return;
+		}
+		m_rayTracingPipelineShaders.push_back(bounceClosestHitShader);
 
-		// Shader indices: 0=raygen, 1=miss, 2=shadowMiss, 3=closestHit, 4=anyHit
-		// Single hit group combining closest-hit + any-hit for alpha testing
-		m_rayTracingHitGroups.resize(1);
+		// Shader indices: 0=raygen, 1=miss, 2=shadowMiss, 3=closestHit, 4=anyHit, 5=bounceClosestHit
+		// Hit group 0: full closest-hit + any-hit (for primary rays — traces shadow + bounce)
+		// Hit group 1: bounce closest-hit + any-hit (for bounce rays — traces shadow only, no further bounce)
+		m_rayTracingHitGroups.resize(2);
 		m_rayTracingHitGroups[0].closestHitShaderIndex = 3;
 		m_rayTracingHitGroups[0].anyHitShaderIndex = 4;
 		m_rayTracingHitGroups[0].intersectionShaderIndex = UINT32_MAX;
+		m_rayTracingHitGroups[1].closestHitShaderIndex = 5;
+		m_rayTracingHitGroups[1].anyHitShaderIndex = 4;
+		m_rayTracingHitGroups[1].intersectionShaderIndex = UINT32_MAX;
 
 		m_rayTracingPipelineDesc.pShaders = m_rayTracingPipelineShaders.data();
 		m_rayTracingPipelineDesc.shaderCount = static_cast<u32>(m_rayTracingPipelineShaders.size());
 		m_rayTracingPipelineDesc.pHitGroups = m_rayTracingHitGroups.data();
 		m_rayTracingPipelineDesc.hitGroupCount = static_cast<u32>(m_rayTracingHitGroups.size());
-		m_rayTracingPipelineDesc.pHitGroups = m_rayTracingHitGroups.data();
-		m_rayTracingPipelineDesc.hitGroupCount = static_cast<u32>(m_rayTracingHitGroups.size());
 		m_rayTracingPipelineDesc.uniformCollection = m_rayTracingUniformCollection;
+		// raygen(0) -> closesthit(0) -> shadow ray(1) + bounce ray(1) -> bounceClosesthit(1) -> shadow ray(2) = depth 2
+		m_rayTracingPipelineDesc.maxRecursionDepth = 2;
 	}
 }
 
@@ -602,7 +631,7 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 
 	// Build ASes by registering the passes here; the first Draw frame will execute them
 	RenderPassHandle uploadGeometryPass;
-	phxRes = m_renderGraph.RegisterPass("UploadGeometry", BIND_POINT::TRANSFER, uploadGeometryPass);
+	phxRes = m_renderGraph.RegisterPass("UploadGeometry", PASS_TYPE::TRANSFER, uploadGeometryPass);
 	CHECK_PHX_RES(phxRes);
 
 	uploadGeometryPass.SetBufferOutput(m_sceneVertexBuffer);
@@ -688,7 +717,7 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 	});
 
 	RenderPassHandle buildBLASPass;
-	phxRes = m_renderGraph.RegisterPass("BuildBLAS", BIND_POINT::TRANSFER, buildBLASPass);
+	phxRes = m_renderGraph.RegisterPass("BuildBLAS", PASS_TYPE::AS_BUILD, buildBLASPass);
 	CHECK_PHX_RES(phxRes);
 
 	buildBLASPass.SetBufferInput(m_sceneVertexBuffer);
@@ -761,7 +790,7 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 	});
 
 	RenderPassHandle buildTLASPass;
-	phxRes = m_renderGraph.RegisterPass("BuildTLAS", BIND_POINT::TRANSFER, buildTLASPass);
+	phxRes = m_renderGraph.RegisterPass("BuildTLAS", PASS_TYPE::AS_BUILD, buildTLASPass);
 	CHECK_PHX_RES(phxRes);
 
 	buildTLASPass.SetBufferInput(m_instanceBuffer);
@@ -789,6 +818,22 @@ void RayTracingSample::UpdateCameraData(float dt)
 	m_cameraData.projInverse = glm::inverse(m_projMatrix);
 	m_cameraData.cameraPosition = m_pCamera->GetPosition();
 	m_cameraData.viewport = glm::vec2(static_cast<float>(m_swapChain.GetWidth()), static_cast<float>(m_swapChain.GetHeight()));
+
+	// Detect camera movement to reset accumulation
+	if (m_rayTracingSupported)
+	{
+		glm::vec3 currentPos = m_pCamera->GetPosition();
+		glm::vec3 currentForward = glm::vec3(m_cameraData.viewInverse[2]);
+
+		if (glm::distance(currentPos, m_prevCameraPosition) > 0.001f ||
+			glm::distance(currentForward, m_prevCameraForward) > 0.001f)
+		{
+			m_resetAccumulation = true;
+		}
+
+		m_prevCameraPosition = currentPos;
+		m_prevCameraForward = currentForward;
+	}
 }
 
 void RayTracingSample::OverrideSettings(Settings& settings)
@@ -823,8 +868,8 @@ void RayTracingSample::CreateUniformCollections()
 		return;
 	}
 
-	// Ray tracing pipeline: output image, TLAS, scene buffers, material buffer and camera
-	UniformData rtData[6];
+	// Ray tracing pipeline: output image, TLAS, scene buffers, material buffer, env cube map, accumulation image
+	UniformData rtData[8];
 	rtData[0].binding = 0;
 	rtData[0].shaderStage = SHADER_STAGE_FLAG_RAYGEN;
 	rtData[0].type = UNIFORM_TYPE::STORAGE_IMAGE;
@@ -843,6 +888,12 @@ void RayTracingSample::CreateUniformCollections()
 	rtData[5].binding = 5;
 	rtData[5].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
 	rtData[5].type = UNIFORM_TYPE::STORAGE_BUFFER;
+	rtData[6].binding = 6;
+	rtData[6].shaderStage = SHADER_STAGE_FLAG_MISS | SHADER_STAGE_FLAG_CLOSEST_HIT;
+	rtData[6].type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
+	rtData[7].binding = 7;
+	rtData[7].shaderStage = SHADER_STAGE_FLAG_RAYGEN;
+	rtData[7].type = UNIFORM_TYPE::STORAGE_IMAGE;
 
 	UniformData cameraData{};
 	cameraData.binding = 0;
@@ -870,7 +921,7 @@ void RayTracingSample::CreateUniformCollections()
 	UniformDataGroup rtDataGroups[3];
 	rtDataGroups[0].set = 0;
 	rtDataGroups[0].uniformArray = rtData;
-	rtDataGroups[0].uniformArrayCount = 6;
+	rtDataGroups[0].uniformArrayCount = 8;
 	rtDataGroups[1].set = 1;
 	rtDataGroups[1].uniformArray = &cameraData;
 	rtDataGroups[1].uniformArrayCount = 1;
@@ -889,7 +940,7 @@ void RayTracingSample::CreateUniformCollections()
 void RayTracingSample::UploadBlitVertices()
 {
 	RenderPassHandle uploadPass;
-	STATUS_CODE phxRes = m_renderGraph.RegisterPass("UploadBlitVertices", BIND_POINT::TRANSFER, uploadPass);
+	STATUS_CODE phxRes = m_renderGraph.RegisterPass("UploadBlitVertices", PASS_TYPE::TRANSFER, uploadPass);
 	CHECK_PHX_RES(phxRes);
 
 	uploadPass.SetBufferOutput(m_blitVertexBuffer);
@@ -897,4 +948,220 @@ void RayTracingSample::UploadBlitVertices()
 	{
 		deviceContext.CopyDataToBuffer(m_blitVertexBuffer, s_blitTriangle, sizeof(BlitVertex) * 3);
 	});
+}
+
+void RayTracingSample::LoadEnvironmentMap()
+{
+	STATUS_CODE phxRes;
+
+	// Load HDR image using common utility (resolves asset root paths)
+	std::filesystem::path hdrPath = Common::FindAssetFile("Bistro_v5_2/san_giuseppe_bridge_4k.hdr");
+	if (hdrPath.empty())
+	{
+		std::cout << "Failed to find HDR environment map!" << std::endl;
+		return;
+	}
+
+	Common::AssetDiskTexture hdrTex = Common::LoadHDRTexture(hdrPath);
+	if (hdrTex.pData == nullptr)
+	{
+		std::cout << "Failed to load HDR environment map!" << std::endl;
+		return;
+	}
+
+	const u32 width = hdrTex.size.GetX();
+	const u32 height = hdrTex.size.GetY();
+
+	// Create equirectangular 2D texture
+	TextureBaseCreateInfo equirectBaseCI{};
+	equirectBaseCI.pName = "EquirectEnvMap";
+	equirectBaseCI.width = width;
+	equirectBaseCI.height = height;
+	equirectBaseCI.mipLevels = 1;
+	equirectBaseCI.generateMips = false;
+	equirectBaseCI.arrayLayers = 1;
+	equirectBaseCI.format = BASE_FORMAT::R16G16B16A16_FLOAT;
+	equirectBaseCI.usageFlags = USAGE_TYPE_FLAG_SAMPLED | USAGE_TYPE_FLAG_TRANSFER_DST;
+	equirectBaseCI.sampleFlags = SAMPLE_COUNT::COUNT_1;
+
+	TextureViewCreateInfo equirectViewCI{};
+	equirectViewCI.type = VIEW_TYPE::TYPE_2D;
+	equirectViewCI.scope = VIEW_SCOPE::ENTIRE;
+	equirectViewCI.aspectFlags = ASPECT_TYPE_FLAG_COLOR;
+
+	TextureSamplerCreateInfo equirectSamplerCI{};
+	equirectSamplerCI.addressModeUVW = SAMPLER_ADDRESS_MODE::CLAMP_TO_EDGE;
+	equirectSamplerCI.enableAnisotropicFiltering = false;
+	equirectSamplerCI.magnificationFilter = FILTER_MODE::LINEAR;
+	equirectSamplerCI.minificationFilter = FILTER_MODE::LINEAR;
+	equirectSamplerCI.samplerMipMapFilter = FILTER_MODE::LINEAR;
+
+	phxRes = m_renderDevice.AllocateTexture(equirectBaseCI, equirectViewCI, equirectSamplerCI, m_equirectTexture);
+	if (phxRes != STATUS_CODE::SUCCESS)
+	{
+		std::cout << "Failed to allocate equirectangular texture!" << std::endl;
+		Common::FreeTextureData(hdrTex);
+		return;
+	}
+
+	// Convert float32 to float16 for upload (R16G16B16A16_FLOAT)
+	const float* pFloatData = static_cast<const float*>(hdrTex.pData);
+	const u32 pixelCount = width * height;
+	std::vector<uint16_t> halfData(pixelCount * 4);
+	for (u32 i = 0; i < pixelCount * 4; i++)
+	{
+		halfData[i] = glm::packHalf1x16(pFloatData[i]);
+	}
+
+	const u64 dataSize = static_cast<u64>(pixelCount) * 4 * sizeof(uint16_t);
+
+	// Free the HDR float data now that we've converted to half-float
+	Common::FreeTextureData(hdrTex);
+
+	// Create cube map texture (512x512 per face)
+	constexpr u32 CUBE_FACE_SIZE = 512;
+	TextureBaseCreateInfo cubeBaseCI{};
+	cubeBaseCI.pName = "EnvCubeMap";
+	cubeBaseCI.width = CUBE_FACE_SIZE;
+	cubeBaseCI.height = CUBE_FACE_SIZE;
+	cubeBaseCI.mipLevels = 1;
+	cubeBaseCI.generateMips = false;
+	cubeBaseCI.arrayLayers = 6;
+	cubeBaseCI.format = BASE_FORMAT::R16G16B16A16_FLOAT;
+	cubeBaseCI.usageFlags = USAGE_TYPE_FLAG_STORAGE | USAGE_TYPE_FLAG_SAMPLED;
+	cubeBaseCI.sampleFlags = SAMPLE_COUNT::COUNT_1;
+
+	TextureViewCreateInfo cubeViewCI{};
+	cubeViewCI.type = VIEW_TYPE::TYPE_CUBE;
+	cubeViewCI.scope = VIEW_SCOPE::ENTIRE;
+	cubeViewCI.aspectFlags = ASPECT_TYPE_FLAG_COLOR;
+
+	TextureSamplerCreateInfo cubeSamplerCI{};
+	cubeSamplerCI.addressModeUVW = SAMPLER_ADDRESS_MODE::CLAMP_TO_EDGE;
+	cubeSamplerCI.enableAnisotropicFiltering = false;
+	cubeSamplerCI.magnificationFilter = FILTER_MODE::LINEAR;
+	cubeSamplerCI.minificationFilter = FILTER_MODE::LINEAR;
+	cubeSamplerCI.samplerMipMapFilter = FILTER_MODE::LINEAR;
+
+	phxRes = m_renderDevice.AllocateTexture(cubeBaseCI, cubeViewCI, cubeSamplerCI, m_envCubeMap);
+	if (phxRes != STATUS_CODE::SUCCESS)
+	{
+		std::cout << "Failed to allocate cube map texture!" << std::endl;
+		return;
+	}
+
+	// Create uniform buffer for cube face size
+	struct CubeFaceSizeUBO
+	{
+		u32 faceSizeX;
+		u32 faceSizeY;
+		u32 padding[2];
+	} faceSizeData{ CUBE_FACE_SIZE, CUBE_FACE_SIZE, 0, 0 };
+
+	BufferCreateInfo faceSizeBufferCI{};
+	faceSizeBufferCI.pName = "CubeFaceSizeBuffer";
+	faceSizeBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	faceSizeBufferCI.sizeBytes = sizeof(CubeFaceSizeUBO);
+	phxRes = m_renderDevice.AllocateBuffer(faceSizeBufferCI, m_cubeFaceSizeBuffer);
+	CHECK_PHX_RES(phxRes);
+
+	// Create equirect-to-cube compute shader
+	ShaderHandle equirectToCubeShader;
+	if (!Common::AllocateShader("../src/shaders/equirect_to_cube.comp", SHADER_STAGE::COMPUTE, m_renderDevice, equirectToCubeShader))
+	{
+		std::cout << "Failed to load equirect_to_cube compute shader!" << std::endl;
+		return;
+	}
+	m_equirectToCubeShaders.push_back(equirectToCubeShader);
+
+	// Create uniform collection for equirect-to-cube pass
+	UniformData equirectToCubeData[3];
+	equirectToCubeData[0].binding = 0;
+	equirectToCubeData[0].shaderStage = SHADER_STAGE_FLAG_COMPUTE;
+	equirectToCubeData[0].type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
+	equirectToCubeData[1].binding = 1;
+	equirectToCubeData[1].shaderStage = SHADER_STAGE_FLAG_COMPUTE;
+	equirectToCubeData[1].type = UNIFORM_TYPE::STORAGE_IMAGE;
+	equirectToCubeData[2].binding = 2;
+	equirectToCubeData[2].shaderStage = SHADER_STAGE_FLAG_COMPUTE;
+	equirectToCubeData[2].type = UNIFORM_TYPE::UNIFORM_BUFFER;
+
+	UniformDataGroup equirectToCubeGroup{};
+	equirectToCubeGroup.set = 0;
+	equirectToCubeGroup.uniformArray = equirectToCubeData;
+	equirectToCubeGroup.uniformArrayCount = 3;
+
+	UniformCollectionCreateInfo equirectToCubeUniformCI{};
+	equirectToCubeUniformCI.dataGroups = &equirectToCubeGroup;
+	equirectToCubeUniformCI.groupCount = 1;
+
+	phxRes = m_renderDevice.AllocateUniformCollection(equirectToCubeUniformCI, m_equirectToCubeUniformCollection);
+	CHECK_PHX_RES(phxRes);
+
+	// Set up compute pipeline desc
+	m_equirectToCubePipelineDesc.shader = m_equirectToCubeShaders[0];
+	m_equirectToCubePipelineDesc.uniformCollection = m_equirectToCubeUniformCollection;
+
+	// Register passes: upload equirect data, then run equirect-to-cube compute
+	RenderPassHandle uploadEquirectPass;
+	phxRes = m_renderGraph.RegisterPass("UploadEquirect", PASS_TYPE::TRANSFER, uploadEquirectPass);
+	CHECK_PHX_RES(phxRes);
+
+	uploadEquirectPass.SetTextureOutput(m_equirectTexture, ATTACHMENT_LOAD_OP::IGNORE, ATTACHMENT_STORE_OP::STORE, {});
+	uploadEquirectPass.SetBufferOutput(m_cubeFaceSizeBuffer);
+	uploadEquirectPass.SetExecuteCallback([&, halfData, dataSize, faceSizeData](DeviceContextHandle deviceContext)
+	{
+		deviceContext.CopyDataToTexture(m_equirectTexture, halfData.data(), dataSize, 0);
+		deviceContext.CopyDataToBuffer(m_cubeFaceSizeBuffer, &faceSizeData, sizeof(faceSizeData));
+	});
+
+	RenderPassHandle equirectToCubePass;
+	phxRes = m_renderGraph.RegisterPass("EquirectToCube", PASS_TYPE::COMPUTE, equirectToCubePass);
+	CHECK_PHX_RES(phxRes);
+
+	equirectToCubePass.SetTextureInput(m_equirectTexture);
+	equirectToCubePass.SetTextureOutput(m_envCubeMap, ATTACHMENT_LOAD_OP::IGNORE, ATTACHMENT_STORE_OP::STORE, {});
+	equirectToCubePass.SetBufferInput(m_cubeFaceSizeBuffer);
+	equirectToCubePass.SetPipelineDescription(m_equirectToCubePipelineDesc);
+	equirectToCubePass.SetExecuteCallback([&, CUBE_FACE_SIZE](DeviceContextHandle deviceContext)
+	{
+		m_equirectToCubeUniformCollection.QueueImageUpdate(m_equirectTexture, 0, 0, 0);
+		m_equirectToCubeUniformCollection.QueueImageUpdate(m_envCubeMap, 0, 1, 0);
+		m_equirectToCubeUniformCollection.QueueBufferUpdate(m_cubeFaceSizeBuffer, 0, 2, 0);
+		deviceContext.FlushUniformUpdates(m_equirectToCubeUniformCollection);
+
+		deviceContext.BindUniformCollection(m_equirectToCubeUniformCollection);
+		deviceContext.Dispatch({ CUBE_FACE_SIZE, CUBE_FACE_SIZE, 6 });
+	});
+}
+
+void RayTracingSample::CreateAccumulationImages()
+{
+	STATUS_CODE phxRes;
+
+	TextureBaseCreateInfo accumBaseCI{};
+	accumBaseCI.pName = "AccumulationImageA";
+	accumBaseCI.width = m_swapChain.GetWidth();
+	accumBaseCI.height = m_swapChain.GetHeight();
+	accumBaseCI.mipLevels = 1;
+	accumBaseCI.generateMips = false;
+	accumBaseCI.arrayLayers = 1;
+	accumBaseCI.format = BASE_FORMAT::R16G16B16A16_FLOAT;
+	accumBaseCI.usageFlags = USAGE_TYPE_FLAG_STORAGE | USAGE_TYPE_FLAG_SAMPLED;
+	accumBaseCI.sampleFlags = SAMPLE_COUNT::COUNT_1;
+
+	TextureViewCreateInfo accumViewCI{};
+	accumViewCI.type = VIEW_TYPE::TYPE_2D;
+	accumViewCI.scope = VIEW_SCOPE::ENTIRE;
+	accumViewCI.aspectFlags = ASPECT_TYPE_FLAG_COLOR;
+
+	TextureSamplerCreateInfo accumSamplerCI{};
+	accumSamplerCI.addressModeUVW = SAMPLER_ADDRESS_MODE::CLAMP_TO_EDGE;
+	accumSamplerCI.enableAnisotropicFiltering = false;
+	accumSamplerCI.magnificationFilter = FILTER_MODE::NEAREST;
+	accumSamplerCI.minificationFilter = FILTER_MODE::NEAREST;
+	accumSamplerCI.samplerMipMapFilter = FILTER_MODE::NEAREST;
+
+	phxRes = m_renderDevice.AllocateTexture(accumBaseCI, accumViewCI, accumSamplerCI, m_accumulationImageA);
+	CHECK_PHX_RES(phxRes);
 }

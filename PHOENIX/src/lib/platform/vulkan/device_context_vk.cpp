@@ -27,7 +27,7 @@ STATIC_ASSERT_MSG(alignof(PHX::AccelerationStructureInstance) == alignof(VkAccel
 namespace PHX
 {
 	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo) : m_pRenderDevice(nullptr),
-		m_cmdBuffers(), m_stagingPool(pRenderDevice), m_queueWorkSubmitted(), m_assignedFrameIndex(0), m_contextualPipeline(nullptr)
+		m_submissionBatches(), m_chainSemaphores(), m_stagingPool(pRenderDevice), m_workSubmitted(true), m_assignedFrameIndex(0), m_contextualPipeline(nullptr)
 	{
 		UNUSED(createInfo);
 
@@ -38,9 +38,9 @@ namespace PHX
 		}
 		m_pRenderDevice = pRenderDevice;
 
-		// Initialize to true so that BeginFrame waits on (and resets) fences on the first frame.
+		// Initialize to true so that BeginFrame waits on (and resets) the frame fence on the first frame.
 		// Fences are created in the signaled state, so the initial wait returns immediately.
-		m_queueWorkSubmitted.fill(true);
+		m_workSubmitted = true;
 
 		m_assignedFrameIndex = createInfo.assignedFrameIndex;
 	}
@@ -48,6 +48,7 @@ namespace PHX
 	DeviceContextVk::~DeviceContextVk()
 	{
 		DeallocateCommandBuffers();
+		DestroyChainSemaphores();
 		m_stagingPool.Destroy();
 	}
 
@@ -651,26 +652,32 @@ namespace PHX
 		}
 
 		STATUS_CODE res;
+		VkResult vkRes;
 
-		// Wait on per-queue fences for queues that submitted work in the previous frame with the same index.
-		// This ensures the GPU has finished using the command buffers and staging memory before we free them
-		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
+		// Wait on the single frame fence signaled by the last submission batch of the previous frame
+		// with this index. Because batches are chained with semaphores (each waits on the previous),
+		// the last batch completing guarantees that every batch — and therefore all command buffers and
+		// staging memory — from that frame is done on the GPU.
+		if (m_workSubmitted)
 		{
-			QUEUE_TYPE queueType = static_cast<QUEUE_TYPE>(i);
-			if (!NeedsSynchronization(queueType))
+			VkFence frameFence = m_pRenderDevice->GetQueueFence(QUEUE_TYPE::GRAPHICS, m_assignedFrameIndex);
+			vkRes = vkWaitForFences(m_pRenderDevice->GetLogicalDevice(), 1, &frameFence, VK_TRUE, UINT64_MAX);
+			if (vkRes != VK_SUCCESS)
 			{
-				continue;
+				// This should never happen and will mess up upcoming frames
+				LogError("Failed to wait for frame fence, skipping frame. Got error: \"%s\"", string_VkResult(vkRes));
+				return STATUS_CODE::ERR_INTERNAL;
 			}
 
-			if (m_queueWorkSubmitted[i])
+			vkRes = vkResetFences(m_pRenderDevice->GetLogicalDevice(), 1, &frameFence);
+			if (vkRes != VK_SUCCESS)
 			{
-				VkFence queueFence = m_pRenderDevice->GetQueueFence(queueType, m_assignedFrameIndex);
-				vkWaitForFences(m_pRenderDevice->GetLogicalDevice(), 1, &queueFence, VK_TRUE, UINT64_MAX);
-				vkResetFences(m_pRenderDevice->GetLogicalDevice(), 1, &queueFence);
+				LogError("Failed to reset frame fence, skipping frame. Got error: \"%s\"", string_VkResult(vkRes));
+				return STATUS_CODE::ERR_INTERNAL;
 			}
 		}
 
-		// Reset staging pool for reuse. The fence waits above guarantee the GPU is done
+		// Reset staging pool for reuse. The fence wait above guarantees the GPU is done
 		// with the staging memory from the previous frame with the same index.
 		ResetStagingPool();
 		ResetCommandBuffers();
@@ -683,90 +690,76 @@ namespace PHX
 			return res;
 		}
 
-		// Reset per-queue work submission tracking
-		m_queueWorkSubmitted.fill(false);
+		// Reset work submission tracking for the new frame
+		m_workSubmitted = false;
 
 		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE DeviceContextVk::EndFrame()
 	{
-		// Flush the recorded commands from all queues
-		STATUS_CODE flushRes = STATUS_CODE::SUCCESS;
-		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
+		const u32 batchCount = static_cast<u32>(m_submissionBatches.size());
+		if (batchCount == 0)
 		{
-			QUEUE_TYPE currQueue = static_cast<QUEUE_TYPE>(i);
-
-			if (!NeedsSynchronization(currQueue))
-			{
-				continue;
-			}
-
-			FlushSyncData syncData{};
-
-			if (currQueue == QUEUE_TYPE::GRAPHICS)
-			{
-				VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(m_assignedFrameIndex);
-				VkSemaphore renderFinishedSemaphore = m_pRenderDevice->GetRenderFinishedSemaphore(m_assignedFrameIndex);
-
-				syncData.pWaitSemaphores = &imageAvailableSemaphore;
-				syncData.waitSemaphoreCount = 1;
-				syncData.pSignalSemaphores = &renderFinishedSemaphore;
-				syncData.signalSemaphoreCount = 1;
-				syncData.signalFence = m_pRenderDevice->GetQueueFence(currQueue, m_assignedFrameIndex);
-			}
-			else
-			{
-				// COMPUTE and TRANSFER queues: no semaphores, just a fence for CPU-GPU sync
-				syncData.signalFence = m_pRenderDevice->GetQueueFence(currQueue, m_assignedFrameIndex);
-			}
-
-			flushRes = Flush(currQueue, syncData);
-			if (flushRes != STATUS_CODE::SUCCESS)
-			{
-				LogError("Failed to end frame. Could not flush queue at index %u!", i);
-				break;
-			}
-
-			// Track that this queue submitted work so BeginFrame knows to wait on its fence.
-			// Only set this if there were actually command buffers to submit, otherwise
-			// BeginFrame would wait on a fence that was never signaled.
-			m_queueWorkSubmitted[i] = (m_cmdBuffers.at(i).size() > 0);
-		}
-
-		if (flushRes != STATUS_CODE::SUCCESS)
-		{
-			// If we failed to flush, we cannot delete resources because they 
-			// might still be in-use by the GPU
-			return flushRes;
-		}
-
-		return flushRes;
-	}
-
-	STATUS_CODE DeviceContextVk::Flush(QUEUE_TYPE queueType, const FlushSyncData& syncData)
-	{
-		CommandBufferList& cmdBufferList = m_cmdBuffers.at(static_cast<u32>(queueType));
-		if (cmdBufferList.size() <= 0)
-		{
-			// Nothing to flush
+			// No work was recorded this frame; nothing to submit
 			return STATUS_CODE::SUCCESS;
 		}
 
-		VkCommandBuffer* buffersToSubmit = cmdBufferList.data();
-		u32 buffersToSubmitCount = static_cast<u32>(cmdBufferList.size());
-
-		// End recording for all command buffers that will be submitted
-		for (u32 i = 0; i < buffersToSubmitCount; i++)
+		// Submit the batches in the order they were recorded (which is the render graph's dependency
+		// order). Batches are chained together with binary semaphores so that a consumer batch on one
+		// queue does not begin until its producer batch on another queue has finished:
+		//
+		//   - batch 0 waits on the swapchain 'image available' semaphore (nothing starts before acquire)
+		//   - batch i (>0) waits on the chain semaphore signaled by batch i-1
+		//   - batch i (< last) signals its own chain semaphore for the next batch to wait on
+		//   - the last batch signals 'render finished' (which Present waits on) and the frame fence
+		//
+		// Only the last batch signals the frame fence: since every batch waits on the previous one,
+		// the last batch completing implies all earlier batches are done too.
+		STATUS_CODE res = EnsureChainSemaphores(batchCount > 0 ? batchCount - 1 : 0);
+		if (res != STATUS_CODE::SUCCESS)
 		{
-			VkCommandBuffer& cmdBuffer = buffersToSubmit[i];
-			vkEndCommandBuffer(cmdBuffer);
+			LogError("Failed to end frame. Could not create chain semaphores!");
+			return res;
 		}
 
-		// Submit all commands
-		STATUS_CODE res = FlushInternal(queueType, buffersToSubmit, buffersToSubmitCount, syncData);
+		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(m_assignedFrameIndex);
+		VkSemaphore renderFinishedSemaphore = m_pRenderDevice->GetRenderFinishedSemaphore(m_assignedFrameIndex);
+		VkFence frameFence = m_pRenderDevice->GetQueueFence(QUEUE_TYPE::GRAPHICS, m_assignedFrameIndex);
 
-		return res;
+		for (u32 i = 0; i < batchCount; i++)
+		{
+			const SubmissionBatch& batch = m_submissionBatches[i];
+			const bool isFirstBatch = (i == 0);
+			const bool isLastBatch  = (i == batchCount - 1);
+
+			vkEndCommandBuffer(batch.cmdBuffer);
+
+			VkSemaphore waitSemaphore   = isFirstBatch ? imageAvailableSemaphore : m_chainSemaphores[i - 1];
+			VkSemaphore signalSemaphore = isLastBatch  ? renderFinishedSemaphore : m_chainSemaphores[i];
+
+			FlushSyncData syncData{};
+			syncData.pWaitSemaphores     = &waitSemaphore;
+			syncData.waitSemaphoreCount  = 1;
+			syncData.pSignalSemaphores   = &signalSemaphore;
+			syncData.signalSemaphoreCount = 1;
+			syncData.signalFence         = isLastBatch ? frameFence : VK_NULL_HANDLE;
+
+			res = FlushInternal(batch.queueType, &batch.cmdBuffer, 1, syncData);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to end frame. Could not flush submission batch %u (queue type %u)!", i, static_cast<u32>(batch.queueType));
+				// If we failed to flush, we cannot delete resources because they
+				// might still be in-use by the GPU
+				return res;
+			}
+		}
+
+		// At least one batch was submitted and the last one signaled the frame fence, so BeginFrame
+		// must wait on it next time this frame index comes around.
+		m_workSubmitted = true;
+
+		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE DeviceContextVk::BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount)
@@ -972,47 +965,51 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		// HACK - Reroute all transfer commands into graphics command buffer
-		if (type == QUEUE_TYPE::TRANSFER)
+		// Determine the actual queue family for this queue type. Multiple QUEUE_TYPE values
+		// (e.g. TRANSFER and GRAPHICS) may map to the same queue family on devices without a
+		// dedicated transfer queue. In that case they share the same physical queue and should
+		// be merged into a single batch — no semaphore is needed between them.
+		u32 familyIndex = m_pRenderDevice->GetQueueFamilyIndex(type);
+
+		// Reuse the current (most recent) batch if it targets the same queue family. Commands
+		// recorded back-to-back on the same queue family belong in a single submission.
+		if (!m_submissionBatches.empty() && m_submissionBatches.back().queueFamilyIndex == familyIndex)
 		{
-			type = QUEUE_TYPE::GRAPHICS;
+			out_cmdBuffer = m_submissionBatches.back().cmdBuffer;
+			return STATUS_CODE::SUCCESS;
 		}
 
-		CommandBufferList& cmdList = m_cmdBuffers.at(static_cast<u32>(type));
-		if (cmdList.size() <= 0)
+		// Otherwise the queue family changed (or this is the first command of the frame), so start
+		// a new batch with a fresh command buffer. This is what allows cross-queue dependencies to
+		// be submitted (and synchronized) in the correct order later in EndFrame.
+		VkCommandBufferAllocateInfo allocInfo{};
+		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+		allocInfo.commandPool = m_pRenderDevice->GetCommandPool(type, m_assignedFrameIndex);
+		allocInfo.commandBufferCount = 1;
+
+		VkResult res = vkAllocateCommandBuffers(m_pRenderDevice->GetLogicalDevice(), &allocInfo, &out_cmdBuffer);
+		if (res != VK_SUCCESS)
 		{
-			// Command list doesn't have a command buffer already, so make a new one
-			VkCommandBufferAllocateInfo allocInfo{};
-			allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-			allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-			allocInfo.commandPool = m_pRenderDevice->GetCommandPool(type, m_assignedFrameIndex);
-			allocInfo.commandBufferCount = 1;
-
-			VkResult res = vkAllocateCommandBuffers(m_pRenderDevice->GetLogicalDevice(), &allocInfo, &out_cmdBuffer);
-			if (res != VK_SUCCESS)
-			{
-				LogError("Failed to allocate command buffer for queue type %u! Got result: \"%s\"", static_cast<u32>(type), string_VkResult(res));
-				return STATUS_CODE::ERR_INTERNAL;
-			}
-
-			// Cache it in the command buffer list
-			cmdList.push_back(out_cmdBuffer);
-
-			VkCommandBufferBeginInfo beginInfo{};
-			beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-			beginInfo.flags = 0;
-			res = vkBeginCommandBuffer(out_cmdBuffer, &beginInfo);
-			if (res != VK_SUCCESS)
-			{
-				LogError("Failed to allocate command buffer for queue type %u! Got result: \"%s\"", static_cast<u32>(type), string_VkResult(res));
-				return STATUS_CODE::ERR_INTERNAL;
-			}
+			LogError("Failed to allocate command buffer for queue type %u! Got result: \"%s\"", static_cast<u32>(type), string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
-		else
+
+		VkCommandBufferBeginInfo beginInfo{};
+		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		beginInfo.flags = 0;
+		res = vkBeginCommandBuffer(out_cmdBuffer, &beginInfo);
+		if (res != VK_SUCCESS)
 		{
-			// Found an existing command buffer, use that one
-			out_cmdBuffer = cmdList.back();
+			LogError("Failed to begin command buffer for queue type %u! Got result: \"%s\"", static_cast<u32>(type), string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+		SubmissionBatch newBatch{};
+		newBatch.queueType = type;
+		newBatch.queueFamilyIndex = familyIndex;
+		newBatch.cmdBuffer = out_cmdBuffer;
+		m_submissionBatches.push_back(newBatch);
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -1022,10 +1019,7 @@ namespace PHX
 		// Command pools are owned by RenderDeviceVk and destroyed there.
 		// We just need to clear our references — vkDeviceWaitIdle is called
 		// in RenderDeviceVk's destructor before pools are destroyed.
-		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
-		{
-			m_cmdBuffers[i].clear();
-		}
+		m_submissionBatches.clear();
 	}
 
 	void DeviceContextVk::ResetCommandBuffers()
@@ -1039,8 +1033,47 @@ namespace PHX
 			{
 				vkResetCommandPool(m_pRenderDevice->GetLogicalDevice(), pool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
 			}
-			m_cmdBuffers[i].clear();
 		}
+
+		// All command buffers were allocated from the pools we just reset, so drop our references.
+		m_submissionBatches.clear();
+	}
+
+	STATUS_CODE DeviceContextVk::EnsureChainSemaphores(u32 count)
+	{
+		VkSemaphoreCreateInfo semaphoreInfo{};
+		semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+		for (u32 i = static_cast<u32>(m_chainSemaphores.size()); i < count; i++)
+		{
+			VkSemaphore semaphore = VK_NULL_HANDLE;
+			VkResult res = vkCreateSemaphore(m_pRenderDevice->GetLogicalDevice(), &semaphoreInfo, nullptr, &semaphore);
+			if (res != VK_SUCCESS)
+			{
+				LogError("Failed to create chain semaphore! Got result: \"%s\"", string_VkResult(res));
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+			m_chainSemaphores.push_back(semaphore);
+		}
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	void DeviceContextVk::DestroyChainSemaphores()
+	{
+		if (m_pRenderDevice == nullptr)
+		{
+			return;
+		}
+
+		for (VkSemaphore semaphore : m_chainSemaphores)
+		{
+			if (semaphore != VK_NULL_HANDLE)
+			{
+				vkDestroySemaphore(m_pRenderDevice->GetLogicalDevice(), semaphore, nullptr);
+			}
+		}
+		m_chainSemaphores.clear();
 	}
 
 	QUEUE_TYPE DeviceContextVk::GetQueueTypeFromBindPoint(VkPipelineBindPoint bindPoint)

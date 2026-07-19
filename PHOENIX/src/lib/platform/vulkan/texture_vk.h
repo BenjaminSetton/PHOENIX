@@ -64,7 +64,7 @@ namespace PHX
 
 	private:
 
-		STATUS_CODE CreateBaseImage(const TextureBaseCreateInfo& createInfo, bool createVkImageHandle = true);
+		STATUS_CODE CreateBaseImage(const TextureBaseCreateInfo& createInfo, bool createVkImageHandle, bool isCubeMap);
 		STATUS_CODE CreateImageViews(const TextureViewCreateInfo& createInfo);
 		STATUS_CODE CreateSampler(const TextureSamplerCreateInfo& createInfo);
 		void DestroyImage();

@@ -26,6 +26,18 @@ namespace PHX
 		VkFence signalFence            = VK_NULL_HANDLE;
 	};
 
+	// A single, contiguous run of commands recorded for one queue. Consecutive passes that
+	// use the same queue share a batch's command buffer; a queue switch (e.g. graphics -> compute)
+	// starts a new batch. Batches are submitted in recording (render-graph dependency) order and
+	// chained together with binary semaphores so that cross-queue producer/consumer dependencies
+	// are respected on the GPU.
+	struct SubmissionBatch
+	{
+		QUEUE_TYPE queueType       = QUEUE_TYPE::GRAPHICS;
+		u32 queueFamilyIndex       = QueueFamilyIndices::INVALID_INDEX;
+		VkCommandBuffer cmdBuffer  = VK_NULL_HANDLE;
+	};
+
 	class DeviceContextVk : public IDeviceContext
 	{
 	public:
@@ -66,8 +78,6 @@ namespace PHX
 		STATUS_CODE BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount);
 		STATUS_CODE EndRenderPass();
 
-		STATUS_CODE Flush(QUEUE_TYPE queueType, const FlushSyncData& syncData);
-
 		// TODO - Have the transition details exposed as function parameters rather than assuming src/dst stages and access masks
 		//STATUS_CODE TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout, VkCommandBuffer cmdBuffer = VK_NULL_HANDLE);
 
@@ -107,6 +117,11 @@ namespace PHX
 		void DeallocateCommandBuffers();
 		void ResetCommandBuffers();
 
+		// Ensures at least 'count' chain semaphores exist for this frame slot, creating more as needed.
+		// Chain semaphores are reused every frame (the BeginFrame fence wait guarantees they are unsignaled).
+		STATUS_CODE EnsureChainSemaphores(u32 count);
+		void DestroyChainSemaphores();
+
 		// TODO - MOVE TO UTILS!
 		// Returns the queue type from the bind point. May return invalid result in the form of QUEUE_TYPE::COUNT!
 		QUEUE_TYPE GetQueueTypeFromBindPoint(VkPipelineBindPoint bindPoint);
@@ -120,14 +135,21 @@ namespace PHX
 
 		RenderDeviceVk* m_pRenderDevice;
 
-		// Stores all command buffers from all supported queues
-		std::array<CommandBufferList, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_cmdBuffers;
+		// Ordered list of submission batches recorded this frame, in render-graph dependency order.
+		// Each batch owns a single command buffer bound to one queue.
+		std::vector<SubmissionBatch> m_submissionBatches;
+
+		// Binary semaphores used to chain consecutive submission batches together (batch i signals
+		// m_chainSemaphores[i], batch i+1 waits on it). Grown on demand and reused across frames.
+		std::vector<VkSemaphore> m_chainSemaphores;
 
 		// Staging buffer pool for efficient sub-allocation. Avoids creating thousands
 		// of individual VMA allocations when uploading many textures/mip levels
 		StagingBufferPool m_stagingPool;
 
-		std::array<bool, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_queueWorkSubmitted;
+		// True if any command buffers were submitted last frame (tells BeginFrame whether the
+		// frame fence will actually be signaled, so it knows whether to wait on it).
+		bool m_workSubmitted;
 
 		// Assigned frame index, unique per device context
 		u32 m_assignedFrameIndex;

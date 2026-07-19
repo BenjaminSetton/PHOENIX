@@ -114,21 +114,22 @@ namespace PHX
 			return VK_VERTEX_INPUT_RATE_MAX_ENUM;
 		}
 
-		VkPipelineBindPoint ConvertBindPoint(BIND_POINT bindPoint)
+		VkPipelineBindPoint ConvertPassType(PASS_TYPE passType)
 		{
-			switch (bindPoint)
+			switch (passType)
 			{
-			case BIND_POINT::GRAPHICS:    return VK_PIPELINE_BIND_POINT_GRAPHICS;
-			case BIND_POINT::COMPUTE:     return VK_PIPELINE_BIND_POINT_COMPUTE;
-			case BIND_POINT::RAY_TRACING: return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
-			case BIND_POINT::TRANSFER:    // No valid conversion
+			case PASS_TYPE::GRAPHICS:    return VK_PIPELINE_BIND_POINT_GRAPHICS;
+			case PASS_TYPE::COMPUTE:     return VK_PIPELINE_BIND_POINT_COMPUTE;
+			case PASS_TYPE::RAY_TRACING: return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+			case PASS_TYPE::TRANSFER:    // No valid conversion
+			case PASS_TYPE::AS_BUILD:    // No valid conversion
 			default:
 			{
 				break;
 			}
 			}
 
-			LogError("Failed to convert bind point to VkPipelineBindPoint");
+			LogError("Failed to convert pass type to VkPipelineBindPoint");
 			return VK_PIPELINE_BIND_POINT_MAX_ENUM;
 		}
 

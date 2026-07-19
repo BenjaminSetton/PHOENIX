@@ -164,7 +164,7 @@ namespace PHX
 
 	size_t RayTracingPipelineDescHasher::operator()(const RayTracingPipelineDesc& desc) const
 	{
-		STATIC_ASSERT_MSG(sizeof(desc) == 48, "If ray tracing pipeline description changed, make sure to change this hashing function!");
+		STATIC_ASSERT_MSG(sizeof(desc) == 56, "If ray tracing pipeline description changed, make sure to change this hashing function!");
 
 		size_t seed = 0;
 

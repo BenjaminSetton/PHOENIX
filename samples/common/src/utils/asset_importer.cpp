@@ -6,14 +6,40 @@
 #include <iostream>
 
 #include "asset_importer.h"
-#include "dds_loader.h"
+#include "tex_utils.h"
 
+#ifndef COMMON_ASSET_ROOT_DIR
+	#define COMMON_ASSET_ROOT_DIR "."
+#endif
 
-#define STB_IMAGE_IMPLEMENTATION // Must only be defined once
-#include <stb_image.h>
+#ifndef SAMPLE_ASSET_ROOT_DIR
+	#define SAMPLE_ASSET_ROOT_DIR "."
+#endif
 
 namespace Common
 {
+	std::filesystem::path FindAssetFile(const std::filesystem::path& relativePath)
+	{
+		std::filesystem::path commonPath = std::filesystem::path(COMMON_ASSET_ROOT_DIR) / relativePath;
+		if (std::filesystem::exists(commonPath))
+		{
+			return commonPath;
+		}
+
+		std::filesystem::path samplePath = std::filesystem::path(SAMPLE_ASSET_ROOT_DIR) / relativePath;
+		if (std::filesystem::exists(samplePath))
+		{
+			return samplePath;
+		}
+
+		if (std::filesystem::exists(relativePath))
+		{
+			return relativePath;
+		}
+
+		return {};
+	}
+
 	static const std::vector<aiTextureType> SUPPORTED_TEXTURE_TYPES =
 	{
 		aiTextureType_DIFFUSE,
@@ -179,7 +205,10 @@ namespace Common
 
 			// Populate the texture data. Note from the assimp implementation:
 			// The format of the data from the imported texture is always ARGB8888, meaning it's 32-bit aligned
-			AssetDiskTexture newTexture = AllocateTexture(importedTexture->mFilename.C_Str(), importedTexture->pcData, texSize, 4, TEXTURE_TYPE::DIFFUSE);
+			const uint64_t numBytes = static_cast<uint64_t>(texSize.GetX()) * texSize.GetY() * 4;
+			void* ownedData = new char[numBytes];
+			memcpy(ownedData, importedTexture->pcData, numBytes);
+			AssetDiskTexture newTexture = AllocateTexture(importedTexture->mFilename.C_Str(), ownedData, texSize, 4, TEXTURE_TYPE::DIFFUSE);
 			asset->textures.push_back(newTexture);
 		}
 
@@ -226,40 +255,26 @@ namespace Common
 						std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
 						bool isDDS = (ext == ".dds");
 
+						AssetDiskTexture newTexture;
 						if (isDDS)
 						{
-							AssetDiskTexture newTexture = LoadDDS(textureSourceFilePath, texType);
-							if (newTexture.pData == nullptr)
-							{
-								std::cout << "Failed to load DDS texture! \"" << textureSourceFilePath.string() << "\"" << std::endl;
-								continue;
-							}
-
-							pMaterial->textureIndices.push_back(static_cast<uint32_t>(asset->textures.size()));
-							asset->textures.push_back(newTexture);
-
-							std::cout << "Material " << i << ": Loaded " << TEXTURE_TYPE_TO_STRING.at(texType).c_str() << " texture \"" << textureNameStr.c_str() << "\" from disk" << std::endl;
+							newTexture = LoadDDS(textureSourceFilePath, texType);
 						}
 						else
 						{
-							// Load the image using stb_image
-							std::string textureSourceFilePathStr = textureSourceFilePath.string();
-							int width, height, channels;
-							stbi_uc* pixels = stbi_load(textureSourceFilePathStr.c_str(), &width, &height, &channels, STBI_rgb_alpha);
-							if (pixels == nullptr)
-							{
-								std::cout << "Failed to load texture! \"" << textureSourceFilePathStr.c_str() << "\"" << std::endl;
-								continue;
-							}
-
-							PHX::Vec2u texSize = { static_cast<uint32_t>(width), static_cast<uint32_t>(height) };
-
-							AssetDiskTexture newTexture = AllocateTexture(textureNameStr.c_str(), pixels, texSize, 4, texType);
-							pMaterial->textureIndices.push_back(static_cast<uint32_t>(asset->textures.size()));
-							asset->textures.push_back(newTexture);
-
-							std::cout << "Material " << i << ": Loaded " << TEXTURE_TYPE_TO_STRING.at(texType).c_str() << " texture \"" << textureNameStr.c_str() << "\" from disk" << std::endl;
+							newTexture = LoadTexture(textureSourceFilePath, texType);
 						}
+
+						if (newTexture.pData == nullptr)
+						{
+							std::cout << "Failed to load texture! \"" << textureSourceFilePath.string() << "\"" << std::endl;
+							continue;
+						}
+
+						pMaterial->textureIndices.push_back(static_cast<uint32_t>(asset->textures.size()));
+						asset->textures.push_back(newTexture);
+
+						std::cout << "Material " << i << ": Loaded " << TEXTURE_TYPE_TO_STRING.at(texType).c_str() << " texture \"" << textureNameStr.c_str() << "\" from disk" << std::endl;
 					}
 				}
 			}

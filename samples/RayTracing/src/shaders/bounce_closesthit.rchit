@@ -6,9 +6,8 @@
 #include "pbr.glsl"
 #include "common.glsl"
 
-layout(location = 0) rayPayloadInEXT vec3 hitColor;
+layout(location = 2) rayPayloadInEXT vec3 bounceColor;
 layout(location = 1) rayPayloadEXT float shadowFactor;
-layout(location = 2) rayPayloadEXT vec3 bounceColor;
 
 hitAttributeEXT vec2 baryCoords;
 
@@ -87,54 +86,40 @@ void main()
     vec3 bary = vec3(1.0 - baryCoords.x - baryCoords.y, baryCoords.x, baryCoords.y);
     vec2 uv = v0.uv * bary.x + v1.uv * bary.y + v2.uv * bary.z;
 
-    // Interpolate geometric normal, tangent, bitangent in object space
     vec3 objNormal = normalize(v0.normal * bary.x + v1.normal * bary.y + v2.normal * bary.z);
     vec3 objTangent = v0.tangent * bary.x + v1.tangent * bary.y + v2.tangent * bary.z;
-    vec3 objBitangent = v0.bitangent * bary.x + v1.bitangent * bary.y + v2.bitangent * bary.z;
 
-    // Transform to world space using gl_ObjectToWorldEXT (3x3 part for directions)
     mat3 objToWorld = mat3(gl_ObjectToWorldEXT);
     vec3 worldNormal = normalize(objToWorld * objNormal);
 
-    // Apply normal mapping with fallback to geometric normal if tangents are missing
     vec3 N = worldNormal;
     if (length(objTangent) > 0.001)
     {
         vec3 worldTangent = normalize(objToWorld * objTangent);
-        // Compute bitangent via cross product for consistent right-handed TBN
-        // (stored bitangent may be inconsistent after aiProcess_FlipUVs)
         vec3 worldBitangent = cross(worldNormal, worldTangent);
         mat3 TBN = mat3(worldTangent, worldBitangent, worldNormal);
 
-        // Reconstruct tangent-space normal from R/G channels. Normal maps are BC5-compressed
-        // (two-channel), so the sampled blue channel is 0 and cannot be used directly.
-        // Z is derived assuming a unit-length normal in the +Z hemisphere.
         vec2 nxy = texture(textures[mat.normalTexIndex], uv).rg * 2.0 - 1.0;
         float nz = sqrt(max(0.0, 1.0 - dot(nxy, nxy)));
         vec3 sampledNormal = vec3(nxy, nz);
         N = normalize(TBN * sampledNormal);
     }
 
-    // World-space hit position — use GPU-provided ray hit for precision
     vec3 worldHitPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 
-    // Sample PBR material textures
     vec3 albedo = texture(textures[mat.albedoTexIndex], uv).rgb;
     float metallic = texture(textures[mat.metallicTexIndex], uv).r;
     float roughness = clamp(texture(textures[mat.roughnessTexIndex], uv).r, 0.05, 1.0);
     float ao = texture(textures[mat.aoTexIndex], uv).r;
 
-    // Light direction (fixed directional light)
     vec3 L = normalize(vec3(0.5, 1.0, 0.3));
     vec3 V = normalize(-gl_WorldRayDirectionEXT);
     vec3 H = normalize(V + L);
 
-    // Shadow ray — offset origin along geometric normal to prevent self-intersection
     shadowFactor = 0.0;
     vec3 shadowOrigin = worldHitPos + worldNormal * 0.003;
     traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xff, 0, 0, 1, shadowOrigin, 0.001, L, 1000.0, 1);
 
-    // PBR Cook-Torrance BRDF
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
 
     float NDF = DistributionGGX(N, H, roughness);
@@ -151,60 +136,8 @@ void main()
 
     float NdotL = max(dot(N, L), 0.0);
 
-    // Direct lighting
     vec3 radiance = vec3(3.0) * NdotL * shadowFactor;
     vec3 directLight = (kD * albedo / PI + specular) * radiance;
 
-    // Indirect lighting via one importance-sampled bounce ray
-    float NdotV = max(dot(N, V), 0.0);
-    vec3 fresnelRoughness = FresnelSchlickRoughness(NdotV, F0, roughness);
-
-    // Determine whether to sample diffuse or specular lobe
-    // Use Fresnel-weighted probability to choose between the two
-    float specularWeight = max(fresnelRoughness.r, max(fresnelRoughness.g, fresnelRoughness.b));
-    float diffuseWeight = (1.0 - specularWeight) * (1.0 - metallic);
-    float totalWeight = specularWeight + diffuseWeight;
-
-    // Random seed from hit position and launch coordinates for per-hit randomness
-    uint seed = uint(gl_LaunchIDEXT.x) + uint(gl_LaunchIDEXT.y) * uint(gl_LaunchSizeEXT.x);
-    seed = pcgHash(seed + floatBitsToUint(worldHitPos.x) + floatBitsToUint(worldHitPos.y) + floatBitsToUint(worldHitPos.z));
-    float lobeSelect = randFloat(seed);
-
-    vec3 bounceDir;
-    vec3 bounceThroughput;
-
-    if (lobeSelect * totalWeight < diffuseWeight)
-    {
-        // Diffuse bounce: cosine-weighted hemisphere
-        vec2 rand2 = randVec2(pcgHash(seed));
-        bounceDir = sampleCosineWeightedHemisphere(rand2, N);
-        bounceThroughput = albedo * (1.0 - metallic);
-    }
-    else
-    {
-        // Specular bounce: GGX importance sampling
-        vec2 rand2 = randVec2(pcgHash(seed));
-        vec3 sampledH = sampleGGX(rand2, N, roughness);
-        bounceDir = reflect(-V, sampledH);
-
-        // Reject directions below the surface
-        if (dot(bounceDir, N) <= 0.0)
-        {
-            bounceDir = sampleCosineWeightedHemisphere(rand2, N);
-            bounceThroughput = albedo * (1.0 - metallic);
-        }
-        else
-        {
-            bounceThroughput = fresnelRoughness;
-        }
-    }
-
-    // Trace indirect bounce ray
-    vec3 bounceOrigin = worldHitPos + N * 0.003;
-    bounceColor = vec3(0.0);
-    traceRayEXT(topLevelAS, 0, 0xff, 1, 0, 0, bounceOrigin, 0.001, bounceDir, 1000.0, 2);
-
-    vec3 indirectLight = bounceThroughput * bounceColor * ao;
-
-    hitColor = directLight + indirectLight;
+    bounceColor = directLight * ao;
 }

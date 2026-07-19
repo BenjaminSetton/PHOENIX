@@ -49,7 +49,7 @@ void ComputeParticlesSample::Draw()
 
 	// Update pass - compute shader writes the particle buffer
 	RenderPassHandle updatePass;
-	phxRes = m_renderGraph.RegisterPass("ParticleUpdatePass", BIND_POINT::COMPUTE, updatePass);
+	phxRes = m_renderGraph.RegisterPass("ParticleUpdatePass", PASS_TYPE::COMPUTE, updatePass);
 	CHECK_PHX_RES(phxRes);
 	updatePass.SetBufferInput(m_particlesBuffer);	// read-modify-write: also depends on the seed pass
 	updatePass.SetBufferOutput(m_particlesBuffer);
@@ -75,7 +75,7 @@ void ComputeParticlesSample::Draw()
 
 	// Draw pass - reads the particle buffer and expands each particle into a quad
 	RenderPassHandle drawPass;
-	phxRes = m_renderGraph.RegisterPass("ParticleDrawPass", BIND_POINT::GRAPHICS, drawPass);
+	phxRes = m_renderGraph.RegisterPass("ParticleDrawPass", PASS_TYPE::GRAPHICS, drawPass);
 	CHECK_PHX_RES(phxRes);
 	drawPass.SetBufferInput(m_particlesBuffer);
 	drawPass.SetTextureOutput(m_swapChain.GetCurrentImage(), ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, clearColor);
@@ -102,7 +102,7 @@ void ComputeParticlesSample::Draw()
 	// Registered after ParticleDrawPass; the render graph detects the WAW hazard on the
 	// swapchain and automatically orders this pass after the draw pass.
 	RenderPassHandle outlinePass;
-	phxRes = m_renderGraph.RegisterPass("CubeOutlinePass", BIND_POINT::GRAPHICS, outlinePass);
+	phxRes = m_renderGraph.RegisterPass("CubeOutlinePass", PASS_TYPE::GRAPHICS, outlinePass);
 	CHECK_PHX_RES(phxRes);
 	outlinePass.SetBufferInput(m_outlineVertexBuffer);
 	outlinePass.SetBufferInput(m_outlineIndexBuffer);
@@ -423,7 +423,7 @@ void ComputeParticlesSample::CreateOutlineUniformCollection()
 void ComputeParticlesSample::InitializeParticleBuffer()
 {
 	RenderPassHandle initPass;
-	STATUS_CODE phxRes = m_renderGraph.RegisterPass("InitParticleBufferPass", BIND_POINT::TRANSFER, initPass);
+	STATUS_CODE phxRes = m_renderGraph.RegisterPass("InitParticleBufferPass", PASS_TYPE::TRANSFER, initPass);
 	CHECK_PHX_RES(phxRes);
 
 	initPass.SetBufferOutput(m_particlesBuffer);
@@ -472,7 +472,7 @@ void ComputeParticlesSample::InitializeParticleBuffer()
 void ComputeParticlesSample::InitializeOutlineBuffers()
 {
 	RenderPassHandle initPass;
-	STATUS_CODE phxRes = m_renderGraph.RegisterPass("InitOutlineBufferPass", BIND_POINT::TRANSFER, initPass);
+	STATUS_CODE phxRes = m_renderGraph.RegisterPass("InitOutlineBufferPass", PASS_TYPE::TRANSFER, initPass);
 	CHECK_PHX_RES(phxRes);
 
 	initPass.SetBufferOutput(m_outlineVertexBuffer);

@@ -84,6 +84,7 @@ namespace PHX
 		VkDescriptorPool GetDescriptorPool() const;
 		VkCommandPool GetCommandPool(QUEUE_TYPE type, u32 frameIndex) const;
 		VkQueue GetQueue(QUEUE_TYPE type) const;
+		u32 GetQueueFamilyIndex(QUEUE_TYPE type) const;
 		VkSemaphore GetImageAvailableSemaphore(u32 index) const;
 		VkSemaphore GetRenderFinishedSemaphore(u32 index) const;
 		VkFence GetQueueFence(QUEUE_TYPE type, u32 index) const;

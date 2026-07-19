@@ -549,6 +549,11 @@ namespace PHX
 		return iter->second;
 	}
 
+	u32 RenderDeviceVk::GetQueueFamilyIndex(QUEUE_TYPE type) const
+	{
+		return m_queueFamilyIndices.GetIndex(type);
+	}
+
 	VkSemaphore RenderDeviceVk::GetImageAvailableSemaphore(u32 index) const
 	{
 		if (index >= m_framesInFlight)
@@ -574,6 +579,7 @@ namespace PHX
 		u32 queueIdx = static_cast<u32>(type);
 		if (queueIdx >= static_cast<u32>(QUEUE_TYPE::COUNT) || index >= m_framesInFlight)
 		{
+			LogError("Failed to get queue fence. Queue type or index are invalid!");
 			return VK_NULL_HANDLE;
 		}
 

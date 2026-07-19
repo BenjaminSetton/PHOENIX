@@ -238,6 +238,11 @@ namespace PHX
 			return false;
 		}
 
+		if (maxRecursionDepth != other.maxRecursionDepth)
+		{
+			return false;
+		}
+
 		return true;
 	}
 

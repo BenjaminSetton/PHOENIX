@@ -48,7 +48,7 @@ void HelloTriangleSample::Draw()
 	UploadMeshDataToGPU();
 
 	RenderPassHandle renderPass;
-	STATUS_CODE phxRes = m_renderGraph.RegisterPass("HelloTriangle", BIND_POINT::GRAPHICS, renderPass);
+	STATUS_CODE phxRes = m_renderGraph.RegisterPass("HelloTriangle", PASS_TYPE::GRAPHICS, renderPass);
 	CHECK_PHX_RES(phxRes);
 
 	renderPass.SetBufferInput(m_vertexBuffer);
@@ -180,7 +180,7 @@ void HelloTriangleSample::CreateUniformCollection()
 void HelloTriangleSample::UploadMeshDataToGPU()
 {
 	RenderPassHandle renderPass;
-	STATUS_CODE phxRes = m_renderGraph.RegisterPass("MeshDataUpload", BIND_POINT::TRANSFER, renderPass);
+	STATUS_CODE phxRes = m_renderGraph.RegisterPass("MeshDataUpload", PASS_TYPE::TRANSFER, renderPass);
 	CHECK_PHX_RES(phxRes);
 
 	renderPass.SetBufferOutput(m_vertexBuffer);

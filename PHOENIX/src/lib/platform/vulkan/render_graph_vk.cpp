@@ -38,21 +38,22 @@ namespace PHX
 		return static_cast<u64>(seed);
 	}
 
-	static QUEUE_TYPE ConvertBindPointToQueueType(BIND_POINT bindPoint)
+	static QUEUE_TYPE ConvertPassTypeToQueueType(PASS_TYPE passType)
 	{
-		switch (bindPoint)
+		switch (passType)
 		{
-		case BIND_POINT::COMPUTE:      return QUEUE_TYPE::COMPUTE;
-		case BIND_POINT::GRAPHICS:     return QUEUE_TYPE::GRAPHICS;
-		case BIND_POINT::TRANSFER:     return QUEUE_TYPE::TRANSFER;
-		case BIND_POINT::RAY_TRACING:  return QUEUE_TYPE::GRAPHICS;
+		case PASS_TYPE::COMPUTE:      return QUEUE_TYPE::COMPUTE;
+		case PASS_TYPE::GRAPHICS:     return QUEUE_TYPE::GRAPHICS;
+		case PASS_TYPE::TRANSFER:     return QUEUE_TYPE::TRANSFER;
+		case PASS_TYPE::RAY_TRACING:  return QUEUE_TYPE::GRAPHICS;
+		case PASS_TYPE::AS_BUILD:     return QUEUE_TYPE::GRAPHICS;
 		default:
 		{
 			break;
 		}
 		}
 
-		ASSERT_ALWAYS("Failed to convert bind point to queue type!");
+		ASSERT_ALWAYS("Failed to convert pass type to queue type!");
 		return QUEUE_TYPE::GRAPHICS;
 	}
 
@@ -75,7 +76,7 @@ namespace PHX
 		return ATTACHMENT_TYPE::INVALID;
 	}
 
-	static VkAccessFlags CalculateResourceAccessFlags(const ResourceUsage& usage, const RenderResource& resource, BIND_POINT bindPoint)
+	static VkAccessFlags CalculateResourceAccessFlags(const ResourceUsage& usage, const RenderResource& resource, PASS_TYPE passType)
 	{
 		// Acceleration structures use their own access flags regardless of bind point
 		if (resource.type == RESOURCE_TYPE::ACCELERATION_STRUCTURE)
@@ -88,11 +89,7 @@ namespace PHX
 		{
 		case RESOURCE_IO::INPUT:
 		{
-			if (bindPoint == BIND_POINT::TRANSFER && resource.type == RESOURCE_TYPE::BUFFER && usage.bufferUsage == BUFFER_USAGE::ACCELERATION_STRUCTURE_BUILD_INPUT)
-			{
-				flags |= VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
-			}
-			else if (bindPoint == BIND_POINT::TRANSFER)
+			if (passType == PASS_TYPE::TRANSFER)
 			{
 				flags |= VK_ACCESS_TRANSFER_READ_BIT;
 			}
@@ -123,8 +120,15 @@ namespace PHX
 					}
 					case BUFFER_USAGE::ACCELERATION_STRUCTURE_BUILD_INPUT:
 					{
-						// These buffers have STORAGE_BUFFER_BIT and may be read as storage buffers in shaders
-						flags |= VK_ACCESS_SHADER_READ_BIT;
+						if (passType == PASS_TYPE::AS_BUILD)
+						{
+							flags |= VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+						}
+						else
+						{
+							// These buffers have STORAGE_BUFFER_BIT and may be read as storage buffers in shaders
+							flags |= VK_ACCESS_SHADER_READ_BIT;
+						}
 						break;
 					}
 					case BUFFER_USAGE::INDIRECT_BUFFER:
@@ -161,7 +165,7 @@ namespace PHX
 		}
 		case RESOURCE_IO::OUTPUT:
 		{
-			if (bindPoint == BIND_POINT::TRANSFER)
+			if (passType == PASS_TYPE::TRANSFER || passType == PASS_TYPE::AS_BUILD)
 			{
 				flags |= VK_ACCESS_TRANSFER_WRITE_BIT;
 			}
@@ -176,7 +180,7 @@ namespace PHX
 				}
 				case RESOURCE_TYPE::TEXTURE:
 				{
-					if (bindPoint == BIND_POINT::RAY_TRACING)
+					if (passType == PASS_TYPE::RAY_TRACING || passType == PASS_TYPE::COMPUTE)
 					{
 						flags |= VK_ACCESS_SHADER_WRITE_BIT;
 						break;
@@ -237,7 +241,7 @@ namespace PHX
 		return flags;
 	}
 
-	static VkPipelineStageFlags CalculateResourcePipelineStageFlags(BIND_POINT bindPoint, VkAccessFlags accessFlag, bool isSrcFlag)
+	static VkPipelineStageFlags CalculateResourcePipelineStageFlags(PASS_TYPE passType, VkAccessFlags accessFlag, bool isSrcFlag)
 	{
 		if (accessFlag == 0)
 		{
@@ -247,7 +251,7 @@ namespace PHX
 		// Acceleration structure access flags are independent of the pass bind point
 		if (accessFlag == VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR)
 		{
-			return (bindPoint == BIND_POINT::RAY_TRACING) ? VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR : VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+			return (passType == PASS_TYPE::RAY_TRACING) ? VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR : VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
 		}
 		if (accessFlag == VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR || accessFlag == VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR)
 		{
@@ -255,9 +259,9 @@ namespace PHX
 		}
 
 		VkPipelineStageFlags flags = 0;
-		switch (bindPoint)
+		switch (passType)
 		{
-		case BIND_POINT::GRAPHICS:
+		case PASS_TYPE::GRAPHICS:
 		{
 			switch (accessFlag)
 			{
@@ -330,39 +334,44 @@ namespace PHX
 
 			break;
 		}
-		case BIND_POINT::COMPUTE:
+		case PASS_TYPE::COMPUTE:
 		{
 			flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
 			break;
 		}
-		case BIND_POINT::TRANSFER:
+		case PASS_TYPE::TRANSFER:
 		{
 			flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 			break;
 		}
-		case BIND_POINT::RAY_TRACING:
+		case PASS_TYPE::RAY_TRACING:
 		{
 			flags |= VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
 			break;
 		}
+		case PASS_TYPE::AS_BUILD:
+		{
+			flags |= VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+			break;
+		}
 		default:
 		{
-			ASSERT_ALWAYS("Failed to calculate resource pipeline stage flags. Unknown bind point!");
+			ASSERT_ALWAYS("Failed to calculate resource pipeline stage flags. Unknown pass type!");
 		}
 		}
 
 		return flags;
 	}
 
-	static VkImageLayout CalculateResourceImageLayout(const ResourceUsage& usage, BIND_POINT bindPoint)
+	static VkImageLayout CalculateResourceImageLayout(const ResourceUsage& usage, PASS_TYPE passType)
 	{
 		switch (usage.io)
 		{
 		case RESOURCE_IO::INPUT:
 		{
-			switch (bindPoint)
+			switch (passType)
 			{
-			case BIND_POINT::GRAPHICS:
+			case PASS_TYPE::GRAPHICS:
 			{
 				switch (usage.attachmentType)
 				{
@@ -378,15 +387,15 @@ namespace PHX
 				}
 				}
 			}
-			case BIND_POINT::COMPUTE:
+			case PASS_TYPE::COMPUTE:
 			{
 				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			}
-			case BIND_POINT::TRANSFER:
+			case PASS_TYPE::TRANSFER:
 			{
 				return VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 			}
-			case BIND_POINT::RAY_TRACING:
+			case PASS_TYPE::RAY_TRACING:
 			{
 				return VK_IMAGE_LAYOUT_GENERAL;
 			}
@@ -399,9 +408,9 @@ namespace PHX
 		}
 		case RESOURCE_IO::OUTPUT:
 		{
-			switch (bindPoint)
+			switch (passType)
 			{
-			case BIND_POINT::GRAPHICS:
+			case PASS_TYPE::GRAPHICS:
 			{
 				switch (usage.attachmentType)
 				{
@@ -423,15 +432,15 @@ namespace PHX
 				}
 				break;
 			}
-			case BIND_POINT::COMPUTE:
+			case PASS_TYPE::COMPUTE:
 			{
 				return VK_IMAGE_LAYOUT_GENERAL;
 			}
-			case BIND_POINT::TRANSFER:
+			case PASS_TYPE::TRANSFER:
 			{
 				return VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 			}
-			case BIND_POINT::RAY_TRACING:
+			case PASS_TYPE::RAY_TRACING:
 			{
 				return VK_IMAGE_LAYOUT_GENERAL;
 			}
@@ -454,8 +463,8 @@ namespace PHX
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-	RenderPassVk::RenderPassVk(const char* name, BIND_POINT bindPoint, u32 index, RegisterResourceCallbackFn registerResourceCallback) : 
-		m_bindPoint(bindPoint), m_registerResourceCallback(registerResourceCallback), m_index(index)
+	RenderPassVk::RenderPassVk(const char* name, PASS_TYPE passType, u32 index, RegisterResourceCallbackFn registerResourceCallback) : 
+		m_passType(passType), m_registerResourceCallback(registerResourceCallback), m_index(index)
 	{
 		ASSERT_MSG(m_registerResourceCallback != nullptr, "Register resource callback is null");
 
@@ -756,12 +765,12 @@ namespace PHX
 		return res;
 	}
 
-	STATUS_CODE RenderGraphVk::RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass)
+	STATUS_CODE RenderGraphVk::RegisterPass(const char* passName, PASS_TYPE passType, RenderPassHandle& renderPass)
 	{
 		// TODO - Reconcile with HANDLE_UTILS functions
 		auto registerResourceFuncPtr = std::bind(&RenderGraphVk::RegisterResource, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 
-		RenderPassVk* newRenderPass = new RenderPassVk(passName, bindPoint, 0u, registerResourceFuncPtr);
+		RenderPassVk* newRenderPass = new RenderPassVk(passName, passType, 0u, registerResourceFuncPtr);
 		const u32 passIndex = m_registeredRenderPasses.Allocate(newRenderPass);
 		newRenderPass->m_index = passIndex;
 
@@ -825,9 +834,9 @@ namespace PHX
 				return res;
 			}
 
-			switch (currRenderPass.m_bindPoint)
+			switch (currRenderPass.m_passType)
 			{
-				case BIND_POINT::GRAPHICS:
+				case PASS_TYPE::GRAPHICS:
 				{
 					// Get or create render pass (refers to internal cache)
 					VkRenderPass renderPassVk = CreateRenderPass(currRenderPass);
@@ -893,7 +902,7 @@ namespace PHX
 
 					break;
 				}
-				case BIND_POINT::COMPUTE:
+				case PASS_TYPE::COMPUTE:
 				{
 					// Get or create pipeline from render device (refes to internal cache)
 					// NOTE - The render pass isn't used for compute pipeline creation, so it can
@@ -906,14 +915,14 @@ namespace PHX
 
 					break;
 				}
-				case BIND_POINT::TRANSFER:
+				case PASS_TYPE::TRANSFER:
 				{
 					// Transfer-only passes do not use a pipeline
 					currRenderPass.m_execCallback(deviceContext);
 
 					break;
 				}
-				case BIND_POINT::RAY_TRACING:
+				case PASS_TYPE::RAY_TRACING:
 				{
 					// Get or create pipeline from render device
 					// NOTE - The render pass isn't used for ray tracing pipeline creation, so it can
@@ -930,6 +939,16 @@ namespace PHX
 					// Update the layout of the render pass' textures to reflect the implicit
 					// layout transition from the render pass
 					UpdateTextureLayouts(activeRenderPassIndex);
+
+					break;
+				}
+				case PASS_TYPE::AS_BUILD:
+				{
+					// AS build passes do not use a pipeline or render pass — just execute the callback
+					if (currRenderPass.m_execCallback)
+					{
+						currRenderPass.m_execCallback(deviceContext);
+					}
 
 					break;
 				}
@@ -1006,13 +1025,14 @@ namespace PHX
 			const std::string passNameStr = std::to_string(pRenderPass->m_index);
 			const char* passName = passNameStr.c_str();
 #endif
-			const char* bindPointStr = RG_UTILS::BindPointToString(pRenderPass->m_bindPoint);
+			const char* passTypeStr = RG_UTILS::PassTypeToString(pRenderPass->m_passType);
 
 			const char* fillColor = "#FFFFFF";
-			if (pRenderPass->m_bindPoint == BIND_POINT::GRAPHICS)       fillColor = "#5DADE2";
-			else if (pRenderPass->m_bindPoint == BIND_POINT::COMPUTE)   fillColor = "#58D68D";
-			else if (pRenderPass->m_bindPoint == BIND_POINT::TRANSFER)  fillColor = "#EB984E";
-			else if (pRenderPass->m_bindPoint == BIND_POINT::RAY_TRACING) fillColor = "#AF7AC5";
+			if (pRenderPass->m_passType == PASS_TYPE::GRAPHICS)       fillColor = "#5DADE2";
+			else if (pRenderPass->m_passType == PASS_TYPE::COMPUTE)   fillColor = "#58D68D";
+			else if (pRenderPass->m_passType == PASS_TYPE::TRANSFER)  fillColor = "#EB984E";
+			else if (pRenderPass->m_passType == PASS_TYPE::RAY_TRACING) fillColor = "#AF7AC5";
+			else if (pRenderPass->m_passType == PASS_TYPE::AS_BUILD)  fillColor = "#48C9B0";
 
 			const bool isFinalPass = PassWritesResource(pRenderPass->m_index, m_presentResID);
 
@@ -1022,7 +1042,7 @@ namespace PHX
 			if (isFinalPass)  dot << ", penwidth=3, color=\"#C0392B\"";
 			else              dot << ", penwidth=1, color=\"#34495E\"";
 
-			dot << ", label=<<b>" << passName << "</b><br/><font point-size=\"9\">" << bindPointStr;
+			dot << ", label=<<b>" << passName << "</b><br/><font point-size=\"9\">" << passTypeStr;
 			if (isFinalPass)  dot << " &#8226; FINAL";
 			dot << "</font>>];\n";
 		}
@@ -1171,6 +1191,7 @@ namespace PHX
 		dot << "\t\t<TR><TD BGCOLOR=\"#58D68D\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Compute pass</TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"#EB984E\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Transfer pass</TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"#AF7AC5\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Ray tracing pass</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"#48C9B0\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">AS build pass</TD></TR>\n";
 
 		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Resources</B></FONT></TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"#EBF5FB\" BORDER=\"1\" COLOR=\"#2E86C1\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Texture</TD></TR>\n";
@@ -1286,7 +1307,7 @@ namespace PHX
 		renderPassDesc.subpasses.reserve(1); // TODO - Support multiple subpasses
 
 		SubpassDescription subpassDesc{};
-		subpassDesc.bindPoint = RG_UTILS::ConvertBindPoint(renderPass.m_bindPoint);
+		subpassDesc.bindPoint = RG_UTILS::ConvertPassTypeToBindPoint(renderPass.m_passType);
 
 		// Incremented every iteration of TraverseRenderPassOutputs below
 		u32 localResourceIndex = 0;
@@ -1458,27 +1479,33 @@ namespace PHX
 	{
 		PipelineVk* pipeline = nullptr;
 
-		BIND_POINT renderPassBindPoint = renderPass.m_bindPoint;
+		PASS_TYPE renderPassBindPoint = renderPass.m_passType;
 		switch (renderPassBindPoint)
 		{
-		case BIND_POINT::GRAPHICS:
+		case PASS_TYPE::GRAPHICS:
 		{
 			pipeline = m_pRenderDevice->CreateGraphicsPipeline(renderPass.graphicsDesc, renderPassVk);
 			break;
 		}
-		case BIND_POINT::COMPUTE:
+		case PASS_TYPE::COMPUTE:
 		{
 			pipeline = m_pRenderDevice->CreateComputePipeline(renderPass.computeDesc);
 			break;
 		}
-		case BIND_POINT::RAY_TRACING:
+		case PASS_TYPE::RAY_TRACING:
 		{
 			pipeline = m_pRenderDevice->CreateRayTracingPipeline(renderPass.rayTracingDesc);
 			break;
 		}
+		case PASS_TYPE::TRANSFER:
+		case PASS_TYPE::AS_BUILD:
+		{
+			// Transfer and AS build passes do not use pipelines
+			break;
+		}
 		default:
 		{
-			ASSERT_ALWAYS("Unknown bind point!");
+			ASSERT_ALWAYS("Unknown pass type!");
 			break;
 		}
 		}
@@ -1653,7 +1680,7 @@ namespace PHX
 		for (u32 activeRenderPassIndex : activeRenderPasses)
 		{
 			RenderPassVk* pDstRenderPass = m_registeredRenderPasses.Get(activeRenderPassIndex);
-			const BIND_POINT dstBindPoint = pDstRenderPass->m_bindPoint;
+			const PASS_TYPE dstBindPoint = pDstRenderPass->m_passType;
 
 			// Every active pass needs an entry in m_outputBarriers for each of its texture outputs so
 			// that CreateRenderPass can find the finalLayout for each attachment.
@@ -1708,7 +1735,7 @@ namespace PHX
 			// buffer-to-image copy), so they require an explicit transition into the write layout
 			// (e.g. TRANSFER_DST_OPTIMAL) before execution. Graphics passes get this implicitly from the
 			// VkRenderPass' initialLayout/finalLayout, so they're skipped here.
-			if (dstBindPoint != BIND_POINT::GRAPHICS)
+			if (dstBindPoint != PASS_TYPE::GRAPHICS)
 			{
 				TraverseRenderPassOutputs(pDstRenderPass->m_index, [&](const RenderResource& resource)
 				{
@@ -1806,8 +1833,8 @@ namespace PHX
 					const ResourceUsage* dstResourceUsage = GetResourceUsageFromPass(*pDstRenderPass, resourceID);
 					ASSERT_PTR(dstResourceUsage); // Should never be null
 
-					const BIND_POINT srcBindPoint = pSrcRenderPass->m_bindPoint;
-					const BIND_POINT dstBindPoint = pDstRenderPass->m_bindPoint;
+					const PASS_TYPE srcBindPoint = pSrcRenderPass->m_passType;
+					const PASS_TYPE dstBindPoint = pDstRenderPass->m_passType;
 
 					Barrier newDstBarrier;
 					newDstBarrier.srcAccessMask = CalculateResourceAccessFlags(*srcResourceUsage, resourceDependency, srcBindPoint);
@@ -1849,7 +1876,7 @@ namespace PHX
 			u64 resourceID = barrierIter.first;
 			const Barrier& currBarrier = barrierIter.second;
 
-			if (renderPass.m_bindPoint == BIND_POINT::GRAPHICS)
+			if (renderPass.m_passType == PASS_TYPE::GRAPHICS)
 			{
 				// HACK! We prevent barriers from being inserted for output textures that
 				// belong to a graphics pass. This is because the render pass implicitly performs
@@ -1873,7 +1900,7 @@ namespace PHX
 				BufferVk* pBuffer = ResolveBuffer(*resourceBarrier);
 				res = pDeviceContext->InsertBufferMemoryBarrier(
 					pBuffer,
-					ConvertBindPointToQueueType(renderPass.m_bindPoint),
+					ConvertPassTypeToQueueType(renderPass.m_passType),
 					currBarrier.srcStageMask,
 					currBarrier.dstStageMask,
 					currBarrier.srcAccessMask,
@@ -1893,7 +1920,7 @@ namespace PHX
 				AccelerationStructureVk* pAccelerationStructure = ResolveAccelerationStructure(*resourceBarrier);
 				res = pDeviceContext->InsertAccelerationStructureMemoryBarrier(
 					pAccelerationStructure,
-					ConvertBindPointToQueueType(renderPass.m_bindPoint),
+					ConvertPassTypeToQueueType(renderPass.m_passType),
 					currBarrier.srcStageMask,
 					currBarrier.dstStageMask,
 					currBarrier.srcAccessMask,
@@ -1913,7 +1940,7 @@ namespace PHX
 				TextureVk* pTexture = ResolveTexture(*resourceBarrier);
 				res = pDeviceContext->InsertImageMemoryBarrier(
 					pTexture,
-					ConvertBindPointToQueueType(renderPass.m_bindPoint),
+					ConvertPassTypeToQueueType(renderPass.m_passType),
 					currBarrier.srcStageMask,
 					currBarrier.dstStageMask,
 					currBarrier.srcAccessMask,
@@ -2135,34 +2162,35 @@ namespace PHX
 			// Ignore callbacks
 			HashCombine(seed, pCurrRenderPass->m_index);
 
-			HashCombine(seed, pCurrRenderPass->m_bindPoint);
-			switch (pCurrRenderPass->m_bindPoint)
+			HashCombine(seed, pCurrRenderPass->m_passType);
+			switch (pCurrRenderPass->m_passType)
 			{
-			case BIND_POINT::GRAPHICS:
+			case PASS_TYPE::GRAPHICS:
 			{
 				GraphicsPipelineDescHasher hasher;
 				HashCombine(seed, hasher(pCurrRenderPass->graphicsDesc));
 				break;
 			}
-			case BIND_POINT::COMPUTE:
+			case PASS_TYPE::COMPUTE:
 			{
 				ComputePipelineDescHasher hasher;
 				HashCombine(seed, hasher(pCurrRenderPass->computeDesc));
 				break;
 			}
-			case BIND_POINT::TRANSFER:
-			{
-				break;
-			}
-			case BIND_POINT::RAY_TRACING:
+			case PASS_TYPE::RAY_TRACING:
 			{
 				RayTracingPipelineDescHasher hasher;
 				HashCombine(seed, hasher(pCurrRenderPass->rayTracingDesc));
 				break;
 			}
+			case PASS_TYPE::TRANSFER:
+			case PASS_TYPE::AS_BUILD:
+			{
+				break;
+			}
 			default:
 			{
-				ASSERT_ALWAYS("Failed to hash render graph state. Unhandled bind point");
+				ASSERT_ALWAYS("Failed to hash render graph state. Unhandled pass type");
 				return 0;
 			}
 			}

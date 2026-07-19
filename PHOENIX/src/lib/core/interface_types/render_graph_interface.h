@@ -53,7 +53,7 @@ namespace PHX
 
 		virtual STATUS_CODE BeginFrame(SwapChainHandle swapChain) = 0;
 		virtual STATUS_CODE EndFrame(SwapChainHandle swapChain) = 0;
-		virtual STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) = 0;
+		virtual STATUS_CODE RegisterPass(const char* passName, PASS_TYPE passType, RenderPassHandle& renderPass) = 0;
 		virtual STATUS_CODE Bake(SwapChainHandle swapChain) = 0;
 
 		virtual u32 GetFrameNumber() const = 0;

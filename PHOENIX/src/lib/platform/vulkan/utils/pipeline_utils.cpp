@@ -6,7 +6,7 @@
 #include "pipeline_type_converter.h"
 #include "shader_type_converter.h"
 #include "texture_type_converter.h"
-#include "texture_utils.h"
+#include "utils/texture_utils.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
 

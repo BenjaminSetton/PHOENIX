@@ -225,14 +225,16 @@ namespace PHX
 	struct RayTracingPipelineDesc
 	{
 		ShaderHandle* pShaders = nullptr;
-		u32 shaderCount = 0;
+		u32 shaderCount        = 0;
 
 		// May be used to combine hit shaders into a single SBT hit group, if necessary
 		// Allows things like alpha discarding since any-hit and closest-hit can be grouped into a single hit group
 		HitGroupDesc* pHitGroups = nullptr;
-		u32 hitGroupCount = 0;
+		u32 hitGroupCount        = 0;
 
 		UniformCollectionHandle uniformCollection = INVALID_HANDLE;
+
+		u32 maxRecursionDepth = 2;
 
 		////////
 		bool operator==(const RayTracingPipelineDesc& other) const;

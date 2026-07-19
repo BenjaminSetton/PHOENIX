@@ -10,38 +10,41 @@ namespace PHX
 {
 	namespace RG_UTILS
 	{
-		VkPipelineBindPoint ConvertBindPoint(BIND_POINT bindPoint)
+		VkPipelineBindPoint ConvertPassTypeToBindPoint(PASS_TYPE passType)
 		{
-			switch (bindPoint)
+			switch (passType)
 			{
-			case BIND_POINT::GRAPHICS:     return VK_PIPELINE_BIND_POINT_GRAPHICS;
-			case BIND_POINT::COMPUTE:      return VK_PIPELINE_BIND_POINT_COMPUTE;
-			case BIND_POINT::RAY_TRACING:  return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+			case PASS_TYPE::GRAPHICS:     return VK_PIPELINE_BIND_POINT_GRAPHICS;
+			case PASS_TYPE::COMPUTE:      return VK_PIPELINE_BIND_POINT_COMPUTE;
+			case PASS_TYPE::RAY_TRACING:  return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+			case PASS_TYPE::TRANSFER: // No pipeline
+			case PASS_TYPE::AS_BUILD: // No pipeline
 			default:
 			{
 				break;
 			}
 			}
 
-			ASSERT_ALWAYS("Failed to convert bind point to VkPipelineBindPoint");
+			ASSERT_ALWAYS("Failed to convert pass type to VkPipelineBindPoint");
 			return VK_PIPELINE_BIND_POINT_MAX_ENUM;
 		}
 
-		const char* BindPointToString(BIND_POINT bp)
+		const char* PassTypeToString(PASS_TYPE passType)
 		{
-			switch (bp)
+			switch (passType)
 			{
-			case BIND_POINT::GRAPHICS:     return "GRAPHICS";
-			case BIND_POINT::COMPUTE:      return "COMPUTE";
-			case BIND_POINT::TRANSFER:     return "TRANSFER";
-			case BIND_POINT::RAY_TRACING:  return "RAY_TRACING";
+			case PASS_TYPE::GRAPHICS:     return "GRAPHICS";
+			case PASS_TYPE::COMPUTE:      return "COMPUTE";
+			case PASS_TYPE::TRANSFER:     return "TRANSFER";
+			case PASS_TYPE::RAY_TRACING:  return "RAY_TRACING";
+			case PASS_TYPE::AS_BUILD:     return "AS_BUILD";
 			default:
 			{
 				break;
 			}
 			}
 
-			ASSERT_ALWAYS("Failed to convert bind point to string");
+			ASSERT_ALWAYS("Failed to convert pass type to string");
 			return "UNKNOWN";
 		}
 

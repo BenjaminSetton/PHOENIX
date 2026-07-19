@@ -65,7 +65,7 @@ namespace PHX
 
 		friend class RenderGraphVk;
 
-		explicit RenderPassVk(const char* name, BIND_POINT bindPoint, u32 index, RegisterResourceCallbackFn registerResourceCallback);
+		explicit RenderPassVk(const char* name, PASS_TYPE passType, u32 index, RegisterResourceCallbackFn registerResourceCallback);
 		~RenderPassVk() override;
 
 		// Inputs
@@ -109,7 +109,7 @@ namespace PHX
 		GraphicsPipelineDesc graphicsDesc;
 		ComputePipelineDesc computeDesc;
 		RayTracingPipelineDesc rayTracingDesc;
-		BIND_POINT m_bindPoint;
+		PASS_TYPE m_passType;
 
 		std::vector<DependencyInfo> m_dependencyInfos;
 
@@ -135,7 +135,7 @@ namespace PHX
 
 		STATUS_CODE BeginFrame(SwapChainHandle swapChain) override;
 		STATUS_CODE EndFrame(SwapChainHandle swapChain) override;
-		STATUS_CODE RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass) override;
+		STATUS_CODE RegisterPass(const char* passName, PASS_TYPE passType, RenderPassHandle& renderPass) override;
 		STATUS_CODE Bake(SwapChainHandle swapChain) override;
 		u32 GetFrameNumber() const override;
 		STATUS_CODE GenerateVisualization(const char* fileName, bool generateIfUnique) override;

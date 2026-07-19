@@ -199,12 +199,12 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
-	STATUS_CODE RenderGraphHandle::RegisterPass(const char* passName, BIND_POINT bindPoint, RenderPassHandle& renderPass)
+	STATUS_CODE RenderGraphHandle::RegisterPass(const char* passName, PASS_TYPE passType, RenderPassHandle& renderPass)
 	{
 		IRenderGraph* pGraph = HANDLE_UTILS::ResolveHandle(*this);
 		if (pGraph != nullptr)
 		{
-			return pGraph->RegisterPass(passName, bindPoint, renderPass);
+			return pGraph->RegisterPass(passName, passType, renderPass);
 		}
 
 		ASSERT_ALWAYS("Failed to begin frame. Could not resolve render graph handle!");

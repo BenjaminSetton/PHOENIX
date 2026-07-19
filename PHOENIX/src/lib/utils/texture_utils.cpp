@@ -186,4 +186,94 @@ namespace PHX
 
 		return false;
 	}
+
+	bool IsCubeView(VIEW_TYPE viewType)
+	{
+		switch (viewType)
+		{
+		case VIEW_TYPE::TYPE_CUBE:
+		case VIEW_TYPE::TYPE_CUBE_ARRAY:
+		{
+			return true;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		return false;
+	}
+
+	bool IsArrayView(VIEW_TYPE viewType)
+	{
+		switch (viewType)
+		{
+		case VIEW_TYPE::TYPE_1D_ARRAY:
+		case VIEW_TYPE::TYPE_2D_ARRAY:
+		case VIEW_TYPE::TYPE_CUBE_ARRAY:
+		{
+			return true;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		return false;
+	}
+
+	bool Is1DView(VIEW_TYPE viewType)
+	{
+		switch (viewType)
+		{
+		case VIEW_TYPE::TYPE_1D:
+		case VIEW_TYPE::TYPE_1D_ARRAY:
+		{
+			return true;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		return false;
+	}
+
+	bool Is2DView(VIEW_TYPE viewType)
+	{
+		switch (viewType)
+		{
+		case VIEW_TYPE::TYPE_2D:
+		case VIEW_TYPE::TYPE_2D_ARRAY:
+		{
+			return true;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		return false;
+	}
+
+	bool Is3DView(VIEW_TYPE viewType)
+	{
+		switch (viewType)
+		{
+		case VIEW_TYPE::TYPE_3D:
+		{
+			return true;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		return false;
+	}
 }
