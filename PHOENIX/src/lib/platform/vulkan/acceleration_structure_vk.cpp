@@ -150,7 +150,7 @@ namespace PHX
 				VkAccelerationStructureGeometryKHR asGeometry{};
 				asGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
 				asGeometry.geometryType = ConvertGeometryType(geometry.type);
-				asGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+				asGeometry.flags = ConvertGeometryFlags(geometry.flags);
 
 				if (geometry.type == GEOMETRY_TYPE::TRIANGLES)
 				{

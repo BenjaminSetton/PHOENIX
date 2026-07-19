@@ -142,6 +142,13 @@ namespace PHX
 		ColorComponentFlags colorWriteMask     = COLOR_COMPONENT_FLAG_R | COLOR_COMPONENT_FLAG_G | COLOR_COMPONENT_FLAG_B | COLOR_COMPONENT_FLAG_A;
 	};
 
+	struct HitGroupDesc
+	{
+		u32 closestHitShaderIndex   = U32_MAX; // Index into pShaders, or U32_MAX if none
+		u32 anyHitShaderIndex       = U32_MAX; // Index into pShaders, or U32_MAX if none
+		u32 intersectionShaderIndex = U32_MAX; // Index into pShaders, or U32_MAX if none
+	};
+
 	struct GraphicsPipelineDesc
 	{
 		// Input assembler
@@ -219,6 +226,12 @@ namespace PHX
 	{
 		ShaderHandle* pShaders = nullptr;
 		u32 shaderCount = 0;
+
+		// May be used to combine hit shaders into a single SBT hit group, if necessary
+		// Allows things like alpha discarding since any-hit and closest-hit can be grouped into a single hit group
+		HitGroupDesc* pHitGroups = nullptr;
+		u32 hitGroupCount = 0;
+
 		UniformCollectionHandle uniformCollection = INVALID_HANDLE;
 
 		////////

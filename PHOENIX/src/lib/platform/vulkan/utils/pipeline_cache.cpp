@@ -58,7 +58,7 @@ namespace PHX
 
 	size_t GraphicsPipelineDescHasher::operator()(const GraphicsPipelineDesc& desc) const
 	{
-		//STATIC_ASSERT_MSG(sizeof(desc) == SOME_SIZE, "If graphics pipeline description changed, make sure to change this hashing function!");
+		STATIC_ASSERT_MSG(sizeof(desc) == 248, "If graphics pipeline description changed, make sure to change this hashing function!");
 
 		size_t seed = 0;
 
@@ -149,7 +149,7 @@ namespace PHX
 
 	size_t ComputePipelineDescHasher::operator()(const ComputePipelineDesc& desc) const
 	{
-		//STATIC_ASSERT_MSG(sizeof(desc) == SOME_SIZE, "If compute pipeline description changed, make sure to change this hashing function!");
+		STATIC_ASSERT_MSG(sizeof(desc) == 32, "If compute pipeline description changed, make sure to change this hashing function!");
 
 		size_t seed = 0;
 
@@ -164,12 +164,20 @@ namespace PHX
 
 	size_t RayTracingPipelineDescHasher::operator()(const RayTracingPipelineDesc& desc) const
 	{
-		//STATIC_ASSERT_MSG(sizeof(desc) == SOME_SIZE, "If ray tracing pipeline description changed, make sure to change this hashing function!");
+		STATIC_ASSERT_MSG(sizeof(desc) == 48, "If ray tracing pipeline description changed, make sure to change this hashing function!");
 
 		size_t seed = 0;
 
 		// Shader info
 		HashCombineShaderArray(desc.pShaders, desc.shaderCount, seed);
+
+		// Hit group info
+		for (u32 i = 0; i < desc.hitGroupCount; i++)
+		{
+			HashCombine(seed, desc.pHitGroups[i].closestHitShaderIndex);
+			HashCombine(seed, desc.pHitGroups[i].anyHitShaderIndex);
+			HashCombine(seed, desc.pHitGroups[i].intersectionShaderIndex);
+		}
 
 		// Uniform collection
 		HashCombineUniformCollection(desc.uniformCollection, seed);

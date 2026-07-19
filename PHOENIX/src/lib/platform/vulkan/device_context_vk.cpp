@@ -11,6 +11,7 @@
 #include "pipeline_vk.h"
 #include "swap_chain_vk.h"
 #include "uniform_vk.h"
+#include "utils/acceleration_structure_utils.h"
 #include "utils/buffer_utils.h"
 #include "utils/buffer_type_converter.h"
 #include "utils/logger.h"
@@ -348,7 +349,7 @@ namespace PHX
 			VkAccelerationStructureGeometryKHR asGeometry{};
 			asGeometry.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR;
 			asGeometry.geometryType = geometry.type == GEOMETRY_TYPE::TRIANGLES ? VK_GEOMETRY_TYPE_TRIANGLES_KHR : VK_GEOMETRY_TYPE_AABBS_KHR;
-			asGeometry.flags = VK_GEOMETRY_OPAQUE_BIT_KHR;
+			asGeometry.flags = ConvertGeometryFlags(geometry.flags);
 
 			if (geometry.type == GEOMETRY_TYPE::TRIANGLES)
 			{

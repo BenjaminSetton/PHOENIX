@@ -15,9 +15,18 @@ namespace PHX
 		MAX
 	};
 
+	enum GEOMETRY_FLAG : u8
+	{
+		GEOMETRY_FLAG_NONE                             = 0,
+		GEOMETRY_FLAG_OPAQUE                           = (1 << 0),
+		GEOMETRY_FLAG_NO_DUPLICATE_ANY_HIT_INVOCATION  = (1 << 1),
+	};
+	using GeometryFlags = u8;
+
 	struct GeometryData
 	{
-		GEOMETRY_TYPE type = GEOMETRY_TYPE::TRIANGLES;
+		GEOMETRY_TYPE type  = GEOMETRY_TYPE::TRIANGLES;
+		GeometryFlags flags = GEOMETRY_FLAG_OPAQUE;
 
 		// Triangle geometry
 		BufferHandle vertexBuffer = INVALID_HANDLE;

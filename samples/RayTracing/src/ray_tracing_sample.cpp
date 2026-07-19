@@ -283,8 +283,24 @@ void RayTracingSample::Init()
 		}
 		m_rayTracingPipelineShaders.push_back(closestHitShader);
 
+		ShaderHandle anyHitShader;
+		if (!Common::AllocateShader("../src/shaders/anyhit.rahit", SHADER_STAGE::ANY_HIT, m_renderDevice, anyHitShader))
+		{
+			return;
+		}
+		m_rayTracingPipelineShaders.push_back(anyHitShader);
+
+		// Shader indices: 0=raygen, 1=miss, 2=shadowMiss, 3=closestHit, 4=anyHit
+		// Single hit group combining closest-hit + any-hit for alpha testing
+		m_rayTracingHitGroups.resize(1);
+		m_rayTracingHitGroups[0].closestHitShaderIndex = 3;
+		m_rayTracingHitGroups[0].anyHitShaderIndex = 4;
+		m_rayTracingHitGroups[0].intersectionShaderIndex = UINT32_MAX;
+
 		m_rayTracingPipelineDesc.pShaders = m_rayTracingPipelineShaders.data();
 		m_rayTracingPipelineDesc.shaderCount = static_cast<u32>(m_rayTracingPipelineShaders.size());
+		m_rayTracingPipelineDesc.pHitGroups = m_rayTracingHitGroups.data();
+		m_rayTracingPipelineDesc.hitGroupCount = static_cast<u32>(m_rayTracingHitGroups.size());
 		m_rayTracingPipelineDesc.uniformCollection = m_rayTracingUniformCollection;
 	}
 }
@@ -535,6 +551,7 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 
 		GeometryData geometry{};
 		geometry.type = GEOMETRY_TYPE::TRIANGLES;
+		geometry.flags = GEOMETRY_FLAG_NONE;
 		geometry.vertexBuffer = m_sceneVertexBuffer;
 		geometry.indexBuffer = m_sceneIndexBuffer;
 		geometry.vertexCount = mesh.vertexCount;
@@ -806,16 +823,16 @@ void RayTracingSample::CreateUniformCollections()
 	rtData[1].shaderStage = SHADER_STAGE_FLAG_RAYGEN | SHADER_STAGE_FLAG_CLOSEST_HIT;
 	rtData[1].type = UNIFORM_TYPE::ACCELERATION_STRUCTURE;
 	rtData[2].binding = 2;
-	rtData[2].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT;
+	rtData[2].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
 	rtData[2].type = UNIFORM_TYPE::STORAGE_BUFFER;
 	rtData[3].binding = 3;
-	rtData[3].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT;
+	rtData[3].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
 	rtData[3].type = UNIFORM_TYPE::STORAGE_BUFFER;
 	rtData[4].binding = 4;
-	rtData[4].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT;
+	rtData[4].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
 	rtData[4].type = UNIFORM_TYPE::STORAGE_BUFFER;
 	rtData[5].binding = 5;
-	rtData[5].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT;
+	rtData[5].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
 	rtData[5].type = UNIFORM_TYPE::STORAGE_BUFFER;
 
 	UniformData cameraData{};
@@ -833,7 +850,7 @@ void RayTracingSample::CreateUniformCollections()
 	{
 		texUniforms.resize(1);
 		texUniforms[0].binding = 0;
-		texUniforms[0].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT;
+		texUniforms[0].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
 		texUniforms[0].type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
 		texUniforms[0].count = texCount;
 

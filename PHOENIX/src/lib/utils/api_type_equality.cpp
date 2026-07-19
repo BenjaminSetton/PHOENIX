@@ -227,6 +227,17 @@ namespace PHX
 			return false;
 		}
 
+		// HIT GROUPS
+		if (hitGroupCount != other.hitGroupCount)
+		{
+			return false;
+		}
+
+		if (memcmp(pHitGroups, other.pHitGroups, hitGroupCount * sizeof(HitGroupDesc)) != 0)
+		{
+			return false;
+		}
+
 		return true;
 	}
 

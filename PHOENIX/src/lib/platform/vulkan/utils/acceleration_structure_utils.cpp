@@ -30,6 +30,14 @@ namespace PHX
 		}
 	}
 
+	VkGeometryFlagsKHR ConvertGeometryFlags(GeometryFlags flags)
+	{
+		VkGeometryFlagsKHR vkFlags = 0;
+		if (flags & GEOMETRY_FLAG_OPAQUE)                          vkFlags |= VK_GEOMETRY_OPAQUE_BIT_KHR;
+		if (flags & GEOMETRY_FLAG_NO_DUPLICATE_ANY_HIT_INVOCATION) vkFlags |= VK_GEOMETRY_NO_DUPLICATE_ANY_HIT_INVOCATION_BIT_KHR;
+		return vkFlags;
+	}
+
 	VkBuildAccelerationStructureFlagsKHR ConvertBuildFlags(AccelerationStructureBuildFlags flags)
 	{
 		VkBuildAccelerationStructureFlagsKHR vkFlags = 0;

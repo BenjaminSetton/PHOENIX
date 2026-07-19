@@ -1,0 +1,84 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+#extension GL_EXT_nonuniform_qualifier : require
+
+hitAttributeEXT vec2 baryCoords;
+
+struct Vertex
+{
+    vec3 position;
+    vec3 normal;
+    vec3 tangent;
+    vec3 bitangent;
+    vec2 uv;
+};
+
+layout(set = 0, binding = 2) buffer Vertices
+{
+    Vertex v[];
+} vertices;
+
+layout(set = 0, binding = 3) buffer Indices
+{
+    uint i[];
+} indices;
+
+struct GeometryInfo
+{
+    uint firstVertex;
+    uint firstIndex;
+    uint materialIndex;
+    uint padding;
+};
+
+layout(set = 0, binding = 4) buffer GeometryInfoBuffer
+{
+    GeometryInfo g[];
+} geometryInfo;
+
+struct MaterialInfo
+{
+    uint albedoTexIndex;
+    uint normalTexIndex;
+    uint metallicTexIndex;
+    uint roughnessTexIndex;
+    uint aoTexIndex;
+    uint specularTexIndex;
+    uint lightmapTexIndex;
+    uint padding;
+};
+
+layout(set = 0, binding = 5) buffer MaterialBuffer
+{
+    MaterialInfo m[];
+} materialBuffer;
+
+#define MAX_TEXTURES 128
+layout(set = 2, binding = 0) uniform sampler2D textures[MAX_TEXTURES];
+
+void main()
+{
+    uint geometryIndex = gl_InstanceCustomIndexEXT;
+    GeometryInfo info = geometryInfo.g[geometryIndex];
+    MaterialInfo mat = materialBuffer.m[info.materialIndex];
+
+    uint primitiveIndex = gl_PrimitiveID;
+
+    uint i0 = indices.i[info.firstIndex + primitiveIndex * 3 + 0] + info.firstVertex;
+    uint i1 = indices.i[info.firstIndex + primitiveIndex * 3 + 1] + info.firstVertex;
+    uint i2 = indices.i[info.firstIndex + primitiveIndex * 3 + 2] + info.firstVertex;
+
+    Vertex v0 = vertices.v[i0];
+    Vertex v1 = vertices.v[i1];
+    Vertex v2 = vertices.v[i2];
+
+    vec3 bary = vec3(1.0 - baryCoords.x - baryCoords.y, baryCoords.x, baryCoords.y);
+    vec2 uv = v0.uv * bary.x + v1.uv * bary.y + v2.uv * bary.z;
+
+    // Alpha test: discard fragments with low alpha from the albedo texture
+    float alpha = texture(textures[mat.albedoTexIndex], uv).a;
+    if (alpha < 0.5)
+    {
+        ignoreIntersectionEXT;
+    }
+}

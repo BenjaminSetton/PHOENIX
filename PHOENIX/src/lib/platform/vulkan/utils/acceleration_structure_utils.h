@@ -11,6 +11,7 @@ namespace PHX
 
 	VkAccelerationStructureTypeKHR ConvertAccelerationStructureType(ACCELERATION_STRUCTURE_TYPE type);
 	VkGeometryTypeKHR ConvertGeometryType(GEOMETRY_TYPE type);
+	VkGeometryFlagsKHR ConvertGeometryFlags(GeometryFlags flags);
 	VkBuildAccelerationStructureFlagsKHR ConvertBuildFlags(AccelerationStructureBuildFlags flags);
 	u32 GetMaxPrimitiveCountForGeometry(const GeometryData& geometry);
 	VkDeviceAddress GetBufferDeviceAddress(RenderDeviceVk* pRenderDevice, VkBuffer buffer);

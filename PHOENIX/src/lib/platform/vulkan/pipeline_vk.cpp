@@ -498,14 +498,39 @@ namespace PHX
 		}
 
 		// Hit groups
-		for (u32 i = 0; i < createInfo.shaderCount; i++)
+		if (createInfo.hitGroupCount > 0 && createInfo.pHitGroups != nullptr)
 		{
-			if (shaderStageTypes[i] == SHADER_STAGE::CLOSEST_HIT || shaderStageTypes[i] == SHADER_STAGE::ANY_HIT || shaderStageTypes[i] == SHADER_STAGE::INTERSECTION)
+			// Explicit hit group definitions — each entry combines closest-hit, any-hit,
+			// and/or intersection shaders into a single SBT hit group
+			for (u32 i = 0; i < createInfo.hitGroupCount; i++)
 			{
-				res = AddStageGroup(i, shaderStageTypes[i]);
-				if (res != STATUS_CODE::SUCCESS)
+				const HitGroupDesc& hg = createInfo.pHitGroups[i];
+
+				bool hasIntersection = (hg.intersectionShaderIndex != UINT32_MAX);
+				VkRayTracingShaderGroupTypeKHR groupType = hasIntersection
+					? VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR
+					: VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR;
+
+				u32 closestHitIdx = (hg.closestHitShaderIndex != UINT32_MAX) ? hg.closestHitShaderIndex : VK_SHADER_UNUSED_KHR;
+				u32 anyHitIdx    = (hg.anyHitShaderIndex != UINT32_MAX) ? hg.anyHitShaderIndex : VK_SHADER_UNUSED_KHR;
+				u32 intersectionIdx = hasIntersection ? hg.intersectionShaderIndex : VK_SHADER_UNUSED_KHR;
+
+				AddGroup(groupType, VK_SHADER_UNUSED_KHR, closestHitIdx, anyHitIdx, intersectionIdx);
+				hitGroupCount++;
+			}
+		}
+		else
+		{
+			// Auto-grouping: each hit shader gets its own group (backward-compatible)
+			for (u32 i = 0; i < createInfo.shaderCount; i++)
+			{
+				if (shaderStageTypes[i] == SHADER_STAGE::CLOSEST_HIT || shaderStageTypes[i] == SHADER_STAGE::ANY_HIT || shaderStageTypes[i] == SHADER_STAGE::INTERSECTION)
 				{
-					return res;
+					res = AddStageGroup(i, shaderStageTypes[i]);
+					if (res != STATUS_CODE::SUCCESS)
+					{
+						return res;
+					}
 				}
 			}
 		}

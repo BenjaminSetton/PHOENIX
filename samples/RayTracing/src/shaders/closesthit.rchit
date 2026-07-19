@@ -166,7 +166,7 @@ void main()
     // Shadow ray — offset origin along geometric normal to prevent self-intersection
     shadowFactor = 0.0;
     vec3 shadowOrigin = worldHitPos + worldNormal * 0.003;
-    traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsOpaqueEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xff, 0, 0, 1, shadowOrigin, 0.001, L, 1000.0, 1);
+    traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xff, 0, 0, 1, shadowOrigin, 0.001, L, 1000.0, 1);
 
     // PBR Cook-Torrance BRDF
     vec3 F0 = mix(vec3(0.04), albedo, metallic);

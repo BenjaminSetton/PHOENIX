@@ -54,6 +54,7 @@ private:
 
 	PHX::RayTracingPipelineDesc m_rayTracingPipelineDesc;
 	std::vector<PHX::ShaderHandle> m_rayTracingPipelineShaders;
+	std::vector<PHX::HitGroupDesc> m_rayTracingHitGroups;
 
 	PHX::GraphicsPipelineDesc m_blitPipelineDesc;
 	std::vector<PHX::ShaderHandle> m_blitPipelineShaders;
