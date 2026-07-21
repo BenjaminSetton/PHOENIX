@@ -1,6 +1,8 @@
 #ifndef COMMON_GLSL
 #define COMMON_GLSL
 
+const float PI = 3.14159265359;
+
 // PCG hash-based pseudo-random number generator
 // Returns a single uint32 hash from a uint32 input
 uint pcgHash(uint v)
@@ -37,6 +39,22 @@ vec3 ACESFilm(vec3 x)
     const float d = 0.59;
     const float e = 0.14;
     return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
+}
+
+// Cosine-weighted hemisphere sampling for diffuse bounces
+// Returns a direction in hemisphere around N, sampled with cosine distribution
+vec3 sampleCosineWeightedHemisphere(vec2 rand, vec3 N)
+{
+    float r = sqrt(rand.x);
+    float phi = 2.0 * PI * rand.y;
+    vec3 localDir = vec3(r * cos(phi), r * sin(phi), sqrt(max(0.0, 1.0 - rand.x)));
+
+    // Build ONB from N
+    vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, N));
+    vec3 bitangent = cross(N, tangent);
+
+    return normalize(tangent * localDir.x + bitangent * localDir.y + N * localDir.z);
 }
 
 #endif // COMMON_GLSL

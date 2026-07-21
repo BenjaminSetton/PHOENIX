@@ -320,6 +320,24 @@ namespace PHX
 		return HANDLE_UTILS::AllocateHandle(m_shaders, pShader, this, handle);
 	}
 
+	STATUS_CODE RenderDeviceVk::ReloadShader(const ShaderCreateInfo& createInfo, ShaderHandle shader)
+	{
+		ShaderVk* pNewShader = new ShaderVk(this, createInfo);
+		if (pNewShader == nullptr)
+		{
+			LogError("Failed to reload shader. Memory allocation failed!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		m_shaders.Replace(shader.GetIndex(), pNewShader);
+		return STATUS_CODE::SUCCESS;
+	}
+
+	void RenderDeviceVk::FlushPipelineCache()
+	{
+		m_pipelineCache->Flush();
+	}
+
 	STATUS_CODE RenderDeviceVk::AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& handle)
 	{
 		SwapChainVk* pSwapChain = new SwapChainVk(this, createInfo);

@@ -57,7 +57,7 @@ project "RayTracing"
 	filter "system:windows"
 		cppdialect "C++17"
 		systemversion "latest"
-		warnings "High"
+		warnings "Extra"
 
 	filter "configurations:Debug"
 		symbols "On"

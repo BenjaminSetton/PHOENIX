@@ -43,7 +43,7 @@ project "PHOENIX"
 	filter "system:windows"
 		cppdialect "C++14"
 		systemversion "latest"
-		warnings "High"
+		warnings "Extra"
 		defines "PHX_WINDOWS"
 		links
 		{

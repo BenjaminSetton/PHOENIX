@@ -40,11 +40,7 @@ struct MaterialInfo
 {
     uint albedoTexIndex;
     uint normalTexIndex;
-    uint metallicTexIndex;
-    uint roughnessTexIndex;
-    uint aoTexIndex;
     uint specularTexIndex;
-    uint lightmapTexIndex;
     uint padding;
 };
 

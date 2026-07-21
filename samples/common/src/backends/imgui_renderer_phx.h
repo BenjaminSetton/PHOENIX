@@ -6,6 +6,8 @@
 
 namespace Common
 {
+	class ShaderManager;
+
 	class ImGuiPhxRenderer
 	{
 	public:
@@ -13,8 +15,11 @@ namespace Common
 		ImGuiPhxRenderer();
 		~ImGuiPhxRenderer();
 
-		bool Init(PHX::RenderDeviceHandle renderDevice, PHX::SwapChainHandle swapChain);
+		bool Init(PHX::RenderDeviceHandle renderDevice, PHX::SwapChainHandle swapChain, ShaderManager* pShaderManager);
 		void Shutdown();
+
+		// Re-creates shaders using the given ShaderManager. Called when hot reloading is needed.
+		void RecreateShaders(PHX::RenderDeviceHandle renderDevice, ShaderManager* pShaderManager);
 
 		// Renders data provided by ImDrawData. Returns whether the function succeeded or not
 		bool RenderDrawData(PHX::RenderGraphHandle renderGraph, PHX::SwapChainHandle swapChain, ImDrawData* drawData);
@@ -22,7 +27,7 @@ namespace Common
 	private:
 
 		void CreateFontAtlas(PHX::RenderDeviceHandle renderDevice);
-		void CreateShaders(PHX::RenderDeviceHandle renderDevice);
+		void CreateShaders(PHX::RenderDeviceHandle renderDevice, ShaderManager* pShaderManager);
 		void CreateUniformCollection(PHX::RenderDeviceHandle renderDevice);
 		void CreatePipelineDescription(PHX::SwapChainHandle swapChain);
 		void CreateBuffers(PHX::RenderDeviceHandle renderDevice);

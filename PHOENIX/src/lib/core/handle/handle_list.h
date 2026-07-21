@@ -92,6 +92,30 @@ namespace PHX
 			}
 		}
 
+		// Replaces the object at the given index with pObj. The old object is deleted
+		// and the new object inherits the old object's ref count, so existing handles
+		// remain valid and resolve to the new object. Does NOT touch the free list.
+		// Used for things like hot-reloading shaders
+		void Replace(u32 index, InterfaceT* pObj)
+		{
+			if (index >= static_cast<u32>(m_slots.size()))
+			{
+				LogError("Failed to replace handle. Index %u is out of range!", index);
+				return;
+			}
+
+			InterfaceT* pOldObj = m_slots[index];
+			i32 oldRefCount = 0;
+			if (pOldObj != nullptr)
+			{
+				oldRefCount = pOldObj->GetRefCount();
+			}
+
+			SAFE_DEL(pOldObj);
+			m_slots[index] = pObj;
+			pObj->SetRefCount(oldRefCount);
+		}
+
 		void DeleteAll()
 		{
 			for (InterfaceT*& pObj : m_slots)

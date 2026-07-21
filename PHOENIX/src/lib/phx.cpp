@@ -5,9 +5,10 @@
 
 #include "PHX/phx.h"
 
+#include "core/core_object_manager.h"
 #include "core/global_settings.h"
-#include "core/object_factory.h"
 #include "utils/crc32.h"
+#include "utils/deferred_caller.h"
 #include "utils/glslang_includer.h"
 #include "utils/glslang_type_converter.h"
 #include "utils/logger.h"
@@ -226,6 +227,20 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	STATUS_CODE Update(float deltaTime)
+	{
+		UNUSED(deltaTime);
+
+		DeferredCaller::Get().Update();
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE Shutdown()
+	{
+		DeferredCaller::Get().Flush();
+		return STATUS_CODE::SUCCESS;
+	}
+
 	u32 GetFullVersion()
 	{
 		return BUILD_VERSION(VER_MAJOR, VER_MINOR, VER_PATCH);
@@ -283,7 +298,7 @@ namespace PHX
 		EProfile defaultProfile = ENoProfile; // NOTE: Only for desktop, before profiles showed up!
 
 		// Build the includer. If include paths are provided, use the custom filesystem includer.
-		// Otherwise, fall back to ForbidIncluder to preserve existing behavior.
+		// Otherwise, fall back to ForbidIncluder
 		std::vector<std::string> includeSearchPaths;
 		for (u32 i = 0; i < srcData.includePathCount; i++)
 		{

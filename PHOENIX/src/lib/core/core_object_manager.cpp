@@ -1,5 +1,5 @@
 
-#include "object_factory.h"
+#include "core_object_manager.h"
 
 #include "platform/vulkan/core_vk.h"
 #include "platform/vulkan/render_device_vk.h"

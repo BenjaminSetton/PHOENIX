@@ -29,11 +29,7 @@ static const u32 s_defaultTexturePixels[] =
 {
 	0xFFFFFFFF, // albedo (white)
 	0xFFFF8080, // normal (flat, pointing +Z)
-	0xFF000000, // metallic (0)
-	0xFF808080, // roughness (~0.5)
-	0xFFFFFFFF, // AO (white)
 	0xFFFFFFFF, // specular (white)
-	0xFFFFFFFF, // lightmap (white)
 };
 static const u32 s_defaultTextureCount = sizeof(s_defaultTexturePixels) / sizeof(s_defaultTexturePixels[0]);
 
@@ -251,14 +247,16 @@ void RayTracingSample::Init()
 
 	// BLIT SHADERS
 	ShaderHandle blitVertShader;
-	if (!Common::AllocateShader("../src/shaders/blit.vert", SHADER_STAGE::VERTEX, m_renderDevice, blitVertShader))
+	blitVertShader = m_pShaderManager->RegisterShader("../src/shaders/blit.vert", SHADER_STAGE::VERTEX, m_renderDevice);
+	if (!blitVertShader.IsValid())
 	{
 		return;
 	}
 	m_blitPipelineShaders.push_back(blitVertShader);
 
 	ShaderHandle blitFragShader;
-	if (!Common::AllocateShader("../src/shaders/blit.frag", SHADER_STAGE::FRAGMENT, m_renderDevice, blitFragShader))
+	blitFragShader = m_pShaderManager->RegisterShader("../src/shaders/blit.frag", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	if (!blitFragShader.IsValid())
 	{
 		return;
 	}
@@ -281,42 +279,48 @@ void RayTracingSample::Init()
 	if (m_rayTracingSupported)
 	{
 		ShaderHandle rayGenShader;
-		if (!Common::AllocateShader("../src/shaders/raygen.rgen", SHADER_STAGE::RAYGEN, m_renderDevice, rayGenShader))
+		rayGenShader = m_pShaderManager->RegisterShader("../src/shaders/raygen.rgen", SHADER_STAGE::RAYGEN, m_renderDevice);
+		if (!rayGenShader.IsValid())
 		{
 			return;
 		}
 		m_rayTracingPipelineShaders.push_back(rayGenShader);
 
 		ShaderHandle missShader;
-		if (!Common::AllocateShader("../src/shaders/miss.rmiss", SHADER_STAGE::MISS, m_renderDevice, missShader))
+		missShader = m_pShaderManager->RegisterShader("../src/shaders/miss.rmiss", SHADER_STAGE::MISS, m_renderDevice);
+		if (!missShader.IsValid())
 		{
 			return;
 		}
 		m_rayTracingPipelineShaders.push_back(missShader);
 
 		ShaderHandle shadowMissShader;
-		if (!Common::AllocateShader("../src/shaders/shadowMiss.rmiss", SHADER_STAGE::MISS, m_renderDevice, shadowMissShader))
+		shadowMissShader = m_pShaderManager->RegisterShader("../src/shaders/shadowMiss.rmiss", SHADER_STAGE::MISS, m_renderDevice);
+		if (!shadowMissShader.IsValid())
 		{
 			return;
 		}
 		m_rayTracingPipelineShaders.push_back(shadowMissShader);
 
 		ShaderHandle closestHitShader;
-		if (!Common::AllocateShader("../src/shaders/closesthit.rchit", SHADER_STAGE::CLOSEST_HIT, m_renderDevice, closestHitShader))
+		closestHitShader = m_pShaderManager->RegisterShader("../src/shaders/closesthit.rchit", SHADER_STAGE::CLOSEST_HIT, m_renderDevice);
+		if (!closestHitShader.IsValid())
 		{
 			return;
 		}
 		m_rayTracingPipelineShaders.push_back(closestHitShader);
 
 		ShaderHandle anyHitShader;
-		if (!Common::AllocateShader("../src/shaders/anyhit.rahit", SHADER_STAGE::ANY_HIT, m_renderDevice, anyHitShader))
+		anyHitShader = m_pShaderManager->RegisterShader("../src/shaders/anyhit.rahit", SHADER_STAGE::ANY_HIT, m_renderDevice);
+		if (!anyHitShader.IsValid())
 		{
 			return;
 		}
 		m_rayTracingPipelineShaders.push_back(anyHitShader);
 
 		ShaderHandle bounceClosestHitShader;
-		if (!Common::AllocateShader("../src/shaders/bounce_closesthit.rchit", SHADER_STAGE::CLOSEST_HIT, m_renderDevice, bounceClosestHitShader))
+		bounceClosestHitShader = m_pShaderManager->RegisterShader("../src/shaders/bounce_closesthit.rchit", SHADER_STAGE::CLOSEST_HIT, m_renderDevice);
+		if (!bounceClosestHitShader.IsValid())
 		{
 			return;
 		}
@@ -370,7 +374,7 @@ void RayTracingSample::LoadSceneAssets()
 
 void RayTracingSample::CreateDefaultTextures()
 {
-	// Default indices: 0=albedo(white), 1=normal(flat), 2=metallic(black), 3=roughness(mid-gray), 4=AO(white), 5=specular(white), 6=lightmap(white)
+	// Default indices: 0=albedo(white), 1=normal(flat), 2=specular(white)
 	struct DefaultTexData
 	{
 		const char* name;
@@ -381,11 +385,7 @@ void RayTracingSample::CreateDefaultTextures()
 	{
 		{"DefaultAlbedo",     BASE_FORMAT::R8G8B8A8_SRGB},
 		{"DefaultNormal",     BASE_FORMAT::R8G8B8A8_UNORM},
-		{"DefaultMetallic",   BASE_FORMAT::R8G8B8A8_UNORM},
-		{"DefaultRoughness",  BASE_FORMAT::R8G8B8A8_UNORM},
-		{"DefaultAO",         BASE_FORMAT::R8G8B8A8_UNORM},
 		{"DefaultSpecular",   BASE_FORMAT::R8G8B8A8_UNORM},
-		{"DefaultLightmap",   BASE_FORMAT::R8G8B8A8_UNORM},
 	};
 
 	for (u32 i = 0; i < s_defaultTextureCount; i++)
@@ -473,7 +473,11 @@ void RayTracingSample::CreateSceneTextures()
 
 		TextureHandle texHandle;
 		STATUS_CODE res = m_renderDevice.AllocateTexture(baseCI, viewCI, samplerCI, texHandle);
-		CHECK_PHX_RES(res);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			std::cout << "[ASSET] Failed to allocate scene texture \"" << currTex.name << "\", skipping" << std::endl;
+			continue;
+		}
 
 		m_sceneTextures.push_back(texHandle);
 	}
@@ -527,7 +531,7 @@ void RayTracingSample::CreateSceneGeometryBuffers()
 	phxRes = m_renderDevice.AllocateBuffer(gBufferCI, m_geometryInfoBuffer);
 	CHECK_PHX_RES(phxRes);
 
-	// Build per-material texture index mapping for PBR
+	// Build per-material texture index mapping
 	std::vector<MaterialInfo> materialInfos;
 	materialInfos.reserve(m_pAsset->materials.size());
 	for (const Material& mat : m_pAsset->materials)
@@ -545,11 +549,7 @@ void RayTracingSample::CreateSceneGeometryBuffers()
 			{
 			case Common::TEXTURE_TYPE::DIFFUSE:              matInfo.albedoTexIndex    = offsetIdx; break;
 			case Common::TEXTURE_TYPE::NORMAL:               matInfo.normalTexIndex    = offsetIdx; break;
-			case Common::TEXTURE_TYPE::METALLIC:             matInfo.metallicTexIndex  = offsetIdx; break;
-			case Common::TEXTURE_TYPE::ROUGHNESS:            matInfo.roughnessTexIndex = offsetIdx; break;
-			case Common::TEXTURE_TYPE::AMBIENT_OCCLUSION:    matInfo.aoTexIndex        = offsetIdx; break;
 			case Common::TEXTURE_TYPE::SPECULAR:             matInfo.specularTexIndex  = offsetIdx; break;
-			case Common::TEXTURE_TYPE::LIGHTMAP:             matInfo.lightmapTexIndex  = offsetIdx; break;
 			default: break;
 			}
 		}
@@ -666,7 +666,7 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 		}
 		deviceContext.CopyDataToBuffer(m_geometryInfoBuffer, geometryInfos.data(), sizeof(GeometryInfo) * geometryInfos.size());
 
-		// Build and upload per-material texture index mapping for PBR
+		// Build and upload per-material texture index mapping
 		std::vector<MaterialInfo> materialInfos;
 		materialInfos.reserve(m_pAsset->materials.size());
 		for (const Material& mat : m_pAsset->materials)
@@ -684,11 +684,7 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 				{
 				case Common::TEXTURE_TYPE::DIFFUSE:              matInfo.albedoTexIndex    = offsetIdx; break;
 				case Common::TEXTURE_TYPE::NORMAL:               matInfo.normalTexIndex    = offsetIdx; break;
-				case Common::TEXTURE_TYPE::METALLIC:             matInfo.metallicTexIndex  = offsetIdx; break;
-				case Common::TEXTURE_TYPE::ROUGHNESS:            matInfo.roughnessTexIndex = offsetIdx; break;
-				case Common::TEXTURE_TYPE::AMBIENT_OCCLUSION:    matInfo.aoTexIndex        = offsetIdx; break;
 				case Common::TEXTURE_TYPE::SPECULAR:             matInfo.specularTexIndex  = offsetIdx; break;
-				case Common::TEXTURE_TYPE::LIGHTMAP:             matInfo.lightmapTexIndex  = offsetIdx; break;
 				default: break;
 				}
 			}
@@ -702,13 +698,13 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 			deviceContext.CopyDataToTexture(m_sceneTextures[i], &s_defaultTexturePixels[i], sizeof(u32), 0);
 		}
 
-		// Upload scene textures (offset by default count)
+		// Upload scene textures (use remap table — CreateSceneTextures may skip textures)
 		for (u32 i = 0; i < static_cast<u32>(m_pAsset->textures.size()); i++)
 		{
 			const Common::TextureType& texSrc = m_pAsset->textures[i];
-			u32 texHandleIdx = i + s_defaultTextureCount;
+			u32 texHandleIdx = m_textureIndexRemap[i];
 			if (texHandleIdx >= m_sceneTextures.size())
-				break;
+				continue;
 			for (u32 mip = 0; mip < texSrc.mipLevels.size(); mip++)
 			{
 				deviceContext.CopyDataToTexture(m_sceneTextures[texHandleIdx], texSrc.mipLevels[mip].data.data(), texSrc.mipLevels[mip].dataSize, mip);
@@ -1067,7 +1063,8 @@ void RayTracingSample::LoadEnvironmentMap()
 
 	// Create equirect-to-cube compute shader
 	ShaderHandle equirectToCubeShader;
-	if (!Common::AllocateShader("../src/shaders/equirect_to_cube.comp", SHADER_STAGE::COMPUTE, m_renderDevice, equirectToCubeShader))
+	equirectToCubeShader = m_pShaderManager->RegisterShader("../src/shaders/equirect_to_cube.comp", SHADER_STAGE::COMPUTE, m_renderDevice);
+	if (!equirectToCubeShader.IsValid())
 	{
 		std::cout << "Failed to load equirect_to_cube compute shader!" << std::endl;
 		return;

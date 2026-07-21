@@ -89,13 +89,15 @@ void HelloTriangleSample::Init()
 
 	// SHADERS
 	ShaderHandle vertShader;
-	if (!Common::AllocateShader("../src/shaders/vertex_sample.vert", SHADER_STAGE::VERTEX, m_renderDevice, vertShader))
+	vertShader = m_pShaderManager->RegisterShader("../src/shaders/vertex_sample.vert", SHADER_STAGE::VERTEX, m_renderDevice);
+	if (!vertShader.IsValid())
 	{
 		return;
 	}
 
 	ShaderHandle fragShader;
-	if (!Common::AllocateShader("../src/shaders/fragment_sample.frag", SHADER_STAGE::FRAGMENT, m_renderDevice, fragShader))
+	fragShader = m_pShaderManager->RegisterShader("../src/shaders/fragment_sample.frag", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	if (!fragShader.IsValid())
 	{
 		return;
 	}

@@ -130,4 +130,28 @@ namespace PHX
 		ASSERT_ALWAYS("Failed to allocate acceleration structure. Could not resolve render device handle!");
 		return STATUS_CODE::ERR_INTERNAL;
 	}
+
+	STATUS_CODE RenderDeviceHandle::ReloadShader(const ShaderCreateInfo& createInfo, ShaderHandle shader)
+	{
+		IRenderDevice* pDevice = HANDLE_UTILS::ResolveHandle(*this);
+		if (pDevice != nullptr)
+		{
+			return pDevice->ReloadShader(createInfo, shader);
+		}
+
+		ASSERT_ALWAYS("Failed to reload shader. Could not resolve render device handle!");
+		return STATUS_CODE::ERR_INTERNAL;
+	}
+
+	void RenderDeviceHandle::FlushPipelineCache()
+	{
+		IRenderDevice* pDevice = HANDLE_UTILS::ResolveHandle(*this);
+		if (pDevice != nullptr)
+		{
+			pDevice->FlushPipelineCache();
+			return;
+		}
+
+		ASSERT_ALWAYS("Failed to flush pipeline cache. Could not resolve render device handle!");
+	}
 }

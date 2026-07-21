@@ -87,6 +87,11 @@ namespace PHX
 		return !IsSame(*this, INVALID_HANDLE);
 	}
 
+	bool Handle::IsEmpty() const
+	{
+		return (m_pOwner == nullptr && m_index == 0 && m_type != HANDLE_TYPE::INVALID);
+	}
+
 	u32 Handle::GetIndex() const
 	{
 		return m_index;

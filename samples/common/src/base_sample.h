@@ -4,6 +4,7 @@
 
 #include "camera/base_camera.h"
 #include "input_manager.h"
+#include "utils/shader_manager.h"
 
 namespace Common
 {
@@ -47,5 +48,6 @@ namespace Common
 		PHX::RenderGraphHandle m_renderGraph;
 
 		BaseCamera* m_pCamera;
+		ShaderManager* m_pShaderManager;
 	};
 }

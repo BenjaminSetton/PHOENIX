@@ -1,8 +1,7 @@
 
-#include <iostream> // TEMP
+#include <iostream>
 
 #include "base_sample.h"
-
 #include "input_manager.h"
 
 #define CHECK_PHX_RES(phxRes) if(phxRes != PHX::STATUS_CODE::SUCCESS) { return; }
@@ -38,7 +37,7 @@ namespace Common
 	}
 
 	BaseSample::BaseSample() : 
-		m_window(), m_renderDevice(), m_swapChain(), m_renderGraph(), m_pCamera(nullptr)
+		m_window(), m_renderDevice(), m_swapChain(), m_renderGraph(), m_pCamera(nullptr), m_pShaderManager(nullptr)
 	{
 		Init();
 	}
@@ -81,14 +80,31 @@ namespace Common
 		CreateRenderDevice();
 		CreateSwapChain();
 		CreateRenderGraph();
+
+		m_pShaderManager = new ShaderManager();
 	}
 
 	void BaseSample::Shutdown()
 	{
+		delete m_pShaderManager;
+		m_pShaderManager = nullptr;
+
+		STATUS_CODE res = PHX::Shutdown();
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			std::cout << "Failed to clean up PHX lib!" << std::endl;
+		}
 	}
 
 	bool BaseSample::Update(float dt)
 	{
+		STATUS_CODE res = PHX::Update(dt);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			std::cout << "Failed to update PHX lib!" << std::endl;
+			return false; // Keep looping
+		}
+
 		m_window.Update(dt);
 
 		InputManager::GetInstance().Update();
@@ -96,6 +112,11 @@ namespace Common
 		if (m_pCamera != nullptr)
 		{
 			m_pCamera->Update(dt);
+		}
+
+		if (m_pShaderManager != nullptr)
+		{
+			m_pShaderManager->PollUpdates();
 		}
 
 		return m_window.ShouldClose();

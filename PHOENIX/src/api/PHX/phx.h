@@ -12,8 +12,10 @@
 
 namespace PHX
 {
-	// INIT
+	// State calls
 	STATUS_CODE Initialize(const Settings& initSettings, WindowHandle window);
+	STATUS_CODE Update(float deltaTime);
+	STATUS_CODE Shutdown();
 
 	// Returns the combined PHX library versions into a single u32
 	u32 GetFullVersion();

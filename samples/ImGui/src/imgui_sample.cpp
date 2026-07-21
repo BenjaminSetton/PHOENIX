@@ -66,7 +66,7 @@ void ImGuiSample::Init()
 		return;
 	}
 
-	if (!m_imguiRenderer.Init(m_renderDevice, m_swapChain))
+	if (!m_imguiRenderer.Init(m_renderDevice, m_swapChain, m_pShaderManager))
 	{
 		return;
 	}

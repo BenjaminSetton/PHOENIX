@@ -51,6 +51,10 @@ namespace PHX
 		STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& handle) override;
 		STATUS_CODE AllocateAccelerationStructure(const AccelerationStructureCreateInfo& createInfo, AccelerationStructureHandle& handle) override;
 
+		// Shader hot reloading
+		STATUS_CODE ReloadShader(const ShaderCreateInfo& createInfo, ShaderHandle shader) override;
+		void FlushPipelineCache() override;
+
 		// Handles
 		void* ResolveHandle(const Handle& handle) override;
 		void IncrementHandleRefCount(const Handle& handle) override;

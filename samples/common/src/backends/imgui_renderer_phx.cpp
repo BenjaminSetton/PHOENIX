@@ -5,6 +5,7 @@
 
 #include "imgui_renderer_phx.h"
 
+#include "../utils/shader_manager.h"
 #include "../utils/shader_utils.h"
 
 using namespace PHX;
@@ -25,10 +26,10 @@ namespace Common
 		Shutdown();
 	}
 
-	bool ImGuiPhxRenderer::Init(RenderDeviceHandle renderDevice, SwapChainHandle swapChain)
+	bool ImGuiPhxRenderer::Init(RenderDeviceHandle renderDevice, SwapChainHandle swapChain, ShaderManager* pShaderManager)
 	{
 		CreateFontAtlas(renderDevice);
-		CreateShaders(renderDevice);
+		CreateShaders(renderDevice, pShaderManager);
 		CreateUniformCollection(renderDevice);
 		CreatePipelineDescription(swapChain);
 		CreateBuffers(renderDevice);
@@ -84,20 +85,43 @@ namespace Common
 		io.Fonts->SetTexID(static_cast<ImTextureID>(static_cast<uint64_t>(m_fontTexture.GetIndex())));
 	}
 
-	void ImGuiPhxRenderer::CreateShaders(RenderDeviceHandle renderDevice)
+	void ImGuiPhxRenderer::CreateShaders(RenderDeviceHandle renderDevice, ShaderManager* pShaderManager)
 	{
-		if (!Common::AllocateShader("../src/shaders/imgui.vert", SHADER_STAGE::VERTEX, renderDevice, m_vertShader))
+		if (pShaderManager != nullptr)
 		{
-			return;
-		}
+			m_vertShader = pShaderManager->RegisterShader("../src/shaders/imgui.vert", SHADER_STAGE::VERTEX, renderDevice);
+			if (!m_vertShader.IsValid())
+			{
+				return;
+			}
 
-		if (!Common::AllocateShader("../src/shaders/imgui.frag", SHADER_STAGE::FRAGMENT, renderDevice, m_fragShader))
+			m_fragShader = pShaderManager->RegisterShader("../src/shaders/imgui.frag", SHADER_STAGE::FRAGMENT, renderDevice);
+			if (!m_fragShader.IsValid())
+			{
+				return;
+			}
+		}
+		else
 		{
-			return;
+			if (!Common::AllocateShader("../src/shaders/imgui.vert", SHADER_STAGE::VERTEX, renderDevice, m_vertShader))
+			{
+				return;
+			}
+
+			if (!Common::AllocateShader("../src/shaders/imgui.frag", SHADER_STAGE::FRAGMENT, renderDevice, m_fragShader))
+			{
+				return;
+			}
 		}
 
 		m_shaders.push_back(m_vertShader);
 		m_shaders.push_back(m_fragShader);
+	}
+
+	void ImGuiPhxRenderer::RecreateShaders(RenderDeviceHandle renderDevice, ShaderManager* pShaderManager)
+	{
+		m_shaders.clear();
+		CreateShaders(renderDevice, pShaderManager);
 	}
 
 	void ImGuiPhxRenderer::CreateUniformCollection(RenderDeviceHandle renderDevice)

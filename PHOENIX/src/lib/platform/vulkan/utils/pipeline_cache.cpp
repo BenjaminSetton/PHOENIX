@@ -5,6 +5,7 @@
 
 #include "../render_device_vk.h"
 #include "utils/cache_utils.h"
+#include "utils/deferred_caller.h"
 #include "utils/logger.h"
 
 namespace PHX
@@ -51,6 +52,7 @@ namespace PHX
 				if (currShader != INVALID_HANDLE)
 				{
 					HashCombine(out_seed, currShader.GetStage());
+					HashCombine(out_seed, currShader.GetIndex());
 				}
 			}
 		}
@@ -259,7 +261,12 @@ namespace PHX
 
 	void PipelineCache::Delete(const GraphicsPipelineDesc& desc)
 	{
-		m_graphicsPipelineCache.erase(desc);
+		auto iter = m_graphicsPipelineCache.find(desc);
+		if (iter != m_graphicsPipelineCache.end())
+		{
+			delete iter->second;
+			m_graphicsPipelineCache.erase(iter);
+		}
 	}
 
 	// COMPUTE
@@ -297,7 +304,12 @@ namespace PHX
 
 	void PipelineCache::Delete(const ComputePipelineDesc& desc)
 	{
-		m_computePipelineCache.erase(desc);
+		auto iter = m_computePipelineCache.find(desc);
+		if (iter != m_computePipelineCache.end())
+		{
+			delete iter->second;
+			m_computePipelineCache.erase(iter);
+		}
 	}
 
 	// RAY TRACING
@@ -335,7 +347,38 @@ namespace PHX
 
 	void PipelineCache::Delete(const RayTracingPipelineDesc& desc)
 	{
-		m_rayTracingPipelineCache.erase(desc);
+		auto iter = m_rayTracingPipelineCache.find(desc);
+		if (iter != m_rayTracingPipelineCache.end())
+		{
+			delete iter->second;
+			m_rayTracingPipelineCache.erase(iter);
+		}
 	}
 
+	void PipelineCache::Flush()
+	{
+		u32 frameDelay = m_renderDevice->GetFramesInFlight() + 1;
+		DeferredCaller& deferredCaller = DeferredCaller::Get();
+
+		for (auto& it : m_graphicsPipelineCache)
+		{
+			PipelineVk* pPipeline = it.second;
+			deferredCaller.Register(frameDelay, [pPipeline]() { delete pPipeline; });
+		}
+		m_graphicsPipelineCache.clear();
+
+		for (auto& it : m_computePipelineCache)
+		{
+			PipelineVk* pPipeline = it.second;
+			deferredCaller.Register(frameDelay, [pPipeline]() { delete pPipeline; });
+		}
+		m_computePipelineCache.clear();
+
+		for (auto& it : m_rayTracingPipelineCache)
+		{
+			PipelineVk* pPipeline = it.second;
+			deferredCaller.Register(frameDelay, [pPipeline]() { delete pPipeline; });
+		}
+		m_rayTracingPipelineCache.clear();
+	}
 }

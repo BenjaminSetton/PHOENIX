@@ -3,7 +3,6 @@
 #extension GL_EXT_nonuniform_qualifier : require
 #extension GL_GOOGLE_include_directive : enable
 
-#include "pbr.glsl"
 #include "common.glsl"
 
 layout(location = 2) rayPayloadInEXT vec3 bounceColor;
@@ -49,11 +48,7 @@ struct MaterialInfo
 {
     uint albedoTexIndex;
     uint normalTexIndex;
-    uint metallicTexIndex;
-    uint roughnessTexIndex;
-    uint aoTexIndex;
     uint specularTexIndex;
-    uint lightmapTexIndex;
     uint padding;
 };
 
@@ -108,9 +103,7 @@ void main()
     vec3 worldHitPos = gl_WorldRayOriginEXT + gl_WorldRayDirectionEXT * gl_HitTEXT;
 
     vec3 albedo = texture(textures[mat.albedoTexIndex], uv).rgb;
-    float metallic = texture(textures[mat.metallicTexIndex], uv).r;
-    float roughness = clamp(texture(textures[mat.roughnessTexIndex], uv).r, 0.05, 1.0);
-    float ao = texture(textures[mat.aoTexIndex], uv).r;
+    vec3 specularColor = texture(textures[mat.specularTexIndex], uv).rgb;
 
     vec3 L = normalize(vec3(0.5, 1.0, 0.3));
     vec3 V = normalize(-gl_WorldRayDirectionEXT);
@@ -120,24 +113,13 @@ void main()
     vec3 shadowOrigin = worldHitPos + worldNormal * 0.003;
     traceRayEXT(topLevelAS, gl_RayFlagsTerminateOnFirstHitEXT | gl_RayFlagsSkipClosestHitShaderEXT, 0xff, 0, 0, 1, shadowOrigin, 0.001, L, 1000.0, 1);
 
-    vec3 F0 = mix(vec3(0.04), albedo, metallic);
-
-    float NDF = DistributionGGX(N, H, roughness);
-    float G = GeometrySmith(N, V, L, roughness);
-    vec3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
-
-    vec3 numerator = NDF * G * F;
-    float denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
-    vec3 specular = numerator / denominator;
-    specular = min(specular, vec3(10.0));
-
-    vec3 kS = F;
-    vec3 kD = (vec3(1.0) - kS) * (1.0 - metallic);
-
+    // Blinn-Phong shading
     float NdotL = max(dot(N, L), 0.0);
+    float NdotH = max(dot(N, H), 0.0);
+    float shininess = 32.0;
 
-    vec3 radiance = vec3(3.0) * NdotL * shadowFactor;
-    vec3 directLight = (kD * albedo / PI + specular) * radiance;
+    vec3 diffuse = albedo * NdotL * shadowFactor;
+    vec3 specular = specularColor * pow(NdotH, shininess) * NdotL * shadowFactor;
 
-    bounceColor = directLight * ao;
+    bounceColor = (diffuse + specular) * vec3(3.0);
 }

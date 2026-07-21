@@ -147,20 +147,23 @@ void ComputeParticlesSample::Init()
 
 	// SHADERS
 	ShaderHandle particlesShader;
-	if (!Common::AllocateShader("../src/shaders/particles.comp", SHADER_STAGE::COMPUTE, m_renderDevice, particlesShader))
+	particlesShader = m_pShaderManager->RegisterShader("../src/shaders/particles.comp", SHADER_STAGE::COMPUTE, m_renderDevice);
+	if (!particlesShader.IsValid())
 	{
 		return;
 	}
 	m_shaders.push_back(particlesShader);
 
 	ShaderHandle vertShader;
-	if (!Common::AllocateShader("../src/shaders/particles.vert", SHADER_STAGE::VERTEX, m_renderDevice, vertShader))
+	vertShader = m_pShaderManager->RegisterShader("../src/shaders/particles.vert", SHADER_STAGE::VERTEX, m_renderDevice);
+	if (!vertShader.IsValid())
 	{
 		return;
 	}
 
 	ShaderHandle fragShader;
-	if (!Common::AllocateShader("../src/shaders/particles.frag", SHADER_STAGE::FRAGMENT, m_renderDevice, fragShader))
+	fragShader = m_pShaderManager->RegisterShader("../src/shaders/particles.frag", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	if (!fragShader.IsValid())
 	{
 		return;
 	}
@@ -169,12 +172,14 @@ void ComputeParticlesSample::Init()
 
 	// OUTLINE SHADERS
 	ShaderHandle outlineVertShader;
-	if (!Common::AllocateShader("../src/shaders/outline.vert", SHADER_STAGE::VERTEX, m_renderDevice, outlineVertShader))
+	outlineVertShader = m_pShaderManager->RegisterShader("../src/shaders/outline.vert", SHADER_STAGE::VERTEX, m_renderDevice);
+	if (!outlineVertShader.IsValid())
 	{
 		return;
 	}
 	ShaderHandle outlineFragShader;
-	if (!Common::AllocateShader("../src/shaders/outline.frag", SHADER_STAGE::FRAGMENT, m_renderDevice, outlineFragShader))
+	outlineFragShader = m_pShaderManager->RegisterShader("../src/shaders/outline.frag", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	if (!outlineFragShader.IsValid())
 	{
 		return;
 	}

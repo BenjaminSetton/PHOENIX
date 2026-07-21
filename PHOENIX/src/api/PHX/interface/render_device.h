@@ -37,5 +37,9 @@ namespace PHX
 		STATUS_CODE AllocateShader(const ShaderCreateInfo& createInfo, ShaderHandle& shader);
 		STATUS_CODE AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& swapChain);
 		STATUS_CODE AllocateAccelerationStructure(const AccelerationStructureCreateInfo& createInfo, AccelerationStructureHandle& accelerationStructure);
+
+		// Shader hot reloading
+		STATUS_CODE ReloadShader(const ShaderCreateInfo& createInfo, ShaderHandle shader);
+		void FlushPipelineCache();
 	};
 }

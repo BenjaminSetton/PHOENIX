@@ -26,7 +26,13 @@ namespace PHX
 		bool operator==(const Handle& other) const;
 		bool operator!=(const Handle& other) const;
 
+		// Returns true if handle equals INVALID_HANDLE, false otherwise
 		bool IsValid() const;
+
+		// Returns true if handle is uninitialized, but contains valid HANDLE_TYPE
+		// This means that the handle was created from a derived class (e.g. ShaderHandle),
+		// but has not been initialized yet
+		bool IsEmpty() const;
 
 		u32 GetIndex() const;
 		HANDLE_TYPE GetType() const;

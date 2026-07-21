@@ -1,7 +1,9 @@
 #ifndef PBR_GLSL
 #define PBR_GLSL
 
+#ifndef PI
 const float PI = 3.14159265359;
+#endif
 
 // GGX/Trowbridge-Reitz normal distribution function
 float DistributionGGX(vec3 N, vec3 H, float roughness)
@@ -40,22 +42,6 @@ vec3 FresnelSchlickRoughness(float cosTheta, vec3 F0, float roughness)
 {
     vec3 maxF = max(vec3(1.0 - roughness), F0);
     return F0 + (maxF - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
-// Cosine-weighted hemisphere sampling for diffuse bounces
-// Returns a direction in hemisphere around N, sampled with cosine distribution
-vec3 sampleCosineWeightedHemisphere(vec2 rand, vec3 N)
-{
-    float r = sqrt(rand.x);
-    float phi = 2.0 * PI * rand.y;
-    vec3 localDir = vec3(r * cos(phi), r * sin(phi), sqrt(max(0.0, 1.0 - rand.x)));
-
-    // Build ONB from N
-    vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
-    vec3 tangent = normalize(cross(up, N));
-    vec3 bitangent = cross(N, tangent);
-
-    return normalize(tangent * localDir.x + bitangent * localDir.y + N * localDir.z);
 }
 
 // GGX importance sampling for specular bounces

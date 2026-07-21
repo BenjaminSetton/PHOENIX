@@ -47,6 +47,9 @@ namespace PHX
 		PipelineVk* Find(const RayTracingPipelineDesc& desc);
 		void Delete(const RayTracingPipelineDesc& desc);
 
+		// Deletes all cached pipelines from all three caches. The VkPipelineCache is preserved
+		void Flush();
+
 	private:
 
 		RenderDeviceVk* m_renderDevice;
