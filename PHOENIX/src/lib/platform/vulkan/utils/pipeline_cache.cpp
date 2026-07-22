@@ -381,4 +381,9 @@ namespace PHX
 		}
 		m_rayTracingPipelineCache.clear();
 	}
+
+	u32 PipelineCache::GetCount() const
+	{
+		return static_cast<u32>(m_graphicsPipelineCache.size() + m_computePipelineCache.size() + m_rayTracingPipelineCache.size());
+	}
 }

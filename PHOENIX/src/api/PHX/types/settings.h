@@ -47,7 +47,8 @@ namespace PHX
 		/* [MANDATORY] */ fpWindowFocusChangedCallback windowFocusChangedCallback   = nullptr; // Callback for when the window focus changes (e.g. minimize, maximize, clicking on other windows, etc)
 		/* [MANDATORY] */ fpWindowMinimizedCallback windowMinimizedCallback         = nullptr; // Callback for when window is minimized (wasMinimized is true) or restored from a minimize (wasMinimized is false)
 		/* [MANDATORY] */ fpWindowMaximizedCallback windowMaximizedCallback         = nullptr; // Callback for when window is maximized (wasMaximized is true) or restored from a maximize (wasMaximized is false)
-		
+		/* [MANDATORY] */ bool gatherMetrics                                        = false;   // Enable metric gathering. If false, calling GetMetrics() will return default data
+
 		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyDownCallback            = nullptr; // Callback for when the window detects a key-press
 		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyUpCallback              = nullptr; // Callback for when the window detects a key-press has been lifted
 		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyRepeatCallback          = nullptr; // Callback for when the window detects a repeated key-press

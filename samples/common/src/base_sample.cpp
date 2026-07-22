@@ -63,6 +63,7 @@ namespace Common
 		settings.windowMaximizedCallback = OnWindowMaximizedCallback;
 		settings.windowMinimizedCallback = OnWindowMinimizedCallback;
 		settings.windowResizedCallback = OnWindowResizedCallback;
+		settings.gatherMetrics = true;
 		settings.windowKeyDownCallback = [=](KeyCode keycode) { this->OnKeyDown(keycode); };
 		settings.windowKeyUpCallback = [=](KeyCode keycode) { this->OnKeyUp(keycode); };
 		settings.mouseMovedCallback = [=](float newX, float newY) { this->OnMouseMoved(newX, newY); };

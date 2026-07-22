@@ -50,6 +50,8 @@ namespace PHX
 		// Deletes all cached pipelines from all three caches. The VkPipelineCache is preserved
 		void Flush();
 
+		u32 GetCount() const;
+
 	private:
 
 		RenderDeviceVk* m_renderDevice;

@@ -132,6 +132,12 @@ namespace PHX
 			return static_cast<u32>(m_slots.size());
 		}
 
+		// Returns number of active (non-freed) slots
+		u32 GetActiveCount() const
+		{
+			return static_cast<u32>(m_slots.size() - m_freeList.size());
+		}
+
 		// Returns when no slots are allocated
 		bool Empty() const
 		{

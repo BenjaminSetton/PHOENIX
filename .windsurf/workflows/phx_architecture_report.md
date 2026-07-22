@@ -1,26 +1,26 @@
 ---
-description: Perform a deep architectural review of the PHX library to identify weaknesses and provide actionable improvement feedback. The output MUST be a new markdown file written to disk — do not output the review as a chat message.
+description: Perform a deep architectural report of the PHX library to identify weaknesses and provide actionable improvement feedback. The output MUST be a new markdown file written to disk — do not output the report as a chat message.
 ---
 
-# phx_architecture_review
+# phx_architecture_report
 
-Perform a thorough architectural and design review of the PHX graphics library. The goal is to **identify architectural weaknesses and provide concrete, actionable feedback for improvements**. The review MUST be written to a **new file on disk** (see Step 0). Do not output the review as a chat message — the file is the deliverable. Follow these steps in order:
+Perform a thorough architectural and design analysis of the PHX graphics library. The goal is to **identify architectural weaknesses and provide concrete, actionable feedback for improvements**. The report MUST be written to a **new file on disk** (see Step 0). Do not output the report as a chat message — the file IS the deliverable. Follow these steps in order:
 
 ## 0. Create the report file and header
 
-**This is a mandatory output step.** The entire review MUST be written to a new file on disk using the `write_to_file` tool. Do NOT output the review as a chat message — the file IS the deliverable.
+**This is a mandatory output step.** The entire report MUST be written to a new file on disk using the `write_to_file` tool. Do NOT output the report as a chat message — the file IS the deliverable.
 
-Write the final report to the user's personal notes directory at `C:\Users\benja\OneDrive\Desktop\Docs\Architecture Review\`. Create the `Architecture Review` folder if it does not exist.
+Write the final report to the user's personal notes directory at `C:\Users\benja\OneDrive\Desktop\Docs\Architecture Report\`. Create the `Architecture Report` folder if it does not exist.
 
-The filename must follow the format: `architecture_review_<date>_<index>.md`
+The filename must follow the format: `architecture_report_<date>_<index>.md`
 
 - `<date>`: current date in `YYYY-MM-DD` format
-- `<index>`: zero-based integer. If no other `architecture_review_<date>_*.md` files exist for today, use `0`. Otherwise, use the next available index (e.g., if `architecture_review_2026-07-07_0.md` exists, use `architecture_review_2026-07-07_1.md`).
+- `<index>`: zero-based integer. If no other `architecture_report_<date>_*.md` files exist for today, use `0`. Otherwise, use the next available index (e.g., if `architecture_report_2026-07-07_0.md` exists, use `architecture_report_2026-07-07_1.md`).
 
 At the very beginning of the file, create a header with the following format:
 
 ```
-# Architecture Review
+# Architecture Report
 
 **Date:** <current date>
 **Model:** <name of the LLM model used to generate this report>
@@ -125,4 +125,4 @@ Provide a summary table with all findings, their severity, affected subsystem, a
 
 ## 6. Final output reminder
 
-**The review MUST be saved as a new file on disk.** Verify that the file was successfully written using the `write_to_file` tool before completing. Do not output the review content as a chat message — the file is the deliverable. If the file was not created, the workflow has failed.
+**The report MUST be saved as a new file on disk.** Verify that the file was successfully written using the `write_to_file` tool before completing. Do not output the report content as a chat message — the file is the deliverable. If the file was not created, the workflow has failed.

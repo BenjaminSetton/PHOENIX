@@ -138,6 +138,7 @@ namespace PHX
 		STATUS_CODE RegisterPass(const char* passName, PASS_TYPE passType, RenderPassHandle& renderPass) override;
 		STATUS_CODE Bake(SwapChainHandle swapChain) override;
 		u32 GetFrameNumber() const override;
+		const Metrics& GetMetrics() const override;
 		STATUS_CODE GenerateVisualization(const char* fileName, bool generateIfUnique) override;
 
 		IDeviceContext* GetCurrentDeviceContext() override;
@@ -216,5 +217,10 @@ namespace PHX
 
 		const CRC32 m_reservedDepthBufferNameCRC;
 		u64 m_presentResID;
+
+		// Metrics
+		mutable Metrics m_metrics;
+		VkQueryPool m_queryPool;
+		float m_timestampPeriod;
 	};
 }

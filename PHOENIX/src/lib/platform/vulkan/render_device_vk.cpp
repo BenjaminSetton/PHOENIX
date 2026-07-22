@@ -338,6 +338,43 @@ namespace PHX
 		m_pipelineCache->Flush();
 	}
 
+	u32 RenderDeviceVk::GetBufferCount() const
+	{
+		return m_buffers.GetActiveCount();
+	}
+
+	u32 RenderDeviceVk::GetTextureCount() const
+	{
+		return m_textures.GetActiveCount();
+	}
+
+	u32 RenderDeviceVk::GetShaderCount() const
+	{
+		return m_shaders.GetActiveCount();
+	}
+
+	u32 RenderDeviceVk::GetPipelineCount() const
+	{
+		return m_pipelineCache->GetCount();
+	}
+
+	u32 RenderDeviceVk::GetUniformCollectionCount() const
+	{
+		return m_uniformCollections.GetActiveCount();
+	}
+
+	u32 RenderDeviceVk::GetAccelerationStructureCount() const
+	{
+		return m_accelerationStructures.GetActiveCount();
+	}
+
+	u64 RenderDeviceVk::GetAllocatedMemoryBytes() const
+	{
+		VmaTotalStatistics stats;
+		vmaCalculateStatistics(m_allocator, &stats);
+		return stats.total.statistics.allocationBytes;
+	}
+
 	STATUS_CODE RenderDeviceVk::AllocateSwapChain(const SwapChainCreateInfo& createInfo, SwapChainHandle& handle)
 	{
 		SwapChainVk* pSwapChain = new SwapChainVk(this, createInfo);

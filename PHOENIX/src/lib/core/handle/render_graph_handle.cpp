@@ -246,4 +246,17 @@ namespace PHX
 		ASSERT_ALWAYS("Failed to generate visualization. Could not resolve render graph handle!");
 		return STATUS_CODE::ERR_INTERNAL;
 	}
+
+	const Metrics& RenderGraphHandle::GetMetrics() const
+	{
+		IRenderGraph* pGraph = HANDLE_UTILS::ResolveHandle(*this);
+		if (pGraph != nullptr)
+		{
+			return pGraph->GetMetrics();
+		}
+
+		ASSERT_ALWAYS("Failed to get metrics. Could not resolve render graph handle!");
+		static Metrics s_defaultMetrics{};
+		return s_defaultMetrics;
+	}
 }

@@ -8,6 +8,7 @@
 #include "buffer_vk.h"
 #include "core/handle/handle_accessor.h"
 #include "core/handle/handle_utils.h"
+#include "core/global_settings.h"
 #include "device_context_vk.h"
 #include "render_device_vk.h"
 #include "swap_chain_vk.h"
@@ -668,7 +669,8 @@ namespace PHX
 	//--------------------------------------------------------------------------------------------
 
 	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pRenderDevice(nullptr), m_deviceContextHandles(), m_currentFrameGraphHash(0), m_uniqueVisualizationHashes(),
-		m_frameInFlightIndex(0), m_frameNumber(0), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), m_presentResID(0)
+		m_frameInFlightIndex(0), m_frameNumber(0), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), m_presentResID(0),
+		m_metrics(), m_queryPool(VK_NULL_HANDLE), m_timestampPeriod(0.0f)
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -694,12 +696,37 @@ namespace PHX
 			}
 			m_deviceContextHandles.push_back(deviceContext);
 		}
+
+		// Create timestamp query pool for GPU frame time metrics
+		if (GetSettings().gatherMetrics)
+		{
+			m_timestampPeriod = static_cast<float>(m_pRenderDevice->GetDeviceProperties().limits.timestampPeriod);
+
+			VkQueryPoolCreateInfo queryPoolCI{};
+			queryPoolCI.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+			// TODO: Look into using VK_QUERY_TYPE_PIPELINE_STATISTICS for pipeline stats (vertex shader invocations, clipping primitives, etc.)
+			queryPoolCI.queryType = VK_QUERY_TYPE_TIMESTAMP;
+			queryPoolCI.queryCount = framesInFlight * 2; // 2 queries per frame-in-flight (begin + end)
+
+			VkResult vkRes = vkCreateQueryPool(m_pRenderDevice->GetLogicalDevice(), &queryPoolCI, nullptr, &m_queryPool);
+			if (vkRes != VK_SUCCESS)
+			{
+				LogError("Failed to create timestamp query pool for metrics. Got error: \"%s\"", string_VkResult(vkRes));
+				m_queryPool = VK_NULL_HANDLE;
+			}
+		}
 	}
 
 	RenderGraphVk::~RenderGraphVk()
 	{
 		m_deviceContextHandles.clear();
 		m_registeredRenderPasses.DeleteAll();
+
+		if (m_queryPool != VK_NULL_HANDLE)
+		{
+			vkDestroyQueryPool(m_pRenderDevice->GetLogicalDevice(), m_queryPool, nullptr);
+			m_queryPool = VK_NULL_HANDLE;
+		}
 	}
 
 	STATUS_CODE RenderGraphVk::BeginFrame(SwapChainHandle swapChain)
@@ -723,6 +750,36 @@ namespace PHX
 			return res;
 		}
 
+		if (GetSettings().gatherMetrics)
+		{
+			// Reset all per-frame metrics to default values
+			m_metrics = Metrics{};
+
+			// Read back timestamp query results from the previous frame.
+			// Use a non-blocking query — if the previous frame didn't call Bake() (e.g. no
+			// rendering occurred), the query slots were never written and VK_NOT_READY is returned.
+			if (m_queryPool != VK_NULL_HANDLE && m_frameNumber > 0)
+			{
+				u32 prevFrameIndex = (m_frameInFlightIndex == 0) ? (m_pRenderDevice->GetFramesInFlight() - 1) : (m_frameInFlightIndex - 1);
+				u64 timestamps[2] = { 0, 0 };
+				VkResult vkRes = vkGetQueryPoolResults(
+					m_pRenderDevice->GetLogicalDevice(),
+					m_queryPool,
+					prevFrameIndex * 2,
+					2,
+					sizeof(timestamps),
+					timestamps,
+					sizeof(u64),
+					VK_QUERY_RESULT_64_BIT);
+
+				if (vkRes == VK_SUCCESS)
+				{
+					u64 diff = timestamps[1] - timestamps[0];
+					m_metrics.gpuFrameTime = static_cast<float>(diff) * m_timestampPeriod / 1e6f;
+				}
+			}
+		}
+
 		return res;
 	}
 
@@ -740,6 +797,15 @@ namespace PHX
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
+
+		// Write end-of-frame timestamp before submission so it's recorded in the command buffer.
+		// This writes into the last command buffer (BOTTOM_OF_PIPE), which only executes after
+		// all previous batches complete
+		if (GetSettings().gatherMetrics && m_queryPool != VK_NULL_HANDLE)
+		{
+			pDeviceContext->WriteEndTimestamp();
+		}
+
 		res = pDeviceContext->EndFrame();
 		if (res != STATUS_CODE::SUCCESS)
 		{
@@ -821,6 +887,17 @@ namespace PHX
 
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
 		DeviceContextHandle deviceContext = GetCurrentDeviceContextHandle();
+
+		// Inject metrics pointer and query pool so draw/uniform stats are accumulated during pass execution
+		// and GPU timestamps bracket the entire frame's command buffer workload
+		if (GetSettings().gatherMetrics)
+		{
+			pDeviceContext->SetMetricsPointer(&m_metrics);
+			if (m_queryPool != VK_NULL_HANDLE)
+			{
+				pDeviceContext->SetQueryPool(m_queryPool, m_frameInFlightIndex * 2);
+			}
+		}
 
 		for (u32 activeRenderPassIndex : activeRenderPassIndices)
 		{
@@ -955,7 +1032,14 @@ namespace PHX
 			}
 		}
 
-		// Hash the state of the render graph after baking 
+		// Clear metrics pointer after pass execution
+		if (GetSettings().gatherMetrics)
+		{
+			pDeviceContext->ResetMetricsPointer();
+			m_metrics.passCount = static_cast<u32>(activeRenderPassIndices.size());
+		}
+
+		// Hash the state of the render graph after baking
 		// and store it in the map
 		m_currentFrameGraphHash = HashState();
 
@@ -965,6 +1049,26 @@ namespace PHX
 	u32 RenderGraphVk::GetFrameNumber() const
 	{
 		return m_frameNumber;
+	}
+
+	const Metrics& RenderGraphVk::GetMetrics() const
+	{
+		if (!GetSettings().gatherMetrics)
+		{
+			static Metrics s_defaultMetrics{};
+			return s_defaultMetrics;
+		}
+
+		// Query device for resource handle counts and allocated memory at call time
+		m_metrics.bufferCount = m_pRenderDevice->GetBufferCount();
+		m_metrics.textureCount = m_pRenderDevice->GetTextureCount();
+		m_metrics.shaderCount = m_pRenderDevice->GetShaderCount();
+		m_metrics.pipelineCount = m_pRenderDevice->GetPipelineCount();
+		m_metrics.uniformCollectionCount = m_pRenderDevice->GetUniformCollectionCount();
+		m_metrics.accelerationStructureCount = m_pRenderDevice->GetAccelerationStructureCount();
+		m_metrics.allocatedMemoryBytes = m_pRenderDevice->GetAllocatedMemoryBytes();
+
+		return m_metrics;
 	}
 
 	STATUS_CODE RenderGraphVk::GenerateVisualization(const char* fileName, bool generateIfUnique)

@@ -10,6 +10,7 @@
 #include "PHX/interface/swap_chain.h"
 #include "PHX/interface/texture.h"
 #include "PHX/interface/uniform.h"
+#include "PHX/types/integral_types.h"
 
 namespace PHX
 {
@@ -37,5 +38,13 @@ namespace PHX
 		// Shader hot reloading
 		virtual STATUS_CODE ReloadShader(const ShaderCreateInfo& createInfo, ShaderHandle shader) = 0;
 		virtual void FlushPipelineCache() = 0;
+
+		virtual u32 GetBufferCount() const = 0;
+		virtual u32 GetTextureCount() const = 0;
+		virtual u32 GetShaderCount() const = 0;
+		virtual u32 GetPipelineCount() const = 0;
+		virtual u32 GetUniformCollectionCount() const = 0;
+		virtual u32 GetAccelerationStructureCount() const = 0;
+		virtual u64 GetAllocatedMemoryBytes() const = 0;
 	};
 }

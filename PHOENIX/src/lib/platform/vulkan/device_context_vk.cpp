@@ -27,7 +27,8 @@ STATIC_ASSERT_MSG(alignof(PHX::AccelerationStructureInstance) == alignof(VkAccel
 namespace PHX
 {
 	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo) : m_pRenderDevice(nullptr),
-		m_submissionBatches(), m_chainSemaphores(), m_stagingPool(pRenderDevice), m_workSubmitted(true), m_assignedFrameIndex(0), m_contextualPipeline(nullptr)
+		m_submissionBatches(), m_chainSemaphores(), m_stagingPool(pRenderDevice), m_workSubmitted(true), m_assignedFrameIndex(0), m_contextualPipeline(nullptr),
+		m_pMetrics(nullptr), m_queryPool(VK_NULL_HANDLE), m_queryFrameBaseIndex(0), m_beginTimestampWritten(false)
 	{
 		UNUSED(createInfo);
 
@@ -154,6 +155,11 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
+		if (m_pMetrics)
+		{
+			m_pMetrics->uniformUpdates++;
+		}
+
 		return uniformCollectionVk->Flush(m_assignedFrameIndex);
 	}
 
@@ -218,6 +224,14 @@ namespace PHX
 		}
 
 		vkCmdDraw(cmdBuffer, vertexCount, 1, 0, 0);
+
+		if (m_pMetrics)
+		{
+			m_pMetrics->drawCalls++;
+			m_pMetrics->vertices += vertexCount;
+			m_pMetrics->triangles += vertexCount / 3;
+		}
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -232,6 +246,14 @@ namespace PHX
 		}
 
 		vkCmdDrawIndexed(cmdBuffer, indexCount, 1, firstIndex, vertexOffset, 0);
+
+		if (m_pMetrics)
+		{
+			m_pMetrics->drawCalls++;
+			m_pMetrics->indices += indexCount;
+			m_pMetrics->triangles += indexCount / 3;
+		}
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -246,6 +268,14 @@ namespace PHX
 		}
 
 		vkCmdDrawIndexed(cmdBuffer, indexCount, instanceCount, firstIndex, vertexOffset, instanceOffset);
+
+		if (m_pMetrics)
+		{
+			m_pMetrics->drawCalls++;
+			m_pMetrics->indices += indexCount * instanceCount;
+			m_pMetrics->triangles += (indexCount * instanceCount) / 3;
+		}
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -1005,6 +1035,17 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		// If timestamp queries are enabled and this is the first graphics/compute command buffer
+		// of the frame, reset the query slots and write the begin timestamp. Transfer queues don't
+		// support timestamp queries, so we skip them and wait for a compatible queue.
+		if (!m_beginTimestampWritten && m_queryPool != VK_NULL_HANDLE &&
+			(type == QUEUE_TYPE::GRAPHICS || type == QUEUE_TYPE::COMPUTE))
+		{
+			vkCmdResetQueryPool(out_cmdBuffer, m_queryPool, m_queryFrameBaseIndex, 2);
+			vkCmdWriteTimestamp(out_cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_queryPool, m_queryFrameBaseIndex);
+			m_beginTimestampWritten = true;
+		}
+
 		SubmissionBatch newBatch{};
 		newBatch.queueType = type;
 		newBatch.queueFamilyIndex = familyIndex;
@@ -1174,5 +1215,52 @@ namespace PHX
 	void DeviceContextVk::ResetContextualPipeline()
 	{
 		m_contextualPipeline = nullptr;
+	}
+
+	void DeviceContextVk::SetMetricsPointer(Metrics* pMetrics)
+	{
+		m_pMetrics = pMetrics;
+	}
+
+	void DeviceContextVk::ResetMetricsPointer()
+	{
+		m_pMetrics = nullptr;
+	}
+
+	void DeviceContextVk::SetQueryPool(VkQueryPool queryPool, u32 frameBaseQueryIndex)
+	{
+		m_queryPool = queryPool;
+		m_queryFrameBaseIndex = frameBaseQueryIndex;
+		m_beginTimestampWritten = false;
+	}
+
+	void DeviceContextVk::ResetQueryPool()
+	{
+		m_queryPool = VK_NULL_HANDLE;
+		m_queryFrameBaseIndex = 0;
+		m_beginTimestampWritten = false;
+	}
+
+	STATUS_CODE DeviceContextVk::WriteEndTimestamp()
+	{
+		if (m_queryPool == VK_NULL_HANDLE)
+		{
+			return STATUS_CODE::SUCCESS;
+		}
+
+		if (m_submissionBatches.empty())
+		{
+			LogError("Failed to write end timestamp. No command buffers have been recorded this frame");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		// Write the end timestamp into the last command buffer. Since batches are chained
+		// with semaphores, the last batch only starts after all previous ones complete.
+		// BOTTOM_OF_PIPE fires after all work in that command buffer finishes, so the
+		// delta between begin (first cmd buffer, TOP_OF_PIPE) and end (last cmd buffer,
+		// BOTTOM_OF_PIPE) captures the entire frame's GPU execution time
+		VkCommandBuffer cmdBuffer = m_submissionBatches.back().cmdBuffer;
+		vkCmdWriteTimestamp(cmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_queryPool, m_queryFrameBaseIndex + 1);
+		return STATUS_CODE::SUCCESS;
 	}
 }

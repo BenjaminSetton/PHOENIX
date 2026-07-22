@@ -30,6 +30,25 @@ bool ImGuiSample::Update(float dt)
 	ImGui::Text("Current frame: %u", m_renderGraph.GetFrameNumber());
 	ImGui::End();
 
+	const PHX::Metrics& metrics = m_renderGraph.GetMetrics();
+	ImGui::Begin("Metrics");
+	ImGui::Text("Draw calls: %u", metrics.drawCalls);
+	ImGui::Text("Vertex count: %u", metrics.vertices);
+	ImGui::Text("Index count: %u", metrics.indices);
+	ImGui::Text("Triangle count: %u", metrics.triangles);
+	ImGui::Text("Pass count: %u", metrics.passCount);
+	ImGui::Text("");
+	ImGui::Text("Buffer count: %u", metrics.bufferCount);
+	ImGui::Text("Texture count: %u", metrics.textureCount);
+	ImGui::Text("Shader count: %u", metrics.shaderCount);
+	ImGui::Text("Pipeline count: %u", metrics.pipelineCount);
+	ImGui::Text("Uniform collection count: %u", metrics.uniformCollectionCount);
+	ImGui::Text("Accel struct count: %u", metrics.accelerationStructureCount);
+	ImGui::Text("");
+	ImGui::Text("Allocated memory (bytes): %u", metrics.allocatedMemoryBytes);
+	ImGui::Text("GPU frametime: %2.3f (milliseconds)", metrics.gpuFrameTime);
+	ImGui::End();
+
 	ImGui::ShowDemoWindow();
 
 	return shouldClose;

@@ -11,6 +11,7 @@
 #include "PHX/interface/uniform.h"
 #include "PHX/types/attachment_desc.h"
 #include "PHX/types/clear_color.h"
+#include "PHX/types/metrics.h"
 #include "PHX/types/pipeline_desc.h"
 
 namespace PHX
@@ -71,6 +72,9 @@ namespace PHX
 		STATUS_CODE Bake(SwapChainHandle swapChain);
 
 		u32 GetFrameNumber() const;
+
+		// Returns the current frame's metrics
+		const Metrics& GetMetrics() const;
 
 		// Generates a visualization of the render graph by creating a .dot file. This file can then be
 		// opened with a graph visualization tool such as GraphViz to examine the graph structure. If

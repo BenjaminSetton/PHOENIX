@@ -65,6 +65,16 @@ namespace PHX
 		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) override;
 		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel) override;
 
+		void SetMetricsPointer(Metrics* pMetrics) override;
+		void ResetMetricsPointer() override;
+
+		// Configures the query pool for this frame's timestamp queries
+		void SetQueryPool(VkQueryPool queryPool, u32 frameBaseQueryIndex);
+		void ResetQueryPool();
+
+		// Writes the end-of-frame timestamp into the last recorded command buffer
+		STATUS_CODE WriteEndTimestamp();
+
 		// This is called by the current render pass during baking, so that the device context
 		// is aware of the pipeline contextually and can use it directly. This is different
 		// from the previous approach that sent the client a pipeline object, which the
@@ -156,5 +166,15 @@ namespace PHX
 
 		// Non-owning
 		PipelineVk* m_contextualPipeline;
+
+		// Non-owning, nullable
+		Metrics* m_pMetrics;
+
+		// Non-owning. Set by RenderGraphVk before Bake() to enable GPU timestamp queries.
+		// When non-null, the first graphics/compute command buffer created gets a begin
+		// timestamp, and WriteEndTimestamp() writes the end timestamp into the last command buffer.
+		VkQueryPool m_queryPool;
+		u32 m_queryFrameBaseIndex;
+		bool m_beginTimestampWritten;
 	};
 }

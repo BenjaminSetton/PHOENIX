@@ -1,19 +1,21 @@
 ---
-description: Deeply analyze the entire PHX library for potential bugs, correctness issues, and design problems
+description: Deeply analyze the entire PHX library for potential bugs, correctness issues, and design problems. The output MUST be a new markdown file written to disk — do not output the report as a chat message.
 ---
 
-# phx_bug_review
+# phx_bug_report
 
-Perform a thorough, deep bug analysis of the PHX graphics library. Follow these steps in order:
+Perform a thorough, deep bug analysis of the PHX graphics library. The goal is to **identify potential bugs, correctness issues, and design problems**. The report MUST be written to a **new file on disk** (see Step 0). Do not output the report as a chat message — the file IS the deliverable. Follow these steps in order:
 
 ## 0. Create the report file and header
 
-Write the final report to the user's personal notes directory at `C:\Users\benja\OneDrive\Desktop\Docs\Bug Review\`. Create the `Bug Review` folder if it does not exist.
+**This is a mandatory output step.** The entire report MUST be written to a new file on disk using the `write_to_file` tool. Do NOT output the report as a chat message — the file IS the deliverable.
 
-The filename must follow the format: `bug_review_<date>_<index>.md`
+Write the final report to the user's personal notes directory at `C:\Users\benja\OneDrive\Desktop\Docs\Bug Report\`. Create the `Bug Report` folder if it does not exist.
+
+The filename must follow the format: `bug_report_<date>_<index>.md`
 
 - `<date>`: current date in `YYYY-MM-DD` format
-- `<index>`: zero-based integer. If no other `bug_review_<date>_*.md` files exist for today, use `0`. Otherwise, use the next available index (e.g., if `bug_review_2026-07-07_0.md` exists, use `bug_review_2026-07-07_1.md`).
+- `<index>`: zero-based integer. If no other `bug_report_<date>_*.md` files exist for today, use `0`. Otherwise, use the next available index (e.g., if `bug_report_2026-07-07_0.md` exists, use `bug_report_2026-07-07_1.md`).
 
 At the very beginning of the file, create a header with the following format:
 
@@ -101,3 +103,7 @@ Group findings by severity (Critical first, then High, Medium, Low).
 ## 5. Summary
 
 Provide a summary table with all findings, their severity, file, and a brief description. Place it at the beginning of the file, immediately after the report header.
+
+## 6. Final output reminder
+
+**The report MUST be saved as a new file on disk.** Verify that the file was successfully written using the `write_to_file` tool before completing. Do not output the report content as a chat message — the file is the deliverable. If the file was not created, the workflow has failed.

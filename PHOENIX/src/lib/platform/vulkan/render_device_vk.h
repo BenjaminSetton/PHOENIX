@@ -55,6 +55,14 @@ namespace PHX
 		STATUS_CODE ReloadShader(const ShaderCreateInfo& createInfo, ShaderHandle shader) override;
 		void FlushPipelineCache() override;
 
+		u32 GetBufferCount() const override;
+		u32 GetTextureCount() const override;
+		u32 GetShaderCount() const override;
+		u32 GetPipelineCount() const override;
+		u32 GetUniformCollectionCount() const override;
+		u32 GetAccelerationStructureCount() const override;
+		u64 GetAllocatedMemoryBytes() const override;
+
 		// Handles
 		void* ResolveHandle(const Handle& handle) override;
 		void IncrementHandleRefCount(const Handle& handle) override;

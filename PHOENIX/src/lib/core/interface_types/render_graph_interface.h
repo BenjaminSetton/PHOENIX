@@ -11,6 +11,7 @@
 #include "PHX/interface/texture.h"
 #include "PHX/interface/uniform.h"
 #include "PHX/types/attachment_desc.h"
+#include "PHX/types/metrics.h"
 #include "PHX/types/pipeline_desc.h"
 
 namespace PHX
@@ -57,6 +58,8 @@ namespace PHX
 		virtual STATUS_CODE Bake(SwapChainHandle swapChain) = 0;
 
 		virtual u32 GetFrameNumber() const = 0;
+
+		virtual const Metrics& GetMetrics() const = 0;
 
 		// Generates a visualization of the render graph by creating a .dot file. This file can then be
 		// opened with a graph visualization tool such as GraphViz to examine the graph structure. If
