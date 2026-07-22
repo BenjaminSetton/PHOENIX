@@ -14,6 +14,7 @@
 #include "utils/acceleration_structure_utils.h"
 #include "utils/buffer_utils.h"
 #include "utils/buffer_type_converter.h"
+#include "utils/debug_utils.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
 #include "utils/texture_type_converter.h"
@@ -848,6 +849,34 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	STATUS_CODE DeviceContextVk::BeginLabel(QUEUE_TYPE queueType, const char* name)
+	{
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		STATUS_CODE res = GetOrCreateCommandBuffer(queueType, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to begin label! Could not get or create command buffer");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		DEBUG_UTILS::BeginLabel(m_pRenderDevice->GetLogicalDevice(), cmdBuffer, name);
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE DeviceContextVk::EndLabel(QUEUE_TYPE queueType)
+	{
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		STATUS_CODE res = GetOrCreateCommandBuffer(queueType, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to end label! Could not get or create command buffer");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		DEBUG_UTILS::EndLabel(m_pRenderDevice->GetLogicalDevice(), cmdBuffer);
+		return STATUS_CODE::SUCCESS;
+	}
+
 	STATUS_CODE DeviceContextVk::InsertImageMemoryBarrier(TextureVk* pTexture, QUEUE_TYPE queueType, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldLayout, VkImageLayout newLayout)
 	{
 		if (pTexture == nullptr)
@@ -1037,7 +1066,7 @@ namespace PHX
 
 		// If timestamp queries are enabled and this is the first graphics/compute command buffer
 		// of the frame, reset the query slots and write the begin timestamp. Transfer queues don't
-		// support timestamp queries, so we skip them and wait for a compatible queue.
+		// support timestamp queries, so we skip them and wait for a compatible queue
 		if (!m_beginTimestampWritten && m_queryPool != VK_NULL_HANDLE &&
 			(type == QUEUE_TYPE::GRAPHICS || type == QUEUE_TYPE::COMPUTE))
 		{

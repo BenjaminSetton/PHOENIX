@@ -911,6 +911,12 @@ namespace PHX
 				return res;
 			}
 
+			// Insert a label for GPU operations
+			{
+				const QUEUE_TYPE passQueueType = ConvertPassTypeToQueueType(currRenderPass.m_passType);
+				pDeviceContext->BeginLabel(passQueueType, currRenderPass.m_debugName);
+			}
+
 			switch (currRenderPass.m_passType)
 			{
 				case PASS_TYPE::GRAPHICS:
@@ -1030,7 +1036,11 @@ namespace PHX
 					break;
 				}
 			}
+
+			// End the label for this pass
+			pDeviceContext->EndLabel(ConvertPassTypeToQueueType(currRenderPass.m_passType));
 		}
+
 
 		// Clear metrics pointer after pass execution
 		if (GetSettings().gatherMetrics)

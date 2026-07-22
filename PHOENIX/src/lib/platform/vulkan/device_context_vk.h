@@ -88,6 +88,10 @@ namespace PHX
 		STATUS_CODE BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount);
 		STATUS_CODE EndRenderPass();
 
+		// Inserts a debug label (marker region) into the command buffer for the given queue type
+		STATUS_CODE BeginLabel(QUEUE_TYPE queueType, const char* name);
+		STATUS_CODE EndLabel(QUEUE_TYPE queueType);
+
 		// TODO - Have the transition details exposed as function parameters rather than assuming src/dst stages and access masks
 		//STATUS_CODE TransitionImageLayout(TextureVk* pTexture, VkImageLayout destinationLayout, VkCommandBuffer cmdBuffer = VK_NULL_HANDLE);
 

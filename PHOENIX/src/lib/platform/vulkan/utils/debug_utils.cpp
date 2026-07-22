@@ -45,14 +45,64 @@ namespace PHX
 					name, static_cast<u32>(objectType), static_cast<unsigned long long>(objectHandle), string_VkResult(res));
 			}
 		}
+
+		void BeginLabel(VkDevice device, VkCommandBuffer commandBuffer, const char* name)
+		{
+			if (device == VK_NULL_HANDLE || commandBuffer == VK_NULL_HANDLE || name == nullptr)
+			{
+				return;
+			}
+
+			PFN_vkCmdBeginDebugUtilsLabelEXT pfnBegin = reinterpret_cast<PFN_vkCmdBeginDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device, "vkCmdBeginDebugUtilsLabelEXT"));
+			if (pfnBegin == nullptr)
+			{
+				return;
+			}
+
+			VkDebugUtilsLabelEXT labelInfo{};
+			labelInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+			labelInfo.pLabelName = name;
+			pfnBegin(commandBuffer, &labelInfo);
+		}
+
+		void EndLabel(VkDevice device, VkCommandBuffer commandBuffer)
+		{
+			if (device == VK_NULL_HANDLE || commandBuffer == VK_NULL_HANDLE)
+			{
+				return;
+			}
+
+			PFN_vkCmdEndDebugUtilsLabelEXT pfnEnd = reinterpret_cast<PFN_vkCmdEndDebugUtilsLabelEXT>(vkGetDeviceProcAddr(device, "vkCmdEndDebugUtilsLabelEXT"));
+			if (pfnEnd == nullptr)
+			{
+				return;
+			}
+
+			pfnEnd(commandBuffer);
+		}
 #else
-		void SetObjectName(VkDevice device, VkObjectType objectType, uint64_t objectHandle, const char* name) 
+		void SetObjectName(VkDevice device, VkObjectType objectType, uint64_t objectHandle, const char* name)
 		{
 			/* No-op */
 			UNUSED(device);
 			UNUSED(objectType);
 			UNUSED(objectHandle);
 			UNUSED(name);
+		}
+
+		void BeginLabel(VkDevice device, VkCommandBuffer commandBuffer, const char* name)
+		{
+			/* No-op */
+			UNUSED(device);
+			UNUSED(commandBuffer);
+			UNUSED(name);
+		}
+
+		void EndLabel(VkDevice device, VkCommandBuffer commandBuffer)
+		{
+			/* No-op */
+			UNUSED(device);
+			UNUSED(commandBuffer);
 		}
 #endif
 	}
