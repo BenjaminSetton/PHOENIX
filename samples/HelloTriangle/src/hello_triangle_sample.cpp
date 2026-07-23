@@ -19,21 +19,15 @@ static constexpr SimpleVertexType triVerts[VERTEX_COUNT] =
 
 HelloTriangleSample::HelloTriangleSample() : m_testUBO()
 {
-	Init();
 }
 
 HelloTriangleSample::~HelloTriangleSample()
 {
-	Shutdown();
 }
 
-bool HelloTriangleSample::Update(float dt)
+void HelloTriangleSample::UpdateSample(float dt)
 {
-	bool shouldClose = BaseSample::Update(dt);
-
 	m_testUBO.time += dt;
-
-	return shouldClose;
 }
 
 void HelloTriangleSample::Draw()
@@ -81,7 +75,7 @@ void HelloTriangleSample::Draw()
 	m_renderGraph.EndFrame(m_swapChain);
 }
 
-void HelloTriangleSample::Init()
+void HelloTriangleSample::InitSample()
 {
 	STATUS_CODE phxRes;
 
@@ -154,7 +148,7 @@ void HelloTriangleSample::Init()
 	m_pipelineDesc.uniformCollection = m_uniformCollection;
 }
 
-void HelloTriangleSample::Shutdown()
+void HelloTriangleSample::ShutdownSample()
 {
 	m_shaders.clear();
 }

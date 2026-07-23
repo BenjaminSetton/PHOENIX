@@ -35,21 +35,19 @@ BasicModelSample::BasicModelSample() : m_transform(), m_pipelineDesc(),
 	m_depthBuffer(), m_uniformCollection(), m_uniformBuffer(),
 	m_vertexBuffer(), m_indexBuffer(), m_assetID(Common::INVALID_ASSET_HANDLE)
 {
-	Init();
 }
 
 BasicModelSample::~BasicModelSample()
 {
-	Shutdown();
 }
 
-bool BasicModelSample::Update(float dt)
+void BasicModelSample::UpdateSample(float dt)
 {
+	(void)dt;
+
 	// Update the model's transform
 	m_transform.worldMat = glm::rotate(m_transform.worldMat, 0.02f, { 0.0f, -1.0f, 0.0f });
 	m_transform.worldMat = glm::rotate(m_transform.worldMat, 0.02f, { 1.0f, 0.0f, 0.0f });
-
-	return BaseSample::Update(dt);
 }
 
 void BasicModelSample::Draw()
@@ -103,7 +101,7 @@ void BasicModelSample::Draw()
 	m_renderGraph.EndFrame(m_swapChain);
 }
 
-void BasicModelSample::Init()
+void BasicModelSample::InitSample()
 {
 	STATUS_CODE phxRes;
 
@@ -233,7 +231,7 @@ void BasicModelSample::Init()
 	UploadMeshDataToGPU();
 }
 
-void BasicModelSample::Shutdown()
+void BasicModelSample::ShutdownSample()
 {
 	m_shaders.clear();
 }

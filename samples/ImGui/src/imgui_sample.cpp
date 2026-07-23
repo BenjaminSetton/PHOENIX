@@ -9,18 +9,14 @@ using namespace PHX;
 
 ImGuiSample::ImGuiSample()
 {
-	Init();
 }
 
 ImGuiSample::~ImGuiSample()
 {
-	Shutdown();
 }
 
-bool ImGuiSample::Update(float dt)
+void ImGuiSample::UpdateSample(float dt)
 {
-	bool shouldClose = BaseSample::Update(dt);
-
 	m_imguiBackend.NewFrame(dt, m_swapChain.GetWidth(), m_swapChain.GetHeight());
 
 	// Build ImGui UI
@@ -50,8 +46,6 @@ bool ImGuiSample::Update(float dt)
 	ImGui::End();
 
 	ImGui::ShowDemoWindow();
-
-	return shouldClose;
 }
 
 void ImGuiSample::Draw()
@@ -76,7 +70,7 @@ void ImGuiSample::Draw()
 	m_renderGraph.EndFrame(m_swapChain);
 }
 
-void ImGuiSample::Init()
+void ImGuiSample::InitSample()
 {
 	m_window.SetWindowTitle("PHX %u.%u.%u | IMGUI", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
 
@@ -91,7 +85,7 @@ void ImGuiSample::Init()
 	}
 }
 
-void ImGuiSample::Shutdown()
+void ImGuiSample::ShutdownSample()
 {
 	m_imguiRenderer.Shutdown();
 	m_imguiBackend.Shutdown();

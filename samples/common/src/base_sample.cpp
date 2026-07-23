@@ -36,15 +36,13 @@ namespace Common
 		(void)wasMaximized;
 	}
 
-	BaseSample::BaseSample() : 
-		m_window(), m_renderDevice(), m_swapChain(), m_renderGraph(), m_pCamera(nullptr), m_pShaderManager(nullptr)
+	BaseSample::BaseSample() : m_window(), m_renderDevice(), m_swapChain(), m_renderGraph(), 
+		m_pCamera(nullptr), m_pShaderManager(nullptr)
 	{
-		Init();
 	}
 
 	BaseSample::~BaseSample()
 	{
-		Shutdown();
 	}
 
 	void BaseSample::Init()
@@ -54,7 +52,7 @@ namespace Common
 		Settings settings{};
 		settings.backendAPI = GRAPHICS_API::VULKAN;
 		settings.backendAPIMajorVersion = 1;
-		settings.backendAPIMinorVersion = 2;
+		settings.backendAPIMinorVersion = 0;
 		settings.logCallback = nullptr;
 
 		settings.enableValidation = true; // TODO - Add DEBUG project define for samples and guard this setting based on that
@@ -71,7 +69,6 @@ namespace Common
 		settings.windowMouseButtonUpCallback = [=](MouseButtonCode mouseButton) { this->OnMouseButtonUp(mouseButton); };
 		settings.windowKeyRepeatCallback = nullptr;
 
-		// TODO - Move init calls out of constructor so overridden functions work as expected
 		// Allow derived classes to cherry-pick settings to override
 		OverrideSettings(settings);
 
@@ -83,10 +80,14 @@ namespace Common
 		CreateRenderGraph();
 
 		m_pShaderManager = new ShaderManager();
+
+		InitSample();
 	}
 
 	void BaseSample::Shutdown()
 	{
+		ShutdownSample();
+
 		delete m_pShaderManager;
 		m_pShaderManager = nullptr;
 
@@ -119,6 +120,8 @@ namespace Common
 		{
 			m_pShaderManager->PollUpdates();
 		}
+
+		UpdateSample(dt);
 
 		return m_window.ShouldClose();
 	}

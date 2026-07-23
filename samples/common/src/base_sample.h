@@ -19,13 +19,16 @@ namespace Common
 		BaseSample(const BaseSample& other) = delete;
 		BaseSample& operator=(const BaseSample& other) = delete;
 
-		virtual bool Update(float dt);
+		void Init();
+		void Shutdown();
+		bool Update(float dt);
 		virtual void Draw() = 0;
 
 	protected:
 
-		virtual void Init();
-		virtual void Shutdown();
+		virtual void InitSample() = 0;
+		virtual void ShutdownSample() = 0;
+		virtual void UpdateSample(float dt) = 0;
 
 		virtual void OverrideSettings(PHX::Settings& settings);
 

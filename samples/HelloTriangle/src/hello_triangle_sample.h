@@ -22,13 +22,13 @@ public:
 	HelloTriangleSample();
 	~HelloTriangleSample() override;
 
-	bool Update(float dt) override;
 	void Draw() override;
 
 private:
 
-	void Init() override;
-	void Shutdown() override;
+	void InitSample() override;
+	void ShutdownSample() override;
+	void UpdateSample(float dt) override;
 
 	void CreateUniformCollection();
 	void UploadMeshDataToGPU();

@@ -30,13 +30,13 @@ public:
 	TexturedModelSample();
 	~TexturedModelSample() override;
 
-	bool Update(float dt) override;
 	void Draw() override;
 
 protected:
 
-	void Init() override;
-	void Shutdown() override;
+	void InitSample() override;
+	void ShutdownSample() override;
+	void UpdateSample(float dt) override;
 
 private:
 

@@ -35,19 +35,10 @@ static const u32 s_defaultTextureCount = sizeof(s_defaultTexturePixels) / sizeof
 
 RayTracingSample::RayTracingSample()
 {
-	Init();
 }
 
 RayTracingSample::~RayTracingSample()
 {
-	Shutdown();
-}
-
-bool RayTracingSample::Update(float dt)
-{
-	bool shouldClose = BaseSample::Update(dt);
-	UpdateCameraData(dt);
-	return shouldClose;
 }
 
 void RayTracingSample::Draw()
@@ -164,7 +155,7 @@ void RayTracingSample::Draw()
 	m_renderGraph.EndFrame(m_swapChain);
 }
 
-void RayTracingSample::Init()
+void RayTracingSample::InitSample()
 {
 	STATUS_CODE phxRes;
 
@@ -347,13 +338,18 @@ void RayTracingSample::Init()
 	}
 }
 
-void RayTracingSample::Shutdown()
+void RayTracingSample::ShutdownSample()
 {
 	if (m_pCamera != nullptr)
 	{
 		delete m_pCamera;
 		m_pCamera = nullptr;
 	}
+}
+
+void RayTracingSample::UpdateSample(float dt)
+{
+	UpdateCameraData(dt);
 }
 
 void RayTracingSample::LoadSceneAssets()

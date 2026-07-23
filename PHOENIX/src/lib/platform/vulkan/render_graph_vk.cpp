@@ -914,7 +914,12 @@ namespace PHX
 			// Insert a label for GPU operations
 			{
 				const QUEUE_TYPE passQueueType = ConvertPassTypeToQueueType(currRenderPass.m_passType);
-				pDeviceContext->BeginLabel(passQueueType, currRenderPass.m_debugName);
+#if defined(PHX_DEBUG)
+				const char* passName = currRenderPass.m_debugName;
+#else
+				const char* passName = "UnnamedPass";
+#endif
+				pDeviceContext->BeginLabel(passQueueType, passName);
 			}
 
 			switch (currRenderPass.m_passType)

@@ -14,27 +14,21 @@ using namespace PHX;
 
 ComputeParticlesSample::ComputeParticlesSample() : m_simData(), m_volumeMinBound(-30), m_volumeMaxBound(30)
 {
-	Init();
 }
 
 ComputeParticlesSample::~ComputeParticlesSample()
 {
-	Shutdown();
 }
 
-bool ComputeParticlesSample::Update(float dt)
+void ComputeParticlesSample::UpdateSample(float dt)
 {
 	m_simData.dt = dt;
 	m_simData.totalTime += dt;
-
-	bool shouldClose = BaseSample::Update(dt);
 
 	if (m_pCamera != nullptr)
 	{
 		m_cameraData.view = m_pCamera->GetViewMatrix();
 	}
-
-	return shouldClose;
 }
 
 void ComputeParticlesSample::Draw()
@@ -135,7 +129,7 @@ void ComputeParticlesSample::Draw()
 	m_renderGraph.EndFrame(m_swapChain);
 }
 
-void ComputeParticlesSample::Init()
+void ComputeParticlesSample::InitSample()
 {
 	STATUS_CODE phxRes;
 
@@ -308,14 +302,17 @@ void ComputeParticlesSample::Init()
 	InitializeOutlineBuffers();
 }
 
-void ComputeParticlesSample::Shutdown()
+void ComputeParticlesSample::ShutdownSample()
 {
 	m_outlineShaders.clear();
 	m_drawShaders.clear();
 	m_shaders.clear();
 
-	delete m_pCamera;
-	m_pCamera = nullptr;
+	if (m_pCamera != nullptr)
+	{
+		delete m_pCamera;
+		m_pCamera = nullptr;
+	}
 }
 
 void ComputeParticlesSample::CreateUniformCollection()

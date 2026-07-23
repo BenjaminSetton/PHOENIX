@@ -9,10 +9,13 @@ int main(int argc, char** argv)
 	(void)argv;
 
 	ImGuiSample sample;
+	sample.Init();
+
 	while (!sample.Update(0.016f))
 	{
 		sample.Draw();
 	}
 
+	sample.Shutdown();
 	return 0;
 }

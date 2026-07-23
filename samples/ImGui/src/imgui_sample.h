@@ -11,13 +11,13 @@ public:
 	ImGuiSample();
 	~ImGuiSample() override;
 
-	bool Update(float dt) override;
 	void Draw() override;
 
 private:
 
-	void Init() override;
-	void Shutdown() override;
+	void InitSample() override;
+	void ShutdownSample() override;
+	void UpdateSample(float dt) override;
 
 	void OnKeyDown(PHX::KeyCode keycode) override;
 	void OnKeyUp(PHX::KeyCode keycode) override;

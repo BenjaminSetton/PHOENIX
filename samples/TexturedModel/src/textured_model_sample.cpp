@@ -45,20 +45,18 @@ TexturedModelSample::TexturedModelSample() : m_transform(), m_pipelineDesc(),
 	m_depthBuffer(), m_uniformCollection(), m_transformBuffer(), m_cameraBuffer(),
 	m_vertexBuffer(), m_indexBuffer(), m_assetID(Common::INVALID_ASSET_HANDLE)
 {
-	Init();
 }
 
 TexturedModelSample::~TexturedModelSample()
 {
-	Shutdown();
 }
 
-bool TexturedModelSample::Update(float dt)
+void TexturedModelSample::UpdateSample(float dt)
 {
+	(void)dt;
+
 	// Get the new view matrix from the camera
 	m_transform.viewMat = m_pCamera->GetViewMatrix();
-
-	return BaseSample::Update(dt);
 }
 
 void TexturedModelSample::Draw()
@@ -144,7 +142,7 @@ void TexturedModelSample::Draw()
 	m_renderGraph.EndFrame(m_swapChain);
 }
 
-void TexturedModelSample::Init()
+void TexturedModelSample::InitSample()
 {
 	STATUS_CODE phxRes;
 
@@ -311,13 +309,16 @@ void TexturedModelSample::Init()
 	UploadMeshDataToGPU();
 }
 
-void TexturedModelSample::Shutdown()
+void TexturedModelSample::ShutdownSample()
 {
 	m_assetTextures.clear();
 	m_shaders.clear();
 
-	delete m_pCamera;
-	m_pCamera = nullptr;
+	if (m_pCamera != nullptr)
+	{
+		delete m_pCamera;
+		m_pCamera = nullptr;
+	}
 }
 
 void TexturedModelSample::CreateAssetTextures()
