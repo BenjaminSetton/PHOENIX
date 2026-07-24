@@ -1024,43 +1024,69 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		// Determine the actual queue family for this queue type. Multiple QUEUE_TYPE values
-		// (e.g. TRANSFER and GRAPHICS) may map to the same queue family on devices without a
-		// dedicated transfer queue. In that case they share the same physical queue and should
-		// be merged into a single batch — no semaphore is needed between them.
-		u32 familyIndex = m_pRenderDevice->GetQueueFamilyIndex(type);
-
-		// Reuse the current (most recent) batch if it targets the same queue family. Commands
-		// recorded back-to-back on the same queue family belong in a single submission.
-		if (!m_submissionBatches.empty() && m_submissionBatches.back().queueFamilyIndex == familyIndex)
+		// Attempt to use an already-active command buffer from this frame
+		if (TryReuseActiveCommandBuffer(type, out_cmdBuffer))
 		{
-			out_cmdBuffer = m_submissionBatches.back().cmdBuffer;
 			return STATUS_CODE::SUCCESS;
 		}
 
-		// Otherwise the queue family changed (or this is the first command of the frame), so start
-		// a new batch with a fresh command buffer. This is what allows cross-queue dependencies to
-		// be submitted (and synchronized) in the correct order later in EndFrame.
-		VkCommandBufferAllocateInfo allocInfo{};
-		allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-		allocInfo.commandPool = m_pRenderDevice->GetCommandPool(type, m_assignedFrameIndex);
-		allocInfo.commandBufferCount = 1;
+		return AllocateCommandBuffer(type, out_cmdBuffer);
+	}
 
-		VkResult res = vkAllocateCommandBuffers(m_pRenderDevice->GetLogicalDevice(), &allocInfo, &out_cmdBuffer);
-		if (res != VK_SUCCESS)
+	bool DeviceContextVk::TryReuseActiveCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer)
+	{
+		u32 familyIndex = m_pRenderDevice->GetQueueFamilyIndex(type);
+
+		// Reuse the current (most recent) batch if it targets the same queue family. Commands
+		// recorded back-to-back on the same queue family belong in a single submission
+		if (!m_submissionBatches.empty() && m_submissionBatches.back().queueFamilyIndex == familyIndex)
 		{
-			LogError("Failed to allocate command buffer for queue type %u! Got result: \"%s\"", static_cast<u32>(type), string_VkResult(res));
-			return STATUS_CODE::ERR_INTERNAL;
+			out_cmdBuffer = m_submissionBatches.back().cmdBuffer;
+			return true;
+		}
+
+		return false;
+	}
+
+	STATUS_CODE DeviceContextVk::AllocateCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer)
+	{
+		u32 queueType = static_cast<u32>(type);
+		u32 familyIndex = m_pRenderDevice->GetQueueFamilyIndex(type);
+		VkDevice device = m_pRenderDevice->GetLogicalDevice();
+		VkCommandPool pool = m_pRenderDevice->GetCommandPool(type, m_assignedFrameIndex);
+
+		// Pull from the cmd buffer cache. These are reset in bulk every frame through vkResetCommandPool()
+		auto& cache = m_commandBufferCache[static_cast<u32>(type)];
+		if (!cache.empty())
+		{
+			out_cmdBuffer = cache.back();
+			cache.pop_back();
+		}
+		else
+		{
+			VkCommandBufferAllocateInfo allocInfo{};
+			allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+			allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+			allocInfo.commandPool = pool;
+			allocInfo.commandBufferCount = 1;
+
+			VkResult res = vkAllocateCommandBuffers(device, &allocInfo, &out_cmdBuffer);
+			if (res != VK_SUCCESS)
+			{
+				LogError("Failed to allocate command buffer for queue type %u! Got result: \"%s\"", queueType, string_VkResult(res));
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+
+			LogDebug("Allocated new command buffer for queue type %u", queueType);
 		}
 
 		VkCommandBufferBeginInfo beginInfo{};
 		beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 		beginInfo.flags = 0;
-		res = vkBeginCommandBuffer(out_cmdBuffer, &beginInfo);
+		VkResult res = vkBeginCommandBuffer(out_cmdBuffer, &beginInfo);
 		if (res != VK_SUCCESS)
 		{
-			LogError("Failed to begin command buffer for queue type %u! Got result: \"%s\"", static_cast<u32>(type), string_VkResult(res));
+			LogError("Failed to begin command buffer for queue type %u! Got result: \"%s\"", queueType, string_VkResult(res));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
@@ -1086,26 +1112,54 @@ namespace PHX
 
 	void DeviceContextVk::DeallocateCommandBuffers()
 	{
-		// Command pools are owned by RenderDeviceVk and destroyed there.
-		// We just need to clear our references — vkDeviceWaitIdle is called
-		// in RenderDeviceVk's destructor before pools are destroyed.
+		// Free all cached command buffers
+		VkDevice device = m_pRenderDevice->GetLogicalDevice();
+
+		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
+		{
+			QUEUE_TYPE queueType = static_cast<QUEUE_TYPE>(i);
+			VkCommandPool pool = m_pRenderDevice->GetCommandPool(queueType, m_assignedFrameIndex);
+			if (pool == VK_NULL_HANDLE)
+			{
+				continue;
+			}
+
+			auto& cache = m_commandBufferCache[i];
+			if (!cache.empty())
+			{
+				vkFreeCommandBuffers(device, pool, static_cast<u32>(cache.size()), cache.data());
+				cache.clear();
+			}
+		}
+
 		m_submissionBatches.clear();
 	}
 
 	void DeviceContextVk::ResetCommandBuffers()
 	{
-		// vkResetCommandPool recycles all command buffers from the pool in one call
+		// vkResetCommandPool resets all command buffers allocated from each pool to their
+		// initial state in one call. No need to individually reset each command buffer.
+		VkDevice device = m_pRenderDevice->GetLogicalDevice();
 		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
 		{
 			QUEUE_TYPE queueType = static_cast<QUEUE_TYPE>(i);
 			VkCommandPool pool = m_pRenderDevice->GetCommandPool(queueType, m_assignedFrameIndex);
 			if (pool != VK_NULL_HANDLE)
 			{
-				vkResetCommandPool(m_pRenderDevice->GetLogicalDevice(), pool, VK_COMMAND_POOL_RESET_RELEASE_RESOURCES_BIT);
+				vkResetCommandPool(device, pool, 0);
 			}
 		}
 
-		// All command buffers were allocated from the pools we just reset, so drop our references.
+		// Return all command buffers from this frame's batches back to the cache for reuse.
+		// BeginFrame's fence wait guarantees the GPU is done with all submissions.
+		for (const SubmissionBatch& batch : m_submissionBatches)
+		{
+			if (batch.cmdBuffer != VK_NULL_HANDLE)
+			{
+				m_commandBufferCache[static_cast<u32>(batch.queueType)].push_back(batch.cmdBuffer);
+			}
+		}
+
 		m_submissionBatches.clear();
 	}
 

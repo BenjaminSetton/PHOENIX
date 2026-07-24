@@ -126,6 +126,17 @@ namespace PHX
 
 	private:
 
+		// Returns the command buffer from the current (most recent) batch if it targets
+		// the same queue family. This is intra-frame reuse — consecutive commands on the
+		// same queue family share a single command buffer and submission.
+		bool TryReuseActiveCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer);
+
+		// Acquires a command buffer for a new batch: pulls from the cross-frame cache
+		// (already reset by vkResetCommandPool at frame start) or allocates a new one,
+		// begins recording, and registers a new submission batch.
+		STATUS_CODE AllocateCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer);
+
+		// Thin wrapper: tries intra-frame reuse first, then acquires a new command buffer.
 		STATUS_CODE GetOrCreateCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer);
 
 		void DeallocateCommandBuffers();
@@ -152,6 +163,12 @@ namespace PHX
 		// Ordered list of submission batches recorded this frame, in render-graph dependency order.
 		// Each batch owns a single command buffer bound to one queue.
 		std::vector<SubmissionBatch> m_submissionBatches;
+
+		// Per-queue-type cache of command buffers that persist across frames. ResetCommandBuffers
+		// calls vkResetCommandPool (bulk-resetting all command buffers to initial state) then
+		// returns used command buffers here. AcquireCommandBuffer pulls from here without needing
+		// to call vkResetCommandBuffer individually, or allocates new ones if the cache is empty.
+		std::array<std::vector<VkCommandBuffer>, static_cast<u32>(QUEUE_TYPE::COUNT)> m_commandBufferCache;
 
 		// Binary semaphores used to chain consecutive submission batches together (batch i signals
 		// m_chainSemaphores[i], batch i+1 waits on it). Grown on demand and reused across frames.

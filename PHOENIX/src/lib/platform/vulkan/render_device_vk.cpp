@@ -895,7 +895,7 @@ namespace PHX
 			return res;
 		}
 
-		res = AllocateCommandPool_Helper(QUEUE_TYPE::TRANSFER, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT | VK_COMMAND_POOL_CREATE_TRANSIENT_BIT, framesInFlight);
+		res = AllocateCommandPool_Helper(QUEUE_TYPE::TRANSFER, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, framesInFlight);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return res;
