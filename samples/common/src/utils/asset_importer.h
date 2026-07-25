@@ -2,6 +2,8 @@
 
 #include <filesystem>
 #include <functional>
+#include <glm.hpp>
+#include <gtc/quaternion.hpp>
 #include <memory.h>
 #include <PHX/types/texture_desc.h>
 #include <PHX/types/vec_types.h>
@@ -41,6 +43,8 @@ namespace Common
 		PHX::Vec3f tangent;
 		PHX::Vec3f bitangent;
 		PHX::Vec2f uv;
+		PHX::Vec4u boneIndices;   // up to 4 bone influences (indices into bone array)
+		PHX::Vec4f boneWeights;   // corresponding weights (sum to 1.0)
 	};
 
 	struct AssetDiskMipLevel
@@ -79,6 +83,41 @@ namespace Common
 		PHX::u32 materialIndex = 0;
 	};
 
+	struct AssetDiskBone
+	{
+		std::string name;
+		glm::mat4 offsetMatrix;  // inverse bind pose
+	};
+
+	struct AssetDiskNode
+	{
+		std::string name;
+		int32_t parentIndex = -1;  // -1 for root
+		glm::mat4 localTransform;
+	};
+
+	struct AssetDiskAnimationKey
+	{
+		float time = 0.0f;
+		glm::vec3 translation;
+		glm::quat rotation;
+		glm::vec3 scale;
+	};
+
+	struct AssetDiskAnimationChannel
+	{
+		uint32_t nodeIndex = 0;  // index into AssetDisk::nodes
+		std::vector<AssetDiskAnimationKey> keys;
+	};
+
+	struct AssetDiskAnimation
+	{
+		std::string name;
+		float duration = 0.0f;       // in ticks
+		float ticksPerSecond = 0.0f;
+		std::vector<AssetDiskAnimationChannel> channels;
+	};
+
 	// A raw representation of an asset on disk. This is a generalization of common 3D asset extensions such as OBJ, FBX,
 	// glTF, etc. Instances of AssetDisk are never stored. Instead, they must be converted into AssetResources instances
 	// during import calls and only then is the data stored in the AssetManager
@@ -90,9 +129,12 @@ namespace Common
 		std::vector<AssetDiskTexture> textures;
 		std::vector<AssetDiskMesh> meshes;
 		std::vector<AssetDiskMaterial> materials;
+		std::vector<AssetDiskBone> bones;
+		std::vector<AssetDiskNode> nodes;
+		std::vector<AssetDiskAnimation> animations;
 	};
 
-	std::shared_ptr<AssetDisk> ImportAsset(std::filesystem::path filePath);
+	std::shared_ptr<AssetDisk> ImportAsset(std::filesystem::path filePath, bool importAnimations = false);
 
 	// Resolves a relative path against COMMON_ASSET_ROOT_DIR and SAMPLE_ASSET_ROOT_DIR.
 	// Returns an empty path if the file cannot be found.

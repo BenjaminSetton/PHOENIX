@@ -89,13 +89,13 @@ namespace Common
 	{
 		if (pShaderManager != nullptr)
 		{
-			m_vertShader = pShaderManager->RegisterShader("../src/shaders/imgui.vert", SHADER_STAGE::VERTEX, renderDevice);
+			m_vertShader = pShaderManager->RegisterShader("../../common/src/shaders/imgui.vert", SHADER_STAGE::VERTEX, renderDevice);
 			if (!m_vertShader.IsValid())
 			{
 				return;
 			}
 
-			m_fragShader = pShaderManager->RegisterShader("../src/shaders/imgui.frag", SHADER_STAGE::FRAGMENT, renderDevice);
+			m_fragShader = pShaderManager->RegisterShader("../../common/src/shaders/imgui.frag", SHADER_STAGE::FRAGMENT, renderDevice);
 			if (!m_fragShader.IsValid())
 			{
 				return;
@@ -103,12 +103,12 @@ namespace Common
 		}
 		else
 		{
-			if (!Common::AllocateShader("../src/shaders/imgui.vert", SHADER_STAGE::VERTEX, renderDevice, m_vertShader))
+			if (!Common::AllocateShader("../../common/src/shaders/imgui.vert", SHADER_STAGE::VERTEX, renderDevice, m_vertShader))
 			{
 				return;
 			}
 
-			if (!Common::AllocateShader("../src/shaders/imgui.frag", SHADER_STAGE::FRAGMENT, renderDevice, m_fragShader))
+			if (!Common::AllocateShader("../../common/src/shaders/imgui.frag", SHADER_STAGE::FRAGMENT, renderDevice, m_fragShader))
 			{
 				return;
 			}
@@ -255,7 +255,7 @@ namespace Common
 		return true;
 	}
 
-	bool ImGuiPhxRenderer::RenderDrawData(RenderGraphHandle renderGraph, SwapChainHandle swapChain, ImDrawData* drawData)
+	bool ImGuiPhxRenderer::RenderDrawData(RenderGraphHandle renderGraph, SwapChainHandle swapChain, ImDrawData* drawData, bool clearBackbuffer)
 	{
 		if (!m_initialized)
 		{
@@ -330,8 +330,9 @@ namespace Common
 			return false;
 		}
 
+		ATTACHMENT_LOAD_OP loadOp = clearBackbuffer ? ATTACHMENT_LOAD_OP::CLEAR : ATTACHMENT_LOAD_OP::LOAD;
 		ClearValues clearVals{};
-		renderPass.SetTextureOutput(swapChain.GetCurrentImage(), ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, clearVals);
+		renderPass.SetTextureOutput(swapChain.GetCurrentImage(), loadOp, ATTACHMENT_STORE_OP::STORE, clearVals);
 
 		if (hasDrawData)
 		{

@@ -669,7 +669,7 @@ namespace PHX
 	//--------------------------------------------------------------------------------------------
 
 	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pRenderDevice(nullptr), m_deviceContextHandles(), m_currentFrameGraphHash(0), m_uniqueVisualizationHashes(),
-		m_frameInFlightIndex(0), m_frameNumber(0), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), m_presentResID(0),
+		m_frameInFlightIndex(0), m_frameNumber(0), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), m_presentResID(0), m_didExecuteWork(false),
 		m_metrics(), m_queryPool(VK_NULL_HANDLE), m_timestampPeriod(0.0f)
 	{
 		if (pRenderDevice == nullptr)
@@ -756,9 +756,10 @@ namespace PHX
 			m_metrics = Metrics{};
 
 			// Read back timestamp query results from the previous frame.
-			// Use a non-blocking query — if the previous frame didn't call Bake() (e.g. no
-			// rendering occurred), the query slots were never written and VK_NOT_READY is returned.
-			if (m_queryPool != VK_NULL_HANDLE && m_frameNumber > 0)
+			// Guarded by m_didExecuteWork so that we can safely wait on
+			// the query results if work was submitted, otherwise no waiting is done
+			const bool canQueryResults = m_queryPool != VK_NULL_HANDLE && m_frameNumber > 0;
+			if (m_didExecuteWork && canQueryResults)
 			{
 				u32 prevFrameIndex = (m_frameInFlightIndex == 0) ? (m_pRenderDevice->GetFramesInFlight() - 1) : (m_frameInFlightIndex - 1);
 				u64 timestamps[2] = { 0, 0 };
@@ -770,7 +771,7 @@ namespace PHX
 					sizeof(timestamps),
 					timestamps,
 					sizeof(u64),
-					VK_QUERY_RESULT_64_BIT);
+					VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
 
 				if (vkRes == VK_SUCCESS)
 				{
@@ -779,6 +780,8 @@ namespace PHX
 				}
 			}
 		}
+
+		m_didExecuteWork = false;
 
 		return res;
 	}
@@ -956,7 +959,7 @@ namespace PHX
 						return res;
 					}
 
-					// Determine if this pass has a pipeline description. Clear-only passes (e.g. ImGuiClearPass)
+					// Determine if this pass has a pipeline description. Clear-only passes
 					// register as graphics passes with texture outputs but no shaders, so they only need the
 					// render pass begin/end to perform attachment clears.
 					const bool hasPipeline = (currRenderPass.graphicsDesc.shaderCount > 0 && currRenderPass.graphicsDesc.pShaders != nullptr);
@@ -967,10 +970,7 @@ namespace PHX
 						pDeviceContext->SetContextualPipeline(pPipeline);
 					}
 
-					if (currRenderPass.m_execCallback)
-					{
-						currRenderPass.m_execCallback(deviceContext);
-					}
+					CallExecutionCallback(currRenderPass, deviceContext);
 
 					if (hasPipeline)
 					{
@@ -998,7 +998,7 @@ namespace PHX
 					PipelineVk* pPipeline = CreatePipeline(currRenderPass, VK_NULL_HANDLE);
 
 					pDeviceContext->SetContextualPipeline(pPipeline);
-					currRenderPass.m_execCallback(deviceContext);
+					CallExecutionCallback(currRenderPass, deviceContext);
 					pDeviceContext->ResetContextualPipeline();
 
 					break;
@@ -1006,7 +1006,7 @@ namespace PHX
 				case PASS_TYPE::TRANSFER:
 				{
 					// Transfer-only passes do not use a pipeline
-					currRenderPass.m_execCallback(deviceContext);
+					CallExecutionCallback(currRenderPass, deviceContext);
 
 					break;
 				}
@@ -1018,10 +1018,7 @@ namespace PHX
 					PipelineVk* pPipeline = CreatePipeline(currRenderPass, VK_NULL_HANDLE);
 
 					pDeviceContext->SetContextualPipeline(pPipeline);
-					if (currRenderPass.m_execCallback)
-					{
-						currRenderPass.m_execCallback(deviceContext);
-					}
+					CallExecutionCallback(currRenderPass, deviceContext);
 					pDeviceContext->ResetContextualPipeline();
 
 					// Update the layout of the render pass' textures to reflect the implicit
@@ -1033,10 +1030,7 @@ namespace PHX
 				case PASS_TYPE::AS_BUILD:
 				{
 					// AS build passes do not use a pipeline or render pass — just execute the callback
-					if (currRenderPass.m_execCallback)
-					{
-						currRenderPass.m_execCallback(deviceContext);
-					}
+					CallExecutionCallback(currRenderPass, deviceContext);
 
 					break;
 				}
@@ -2363,5 +2357,14 @@ namespace PHX
 		}
 
 		return seed;
+	}
+
+	void RenderGraphVk::CallExecutionCallback(const RenderPassVk& renderPass, const DeviceContextHandle& deviceContext)
+	{
+		if (renderPass.m_execCallback)
+		{
+			renderPass.m_execCallback(deviceContext);
+			m_didExecuteWork = true;
+		}
 	}
 }

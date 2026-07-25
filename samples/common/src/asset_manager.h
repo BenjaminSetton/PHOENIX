@@ -44,7 +44,7 @@ namespace Common
 		}
 
 		// Automatic: check cache -> load if valid, else import + serialize. Can fail and return INVALID_HANDLE
-		AssetHandle LoadOrImport(const std::filesystem::path& sourcePath, bool forceReimport = false)
+		AssetHandle LoadOrImport(const std::filesystem::path& sourcePath, bool forceReimport = false, bool importAnimations = false)
 		{
 			std::filesystem::path fullSourcePath = FindSourceFile(sourcePath);
 			if (fullSourcePath.empty())
@@ -60,11 +60,11 @@ namespace Common
 				return Load(cachePath);
 			}
 
-			return Import(sourcePath);
+			return Import(sourcePath, importAnimations);
 		}
 
 		// Force import from source file (re-imports, serializes, stores). Can fail and return INVALID_HANDLE
-		AssetHandle Import(const std::filesystem::path& sourcePath)
+		AssetHandle Import(const std::filesystem::path& sourcePath, bool importAnimations = false)
 		{
 			std::filesystem::path fullSourcePath = FindSourceFile(sourcePath);
 			if (fullSourcePath.empty())
@@ -73,7 +73,7 @@ namespace Common
 				return INVALID_ASSET_HANDLE;
 			}
 
-			std::shared_ptr<AssetDisk> pAssetDisk = ImportAsset(fullSourcePath);
+			std::shared_ptr<AssetDisk> pAssetDisk = ImportAsset(fullSourcePath, importAnimations);
 			if (pAssetDisk == nullptr)
 			{
 				std::cout << "[ASSET] Failed to import asset from '" << fullSourcePath << "'" << std::endl;

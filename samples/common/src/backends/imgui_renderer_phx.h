@@ -22,7 +22,10 @@ namespace Common
 		void RecreateShaders(PHX::RenderDeviceHandle renderDevice, ShaderManager* pShaderManager);
 
 		// Renders data provided by ImDrawData. Returns whether the function succeeded or not
-		bool RenderDrawData(PHX::RenderGraphHandle renderGraph, PHX::SwapChainHandle swapChain, ImDrawData* drawData);
+		// TODO - Get rid of clearBackbuffer hack. Required because for ImGui sample initial backbuffer state is
+		//        UNDEFINED, but for other samples like InstancedAnimation the backbuffer cannot be cleared because
+		//        things have already been rendered to the backbuffer
+		bool RenderDrawData(PHX::RenderGraphHandle renderGraph, PHX::SwapChainHandle swapChain, ImDrawData* drawData, bool clearBackbuffer);
 
 	private:
 

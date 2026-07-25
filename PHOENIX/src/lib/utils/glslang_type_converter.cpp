@@ -121,6 +121,19 @@ namespace PHX
 
 				break;
 			}
+			case glslang::EbtUint:
+			{
+				switch (vectorSize)
+				{
+				case 1: return BASE_FORMAT::R32_UINT;
+				case 2: return BASE_FORMAT::R32G32_UINT;
+				case 3: return BASE_FORMAT::R32G32B32_UINT;
+				case 4: return BASE_FORMAT::R32G32B32A32_UINT;
+				default: break;
+				}
+
+				break;
+			}
 			default:
 			{
 				break;

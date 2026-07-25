@@ -16,7 +16,7 @@ namespace Common
 		uint32_t typeHash;        // Hash of type name — sanity check on load
 	};
 
-	static constexpr uint32_t ASSET_FORMAT_VERSION   = 1;
+	static constexpr uint32_t ASSET_FORMAT_VERSION   = 4;
 	static constexpr uint32_t TEXTURE_FORMAT_VERSION = 1;
 
 	static constexpr const char* ASSET_MAGIC   = "SMPA";
@@ -51,20 +51,20 @@ namespace Common
 
 		if (memcmp(header.magic, expectedMagic, 4) != 0)
 		{
-			std::cout << "[ASSET] Magic mismatch — expected '" << expectedMagic << "', got '"
+			std::cout << "[ASSET] Magic mismatch, expected '" << expectedMagic << "', got '"
 			          << std::string(header.magic, 4) << "'" << std::endl;
 			return false;
 		}
 
 		if (header.version != expectedVersion)
 		{
-			std::cout << "[ASSET] Version mismatch — expected " << expectedVersion << ", got " << header.version << std::endl;
+			std::cout << "[ASSET] Version mismatch, expected " << expectedVersion << ", got " << header.version << std::endl;
 			return false;
 		}
 
 		if (header.typeHash != expectedTypeHash)
 		{
-			std::cout << "[ASSET] Type hash mismatch — expected " << expectedTypeHash << ", got " << header.typeHash << std::endl;
+			std::cout << "[ASSET] Type hash mismatch, expected " << expectedTypeHash << ", got " << header.typeHash << std::endl;
 			return false;
 		}
 

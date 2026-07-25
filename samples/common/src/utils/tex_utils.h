@@ -14,6 +14,11 @@ namespace Common
 	// Returns an AssetDiskTexture with pData == nullptr on failure.
 	AssetDiskTexture LoadTexture(const std::filesystem::path& filePath, TEXTURE_TYPE type);
 
+	// Loads an LDR texture from a memory buffer (e.g. embedded FBX textures) using stb_image.
+	// dataSize is the size of the compressed data buffer in bytes.
+	// Returns an AssetDiskTexture with pData == nullptr on failure.
+	AssetDiskTexture LoadTextureFromMemory(const void* pData, uint64_t dataSize, TEXTURE_TYPE type);
+
 	// Loads an HDR texture (.hdr) from an absolute path using stb_image.
 	// Returns an AssetDiskTexture with format R32G32B32A32_FLOAT and pData == nullptr on failure.
 	AssetDiskTexture LoadHDRTexture(const std::filesystem::path& filePath, TEXTURE_TYPE type = TEXTURE_TYPE::MAX);

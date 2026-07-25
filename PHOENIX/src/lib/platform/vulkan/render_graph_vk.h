@@ -198,6 +198,8 @@ namespace PHX
 		// Returns a hash of the state of the render graph in the current frame
 		u64 HashState() const;
 
+		void CallExecutionCallback(const RenderPassVk& renderPass, const DeviceContextHandle& deviceContext);
+
 	private:
 
 		HandleList<RenderPassVk> m_registeredRenderPasses;
@@ -217,6 +219,7 @@ namespace PHX
 
 		const CRC32 m_reservedDepthBufferNameCRC;
 		u64 m_presentResID;
+		bool m_didExecuteWork;
 
 		// Metrics
 		mutable Metrics m_metrics;

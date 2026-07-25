@@ -161,6 +161,8 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
+		const bool isWholeBufferUpdate = (size == U64_MAX);
+
 		const BUFFER_USAGE usage = bufferVk->GetUsage();
 		switch (usage)
 		{
@@ -185,35 +187,39 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		if ((size != U64_MAX) && (size > bufferVk->GetSize()))
+		if (!isWholeBufferUpdate)
 		{
-			LogWarning("Attempting to queue buffer update with size of %u, while the buffer's size is %u", size, bufferVk->GetSize());
-		}
-
-		// Warn about any overlapping queued updates
-		for (u32 i = 0; i < m_writeBufferInfo.size(); i++)
-		{
-			const VkDescriptorBufferInfo& currBufferUpdateInfo = m_writeBufferInfo[i];
-			if (currBufferUpdateInfo.buffer != bufferVk->GetBuffer())
+			if (size > bufferVk->GetSize())
 			{
-				// Only consider updates to the same buffer
-				continue;
+				LogWarning("Attempting to queue buffer update with size of %u, while the buffer's size is %u", size, bufferVk->GetSize());
 			}
 
-			const u64 currWindowStart = currBufferUpdateInfo.offset;
-			const u64 currWindowEnd = currBufferUpdateInfo.offset + currBufferUpdateInfo.range;
-
-			const u64 queuedWindowStart = offset;
-			const u64 queuedWindowEnd = offset + size;
-			if ((queuedWindowStart >= currWindowStart && queuedWindowStart <= currWindowEnd) ||
-				(queuedWindowEnd >= currWindowStart && queuedWindowEnd <= currWindowEnd))
+			// Warn about any overlapping queued updates
+			for (u32 i = 0; i < m_writeBufferInfo.size(); i++)
 			{
-				LogWarning("Found overlapping buffer update to the same buffer %p. Ranges: [%u-%u], [%u-%u]", currBufferUpdateInfo.buffer, 
-					queuedWindowStart, queuedWindowEnd, currWindowStart, currWindowEnd);
+				const VkDescriptorBufferInfo& currBufferUpdateInfo = m_writeBufferInfo[i];
+				if (currBufferUpdateInfo.buffer != bufferVk->GetBuffer())
+				{
+					// Only consider updates to the same buffer
+					continue;
+				}
+
+				const u64 currWindowStart = currBufferUpdateInfo.offset;
+				const u64 currWindowEnd = currBufferUpdateInfo.offset + currBufferUpdateInfo.range;
+
+				const u64 queuedWindowStart = offset;
+				const u64 queuedWindowEnd = offset + size;
+				if ((queuedWindowStart >= currWindowStart && queuedWindowStart <= currWindowEnd) ||
+					(queuedWindowEnd >= currWindowStart && queuedWindowEnd <= currWindowEnd))
+				{
+					LogWarning("Found overlapping buffer update to the same buffer %p. Ranges: [%u-%u], [%u-%u]", currBufferUpdateInfo.buffer, 
+						queuedWindowStart, queuedWindowEnd, currWindowStart, currWindowEnd);
+				}
 			}
 		}
 
-		u64 range = (size == U64_MAX) ? bufferVk->GetSize() : size;
+
+		u64 range = isWholeBufferUpdate ? bufferVk->GetSize() : size;
 
 		m_writeBufferInfo.push_back({});
 		VkDescriptorBufferInfo& bufferInfo = m_writeBufferInfo.back();

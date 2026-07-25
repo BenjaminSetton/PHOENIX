@@ -212,6 +212,43 @@ namespace Common
 		return result;
 	}
 
+	AssetDiskTexture LoadTextureFromMemory(const void* pData, uint64_t dataSize, TEXTURE_TYPE type)
+	{
+		AssetDiskTexture result{};
+
+		if (pData == nullptr || dataSize == 0)
+		{
+			return result;
+		}
+
+		int width = 0;
+		int height = 0;
+		int channels = 0;
+		stbi_uc* pixels = stbi_load_from_memory(
+			reinterpret_cast<const stbi_uc*>(pData),
+			static_cast<int>(dataSize),
+			&width, &height, &channels, STBI_rgb_alpha);
+		if (pixels == nullptr)
+		{
+			std::cout << "[TEXTURE] Failed to load embedded texture from memory: " << stbi_failure_reason() << std::endl;
+			return result;
+		}
+
+		const uint32_t w = static_cast<uint32_t>(width);
+		const uint32_t h = static_cast<uint32_t>(height);
+		const uint64_t numBytes = static_cast<uint64_t>(w) * h * 4; // RGBA8
+
+		void* ownedData = new char[numBytes];
+		memcpy(ownedData, pixels, numBytes);
+		stbi_image_free(pixels);
+
+		result = AllocateTexture("embedded_texture", ownedData, { w, h }, 4, type);
+
+		std::cout << "[TEXTURE] Loaded embedded texture (" << width << "x" << height << ", " << channels << " channels, forced RGBA8)" << std::endl;
+
+		return result;
+	}
+
 	AssetDiskTexture LoadHDRTexture(const std::filesystem::path& filePath, TEXTURE_TYPE type)
 	{
 		AssetDiskTexture result{};

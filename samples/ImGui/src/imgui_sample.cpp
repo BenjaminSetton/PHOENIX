@@ -54,7 +54,7 @@ void ImGuiSample::Draw()
 
 	m_renderGraph.BeginFrame(m_swapChain);
 
-	m_imguiRenderer.RenderDrawData(m_renderGraph, m_swapChain, ImGui::GetDrawData());
+	m_imguiRenderer.RenderDrawData(m_renderGraph, m_swapChain, ImGui::GetDrawData(), true);
 
 	m_renderGraph.Bake(m_swapChain);
 
