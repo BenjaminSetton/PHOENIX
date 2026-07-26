@@ -14,7 +14,7 @@ namespace PHX
 		bool enableVSync            = false;
 	};
 
-	struct SwapChainHandle : public Handle
+	struct PHX_API SwapChainHandle : public Handle
 	{
 		DECLARE_PHX_HANDLE(SwapChainHandle);
 

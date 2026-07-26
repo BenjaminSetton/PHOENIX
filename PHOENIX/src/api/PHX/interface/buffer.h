@@ -14,7 +14,7 @@ namespace PHX
 		BUFFER_USAGE bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER; // No clear default
 	};
 
-	struct BufferHandle : public Handle
+	struct PHX_API BufferHandle : public Handle
 	{
 		DECLARE_PHX_HANDLE(BufferHandle);
 

@@ -15,7 +15,7 @@ namespace PHX
 		AccelerationStructureBuildFlags buildFlags	= AS_FLAG_NONE;
 	};
 	
-	struct AccelerationStructureHandle : public Handle
+	struct PHX_API AccelerationStructureHandle : public Handle
 	{
 		DECLARE_PHX_HANDLE(AccelerationStructureHandle);
 

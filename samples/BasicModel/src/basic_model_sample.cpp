@@ -16,7 +16,6 @@ static TransformData InitializeTransform(glm::vec3 initialCameraPos, float FOV, 
 
 	// World
 	data.worldMat = glm::identity<glm::mat4>();
-	data.worldMat = glm::scale(data.worldMat, glm::vec3(0.025f));
 
 	// View (toward -Z)
 	glm::vec3 eye = initialCameraPos;

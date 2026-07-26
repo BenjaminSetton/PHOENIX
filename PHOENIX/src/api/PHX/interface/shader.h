@@ -14,7 +14,7 @@ namespace PHX
 		ShaderReflectionData reflectionData;
 	};
 
-	struct ShaderHandle : public Handle
+	struct PHX_API ShaderHandle : public Handle
 	{
 		DECLARE_PHX_HANDLE(ShaderHandle);
 

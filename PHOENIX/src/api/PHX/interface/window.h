@@ -22,7 +22,7 @@ namespace PHX
 		bool canResize			= true;
 	};
 
-	struct WindowHandle : public Handle
+	struct PHX_API WindowHandle : public Handle
 	{
 		DECLARE_PHX_HANDLE(WindowHandle);
 

@@ -17,7 +17,7 @@ namespace PHX
 		u32 groupCount;
 	};
 
-	struct UniformCollectionHandle : public Handle
+	struct PHX_API UniformCollectionHandle : public Handle
 	{
 		DECLARE_PHX_HANDLE(UniformCollectionHandle);
 

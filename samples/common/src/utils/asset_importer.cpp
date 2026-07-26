@@ -123,7 +123,7 @@ namespace Common
 		// The FBX importer auto-detects the file's unit system (e.g. centimeters)
 		// and sets AI_CONFIG_APP_SCALE_KEY to convert to meters. With the default
 		// global scale factor of 1.0, ScaleProcess applies only the importer's
-		// file scale, so all models end up in meters regardless of source units.
+		// file scale, so all models end up in meters regardless of source units
 		uint32_t importFlags;
 		if (importAnimations)
 		{

@@ -21,7 +21,7 @@ namespace PHX
 		u32 framesInFlight							= 2;
 	};
 
-	struct RenderDeviceHandle : Handle
+	struct PHX_API RenderDeviceHandle : Handle
 	{
 		DECLARE_PHX_HANDLE(RenderDeviceHandle);
 

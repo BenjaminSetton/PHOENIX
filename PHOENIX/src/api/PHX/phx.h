@@ -14,21 +14,21 @@
 namespace PHX
 {
 	// State calls
-	STATUS_CODE Initialize(const Settings& initSettings, WindowHandle window);
-	STATUS_CODE Update(float deltaTime);
-	STATUS_CODE Shutdown();
+	PHX_API STATUS_CODE Initialize(const Settings& initSettings, WindowHandle window);
+	PHX_API STATUS_CODE Update(float deltaTime);
+	PHX_API STATUS_CODE Shutdown();
 
 	// Returns the combined PHX library versions into a single u32
-	u32 GetFullVersion();
+	PHX_API u32 GetFullVersion();
 
 	// Returns the individual PHX library version components
-	u32 GetMajorVersion();
-	u32 GetMinorVersion();
-	u32 GetPatchVersion();
+	PHX_API u32 GetMajorVersion();
+	PHX_API u32 GetMinorVersion();
+	PHX_API u32 GetPatchVersion();
 
-	STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, WindowHandle& window);
-	STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice);
+	PHX_API STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, WindowHandle& window);
+	PHX_API STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice);
 
 	// UTILS
-	STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result);
+	PHX_API STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result);
 }

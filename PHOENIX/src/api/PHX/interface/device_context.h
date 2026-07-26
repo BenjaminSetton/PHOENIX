@@ -17,7 +17,7 @@ namespace PHX
 		u32 assignedFrameIndex;
 	};
 
-	struct DeviceContextHandle : public Handle
+	struct PHX_API DeviceContextHandle : public Handle
 	{
 		DECLARE_PHX_HANDLE(DeviceContextHandle);
 

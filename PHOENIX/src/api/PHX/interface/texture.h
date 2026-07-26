@@ -37,7 +37,7 @@ namespace PHX
 		float maxAnisotropy                 = 1.0f;
 	};
 
-	struct TextureHandle : public Handle
+	struct PHX_API TextureHandle : public Handle
 	{
 		DECLARE_PHX_HANDLE(TextureHandle);
 

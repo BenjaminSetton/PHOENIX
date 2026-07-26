@@ -1,10 +1,13 @@
 
 include "vendor/dependencies.lua"
 
+-- Change this to "SharedLib" to build PHX as a DLL instead of a static lib
+local phxKind = "StaticLib"
+
 project "PHOENIX"
 	location "out/PHX"
 	language "C++"
-	kind "StaticLib"
+	kind(phxKind)
 	
 	targetdir ("out/PHX/bin/" .. outputDir)
 	objdir ("out/PHX/obj/" .. outputDir)
@@ -39,6 +42,10 @@ project "PHOENIX"
 		"%{PHX_Libraries.glslang_code_gen}",
 		"%{PHX_Libraries.glslang_machine_independent}"
 	}
+
+	-- Export macros when building as a shared library
+	filter { "kind:SharedLib" }
+		defines { "PHX_BUILDING_LIB", "PHX_DYNAMIC_LIB" }
 
 	filter "system:windows"
 		cppdialect "C++14"
