@@ -54,13 +54,13 @@ namespace PHX
 
 	static const Handle INVALID_HANDLE;
 
-#define DECLARE_PHX_HANDLE(HandleType)						\
-	PHX_API HandleType();									\
-	PHX_API HandleType(const Handle& other);				\
-	PHX_API ~HandleType();									\
-	PHX_API HandleType(const HandleType& other);			\
-	PHX_API HandleType& operator=(const HandleType& other);	\
-	PHX_API HandleType(HandleType&& other) noexcept;
+#define DECLARE_PHX_HANDLE(HandleType)				\
+	HandleType();									\
+	HandleType(const Handle& other);				\
+	~HandleType();									\
+	HandleType(const HandleType& other);			\
+	HandleType& operator=(const HandleType& other);	\
+	HandleType(HandleType&& other) noexcept;
 
 #define DEFINE_PHX_HANDLE(HandleType, HandleEnum)										\
 	HandleType::HandleType() : Handle(HandleEnum) { }									\

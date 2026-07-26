@@ -27,7 +27,7 @@ namespace PHX
 		AS_BUILD
 	};
 
-	struct RenderPassHandle : public Handle
+	struct PHX_API RenderPassHandle : public Handle
 	{
 		DECLARE_PHX_HANDLE(RenderPassHandle);
 
@@ -58,7 +58,7 @@ namespace PHX
 		void SetExecuteCallback(ExecuteRenderPassCallbackFn callback);
 	};
 
-	struct RenderGraphHandle : public Handle
+	struct PHX_API RenderGraphHandle : public Handle
 	{
 		DECLARE_PHX_HANDLE(RenderGraphHandle);
 
