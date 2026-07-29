@@ -14,6 +14,7 @@ workspace "PHOENIX"
 	}
 	
 configLower = { Debug = "debug", Release = "release", Sanitizer = "sanitizer" }
+slangConfigLower = { Debug = "debug", Release = "release", Sanitizer = "debug" }
 ConfigMap = {
     debugSuffix = { Debug = "d", Release = "", Sanitizer = "d" }
 }

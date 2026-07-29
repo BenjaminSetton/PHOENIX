@@ -33,11 +33,6 @@ jobs:
           function Log([string]$msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" }
           '@ | Out-File -FilePath ci-helpers.ps1 -Encoding utf8
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
@@ -66,33 +61,41 @@ jobs:
           cmake --build PHOENIX/out/glfw --config ${{ matrix.config }} --parallel
           Log "GLFW build complete."
 
-      - name: Update glslang sources
+      - name: Build Slang
         run: |
-          Log "Updating glslang sources..."
-          pushd PHOENIX/vendor/glslang
-          python ./update_glslang_sources.py
-          popd
-          Log "glslang sources updated."
-
-      - name: Build glslang
-        run: |
-          Log "Building glslang (${{ matrix.config }})..."
+          Log "Building Slang (${{ matrix.config }})..."
           $libOut = "$PWD/PHOENIX/out"
-          cmake --fresh -A x64 -T ${{ env.CMAKE_TOOLSET }} -S PHOENIX/vendor/glslang -B PHOENIX/out/glslang `
-            -D GLSLANG_TESTS=OFF `
-            -D ENABLE_GLSLANG_BINARIES=OFF `
-            -D ENABLE_HLSL=OFF `
-            -D ENABLE_OPT=OFF `
+          cmake --fresh -A x64 -T ${{ env.CMAKE_TOOLSET }} -S PHOENIX/vendor/slang -B PHOENIX/out/slang `
+            -D SLANG_LIB_TYPE=SHARED `
+            -D SLANG_ENABLE_TESTS=OFF `
+            -D SLANG_ENABLE_EXAMPLES=OFF `
+            -D SLANG_ENABLE_SLANGD=OFF `
+            -D SLANG_ENABLE_SLANGC=OFF `
+            -D SLANG_ENABLE_SLANGI=OFF `
+            -D SLANG_ENABLE_SLANGRT=OFF `
+            -D SLANG_ENABLE_GFX=OFF `
+            -D SLANG_ENABLE_SLANG_PROXY=OFF `
+            -D SLANG_ENABLE_SLANG_RHI=OFF `
+            -D SLANG_ENABLE_CUDA=OFF `
+            -D SLANG_ENABLE_OPTIX=OFF `
+            -D SLANG_ENABLE_NVAPI=OFF `
+            -D SLANG_ENABLE_AFTERMATH=OFF `
+            -D SLANG_ENABLE_DXIL=OFF `
+            -D SLANG_ENABLE_SLANG_GLSLANG=OFF `
             -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" `
             -D CMAKE_C_FLAGS_SANITIZER="/fsanitize=address /Zi" `
             -D CMAKE_CXX_FLAGS_SANITIZER="/fsanitize=address /Zi" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="$libOut/glslang/bin/windows/debug/x86_64" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="$libOut/glslang/bin/windows/release/x86_64" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$libOut/glslang/bin/windows/sanitizer/x86_64" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="$libOut/slang/bin/windows/debug/x86_64" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="$libOut/slang/bin/windows/release/x86_64" `
+            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$libOut/slang/bin/windows/sanitizer/x86_64" `
+            -D CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG="$libOut/slang/bin/windows/debug/x86_64" `
+            -D CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE="$libOut/slang/bin/windows/release/x86_64" `
+            -D CMAKE_RUNTIME_OUTPUT_DIRECTORY_SANITIZER="$libOut/slang/bin/windows/sanitizer/x86_64" `
+            -D CMAKE_DEBUG_POSTFIX=d `
             -D CMAKE_SANITIZER_POSTFIX=d `
             -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
-          cmake --build PHOENIX/out/glslang --config ${{ matrix.config }} --parallel
-          Log "glslang build complete."
+          cmake --build PHOENIX/out/slang --config ${{ matrix.config }} --parallel
+          Log "Slang build complete."
 
       - name: Build assimp
         run: |

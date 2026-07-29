@@ -69,4 +69,4 @@ project "InstancedAnimation"
 
 	filter {}
 		SamplesCommon_SetAssetDefines()
-		SamplesCommon_CopyAsanDLL()
+		SamplesCommon_CopyDLLs()

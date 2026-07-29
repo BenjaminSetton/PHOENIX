@@ -75,4 +75,4 @@ project "RayTracing"
 
 	filter {}
 		SamplesCommon_SetAssetDefines()
-		SamplesCommon_CopyAsanDLL()
+		SamplesCommon_CopyDLLs()

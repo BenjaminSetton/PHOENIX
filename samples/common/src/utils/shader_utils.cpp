@@ -13,6 +13,24 @@ namespace Common
 		return paths;
 	}
 
+	PHX::SHADER_ORIGIN GetOriginFromFilePath(const std::string& filePath)
+	{
+		size_t dotPos = filePath.find_last_of('.');
+		if (dotPos != std::string::npos)
+		{
+			std::string ext = filePath.substr(dotPos);
+			if (ext == ".slang")
+			{
+				return PHX::SHADER_ORIGIN::SLANG;
+			}
+			if (ext == ".hlsl")
+			{
+				return PHX::SHADER_ORIGIN::HLSL;
+			}
+		}
+		return PHX::SHADER_ORIGIN::GLSL;
+	}
+
 	bool AllocateShader(const std::string& shaderName, PHX::SHADER_STAGE stage, PHX::RenderDeviceHandle renderDevice, PHX::ShaderHandle& shader, const std::vector<std::string>& includePaths)
 	{
 		PHX::STATUS_CODE result = PHX::STATUS_CODE::SUCCESS;
@@ -39,7 +57,7 @@ namespace Common
 		shaderSrc.data = shaderStr.c_str();
 		shaderSrc.entryPoint = "main";
 		shaderSrc.stage = stage;
-		shaderSrc.origin = PHX::SHADER_ORIGIN::GLSL;
+		shaderSrc.origin = GetOriginFromFilePath(shaderName);
 		shaderSrc.includePaths = includePathPtrs.data();
 		shaderSrc.includePathCount = static_cast<PHX::u32>(includePathPtrs.size());
 

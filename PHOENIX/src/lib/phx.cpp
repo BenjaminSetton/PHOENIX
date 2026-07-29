@@ -1,7 +1,8 @@
 
-#include <glslang/Include/Types.h>
-
-#include <SPIRV/GlslangToSpv.h>
+#include <slang.h>
+#include <slang-com-ptr.h>
+#include <string>
+#include <vector>
 
 #include "PHX/phx.h"
 
@@ -9,22 +10,20 @@
 #include "core/global_settings.h"
 #include "utils/crc32.h"
 #include "utils/deferred_caller.h"
-#include "utils/glslang_includer.h"
-#include "utils/glslang_type_converter.h"
+#include "utils/slang_type_converter.h"
 #include "utils/logger.h"
 #include "utils/sanity.h"
 
 namespace PHX
 {
-
-	static constexpr u32 VER_MAJOR_SIZE = 8; // 256
-	static constexpr u32 VER_MINOR_SIZE = 8; // 256
+	static constexpr u32 VER_MAJOR_SIZE = 8;  // 256
+	static constexpr u32 VER_MINOR_SIZE = 8;  // 256
 	static constexpr u32 VER_PATCH_SIZE = 16; // 65536
 
-	// PHEONIX VERSION 0.0.1
+	// PHOENIX VERSION 0.1.0
 	static constexpr u32 VER_MAJOR = 0;
-	static constexpr u32 VER_MINOR = 0;
-	static constexpr u32 VER_PATCH = 1;
+	static constexpr u32 VER_MINOR = 1;
+	static constexpr u32 VER_PATCH = 0;
 
 	#define BUILD_VERSION(major, minor, patch) \
 		(major << (VER_MINOR_SIZE + VER_PATCH_SIZE)) | \
@@ -45,101 +44,22 @@ namespace PHX
 		"CALLABLE",
 	};
 
-	// TODO - Move into own shader_compiler.h or something...
-	static void GetDefaultShaderResources(TBuiltInResource& resources)
+	// Lazy-init the global Slang session
+	static Slang::ComPtr<slang::IGlobalSession> g_slangGlobalSession;
+	static slang::IGlobalSession* GetSlangGlobalSession()
 	{
-		resources.maxLights = 32;
-		resources.maxClipPlanes = 6;
-		resources.maxTextureUnits = 32;
-		resources.maxTextureCoords = 32;
-		resources.maxVertexAttribs = 64;
-		resources.maxVertexUniformComponents = 4096;
-		resources.maxVaryingFloats = 64;
-		resources.maxVertexTextureImageUnits = 32;
-		resources.maxCombinedTextureImageUnits = 80;
-		resources.maxTextureImageUnits = 32;
-		resources.maxFragmentUniformComponents = 4096;
-		resources.maxDrawBuffers = 32;
-		resources.maxVertexUniformVectors = 128;
-		resources.maxVaryingVectors = 8;
-		resources.maxFragmentUniformVectors = 16;
-		resources.maxVertexOutputVectors = 16;
-		resources.maxFragmentInputVectors = 15;
-		resources.minProgramTexelOffset = -8;
-		resources.maxProgramTexelOffset = 7;
-		resources.maxClipDistances = 8;
-		resources.maxComputeWorkGroupCountX = 65535;
-		resources.maxComputeWorkGroupCountY = 65535;
-		resources.maxComputeWorkGroupCountZ = 65535;
-		resources.maxComputeWorkGroupSizeX = 1024;
-		resources.maxComputeWorkGroupSizeY = 1024;
-		resources.maxComputeWorkGroupSizeZ = 64;
-		resources.maxComputeUniformComponents = 1024;
-		resources.maxComputeTextureImageUnits = 16;
-		resources.maxComputeImageUniforms = 8;
-		resources.maxComputeAtomicCounters = 8;
-		resources.maxComputeAtomicCounterBuffers = 1;
-		resources.maxVaryingComponents = 60;
-		resources.maxVertexOutputComponents = 64;
-		resources.maxGeometryInputComponents = 64;
-		resources.maxGeometryOutputComponents = 128;
-		resources.maxFragmentInputComponents = 128;
-		resources.maxImageUnits = 8;
-		resources.maxCombinedImageUnitsAndFragmentOutputs = 8;
-		resources.maxImageSamples = 0;
-		resources.maxVertexImageUniforms = 0;
-		resources.maxTessControlImageUniforms = 0;
-		resources.maxTessEvaluationImageUniforms = 0;
-		resources.maxGeometryImageUniforms = 0;
-		resources.maxFragmentImageUniforms = 8;
-		resources.maxCombinedImageUniforms = 8;
-		resources.maxGeometryTextureImageUnits = 16;
-		resources.maxGeometryOutputVertices = 256;
-		resources.maxGeometryTotalOutputComponents = 1024;
-		resources.maxGeometryUniformComponents = 1024;
-		resources.maxGeometryVaryingComponents = 64;
-		resources.maxTessControlInputComponents = 128;
-		resources.maxTessControlOutputComponents = 128;
-		resources.maxTessControlTextureImageUnits = 16;
-		resources.maxTessControlUniformComponents = 1024;
-		resources.maxTessControlTotalOutputComponents = 4096;
-		resources.maxTessEvaluationInputComponents = 128;
-		resources.maxTessEvaluationOutputComponents = 128;
-		resources.maxTessEvaluationTextureImageUnits = 16;
-		resources.maxTessEvaluationUniformComponents = 1024;
-		resources.maxTessPatchComponents = 120;
-		resources.maxPatchVertices = 32;
-		resources.maxTessGenLevel = 64;
-		resources.maxViewports = 16;
-		resources.maxVertexAtomicCounters = 0;
-		resources.maxTessControlAtomicCounters = 0;
-		resources.maxTessEvaluationAtomicCounters = 0;
-		resources.maxGeometryAtomicCounters = 0;
-		resources.maxFragmentAtomicCounters = 8;
-		resources.maxCombinedAtomicCounters = 8;
-		resources.maxAtomicCounterBindings = 1;
-		resources.maxVertexAtomicCounterBuffers = 0;
-		resources.maxTessControlAtomicCounterBuffers = 0;
-		resources.maxTessEvaluationAtomicCounterBuffers = 0;
-		resources.maxGeometryAtomicCounterBuffers = 0;
-		resources.maxFragmentAtomicCounterBuffers = 1;
-		resources.maxCombinedAtomicCounterBuffers = 1;
-		resources.maxAtomicCounterBufferSize = 16384;
-		resources.maxTransformFeedbackBuffers = 4;
-		resources.maxTransformFeedbackInterleavedComponents = 64;
-		resources.maxCullDistances = 8;
-		resources.maxCombinedClipAndCullDistances = 8;
-		resources.maxSamples = 4;
-
-		resources.limits.nonInductiveForLoops = 1;
-		resources.limits.whileLoops = 1;
-		resources.limits.doWhileLoops = 1;
-		resources.limits.generalUniformIndexing = 1;
-		resources.limits.generalAttributeMatrixVectorIndexing = 1;
-		resources.limits.generalVaryingIndexing = 1;
-		resources.limits.generalSamplerIndexing = 1;
-		resources.limits.generalVariableIndexing = 1;
-		resources.limits.generalConstantMatrixVectorIndexing = 1;
+		if (g_slangGlobalSession == nullptr)
+		{
+			SlangGlobalSessionDesc desc{};
+			desc.enableGLSL = true;
+			SlangResult result = slang_createGlobalSession2(&desc, g_slangGlobalSession.writeRef());
+			if (SLANG_FAILED(result) || g_slangGlobalSession == nullptr)
+			{
+				LogError("Failed to create Slang global session!");
+				return nullptr;
+			}
+		}
+		return g_slangGlobalSession;
 	}
 
 	static bool CheckMandatorySettings(const PHX::Settings& settings)
@@ -280,160 +200,307 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
-		glslang::TShader shader(GLSLANG_UTILS::ConvertShaderStage(srcData.stage));
+		if (srcData.entryPoint == nullptr)
+		{
+			LogError("Failed to compile %s shader! Entry point is null", shaderStageStr);
+			return STATUS_CODE::ERR_API;
+		}
 
-		shader.setStrings(&srcData.data, 1);
-		shader.setEnvClient(GLSLANG_UTILS::GetClient(), GLSLANG_UTILS::GetClientVersion());
+		const Settings& settings = GlobalSettings::Get().GetSettings();
 
-		// Hard-coding at least SPIR-V version 1.4 for now to support ray-tracing when available
-		shader.setEnvTarget(glslang::EshTargetSpv, glslang::EShTargetSpv_1_4);
+		// Get or lazily create the global Slang session
+		slang::IGlobalSession* globalSession = GetSlangGlobalSession();
+		if (globalSession == nullptr)
+		{
+			LogError("Failed to get Slang global session for %s shader!", shaderStageStr);
+			return STATUS_CODE::ERR_INTERNAL;
+		}
 
-		shader.setEntryPoint(srcData.entryPoint);
+		// Determine target and profile based on the backend API
+		SlangCompileTarget target = SLANG_UTILS::ConvertTarget(settings.backendAPI, settings.backendAPIMajorVersion, settings.backendAPIMinorVersion);
+		SlangProfileID profile = SLANG_UTILS::ConvertProfile(globalSession, settings.backendAPI, settings.backendAPIMajorVersion, settings.backendAPIMinorVersion);
 
-		TBuiltInResource resources;
-		GetDefaultShaderResources(resources);
-		const int defaultVersion = 450; // This is overwritten by #version in the shader src
-		const bool forwardCompatible = false;
-		const EShMessages messageFlags = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
-		EProfile defaultProfile = ENoProfile; // NOTE: Only for desktop, before profiles showed up!
+		// Configure the target
+		slang::TargetDesc targetDesc{};
+		targetDesc.format = target;
+		targetDesc.profile = profile;
 
-		// Build the includer. If include paths are provided, use the custom filesystem includer.
-		// Otherwise, fall back to ForbidIncluder
-		std::vector<std::string> includeSearchPaths;
+		// Slang's native SPIR-V emitter has incomplete target-intrinsic coverage for raw GLSL-origin
+		// source (e.g. basic operators like '*' are only defined for the textual "glsl" target case,
+		// not the direct SPIR-V case), which crashes slang-emit-spirv.cpp. Fall back to the mature
+		// via-glslang backend for GLSL-origin shaders to avoid this.
+		if (srcData.origin == SHADER_ORIGIN::GLSL)
+		{
+			targetDesc.flags &= ~SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
+		}
+
+		// Collect search paths for include resolution
+		std::vector<const char*> searchPaths;
 		for (u32 i = 0; i < srcData.includePathCount; i++)
 		{
-			includeSearchPaths.push_back(srcData.includePaths[i]);
+			searchPaths.push_back(srcData.includePaths[i]);
 		}
 
-		GlslangIncluder customIncluder{includeSearchPaths};
-		glslang::TShader::ForbidIncluder forbidIncluder;
-		glslang::TShader::Includer& includer = (srcData.includePathCount > 0)
-			? static_cast<glslang::TShader::Includer&>(customIncluder)
-			: static_cast<glslang::TShader::Includer&>(forbidIncluder);
+		// Disable extra debug info (OpLine, local variable debug info, etc). Note this does NOT
+		// remove OpSource -- see the SLANG_USE_SPV_SOURCE_LANGUAGE_UNKNOWN env var set in
+		// GetSlangGlobalSession() for that issue.
+		slang::CompilerOptionEntry noDebugInfo{};
+		noDebugInfo.name = slang::CompilerOptionName::DebugInformation;
+		noDebugInfo.value.kind = slang::CompilerOptionValueKind::Int;
+		noDebugInfo.value.intValue0 = SLANG_DEBUG_INFO_LEVEL_NONE;
 
-		std::string preprocessedStr;
-		if (!shader.preprocess(&resources, defaultVersion, defaultProfile, false, forwardCompatible, messageFlags, &preprocessedStr, includer))
+		// Create session description
+		slang::SessionDesc sessionDesc{};
+		sessionDesc.targets = &targetDesc;
+		sessionDesc.targetCount = 1;
+		sessionDesc.searchPaths = searchPaths.data();
+		sessionDesc.searchPathCount = static_cast<SlangInt>(searchPaths.size());
+		sessionDesc.compilerOptionEntries = &noDebugInfo;
+		sessionDesc.compilerOptionEntryCount = 1;
+
+		// Create a Slang session
+		Slang::ComPtr<slang::ISession> session;
+		SlangResult result = globalSession->createSession(sessionDesc, session.writeRef());
+		if (SLANG_FAILED(result) || session == nullptr)
 		{
-			LogError("Failed to preprocess %s shader! Got error: \"%s\"", shaderStageStr, shader.getInfoLog());
+			LogError("Failed to create Slang session for %s shader!", shaderStageStr);
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		const char* preprocessedSources[1] = { preprocessedStr.c_str() };
-		shader.setStrings(preprocessedSources, 1);
+		// Determine the source language file extension for Slang to detect the language
+		const char* sourceExt = SLANG_UTILS::GetExtensionFromOrigin(srcData.origin);
+		std::string sourcePath = std::string("phx_shader") + sourceExt;
 
-		if (!shader.parse(&resources, defaultVersion, defaultProfile, false, forwardCompatible, messageFlags, includer))
+		// Load the shader source as a module
+		Slang::ComPtr<slang::IBlob> diagnostics;
+		slang::IModule* module = session->loadModuleFromSourceString("phx_shader", sourcePath.c_str(), srcData.data, diagnostics.writeRef());
+		if (module == nullptr)
 		{
-			LogError("Failed to parse %s shader! Got error: \"%s\"", shaderStageStr, shader.getInfoLog());
+			const char* diagMsg = (diagnostics != nullptr) ? static_cast<const char*>(diagnostics->getBufferPointer()) : "Unknown error";
+			LogError("Failed to load %s shader module! Got error: \"%s\"", shaderStageStr, diagMsg);
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		glslang::TProgram program;
-		program.addShader(&shader);
-		if (!program.link(messageFlags))
+		// Find and check the entry point
+		SlangStage slangStage = SLANG_UTILS::ConvertShaderStage(srcData.stage);
+		Slang::ComPtr<slang::IEntryPoint> entryPoint;
+		diagnostics = nullptr;
+		result = module->findAndCheckEntryPoint(srcData.entryPoint, slangStage, entryPoint.writeRef(), diagnostics.writeRef());
+		if (SLANG_FAILED(result) || entryPoint == nullptr)
 		{
-			LogError("Failed to link %s shader! Got error: \"%s\"", shaderStageStr, program.getInfoLog());
+			const char* diagMsg = (diagnostics != nullptr) ? static_cast<const char*>(diagnostics->getBufferPointer()) : "Unknown error";
+			LogError("Failed to find entry point \"%s\" in %s shader! Got error: \"%s\"", srcData.entryPoint, shaderStageStr, diagMsg);
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		// Convert the intermediate generated by glslang to Spir-V
-		glslang::TIntermediate& intermediateRef = *(program.getIntermediate(GLSLANG_UTILS::ConvertShaderStage(srcData.stage)));
-		std::vector<uint32_t> spirv;
-		glslang::SpvOptions options{};
-		options.validate = true;
-		options.disableOptimizer = (srcData.optimizationLevel == SHADER_OPTIMIZATION_LEVEL::NONE);
-		options.optimizeSize = (srcData.optimizationLevel == SHADER_OPTIMIZATION_LEVEL::SIZE);
-		glslang::GlslangToSpv(intermediateRef, spirv, &options); // NOTE - It's also possible to pass in a logger to this function. Maybe we'll want to do that in the future...
+		// Compose the module and entry point into a component type
+		static constexpr u32 COMPONENT_COUNT = 2;
+		Slang::ComPtr<slang::IComponentType> composedProgram;
+		slang::IComponentType* components[COMPONENT_COUNT] = { module, entryPoint };
+		diagnostics = nullptr;
+		result = session->createCompositeComponentType(components, COMPONENT_COUNT, composedProgram.writeRef(), diagnostics.writeRef());
+		if (SLANG_FAILED(result) || composedProgram == nullptr)
+		{
+			const char* diagMsg = (diagnostics != nullptr) ? static_cast<const char*>(diagnostics->getBufferPointer()) : "Unknown error";
+			LogError("Failed to compose %s shader program! Got error: \"%s\"", shaderStageStr, diagMsg);
+			return STATUS_CODE::ERR_INTERNAL;
+		}
 
-		u32 size = static_cast<u32>(spirv.size());
-		out_result.data = std::shared_ptr<u32[]>(new u32[size]);
-		out_result.size = size;
+		// Get compiled shader code
+		Slang::ComPtr<slang::IBlob> compiledCode;
+		diagnostics = nullptr;
+		result = composedProgram->getEntryPointCode(0, 0, compiledCode.writeRef(), diagnostics.writeRef());
+		if (SLANG_FAILED(result) || compiledCode == nullptr)
+		{
+			const char* diagMsg = (diagnostics != nullptr) ? static_cast<const char*>(diagnostics->getBufferPointer()) : "Unknown error";
+			LogError("Failed to compile %s shader to target code! Got error: \"%s\"", shaderStageStr, diagMsg);
+			return STATUS_CODE::ERR_INTERNAL;
+		}
 
-		// Copy the memory into our own struct
-		memcpy(out_result.data.get(), spirv.data(), size * sizeof(u32));
+		// Copy compiled bytecode into the output struct
+		size_t codeSize = compiledCode->getBufferSize();
+		u32 numWords = static_cast<u32>(codeSize / sizeof(u32));
+		out_result.data = std::shared_ptr<u32[]>(new u32[numWords]);
+		out_result.size = numWords;
+		memcpy(out_result.data.get(), compiledCode->getBufferPointer(), codeSize);
 
 		// Optionally perform reflection
 		if (srcData.performReflection)
 		{
-			const u32 reflectionOptions = EShReflectionDefault | EShReflectionAllIOVariables;
-			if (!program.buildReflection(reflectionOptions))
+			slang::ProgramLayout* programLayout = composedProgram->getLayout(0, diagnostics.writeRef());
+			if (programLayout == nullptr)
 			{
-				LogError("Failed to perform shader reflection for %s shader! Got error: \"%s\"", shaderStageStr, shader.getInfoLog());
+				const char* diagMsg = (diagnostics != nullptr) ? static_cast<const char*>(diagnostics->getBufferPointer()) : "Unknown error";
+				LogError("Failed to get program layout for %s shader! Got error: \"%s\"", shaderStageStr, diagMsg);
 				return STATUS_CODE::ERR_INTERNAL;
 			}
 
-			// UNIFORMS
+			// UNIFORMS (global shader parameters)
 			{
-				u32 uniformCount = static_cast<u32>(program.getNumUniformVariables());
-				out_result.reflectionData.uniforms = std::shared_ptr<ShaderUniformData[]>(new ShaderUniformData[uniformCount]);
-				out_result.reflectionData.uniformCount = uniformCount;
-
-				for (u32 i = 0; i < uniformCount; i++)
+				u32 paramCount = programLayout->getParameterCount();
+				if (paramCount > 0)
 				{
-					const glslang::TObjectReflection& reflectedObject = program.getUniform(i);
+					out_result.reflectionData.uniforms = std::shared_ptr<ShaderUniformData[]>(new ShaderUniformData[paramCount]);
+					out_result.reflectionData.uniformCount = paramCount;
 
-					ShaderUniformData& uniformData = out_result.reflectionData.uniforms[i];
-					uniformData.name = reflectedObject.name.c_str();
-					uniformData.binding = reflectedObject.index;
-					uniformData.size = reflectedObject.size;
-					uniformData.stages = GLSLANG_UTILS::ConvertShaderStageFlags(reflectedObject.stages);
-					uniformData.offset = reflectedObject.offset;
-				}
-			}
-
-			// LOCAL SIZE
-			{
-				if (srcData.stage == SHADER_STAGE::COMPUTE)
-				{
-					out_result.reflectionData.localSize.SetX(program.getLocalSize(0));
-					out_result.reflectionData.localSize.SetY(program.getLocalSize(1));
-					out_result.reflectionData.localSize.SetZ(program.getLocalSize(2));
-				}
-			}
-
-			// INPUTS
-			{
-				u32 inputCount = static_cast<u32>(program.getNumPipeInputs());
-				if (inputCount > 0)
-				{
-					out_result.reflectionData.inputs = std::shared_ptr<ShaderIOData[]>(new ShaderIOData[inputCount]);
-					out_result.reflectionData.inputCount = inputCount;
-
-					for (u32 i = 0; i < inputCount; i++)
+					for (u32 i = 0; i < paramCount; i++)
 					{
-						const glslang::TObjectReflection& reflectedObject = program.getPipeInput(i);
-
-						const u32 vectorSize = reflectedObject.getType()->getVectorSize();
-						const glslang::TBasicType basicType = reflectedObject.getType()->getBasicType();
-
-						ShaderIOData& inputData = out_result.reflectionData.inputs[i];
-						inputData.name = reflectedObject.name.c_str();
-						inputData.format = GLSLANG_UTILS::ConvertIOTypeToBaseFormat(basicType, vectorSize);
-						inputData.location = program.getReflectionPipeIOIndex(reflectedObject.name.c_str(), true);
-						inputData.binding = 0; // TODO
+						slang::VariableLayoutReflection* param = programLayout->getParameterByIndex(i);
+						ShaderUniformData& uniformData = out_result.reflectionData.uniforms[i];
+						uniformData.name = param->getName();
+						uniformData.binding = param->getBindingIndex();
+						uniformData.size = static_cast<u32>(param->getTypeLayout()->getSize());
+						uniformData.stages = 0; // Global parameters are accessible from all stages
+						uniformData.offset = static_cast<u32>(param->getOffset());
 					}
 				}
 			}
 
-			//OUTPUTS
+			// LOCAL SIZE (compute shaders only)
 			{
-				u32 outputCount = static_cast<u32>(program.getNumPipeOutputs());
-				if (outputCount > 0)
+				if (srcData.stage == SHADER_STAGE::COMPUTE)
 				{
-					out_result.reflectionData.outputs = std::shared_ptr<ShaderIOData[]>(new ShaderIOData[outputCount]);
-					out_result.reflectionData.outputCount = outputCount;
-
-					for (u32 i = 0; i < outputCount; i++)
+					SlangUInt entryPointCount = programLayout->getEntryPointCount();
+					if (entryPointCount > 0)
 					{
-						const glslang::TObjectReflection& reflectedObject = program.getPipeOutput(i);
+						slang::EntryPointReflection* entryPointReflection = programLayout->getEntryPointByIndex(0);
+						static constexpr u32 GROUP_SIZE_AXIS_COUNT = 3;
+						SlangUInt groupSize[GROUP_SIZE_AXIS_COUNT] = { 1, 1, 1 };
+						entryPointReflection->getComputeThreadGroupSize(GROUP_SIZE_AXIS_COUNT, groupSize);
+						out_result.reflectionData.localSize.SetX(static_cast<u32>(groupSize[0]));
+						out_result.reflectionData.localSize.SetY(static_cast<u32>(groupSize[1]));
+						out_result.reflectionData.localSize.SetZ(static_cast<u32>(groupSize[2]));
+					}
+				}
+			}
 
-						const u32 vectorSize = reflectedObject.getType()->getVectorSize();
-						const glslang::TBasicType basicType = reflectedObject.getType()->getBasicType();
+			// INPUTS and OUTPUTS (entry point parameters)
+			{
+				SlangUInt entryPointCount = programLayout->getEntryPointCount();
+				if (entryPointCount > 0)
+				{
+					slang::EntryPointReflection* entryPointReflection = programLayout->getEntryPointByIndex(0);
+					u32 epParamCount = entryPointReflection->getParameterCount();
 
-						ShaderIOData& outputData = out_result.reflectionData.outputs[i];
-						outputData.name = reflectedObject.name.c_str();
-						outputData.format = GLSLANG_UTILS::ConvertIOTypeToBaseFormat(basicType, vectorSize);
-						outputData.location = program.getReflectionPipeIOIndex(reflectedObject.name.c_str(), false);
-						outputData.binding = 0; // TODO
+					// Native Slang shaders group per-stage varying I/O into a struct (e.g. VSInput/VSOutput)
+					// instead of exposing loose top-level parameters like GLSL did. A struct member only
+					// occupies a real user-facing location if its own category still matches the parent's
+					// category; members bound to system-value semantics (e.g. SV_Position, SV_Target) report
+					// a different category and are skipped, since they don't consume a location.
+					auto isVaryingIOField = [](slang::VariableLayoutReflection* field, slang::ParameterCategory category)
+					{
+						return field->getCategory() == category;
+					};
+
+					// Count inputs and outputs
+					u32 inputCount = 0;
+					u32 outputCount = 0;
+					for (u32 i = 0; i < epParamCount; i++)
+					{
+						slang::VariableLayoutReflection* param = entryPointReflection->getParameterByIndex(i);
+						slang::TypeLayoutReflection* typeLayout = param->getTypeLayout();
+						slang::ParameterCategory category = typeLayout->getParameterCategory();
+
+						if (category != slang::ParameterCategory::VaryingInput &&
+							category != slang::ParameterCategory::VaryingOutput)
+						{
+							continue;
+						}
+
+						if (typeLayout->getKind() == slang::TypeReflection::Kind::Struct)
+						{
+							u32 fieldCount = typeLayout->getFieldCount();
+							for (u32 f = 0; f < fieldCount; f++)
+							{
+								if (isVaryingIOField(typeLayout->getFieldByIndex(f), category))
+								{
+									(category == slang::ParameterCategory::VaryingInput) ? inputCount++ : outputCount++;
+								}
+							}
+						}
+						else
+						{
+							(category == slang::ParameterCategory::VaryingInput) ? inputCount++ : outputCount++;
+						}
+					}
+
+					// Allocate the IO arrays
+					if (inputCount > 0)
+					{
+						out_result.reflectionData.inputCount = inputCount;
+						out_result.reflectionData.inputs = std::shared_ptr<ShaderIOData[]>(new ShaderIOData[inputCount]);
+					}
+					if (outputCount > 0)
+					{
+						out_result.reflectionData.outputCount = outputCount;
+						out_result.reflectionData.outputs = std::shared_ptr<ShaderIOData[]>(new ShaderIOData[outputCount]);
+					}
+
+					// Builds a ShaderIOData entry from a variable layout using the given category for its offset
+					auto makeIOData = [](slang::VariableLayoutReflection* var, slang::ParameterCategory category)
+					{
+						ShaderIOData ioData;
+						ioData.name = var->getName();
+						ioData.location = static_cast<u32>(var->getOffset(category));
+						ioData.binding = var->getBindingIndex();
+
+						slang::TypeReflection* type = var->getTypeLayout()->getType();
+						u32 vectorSize = type->getColumnCount();
+						if (vectorSize == 0) vectorSize = 1;
+						ioData.format = SLANG_UTILS::ConvertScalarTypeToBaseFormat(type->getScalarType(), vectorSize);
+
+						return ioData;
+					};
+
+					// Fill arrays
+					u32 inputIdx = 0;
+					u32 outputIdx = 0;
+					for (u32 i = 0; i < epParamCount; i++)
+					{
+						slang::VariableLayoutReflection* param = entryPointReflection->getParameterByIndex(i);
+						slang::TypeLayoutReflection* typeLayout = param->getTypeLayout();
+						slang::ParameterCategory category = typeLayout->getParameterCategory();
+
+						if (category != slang::ParameterCategory::VaryingInput &&
+							category != slang::ParameterCategory::VaryingOutput)
+						{
+							continue;
+						}
+
+						if (typeLayout->getKind() == slang::TypeReflection::Kind::Struct)
+						{
+							u32 fieldCount = typeLayout->getFieldCount();
+							for (u32 f = 0; f < fieldCount; f++)
+							{
+								slang::VariableLayoutReflection* field = typeLayout->getFieldByIndex(f);
+								if (!isVaryingIOField(field, category))
+								{
+									continue;
+								}
+
+								ShaderIOData ioData = makeIOData(field, category);
+								if (category == slang::ParameterCategory::VaryingInput)
+								{
+									out_result.reflectionData.inputs[inputIdx++] = ioData;
+								}
+								else
+								{
+									out_result.reflectionData.outputs[outputIdx++] = ioData;
+								}
+							}
+						}
+						else
+						{
+							ShaderIOData ioData = makeIOData(param, category);
+							if (category == slang::ParameterCategory::VaryingInput)
+							{
+								out_result.reflectionData.inputs[inputIdx++] = ioData;
+							}
+							else
+							{
+								out_result.reflectionData.outputs[outputIdx++] = ioData;
+							}
+						}
 					}
 				}
 			}

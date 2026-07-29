@@ -68,4 +68,4 @@ project "ImGui"
 
 	filter {}
 		SamplesCommon_SetAssetDefines()
-		SamplesCommon_CopyAsanDLL()
+		SamplesCommon_CopyDLLs()

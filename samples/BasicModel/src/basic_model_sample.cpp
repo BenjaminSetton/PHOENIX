@@ -74,8 +74,13 @@ void BasicModelSample::Draw()
 	renderPass.SetPipelineDescription(m_pipelineDesc);
 	renderPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
-		// Update the transform uniform data
-		deviceContext.CopyDataToBuffer(m_uniformBuffer, &m_transform, sizeof(TransformData));
+		// Update the transform uniform data. glm stores matrices column-major, but the Slang
+		// shaders use Slang's default row-major layout, so transpose before uploading.
+		TransformData rowMajorTransform;
+		rowMajorTransform.worldMat = glm::transpose(m_transform.worldMat);
+		rowMajorTransform.viewMat = glm::transpose(m_transform.viewMat);
+		rowMajorTransform.projMat = glm::transpose(m_transform.projMat);
+		deviceContext.CopyDataToBuffer(m_uniformBuffer, &rowMajorTransform, sizeof(TransformData));
 		m_uniformCollection.QueueBufferUpdate(m_uniformBuffer, 0, 0, 0);
 		deviceContext.FlushUniformUpdates(m_uniformCollection);
 		deviceContext.BindUniformCollection(m_uniformCollection);
@@ -163,14 +168,14 @@ void BasicModelSample::InitSample()
 
 	// SHADERS
 	ShaderHandle vertShader;
-	vertShader = m_pShaderManager->RegisterShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, m_renderDevice);
+	vertShader = m_pShaderManager->RegisterShader("../src/shaders/basic.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!vertShader.IsValid())
 	{
 		return;
 	}
 
 	ShaderHandle fragShader;
-	fragShader = m_pShaderManager->RegisterShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	fragShader = m_pShaderManager->RegisterShader("../src/shaders/basic.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!fragShader.IsValid())
 	{
 		return;

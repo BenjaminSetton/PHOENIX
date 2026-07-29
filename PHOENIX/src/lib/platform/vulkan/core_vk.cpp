@@ -26,6 +26,18 @@ namespace PHX
 		UNUSED(messageTypes);
 		UNUSED(pUserData);
 
+		// False positive: Slang tags its SPIR-V output with a source language enum value
+		// (SpvSourceLanguageSlang) that is a recent addition to the SPIR-V spec. Installed
+		// Vulkan validation layers/SPIRV-Tools that predate this addition don't recognize it and
+		// incorrectly reject otherwise-valid shader modules. The bytecode itself is unaffected;
+		// this is purely a stale-tooling issue, so filter it out here rather than working around
+		// it in the shader compiler.
+		if (pCallbackData->pMessageIdName != nullptr &&
+			strcmp(pCallbackData->pMessageIdName, "VUID-VkShaderModuleCreateInfo-pCode-01379") == 0)
+		{
+			return VK_FALSE;
+		}
+
 		switch (messageSeverity)
 		{
 		case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:

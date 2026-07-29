@@ -6,19 +6,20 @@
 #include "core/global_settings.h"
 #include "PHX/types/integral_types.h"
 #include "utils/logger.h"
+#include "utils/math.h"
 #include "utils/sanity.h"
 
 #define LOG_FORMAT_CODE(logType) \
 	va_list va; \
 	va_start(va, format); \
-	vsprintf_s(s_printBuffer, MAX_BUFFER_SIZE_BYTES, format, va); \
+	vsprintf_s(s_printBuffer, MAX_BUFFER_SIZE, format, va); \
 	Log_Internal(logType, s_printBuffer); \
 	va_end(va);
 
 namespace PHX
 {
-	static constexpr u32 MAX_BUFFER_SIZE_BYTES = 5000;
-	static char s_printBuffer[MAX_BUFFER_SIZE_BYTES];
+	static constexpr u64 MAX_BUFFER_SIZE = KB(16);
+	static char s_printBuffer[MAX_BUFFER_SIZE];
 
 	// ANSI color codes
 	static const char* LogErrorColor   = "\x1B[31m";

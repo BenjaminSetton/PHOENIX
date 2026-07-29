@@ -27,7 +27,7 @@ project "PHOENIX"
 		"%{PHX_IncludeDirs.dep_vulkan}",
 		"%{PHX_IncludeDirs.dep_glfw}",
 		"%{PHX_IncludeDirs.dep_vma}",
-		"%{PHX_IncludeDirs.dep_glslang}",
+		"%{PHX_IncludeDirs.dep_slang}",
 		
 		"%{PHX_IncludeDirs.inc_api}",
 		"%{PHX_IncludeDirs.inc_lib}",
@@ -37,10 +37,7 @@ project "PHOENIX"
 	{
 		"%{PHX_Libraries.vulkan}",
 		"%{PHX_Libraries.glfw}",
-		"%{PHX_Libraries.glslang}",
-		"%{PHX_Libraries.SPV}",
-		"%{PHX_Libraries.glslang_code_gen}",
-		"%{PHX_Libraries.glslang_machine_independent}"
+		"%{PHX_Libraries.slang}"
 	}
 
 	-- Export macros when building as a shared library
@@ -48,14 +45,10 @@ project "PHOENIX"
 		defines { "PHX_BUILDING_LIB", "PHX_DYNAMIC_LIB" }
 
 	filter "system:windows"
-		cppdialect "C++14"
+		cppdialect "C++17"
 		systemversion "latest"
 		warnings "Extra"
 		defines "PHX_WINDOWS"
-		links
-		{
-			"%{PHX_Libraries.glslang_os_dependent_win}"
-		}
 
 	filter "configurations:Debug"
 		defines "PHX_DEBUG"

@@ -44,53 +44,59 @@ echo [%LOG_CHANNEL%] Finished building GLFW sanitizer!
 echo [%LOG_CHANNEL%] Finished building GLFW!
 ::-----------------------------------------------------------
 
-:: Build glslang
+:: Build Slang
 ::-----------------------------------------------------------
-echo [%LOG_CHANNEL%] Building glslang dependency...
+echo [%LOG_CHANNEL%] Building Slang dependency...
 
-echo [%LOG_CHANNEL%] Pulling glslang dependencies...
+set SLANG_SRC=".\PHOENIX\vendor\slang"
+set SLANG_OUT="%LIB_OUTPUT_DIR%slang"
 
-set GLSLANG_SRC=".\PHOENIX\vendor\glslang"
-set GLSLANG_OUT="%LIB_OUTPUT_DIR%glslang"
+:: Initialize Slang submodules
+echo [%LOG_CHANNEL%] Pulling Slang dependencies...
+git -C PHOENIX/vendor/slang submodule update --init --recursive
+echo [%LOG_CHANNEL%] Finished pulling Slang dependencies!
 
-:: Push to glslang directory because python script looks for other files using relative paths from the project root
-pushd "PHOENIX/vendor/glslang"
-py ./update_glslang_sources.py
-popd
+:: Build Slang project
+cmake --fresh -S %SLANG_SRC% -B %SLANG_OUT% ^
+  -D SLANG_LIB_TYPE=SHARED ^
+  -D SLANG_ENABLE_TESTS=OFF ^
+  -D SLANG_ENABLE_EXAMPLES=OFF ^
+  -D SLANG_ENABLE_SLANGD=OFF ^
+  -D SLANG_ENABLE_SLANGC=OFF ^
+  -D SLANG_ENABLE_SLANGI=OFF ^
+  -D SLANG_ENABLE_SLANGRT=OFF ^
+  -D SLANG_ENABLE_GFX=OFF ^
+  -D SLANG_ENABLE_SLANG_PROXY=OFF ^
+  -D SLANG_ENABLE_SLANG_RHI=OFF ^
+  -D SLANG_ENABLE_CUDA=OFF ^
+  -D SLANG_ENABLE_OPTIX=OFF ^
+  -D SLANG_ENABLE_NVAPI=OFF ^
+  -D SLANG_ENABLE_AFTERMATH=OFF ^
+  -D SLANG_ENABLE_DXIL=OFF ^
+  -D SLANG_ENABLE_SLANG_GLSLANG=ON ^
+  -D CMAKE_CONFIGURATION_TYPES="Debug;Release" ^
+  -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="%LIB_OUTPUT_DIR%slang/bin/windows/debug/x86_64" ^
+  -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="%LIB_OUTPUT_DIR%slang/bin/windows/release/x86_64" ^
+  -D CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG="%LIB_OUTPUT_DIR%slang/bin/windows/debug/x86_64" ^
+  -D CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE="%LIB_OUTPUT_DIR%slang/bin/windows/release/x86_64" ^
+  -D CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG="%LIB_OUTPUT_DIR%slang/bin/windows/debug/x86_64" ^
+  -D CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE="%LIB_OUTPUT_DIR%slang/bin/windows/release/x86_64" ^
+  -D CMAKE_DEBUG_POSTFIX=d ^
+  -D CMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
 
-echo [%LOG_CHANNEL%] Finished pulling glslang dependencies!
-
-:: Build glslang project
-cmake --fresh -S %GLSLANG_SRC% -B %GLSLANG_OUT% ^
-  -D GLSLANG_TESTS=OFF ^
-  -D ENABLE_GLSLANG_BINARIES=OFF ^
-  -D ENABLE_HLSL=OFF ^
-  -D ENABLE_OPT=OFF ^
-  -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" ^
-  -D CMAKE_C_FLAGS_SANITIZER="/fsanitize=address /Zi" ^
-  -D CMAKE_CXX_FLAGS_SANITIZER="/fsanitize=address /Zi" ^
-  -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="%LIB_OUTPUT_DIR%glslang/bin/windows/debug/x86_64" ^
-  -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="%LIB_OUTPUT_DIR%glslang/bin/windows/release/x86_64" ^
-  -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="%LIB_OUTPUT_DIR%glslang/bin/windows/sanitizer/x86_64" ^
-  -D CMAKE_SANITIZER_POSTFIX=d ^
-  -D CMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL"
-
-:: Debug build
-echo [%LOG_CHANNEL%] Started building glslang debug...
-cmake --build %GLSLANG_OUT% --config Debug --parallel
-echo [%LOG_CHANNEL%] Finished building glslang debug!
+:: Debug build (bootstrap first, then full build)
+echo [%LOG_CHANNEL%] Started building Slang debug...
+cmake --build %SLANG_OUT% --config Debug --parallel --target slang-bootstrap slang-without-embedded-core-module
+cmake --build %SLANG_OUT% --config Debug --parallel --target slang slang-embedded-core-module-source slang-glslang slang-glsl-module
+echo [%LOG_CHANNEL%] Finished building Slang debug!
 
 :: Release build
-echo [%LOG_CHANNEL%] Started building glslang release...
-cmake --build %GLSLANG_OUT% --config Release --parallel
-echo [%LOG_CHANNEL%] Finished building glslang release!
+echo [%LOG_CHANNEL%] Started building Slang release...
+cmake --build %SLANG_OUT% --config Release --parallel --target slang-bootstrap slang-without-embedded-core-module
+cmake --build %SLANG_OUT% --config Release --parallel --target slang slang-embedded-core-module-source slang-glslang slang-glsl-module
+echo [%LOG_CHANNEL%] Finished building Slang release!
 
-:: Sanitizer build (ASAN)
-echo [%LOG_CHANNEL%] Started building glslang sanitizer...
-cmake --build %GLSLANG_OUT% --config Sanitizer --parallel
-echo [%LOG_CHANNEL%] Finished building glslang sanitizer!
-
-echo [%LOG_CHANNEL%] Finished building glslang dependency!
+echo [%LOG_CHANNEL%] Finished building Slang dependency!
 ::-----------------------------------------------------------
 
 echo [%LOG_CHANNEL%] Finished building dependencies!

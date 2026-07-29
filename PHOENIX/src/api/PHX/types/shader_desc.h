@@ -53,6 +53,7 @@ namespace PHX
 	{
 		HLSL = 0,
 		GLSL,
+		SLANG,
 
 		MAX
 	};

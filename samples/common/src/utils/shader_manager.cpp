@@ -146,7 +146,7 @@ namespace Common
 		shaderSrc.data = source.c_str();
 		shaderSrc.entryPoint = "main";
 		shaderSrc.stage = stage;
-		shaderSrc.origin = PHX::SHADER_ORIGIN::GLSL;
+		shaderSrc.origin = GetOriginFromFilePath(filePath);
 		shaderSrc.includePaths = includePathPtrs.data();
 		shaderSrc.includePathCount = static_cast<PHX::u32>(includePathPtrs.size());
 		shaderSrc.performReflection = true;

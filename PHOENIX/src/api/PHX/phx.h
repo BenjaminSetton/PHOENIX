@@ -30,5 +30,6 @@ namespace PHX
 	PHX_API STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice);
 
 	// UTILS
+	// TODO - Support multi-stage compilation
 	PHX_API STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result);
 }
