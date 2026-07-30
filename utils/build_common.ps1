@@ -67,15 +67,15 @@ function Build-GLFW {
 }
 
 # ---------------------------------------------------------------------------
-# Slang  (Debug + Release only — no Sanitizer due to ASAN crash in bootstrap)
+# Slang  (Debug + Release; Sanitizer links against Debug Slang)
 # ---------------------------------------------------------------------------
 function Build-Slang {
     param([string]$Config = 'All')
 
     $configs = Resolve-Configs -Config $Config -IncludeSanitizer $false
     if ($configs.Count -eq 0) {
-        Log 'Skipping Slang build for Sanitizer config (Debug Slang used at link time).'
-        return
+        Log 'Sanitizer config: building Debug Slang (used at link time for Sanitizer).'
+        $configs = @('Debug')
     }
 
     $src = "$WorkspaceDir/PHOENIX/vendor/slang"

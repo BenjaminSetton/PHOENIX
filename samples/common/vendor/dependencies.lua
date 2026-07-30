@@ -31,11 +31,11 @@ end
 function SamplesCommon_CopyDLLs()
     filter { "system:windows", "configurations:Sanitizer" }
         postbuildcommands {
-            '"%{wks.location}/utils/copy_asan_dll.bat" "%{cfg.targetdir}"'
+            'call "%{wks.location}/utils/copy_asan_dll.bat" "%{cfg.targetdir}"'
         }
     filter { "system:windows" }
         postbuildcommands {
-            '"%{wks.location}/utils/copy_slang_dll.bat" "%{cfg.targetdir}" "%{cfg.buildcfg}" "%{wks.location}/PHOENIX/out/slang/bin/%{cfg.system}/%{slangConfigLower[cfg.buildcfg]}/%{cfg.architecture}"'
+            'call "%{wks.location}/utils/copy_slang_dll.bat" "%{cfg.targetdir}" "%{cfg.buildcfg}" "%{wks.location}/PHOENIX/out/slang/bin/%{cfg.system}/%{slangConfigLower[cfg.buildcfg]}/%{cfg.architecture}"'
         }
     filter {}
 end
