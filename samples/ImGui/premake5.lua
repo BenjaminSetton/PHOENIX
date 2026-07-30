@@ -18,10 +18,10 @@ project "ImGui"
 	{
 		"src/**.h",
 		"src/**.cpp",
-		"src/**.vert",
-		"src/**.frag",
+		"src/shaders/**",
 		"../common/src/**.h",
 		"../common/src/**.cpp",
+		"../common/src/shaders/**",
 		"../common/vendor/imgui/imgui.cpp",
 		"../common/vendor/imgui/imgui_draw.cpp",
 		"../common/vendor/imgui/imgui_tables.cpp",

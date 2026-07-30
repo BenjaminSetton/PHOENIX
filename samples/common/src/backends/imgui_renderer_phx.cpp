@@ -1,6 +1,7 @@
 
 #include <array>
 #include <cstring>
+#include <iostream>
 #include <vector>
 
 #include "imgui_renderer_phx.h"
@@ -87,31 +88,22 @@ namespace Common
 
 	void ImGuiPhxRenderer::CreateShaders(RenderDeviceHandle renderDevice, ShaderManager* pShaderManager)
 	{
-		if (pShaderManager != nullptr)
+		if (pShaderManager == nullptr)
 		{
-			m_vertShader = pShaderManager->RegisterShader("../../common/src/shaders/imgui.vert", SHADER_STAGE::VERTEX, renderDevice);
-			if (!m_vertShader.IsValid())
-			{
-				return;
-			}
-
-			m_fragShader = pShaderManager->RegisterShader("../../common/src/shaders/imgui.frag", SHADER_STAGE::FRAGMENT, renderDevice);
-			if (!m_fragShader.IsValid())
-			{
-				return;
-			}
+			std::cout << "Failed to create ImGui shaders. ShaderManager is null!" << std::endl;
+			return;
 		}
-		else
-		{
-			if (!Common::AllocateShader("../../common/src/shaders/imgui.vert", SHADER_STAGE::VERTEX, renderDevice, m_vertShader))
-			{
-				return;
-			}
 
-			if (!Common::AllocateShader("../../common/src/shaders/imgui.frag", SHADER_STAGE::FRAGMENT, renderDevice, m_fragShader))
-			{
-				return;
-			}
+		m_vertShader = pShaderManager->RegisterShader("../../common/src/shaders/imgui.vert.slang", SHADER_STAGE::VERTEX, renderDevice);
+		if (!m_vertShader.IsValid())
+		{
+			return;
+		}
+
+		m_fragShader = pShaderManager->RegisterShader("../../common/src/shaders/imgui.frag.slang", SHADER_STAGE::FRAGMENT, renderDevice);
+		if (!m_fragShader.IsValid())
+		{
+			return;
 		}
 
 		m_shaders.push_back(m_vertShader);
