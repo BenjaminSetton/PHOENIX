@@ -30,27 +30,34 @@ PHOENIX uses [Premake5](https://premake.github.io/) as its build system. A bundl
 
 ### Configuration
 
-The generator and output directories can be configured in `utils/config.bat`:
+The generator and CMake toolset are configured in `utils/build_common.ps1`:
 
-```bat
-set GENERATOR="vs2022"   :: Options: "vs2019", "vs2022", etc
+```powershell
+$DefaultGenerator = 'vs2022'   # Premake generator (vs2019, vs2022, etc.)
+$CmakeToolset     = 'v143'     # MSVC toolset version
+```
+
+The generator can also be overridden per-run via the `-Generator` parameter, for example:
+
+```powershell
+./generate_project.ps1 -Generator vs2019
 ```
 
 ### First-time setup
 
 All the project utility scripts can be found in the "utils" folder. Scripts can be run individually depending on the desired use-case. If you want to run the library standalone (without samples), simply run:
 
-```bat
+```powershell
 cd utils
-build_lib_dependencies.bat
-build_project.bat
+./build_lib_dependencies.ps1
+./generate_project.ps1
 ```
 
 Run the first-time setup script, which builds all dependencies (both samples and lib) and generates the desired solution:
 
-```bat
+```powershell
 cd utils
-first_time_setup.bat
+./first_time_setup.bat
 ```
 
 ### Build Configurations

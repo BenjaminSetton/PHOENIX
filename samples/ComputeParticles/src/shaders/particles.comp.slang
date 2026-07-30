@@ -1,29 +1,30 @@
-#version 450
-
-layout(local_size_x = 256, local_size_y = 1, local_size_z = 1) in;
-
+// Particle transform is stored as 4 packed float4 "columns" rather than a real float4x4. The
+// compute/vertex shaders never do actual matrix math with it -- it's just a convenient container
+// (matches C++ ParticleData::transform, a glm::mat4 which is bit-identical to float4[4] in memory).
+// Using an explicit array avoids any row-major/column-major ambiguity for this data.
 struct Particle
 {
-    mat4 transform; // model matrix (position / rotation / scale)
-    vec4 color;     // rgba
+    float4 columns[4]; // col0.xyz = velocity, col1 = (lifetime, scale, maxLifetime, 0), col3.xyz = position
+    float4 color;      // rgba
 };
 
-layout(std140, set = 0, binding = 0) buffer ParticleBuffer
-{
-    Particle particles[];
-} particleBuffer;
+[[vk::binding(0, 0)]]
+RWStructuredBuffer<Particle> particleBuffer;
 
-layout(std140, set = 0, binding = 1) uniform SimParams
+struct SimParams
 {
     float deltaTime;   // seconds elapsed since last update
     float totalTime;   // total elapsed time in seconds
     uint  particleCount;
     float _pad0;
-} sim;
+};
+
+[[vk::binding(1, 0)]]
+ConstantBuffer<SimParams> sim;
 
 // Volume bounds (must match m_volumeMinBound / m_volumeMaxBound in C++)
-const float m_volumeMin = -30.0;
-const float m_volumeMax =  30.0;
+static const float m_volumeMin = -30.0;
+static const float m_volumeMax =  30.0;
 
 // Generate a pseudo-random float in [0, 1) from an unsigned seed.
 float Hash(uint seed)
@@ -36,15 +37,17 @@ float Hash(uint seed)
     return float(seed & 0x00FFFFFFu) / float(0x01000000u);
 }
 
-void main()
+[shader("compute")]
+[numthreads(256, 1, 1)]
+void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 {
-    uint index = gl_GlobalInvocationID.x;
+    uint index = dispatchThreadID.x;
     if (index >= sim.particleCount)
     {
         return;
     }
 
-    Particle particle = particleBuffer.particles[index];
+    Particle particle = particleBuffer[index];
 
     // Per-particle deterministic randomness.
     float seedA = Hash(index * 2u + 1u);
@@ -60,11 +63,11 @@ void main()
     //   column 2.xyz = unused,       column 2.w = 0
     //   column 3.xyz = position,     column 3.w = 1
 
-    vec3 position = particle.transform[3].xyz;
-    vec3 velocity = particle.transform[0].xyz;
-    float lifetime    = particle.transform[1].x;
-    float scale       = particle.transform[1].y;
-    float maxLifetime = particle.transform[1].z;
+    float3 position = particle.columns[3].xyz;
+    float3 velocity = particle.columns[0].xyz;
+    float lifetime    = particle.columns[1].x;
+    float scale       = particle.columns[1].y;
+    float maxLifetime = particle.columns[1].z;
 
     // --- Random explosions ---
     // Every few seconds, a random explosion epoch triggers. All particles
@@ -76,25 +79,25 @@ void main()
     // Only ~60% of epochs actually explode.
     bool hasExplosion = explosionTrigger > 0.4;
 
-    vec3 explosionCenter = vec3(0.0);
+    float3 explosionCenter = float3(0.0, 0.0, 0.0);
     float explosionDist = 9999.0;
     float explosionForce = 0.0;
 
     if (hasExplosion)
     {
-        explosionCenter = vec3(
+        explosionCenter = float3(
             (Hash(explosionSeed * 7u + 1u) - 0.5) * 40.0,
             float(m_volumeMin) + Hash(explosionSeed * 11u + 3u) * 20.0,
             (Hash(explosionSeed * 13u + 7u) - 0.5) * 40.0
         );
-        vec3 toParticle = position - explosionCenter;
+        float3 toParticle = position - explosionCenter;
         explosionDist = length(toParticle);
         float explosionRadius = 12.0;
         if (explosionDist < explosionRadius)
         {
             float falloff = 1.0 - explosionDist / explosionRadius;
             explosionForce = falloff * falloff * 40.0;
-            velocity += normalize(toParticle + vec3(0.001)) * explosionForce;
+            velocity += normalize(toParticle + float3(0.001, 0.001, 0.001)) * explosionForce;
         }
     }
 
@@ -128,14 +131,14 @@ void main()
         float r1 = Hash(index * 101u + uint(sim.totalTime * 7.0));
         float r2 = Hash(index * 257u + uint(sim.totalTime * 11.0));
         float r3 = Hash(index * 401u + uint(sim.totalTime * 5.0));
-        position = vec3(
+        position = float3(
             (r1 - 0.5) * 24.0,
             float(m_volumeMin) + 1.0,
             (r2 - 0.5) * 24.0
         );
 
         // Random upward velocity.
-        velocity = vec3(
+        velocity = float3(
             (seedA - 0.5) * 5.0,
             1.0 + seedB * 6.0 + r3 * 3.0,
             (seedC - 0.5) * 5.0
@@ -146,36 +149,34 @@ void main()
     }
 
     // --- Rebuild transform ---
-    mat4 transform = mat4(1.0);
-    transform[0] = vec4(velocity,     0.0);
-    transform[1] = vec4(lifetime, scale, maxLifetime, 0.0);
-    transform[3] = vec4(position,    1.0);
-
-    particle.transform = transform;
+    particle.columns[0] = float4(velocity,     0.0);
+    particle.columns[1] = float4(lifetime, scale, maxLifetime, 0.0);
+    particle.columns[2] = float4(0.0, 0.0, 1.0, 0.0);
+    particle.columns[3] = float4(position,    1.0);
 
     // --- Color: temperature gradient based on height ---
     // Fire rises from world min (screen bottom) to world max (screen top).
-    // Hot at spawn point (low Y) → cool at top (high Y).
+    // Hot at spawn point (low Y) -> cool at top (high Y).
     float heightRatio = clamp((position.y - float(m_volumeMin)) / 30.0, 0.0, 1.0);
     float heat = 1.0 - heightRatio;
 
-    // Temperature curve: sharp white→orange near base, gradual red→dark higher up.
-    vec3 color;
+    // Temperature curve: sharp white->orange near base, gradual red->dark higher up.
+    float3 color;
     if (heat > 0.8)
     {
         // White-hot core.
-        color = mix(vec3(1.0, 0.6, 0.2), vec3(1.0, 1.0, 0.9), (heat - 0.8) * 5.0);
+        color = lerp(float3(1.0, 0.6, 0.2), float3(1.0, 1.0, 0.9), (heat - 0.8) * 5.0);
     }
     else if (heat > 0.3)
     {
         // Orange to red.
         float t2 = (heat - 0.3) / 0.5;
-        color = mix(vec3(0.8, 0.15, 0.02), vec3(1.0, 0.6, 0.2), t2);
+        color = lerp(float3(0.8, 0.15, 0.02), float3(1.0, 0.6, 0.2), t2);
     }
     else
     {
         // Red to dark smoke.
-        color = mix(vec3(0.1, 0.05, 0.05), vec3(0.8, 0.15, 0.02), heat / 0.3);
+        color = lerp(float3(0.1, 0.05, 0.05), float3(0.8, 0.15, 0.02), heat / 0.3);
     }
 
     // Explosion flash: particles caught in the blast glow white-hot briefly.
@@ -184,13 +185,13 @@ void main()
     {
         explosionFlash = clamp(explosionForce / 40.0, 0.0, 1.0);
     }
-    color = mix(color, vec3(1.0, 1.0, 0.95), explosionFlash);
+    color = lerp(color, float3(1.0, 1.0, 0.95), explosionFlash);
 
     // Fade out near end of lifetime.
     float lifeRatio = clamp(lifetime / maxLifetime, 0.0, 1.0);
     float alpha = lifeRatio * lifeRatio;
 
-    particle.color = vec4(color * (0.5 + heat * 0.5), alpha);
+    particle.color = float4(color * (0.5 + heat * 0.5), alpha);
 
-    particleBuffer.particles[index] = particle;
+    particleBuffer[index] = particle;
 }

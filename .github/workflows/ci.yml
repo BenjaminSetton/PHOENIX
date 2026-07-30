@@ -7,7 +7,6 @@ on:
 
 env:
   VULKAN_SDK_VERSION: '1.3.296.0'
-  CMAKE_TOOLSET: 'v143'
 
 jobs:
   build:
@@ -18,20 +17,13 @@ jobs:
         config: [Debug, Release, Sanitizer]
     defaults:
       run:
-        shell: pwsh -NoProfile -Command ". ./ci-helpers.ps1; & '{0}'"
+        shell: pwsh -NoProfile
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Setup CI helpers
-        shell: pwsh
-        run: |
-          @'
-          function Log([string]$msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" }
-          '@ | Out-File -FilePath ci-helpers.ps1 -Encoding utf8
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
@@ -43,114 +35,14 @@ jobs:
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
 
-      - name: Build GLFW
-        run: |
-          Log "Building GLFW (${{ matrix.config }})..."
-          $libOut = "$PWD/PHOENIX/out"
-          cmake --fresh -A x64 -T ${{ env.CMAKE_TOOLSET }} -S PHOENIX/vendor/glfw -B PHOENIX/out/glfw `
-            -D GLFW_BUILD_EXAMPLES=OFF `
-            -D GLFW_BUILD_TESTS=OFF `
-            -D GLFW_BUILD_DOCS=OFF `
-            -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="$libOut/glfw/bin/windows/debug/x86_64" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="$libOut/glfw/bin/windows/release/x86_64" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$libOut/glfw/bin/windows/sanitizer/x86_64" `
-            -D CMAKE_DEBUG_POSTFIX=d `
-            -D CMAKE_SANITIZER_POSTFIX=d `
-            -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
-          cmake --build PHOENIX/out/glfw --config ${{ matrix.config }} --parallel
-          Log "GLFW build complete."
+      - name: Build lib dependencies
+        run: ./utils/build_lib_dependencies.ps1 -Config ${{ matrix.config }}
 
-      - name: Build Slang
-        run: |
-          Log "Building Slang (${{ matrix.config }})..."
-          $libOut = "$PWD/PHOENIX/out"
-          cmake --fresh -A x64 -T ${{ env.CMAKE_TOOLSET }} -S PHOENIX/vendor/slang -B PHOENIX/out/slang `
-            -D SLANG_LIB_TYPE=SHARED `
-            -D SLANG_ENABLE_TESTS=OFF `
-            -D SLANG_ENABLE_EXAMPLES=OFF `
-            -D SLANG_ENABLE_SLANGD=OFF `
-            -D SLANG_ENABLE_SLANGC=OFF `
-            -D SLANG_ENABLE_SLANGI=OFF `
-            -D SLANG_ENABLE_SLANGRT=OFF `
-            -D SLANG_ENABLE_GFX=OFF `
-            -D SLANG_ENABLE_SLANG_PROXY=OFF `
-            -D SLANG_ENABLE_SLANG_RHI=OFF `
-            -D SLANG_ENABLE_CUDA=OFF `
-            -D SLANG_ENABLE_OPTIX=OFF `
-            -D SLANG_ENABLE_NVAPI=OFF `
-            -D SLANG_ENABLE_AFTERMATH=OFF `
-            -D SLANG_ENABLE_DXIL=OFF `
-            -D SLANG_ENABLE_SLANG_GLSLANG=OFF `
-            -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" `
-            -D CMAKE_C_FLAGS_SANITIZER="/fsanitize=address /Zi" `
-            -D CMAKE_CXX_FLAGS_SANITIZER="/fsanitize=address /Zi" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="$libOut/slang/bin/windows/debug/x86_64" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="$libOut/slang/bin/windows/release/x86_64" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$libOut/slang/bin/windows/sanitizer/x86_64" `
-            -D CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG="$libOut/slang/bin/windows/debug/x86_64" `
-            -D CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE="$libOut/slang/bin/windows/release/x86_64" `
-            -D CMAKE_RUNTIME_OUTPUT_DIRECTORY_SANITIZER="$libOut/slang/bin/windows/sanitizer/x86_64" `
-            -D CMAKE_DEBUG_POSTFIX=d `
-            -D CMAKE_SANITIZER_POSTFIX=d `
-            -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
-          cmake --build PHOENIX/out/slang --config ${{ matrix.config }} --parallel
-          Log "Slang build complete."
-
-      - name: Build assimp
-        run: |
-          Log "Building assimp (${{ matrix.config }})..."
-          $samplesOut = "$PWD/samples/common/out"
-          $assimpBase = "$samplesOut/assimp/bin/windows/x86_64"
-          cmake --fresh -A x64 -T ${{ env.CMAKE_TOOLSET }} -S samples/common/vendor/assimp -B samples/common/out/assimp `
-            -D BUILD_SHARED_LIBS=OFF `
-            -D ASSIMP_BUILD_TESTS=OFF `
-            -D ASSIMP_BUILD_ZLIB=ON `
-            -D ASSIMP_BUILD_ASSIMP_TOOLS=OFF `
-            -D ASSIMP_BUILD_ALL_EXPORTERS_BY_DEFAULT=OFF `
-            -D ASSIMP_BUILD_ALL_IMPORTERS_BY_DEFAULT=OFF `
-            -D ASSIMP_BUILD_FBX_IMPORTER=ON `
-            -D ASSIMP_BUILD_GLTF_IMPORTER=ON `
-            -D ASSIMP_BUILD_GLTF2_IMPORTER=ON `
-            -D ASSIMP_BUILD_OBJ_IMPORTER=ON `
-            -D LIBRARY_SUFFIX="-mt" `
-            -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" `
-            -D CMAKE_C_FLAGS_SANITIZER="/fsanitize=address /Zi" `
-            -D CMAKE_CXX_FLAGS_SANITIZER="/fsanitize=address /Zi" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY="$assimpBase" `
-            -D CMAKE_RUNTIME_OUTPUT_DIRECTORY="$assimpBase" `
-            -D CMAKE_LIBRARY_OUTPUT_DIRECTORY="$assimpBase" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="$samplesOut/assimp/bin/windows/debug/x86_64" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="$samplesOut/assimp/bin/windows/release/x86_64" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$samplesOut/assimp/bin/windows/sanitizer/x86_64" `
-            -D CMAKE_SANITIZER_POSTFIX=d `
-            -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
-          cmake --build samples/common/out/assimp --config ${{ matrix.config }} --parallel
-          Log "assimp build complete."
-
-      - name: Build glm
-        run: |
-          Log "Building glm (${{ matrix.config }})..."
-          $samplesOut = "$PWD/samples/common/out"
-          cmake --fresh -A x64 -T ${{ env.CMAKE_TOOLSET }} -S samples/common/vendor/glm -B samples/common/out/glm `
-            -D GLM_BUILD_LIBRARY=ON `
-            -D GLM_BUILD_TESTS=OFF `
-            -D CMAKE_CONFIGURATION_TYPES="Debug;Release;Sanitizer" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG="$samplesOut/glm/bin/windows/debug/x86_64" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE="$samplesOut/glm/bin/windows/release/x86_64" `
-            -D CMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER="$samplesOut/glm/bin/windows/sanitizer/x86_64" `
-            -D 'CMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
-          cmake --build samples/common/out/glm --config ${{ matrix.config }} --parallel
-          Log "glm build complete."
+      - name: Build sample dependencies
+        run: ./utils/build_sample_dependencies.ps1 -Config ${{ matrix.config }}
 
       - name: Generate VS solution
-        run: |
-          Log "Generating VS2022 solution via premake5..."
-          ./PHOENIX/vendor/premake/premake5.exe vs2022
-          Log "Solution generated."
+        run: ./utils/generate_project.ps1
 
       - name: Build solution
-        run: |
-          Log "Building PHOENIX.sln (${{ matrix.config }})..."
-          msbuild PHOENIX.sln /p:Configuration=${{ matrix.config }} /m
-          Log "Solution build complete."
+        run: msbuild PHOENIX.sln /p:Configuration=${{ matrix.config }} /m

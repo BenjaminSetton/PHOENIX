@@ -78,8 +78,12 @@ void ComputeParticlesSample::Draw()
 	drawPass.SetPipelineDescription(m_drawPipelineDesc);
 	drawPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 		{
-			// Uniform collection updates
-			deviceContext.CopyDataToBuffer(m_cameraBuffer, &m_cameraData, sizeof(CameraData));
+			// Uniform collection updates. glm stores matrices column-major, but the Slang shaders
+			// use Slang's default row-major layout, so transpose before uploading.
+			CameraData rowMajorCamera;
+			rowMajorCamera.view = glm::transpose(m_cameraData.view);
+			rowMajorCamera.proj = glm::transpose(m_cameraData.proj);
+			deviceContext.CopyDataToBuffer(m_cameraBuffer, &rowMajorCamera, sizeof(CameraData));
 
 			m_drawUniformCollection.QueueBufferUpdate(m_particlesBuffer, 0, 0, 0);
 			m_drawUniformCollection.QueueBufferUpdate(m_cameraBuffer, 0, 1, 0);
@@ -141,7 +145,7 @@ void ComputeParticlesSample::InitSample()
 
 	// SHADERS
 	ShaderHandle particlesShader;
-	particlesShader = m_pShaderManager->RegisterShader("../src/shaders/particles.comp", SHADER_STAGE::COMPUTE, m_renderDevice);
+	particlesShader = m_pShaderManager->RegisterShader("../src/shaders/particles.comp.slang", SHADER_STAGE::COMPUTE, m_renderDevice);
 	if (!particlesShader.IsValid())
 	{
 		return;
@@ -149,14 +153,14 @@ void ComputeParticlesSample::InitSample()
 	m_shaders.push_back(particlesShader);
 
 	ShaderHandle vertShader;
-	vertShader = m_pShaderManager->RegisterShader("../src/shaders/particles.vert", SHADER_STAGE::VERTEX, m_renderDevice);
+	vertShader = m_pShaderManager->RegisterShader("../src/shaders/particles.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!vertShader.IsValid())
 	{
 		return;
 	}
 
 	ShaderHandle fragShader;
-	fragShader = m_pShaderManager->RegisterShader("../src/shaders/particles.frag", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	fragShader = m_pShaderManager->RegisterShader("../src/shaders/particles.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!fragShader.IsValid())
 	{
 		return;
@@ -166,13 +170,13 @@ void ComputeParticlesSample::InitSample()
 
 	// OUTLINE SHADERS
 	ShaderHandle outlineVertShader;
-	outlineVertShader = m_pShaderManager->RegisterShader("../src/shaders/outline.vert", SHADER_STAGE::VERTEX, m_renderDevice);
+	outlineVertShader = m_pShaderManager->RegisterShader("../src/shaders/outline.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!outlineVertShader.IsValid())
 	{
 		return;
 	}
 	ShaderHandle outlineFragShader;
-	outlineFragShader = m_pShaderManager->RegisterShader("../src/shaders/outline.frag", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	outlineFragShader = m_pShaderManager->RegisterShader("../src/shaders/outline.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!outlineFragShader.IsValid())
 	{
 		return;

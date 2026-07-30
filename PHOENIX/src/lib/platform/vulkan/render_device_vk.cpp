@@ -38,7 +38,8 @@ namespace PHX
 {
 	static const std::vector<const char*> deviceExtensions =
 	{
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME
+		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+		VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME
 	};
 
 	static const std::vector<const char*> rayTracingExtensions =
@@ -783,9 +784,17 @@ namespace PHX
 		rtpFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
 		rtpFeatures.pNext = &asFeatures;
 
+		// Required for shaders that use per-draw vertex/instance indexing builtins (e.g. Slang's
+		// SV_VertexID/SV_InstanceID boils down to SPIR-V's BaseVertex/BaseInstance, which declare
+		// the DrawParameters capability). This is core in Vulkan 1.1, but declaring here just in case
+		VkPhysicalDeviceShaderDrawParametersFeatures shaderDrawParamsFeatures{};
+		shaderDrawParamsFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
+		shaderDrawParamsFeatures.shaderDrawParameters = VK_TRUE;
+		shaderDrawParamsFeatures.pNext = &rtpFeatures;
+
 		VkPhysicalDeviceFeatures2 deviceFeatures{};
 		deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-		deviceFeatures.pNext = nullptr;
+		deviceFeatures.pNext = &shaderDrawParamsFeatures;
 		deviceFeatures.features.samplerAnisotropy = VK_TRUE;
 		deviceFeatures.features.geometryShader = VK_TRUE;
 
@@ -797,7 +806,6 @@ namespace PHX
 			bdaFeatures.bufferDeviceAddress = VK_TRUE;
 			asFeatures.accelerationStructure = VK_TRUE;
 			rtpFeatures.rayTracingPipeline = VK_TRUE;
-			deviceFeatures.pNext = &rtpFeatures;
 		}
 
 		VkDeviceCreateInfo createInfo{};

@@ -242,8 +242,8 @@ namespace PHX
 		}
 
 		// Disable extra debug info (OpLine, local variable debug info, etc). Note this does NOT
-		// remove OpSource -- see the SLANG_USE_SPV_SOURCE_LANGUAGE_UNKNOWN env var set in
-		// GetSlangGlobalSession() for that issue.
+		// remove OpSource; that's filtered out as a known false-positive in the Vulkan debug
+		// messenger callback instead (see OnValidationMessageReceived in core_vk.cpp).
 		slang::CompilerOptionEntry noDebugInfo{};
 		noDebugInfo.name = slang::CompilerOptionName::DebugInformation;
 		noDebugInfo.value.kind = slang::CompilerOptionValueKind::Int;

@@ -3,10 +3,10 @@
 echo Running first time setup...
 
 :: Dependencies
-call "%~dp0build_lib_dependencies.bat"
-call "%~dp0build_sample_dependencies.bat"
+powershell -ExecutionPolicy Bypass -File "%~dp0build_lib_dependencies.ps1" -Config All
+powershell -ExecutionPolicy Bypass -File "%~dp0build_sample_dependencies.ps1" -Config All
 
 :: Project
-call "%~dp0build_project.bat"
+powershell -ExecutionPolicy Bypass -File "%~dp0generate_project.ps1"
 
 echo Finished first time setup!
