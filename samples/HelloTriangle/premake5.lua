@@ -18,8 +18,7 @@ project "HelloTriangle"
 	{
 		"src/**.h",
 		"src/**.cpp",
-		"src/**.vert",
-		"src/**.frag",
+		"src/shaders/**",
 		"../common/src/**.h",
 		"../common/src/**.cpp",
 		"../common/vendor/imgui/imgui.cpp",
