@@ -73,6 +73,8 @@ namespace Common
 				return INVALID_ASSET_HANDLE;
 			}
 
+			std::cout << "[ASSET] Importing asset: '" << sourcePath << "'" << std::endl;
+
 			std::shared_ptr<AssetDisk> pAssetDisk = ImportAsset(fullSourcePath, importAnimations);
 			if (pAssetDisk == nullptr)
 			{
@@ -85,7 +87,7 @@ namespace Common
 			std::filesystem::path cachePath = ComputeCachePath(sourcePath);
 			SerializeToDisk(cachePath, *pAsset, fullSourcePath);
 
-			std::cout << "[ASSET] Imported asset: '" << cachePath << "'" << std::endl;
+			std::cout << "[ASSET] Finished importing asset: '" << cachePath << "'" << std::endl;
 			return AddAsset(std::unique_ptr<AssetType>(pAsset));
 		}
 
@@ -97,6 +99,8 @@ namespace Common
 				std::cout << "[ASSET] Cache file does not exist: '" << cachePath << "'" << std::endl;
 				return INVALID_ASSET_HANDLE;
 			}
+
+			std::cout << "[ASSET] Loading asset: '" << cachePath << "'" << std::endl;
 
 			constexpr size_t READ_BUFFER_SIZE = 512 * 1024; // Use a 512KB read buffer because we generally load large assets for samples
 			std::vector<char> readBuffer(READ_BUFFER_SIZE);
@@ -119,7 +123,7 @@ namespace Common
 			std::filesystem::path inputDir = cachePath.parent_path();
 			AssetType* pAsset = Serializer<AssetType>::Read(file, inputDir);
 
-			std::cout << "[ASSET] Loaded asset: '" << cachePath << "'" << std::endl;
+			std::cout << "[ASSET] Finished loading asset: '" << cachePath << "'" << std::endl;
 			return AddAsset(std::unique_ptr<AssetType>(pAsset));
 		}
 

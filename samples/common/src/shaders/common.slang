@@ -9,7 +9,7 @@ float3 SrgbToLinear(float3 srgb)
     bool3 cutoff = srgb > float3(0.04045, 0.04045, 0.04045);
     float3 lo = srgb / 12.92;
     float3 hi = pow((srgb + 0.055) / 1.055, float3(2.4, 2.4, 2.4));
-    return cutoff ? hi : lo;
+    return select(lo, hi, cutoff);
 }
 
 // PCG hash-based pseudo-random number generator

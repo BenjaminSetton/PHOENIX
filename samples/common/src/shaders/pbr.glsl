@@ -1,10 +1,6 @@
 #ifndef PBR_GLSL
 #define PBR_GLSL
 
-#ifndef PI
-const float PI = 3.14159265359;
-#endif
-
 // GGX/Trowbridge-Reitz normal distribution function
 float DistributionGGX(vec3 N, vec3 H, float roughness)
 {

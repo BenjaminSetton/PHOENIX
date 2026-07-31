@@ -238,7 +238,7 @@ void RayTracingSample::InitSample()
 
 	// BLIT SHADERS
 	ShaderHandle blitVertShader;
-	blitVertShader = m_pShaderManager->RegisterShader("../src/shaders/blit.vert", SHADER_STAGE::VERTEX, m_renderDevice);
+	blitVertShader = m_pShaderManager->RegisterShader("../src/shaders/blit.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!blitVertShader.IsValid())
 	{
 		return;
@@ -246,7 +246,7 @@ void RayTracingSample::InitSample()
 	m_blitPipelineShaders.push_back(blitVertShader);
 
 	ShaderHandle blitFragShader;
-	blitFragShader = m_pShaderManager->RegisterShader("../src/shaders/blit.frag", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	blitFragShader = m_pShaderManager->RegisterShader("../src/shaders/blit.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!blitFragShader.IsValid())
 	{
 		return;
@@ -270,7 +270,7 @@ void RayTracingSample::InitSample()
 	if (m_rayTracingSupported)
 	{
 		ShaderHandle rayGenShader;
-		rayGenShader = m_pShaderManager->RegisterShader("../src/shaders/raygen.rgen", SHADER_STAGE::RAYGEN, m_renderDevice);
+		rayGenShader = m_pShaderManager->RegisterShader("../src/shaders/raygen.rgen.slang", SHADER_STAGE::RAYGEN, m_renderDevice);
 		if (!rayGenShader.IsValid())
 		{
 			return;
@@ -278,7 +278,7 @@ void RayTracingSample::InitSample()
 		m_rayTracingPipelineShaders.push_back(rayGenShader);
 
 		ShaderHandle missShader;
-		missShader = m_pShaderManager->RegisterShader("../src/shaders/miss.rmiss", SHADER_STAGE::MISS, m_renderDevice);
+		missShader = m_pShaderManager->RegisterShader("../src/shaders/miss.rmiss.slang", SHADER_STAGE::MISS, m_renderDevice);
 		if (!missShader.IsValid())
 		{
 			return;
@@ -286,7 +286,7 @@ void RayTracingSample::InitSample()
 		m_rayTracingPipelineShaders.push_back(missShader);
 
 		ShaderHandle shadowMissShader;
-		shadowMissShader = m_pShaderManager->RegisterShader("../src/shaders/shadowMiss.rmiss", SHADER_STAGE::MISS, m_renderDevice);
+		shadowMissShader = m_pShaderManager->RegisterShader("../src/shaders/shadowMiss.rmiss.slang", SHADER_STAGE::MISS, m_renderDevice);
 		if (!shadowMissShader.IsValid())
 		{
 			return;
@@ -294,7 +294,7 @@ void RayTracingSample::InitSample()
 		m_rayTracingPipelineShaders.push_back(shadowMissShader);
 
 		ShaderHandle closestHitShader;
-		closestHitShader = m_pShaderManager->RegisterShader("../src/shaders/closesthit.rchit", SHADER_STAGE::CLOSEST_HIT, m_renderDevice);
+		closestHitShader = m_pShaderManager->RegisterShader("../src/shaders/closesthit.rchit.slang", SHADER_STAGE::CLOSEST_HIT, m_renderDevice);
 		if (!closestHitShader.IsValid())
 		{
 			return;
@@ -302,7 +302,7 @@ void RayTracingSample::InitSample()
 		m_rayTracingPipelineShaders.push_back(closestHitShader);
 
 		ShaderHandle anyHitShader;
-		anyHitShader = m_pShaderManager->RegisterShader("../src/shaders/anyhit.rahit", SHADER_STAGE::ANY_HIT, m_renderDevice);
+		anyHitShader = m_pShaderManager->RegisterShader("../src/shaders/anyhit.rahit.slang", SHADER_STAGE::ANY_HIT, m_renderDevice);
 		if (!anyHitShader.IsValid())
 		{
 			return;
@@ -310,7 +310,7 @@ void RayTracingSample::InitSample()
 		m_rayTracingPipelineShaders.push_back(anyHitShader);
 
 		ShaderHandle bounceClosestHitShader;
-		bounceClosestHitShader = m_pShaderManager->RegisterShader("../src/shaders/bounce_closesthit.rchit", SHADER_STAGE::CLOSEST_HIT, m_renderDevice);
+		bounceClosestHitShader = m_pShaderManager->RegisterShader("../src/shaders/bounce_closesthit.rchit.slang", SHADER_STAGE::CLOSEST_HIT, m_renderDevice);
 		if (!bounceClosestHitShader.IsValid())
 		{
 			return;
@@ -815,7 +815,7 @@ void RayTracingSample::UpdateCameraData(float dt)
 	if (m_rayTracingSupported)
 	{
 		glm::vec3 currentPos = m_pCamera->GetPosition();
-		glm::vec3 currentForward = glm::vec3(m_cameraData.viewInverse[2]);
+		glm::vec3 currentForward = m_pCamera->GetViewDirection();
 
 		if (glm::distance(currentPos, m_prevCameraPosition) > 0.001f ||
 			glm::distance(currentForward, m_prevCameraForward) > 0.001f)
@@ -1024,7 +1024,7 @@ void RayTracingSample::LoadEnvironmentMap()
 	cubeBaseCI.sampleFlags = SAMPLE_COUNT::COUNT_1;
 
 	TextureViewCreateInfo cubeViewCI{};
-	cubeViewCI.type = VIEW_TYPE::TYPE_CUBE;
+	cubeViewCI.type = VIEW_TYPE::TYPE_2D_ARRAY;
 	cubeViewCI.scope = VIEW_SCOPE::ENTIRE;
 	cubeViewCI.aspectFlags = ASPECT_TYPE_FLAG_COLOR;
 
@@ -1059,7 +1059,7 @@ void RayTracingSample::LoadEnvironmentMap()
 
 	// Create equirect-to-cube compute shader
 	ShaderHandle equirectToCubeShader;
-	equirectToCubeShader = m_pShaderManager->RegisterShader("../src/shaders/equirect_to_cube.comp", SHADER_STAGE::COMPUTE, m_renderDevice);
+	equirectToCubeShader = m_pShaderManager->RegisterShader("../src/shaders/equirect_to_cube.comp.slang", SHADER_STAGE::COMPUTE, m_renderDevice);
 	if (!equirectToCubeShader.IsValid())
 	{
 		std::cout << "Failed to load equirect_to_cube compute shader!" << std::endl;

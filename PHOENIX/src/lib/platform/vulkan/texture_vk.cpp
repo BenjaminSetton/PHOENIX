@@ -86,7 +86,7 @@ namespace PHX
 		DestroyImage();
 	}
 
-	TextureVk::TextureVk(const TextureVk&& other)
+	TextureVk::TextureVk(const TextureVk&& other) noexcept
 	{
 		UNUSED(other);
 		TODO();
@@ -568,6 +568,12 @@ namespace PHX
 		if (createInfo.type == VIEW_TYPE::TYPE_CUBE)
 		{
 			createInfoVk.subresourceRange.layerCount = 6;
+		}
+		else if (createInfo.type == VIEW_TYPE::TYPE_2D_ARRAY ||
+		         createInfo.type == VIEW_TYPE::TYPE_1D_ARRAY ||
+		         createInfo.type == VIEW_TYPE::TYPE_CUBE_ARRAY)
+		{
+			createInfoVk.subresourceRange.layerCount = m_arrayLayers;
 		}
 
 		VkResult res = VK_SUCCESS;

@@ -22,7 +22,7 @@ namespace PHX
 		explicit TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, const TextureViewCreateInfo& viewCreateInfo, const TextureSamplerCreateInfo& samplerCreateInfo);
 		explicit TextureVk(RenderDeviceVk* pRenderDevice, const TextureBaseCreateInfo& baseCreateInfo, VkImageView imageView); // Create texture from existing image views (e.g. swap chain image views)
 		~TextureVk();
-		TextureVk(const TextureVk&& other);
+		TextureVk(const TextureVk&& other) noexcept;
 
 		// Copy operations must be explicitly made through CopyFrom()
 		TextureVk(const TextureVk& other) = delete;
