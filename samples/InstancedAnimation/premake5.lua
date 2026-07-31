@@ -18,9 +18,8 @@ project "InstancedAnimation"
 	{
 		"src/**.h",
 		"src/**.cpp",
-		"src/**.vert",
-		"src/**.frag",
-		"src/**.comp",
+		"src/shaders/**",
+		"../common/src/shaders/**",
 		"../common/src/**.h",
 		"../common/src/**.cpp",
 		"../common/vendor/imgui/imgui.cpp",

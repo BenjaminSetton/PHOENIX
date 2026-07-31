@@ -49,7 +49,7 @@ void InstancedAnimationSample::UpdateSample(float dt)
 	}
 
 	// Update camera
-	m_cameraData.view = m_pCamera->GetViewMatrix();
+	m_cameraData.view = glm::transpose(m_pCamera->GetViewMatrix());
 
 	// ImGui
 	m_imguiBackend.NewFrame(dt, m_swapChain.GetWidth(), m_swapChain.GetHeight());
@@ -239,18 +239,18 @@ void InstancedAnimationSample::InitSample()
 
 	const float fov = 45.0f;
 	const float aspectRatio = static_cast<float>(m_window.GetCurrentWidth()) / m_window.GetCurrentHeight();
-	m_cameraData.view = m_pCamera->GetViewMatrix();
-	m_cameraData.proj = glm::perspective(glm::radians(fov), aspectRatio, 0.1f, 1000.0f);
+	m_cameraData.view = glm::transpose(m_pCamera->GetViewMatrix());
+	m_cameraData.proj = glm::transpose(glm::perspective(glm::radians(fov), aspectRatio, 0.1f, 1000.0f));
 	m_cameraData.proj[1][1] *= -1.0f;
 
 	// SHADERS
-	ShaderHandle computeShader = m_pShaderManager->RegisterShader("../src/shaders/animation.comp", SHADER_STAGE::COMPUTE, m_renderDevice);
+	ShaderHandle computeShader = m_pShaderManager->RegisterShader("../src/shaders/animation.comp.slang", SHADER_STAGE::COMPUTE, m_renderDevice);
 	if (!computeShader.IsValid()) return;
 	m_computeShaders = { computeShader };
 
-	ShaderHandle vertShader = m_pShaderManager->RegisterShader("../src/shaders/animated_model.vert", SHADER_STAGE::VERTEX, m_renderDevice);
+	ShaderHandle vertShader = m_pShaderManager->RegisterShader("../src/shaders/animated_model.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!vertShader.IsValid()) return;
-	ShaderHandle fragShader = m_pShaderManager->RegisterShader("../src/shaders/animated_model.frag", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	ShaderHandle fragShader = m_pShaderManager->RegisterShader("../src/shaders/animated_model.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!fragShader.IsValid()) return;
 	m_graphicsShaders = { vertShader, fragShader };
 
@@ -665,7 +665,7 @@ void InstancedAnimationSample::RegenerateInstanceData()
 			z * spacing - gridOffset
 		));
 
-		m_instances[i].modelMatrix = model;
+		m_instances[i].modelMatrix = glm::transpose(model);
 		m_instances[i].timeOffset = timeDist(rng);
 
 		switch (m_clipMode)
@@ -718,8 +718,8 @@ void InstancedAnimationSample::UploadDataToGPU()
 	{
 		skeletonGPU[i].parentIndex = asset->skeleton.bones[i].parentIndex;
 		skeletonGPU[i].nodeIndex = asset->skeleton.bones[i].nodeIndex;
-		skeletonGPU[i].offsetMatrix = asset->skeleton.bones[i].offsetMatrix;
-		skeletonGPU[i].bindLocalTransform = asset->skeleton.nodeLocalTransforms[asset->skeleton.bones[i].nodeIndex];
+		skeletonGPU[i].offsetMatrix = glm::transpose(asset->skeleton.bones[i].offsetMatrix);
+		skeletonGPU[i].bindLocalTransform = glm::transpose(asset->skeleton.nodeLocalTransforms[asset->skeleton.bones[i].nodeIndex]);
 	}
 
 	// Build GPU-side keyframe/channel/clip data
@@ -785,7 +785,12 @@ void InstancedAnimationSample::UploadDataToGPU()
 		if (!asset->skeleton.nodeParentIndices.empty())
 			deviceContext.CopyDataToBuffer(m_nodeParentBuffer, asset->skeleton.nodeParentIndices.data(), asset->skeleton.nodeParentIndices.size() * sizeof(int32_t));
 		if (!asset->skeleton.nodeLocalTransforms.empty())
-			deviceContext.CopyDataToBuffer(m_nodeTransformBuffer, asset->skeleton.nodeLocalTransforms.data(), asset->skeleton.nodeLocalTransforms.size() * sizeof(glm::mat4));
+		{
+			std::vector<glm::mat4> transposedTransforms(asset->skeleton.nodeLocalTransforms.size());
+			for (size_t i = 0; i < asset->skeleton.nodeLocalTransforms.size(); i++)
+				transposedTransforms[i] = glm::transpose(asset->skeleton.nodeLocalTransforms[i]);
+			deviceContext.CopyDataToBuffer(m_nodeTransformBuffer, transposedTransforms.data(), transposedTransforms.size() * sizeof(glm::mat4));
+		}
 
 		// Textures
 		for (u32 i = 0; i < m_assetTextures.size(); i++)
