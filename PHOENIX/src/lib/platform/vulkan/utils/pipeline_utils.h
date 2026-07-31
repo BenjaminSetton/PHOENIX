@@ -19,6 +19,7 @@ namespace PHX
 	VkPipelineVertexInputStateCreateInfo    PopulateVertexInputCreateInfo(const std::vector<VkVertexInputBindingDescription>& inputBindingDescriptions, const std::vector<VkVertexInputAttributeDescription>& inputAttributeDescriptions);
 	
 	VkPipelineInputAssemblyStateCreateInfo  PopulateInputAssemblyCreateInfo(VkPrimitiveTopology topology, VkBool32 primitiveRestartEnable);
+	VkPipelineTessellationStateCreateInfo   PopulateTessellationStateCreateInfo(u32 patchControlPoints);
 	VkPipelineDynamicStateCreateInfo        PopulateDynamicStateCreateInfo(const VkDynamicState* dynamicStates, u32 dynamicStateCount);
 	VkPipelineViewportStateCreateInfo       PopulateViewportStateCreateInfo(const VkViewport* viewports, u32 viewportCount, const VkRect2D* scissors, u32 scissorCount);
 	VkPipelineRasterizationStateCreateInfo  PopulateRasterizerStateCreateInfo(VkCullModeFlags cullMode, VkFrontFace windingOrder, VkPolygonMode polygonMode, float lineWidth, bool enableDepthClamp, bool enableRasterizerDiscard, bool enableDepthBias, float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor);

@@ -382,7 +382,7 @@ void TexturedModelSample::CreateUniformCollection()
 	// SET 0
 	UniformData transformUniformData;
 	transformUniformData.binding = 0;
-	transformUniformData.shaderStage = SHADER_STAGE_FLAG_VERTEX;
+	transformUniformData.shaderStageFlags = SHADER_STAGE_FLAG_VERTEX;
 	transformUniformData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
 	UniformDataGroup transformDataGroup;
@@ -396,7 +396,7 @@ void TexturedModelSample::CreateUniformCollection()
 	{
 		UniformData texUniformData;
 		texUniformData.binding = i;
-		texUniformData.shaderStage = SHADER_STAGE_FLAG_FRAGMENT;
+		texUniformData.shaderStageFlags = SHADER_STAGE_FLAG_FRAGMENT;
 		texUniformData.type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
 
 		texUniforms.push_back(texUniformData);
@@ -410,7 +410,7 @@ void TexturedModelSample::CreateUniformCollection()
 	// SET 2
 	UniformData cameraUniformData;
 	cameraUniformData.binding = 0;
-	cameraUniformData.shaderStage = SHADER_STAGE_FLAG_FRAGMENT;
+	cameraUniformData.shaderStageFlags = SHADER_STAGE_FLAG_FRAGMENT;
 	cameraUniformData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
 	UniformDataGroup cameraDataGroup;

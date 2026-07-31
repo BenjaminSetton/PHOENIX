@@ -42,6 +42,8 @@ namespace PHX
 		"CLOSEST_HIT",
 		"MISS",
 		"CALLABLE",
+		"TESSELLATION_CONTROL",
+		"TESSELLATION_EVALUATION",
 	};
 
 	// Lazy-init the global Slang session
@@ -392,6 +394,25 @@ namespace PHX
 						return field->getCategory() == category;
 					};
 
+					// Returns true if the parameter is a per-vertex varying input/output. Patch-level
+					// inputs in tessellation shaders (e.g. InputPatch/OutputPatch) report VaryingInput
+					// category but a non-varying type kind, so they are excluded here.
+					auto isVaryingIOParameter = [](slang::TypeLayoutReflection* typeLayout)
+					{
+						slang::ParameterCategory category = typeLayout->getParameterCategory();
+						if (category != slang::ParameterCategory::VaryingInput &&
+							category != slang::ParameterCategory::VaryingOutput)
+						{
+							return false;
+						}
+
+						slang::TypeReflection::Kind kind = typeLayout->getKind();
+						return kind == slang::TypeReflection::Kind::Struct ||
+							kind == slang::TypeReflection::Kind::Scalar ||
+							kind == slang::TypeReflection::Kind::Vector ||
+							kind == slang::TypeReflection::Kind::Matrix;
+					};
+
 					// Count inputs and outputs
 					u32 inputCount = 0;
 					u32 outputCount = 0;
@@ -401,8 +422,7 @@ namespace PHX
 						slang::TypeLayoutReflection* typeLayout = param->getTypeLayout();
 						slang::ParameterCategory category = typeLayout->getParameterCategory();
 
-						if (category != slang::ParameterCategory::VaryingInput &&
-							category != slang::ParameterCategory::VaryingOutput)
+						if (!isVaryingIOParameter(typeLayout))
 						{
 							continue;
 						}
@@ -461,8 +481,7 @@ namespace PHX
 						slang::TypeLayoutReflection* typeLayout = param->getTypeLayout();
 						slang::ParameterCategory category = typeLayout->getParameterCategory();
 
-						if (category != slang::ParameterCategory::VaryingInput &&
-							category != slang::ParameterCategory::VaryingOutput)
+						if (!isVaryingIOParameter(typeLayout))
 						{
 							continue;
 						}

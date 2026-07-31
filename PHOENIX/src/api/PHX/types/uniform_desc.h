@@ -24,7 +24,7 @@ namespace PHX
 	{
 		u32 binding;
 		UNIFORM_TYPE type;
-		ShaderStageFlags shaderStage;
+		ShaderStageFlags shaderStageFlags;
 		u32 count = 1; // For descriptor arrays
 
 		////////

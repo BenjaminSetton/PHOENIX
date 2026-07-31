@@ -121,7 +121,7 @@ namespace Common
 		// SET 0: Transform uniform buffer (scale + translation)
 		UniformData transformUniformData;
 		transformUniformData.binding = 0;
-		transformUniformData.shaderStage = SHADER_STAGE_FLAG_VERTEX;
+		transformUniformData.shaderStageFlags = SHADER_STAGE_FLAG_VERTEX;
 		transformUniformData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
 		UniformDataGroup transformGroup;
@@ -132,7 +132,7 @@ namespace Common
 		// SET 1: Font atlas combined image sampler
 		UniformData fontUniformData;
 		fontUniformData.binding = 0;
-		fontUniformData.shaderStage = SHADER_STAGE_FLAG_FRAGMENT;
+		fontUniformData.shaderStageFlags = SHADER_STAGE_FLAG_FRAGMENT;
 		fontUniformData.type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
 
 		UniformDataGroup fontGroup;

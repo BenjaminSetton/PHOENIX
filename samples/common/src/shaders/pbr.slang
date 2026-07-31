@@ -1,9 +1,7 @@
 #ifndef PBR_SLANG
 #define PBR_SLANG
 
-#ifndef PI
-static const float PI = 3.14159265359;
-#endif
+#include "common.slang"
 
 // GGX/Trowbridge-Reitz normal distribution function
 float DistributionGGX(float3 N, float3 H, float roughness)

@@ -1,4 +1,5 @@
 #include "common.slang"
+#include "pbr.slang"
 
 struct RayPayload
 {
@@ -88,7 +89,14 @@ void main(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes att
     float3 worldHitPos = WorldRayOrigin() + WorldRayDirection() * RayTCurrent();
 
     float3 albedo = textures[mat.albedoTexIndex].Sample(uv).rgb;
-    float3 specularColor = textures[mat.specularTexIndex].Sample(uv).rgb;
+
+    // Specular texture: R unused, G roughness, B metalness
+    float2 specularSample = textures[mat.specularTexIndex].Sample(uv).gb;
+    float roughness = max(specularSample.x, 0.045);
+    float metalness = specularSample.y;
+
+    float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo, metalness);
+    float3 diffuseAlbedo = albedo * (1.0 - metalness);
 
     float3 L = normalize(float3(0.5, 1.0, 0.3));
     float3 V = normalize(-WorldRayDirection());
@@ -103,13 +111,18 @@ void main(inout RayPayload payload, in BuiltInTriangleIntersectionAttributes att
     shadowRay.TMax = 1000.0;
     TraceRay(topLevelAS, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xff, 0, 0, 1, shadowRay, payload);
 
-    // Blinn-Phong shading
+    // Cook-Torrance direct lighting, driven by roughness/metalness decoded above
     float NdotL = max(dot(N, L), 0.0);
-    float NdotH = max(dot(N, H), 0.0);
-    float shininess = 32.0;
+    float NdotV = max(dot(N, V), 0.0001);
 
-    float3 diffuse = albedo * NdotL * payload.shadowFactor;
-    float3 specular = specularColor * pow(NdotH, shininess) * NdotL * payload.shadowFactor;
+    float D = DistributionGGX(N, H, roughness);
+    float G = GeometrySmith(N, V, L, roughness);
+    float3 F = FresnelSchlick(max(dot(H, V), 0.0), F0);
 
-    payload.bounceColor = (diffuse + specular) * float3(3.0);
+    float3 specularBRDF = (D * G * F) / max(4.0 * NdotV * NdotL, 0.0001);
+
+    float3 diffuse = diffuseAlbedo / PI;
+    float3 specular = specularBRDF;
+
+    payload.bounceColor = (diffuse + specular) * NdotL * payload.shadowFactor * float3(3.0);
 }

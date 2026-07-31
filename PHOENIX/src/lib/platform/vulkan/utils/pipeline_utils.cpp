@@ -73,6 +73,15 @@ namespace PHX
 		return inputAssembly;
 	}
 
+	VkPipelineTessellationStateCreateInfo PopulateTessellationStateCreateInfo(u32 patchControlPoints)
+	{
+		VkPipelineTessellationStateCreateInfo tessellationState{};
+		tessellationState.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
+		tessellationState.patchControlPoints = patchControlPoints;
+
+		return tessellationState;
+	}
+
 	VkPipelineDynamicStateCreateInfo PopulateDynamicStateCreateInfo(const VkDynamicState* dynamicStates, u32 dynamicStateCount)
 	{
 		VkPipelineDynamicStateCreateInfo dynamicState{};

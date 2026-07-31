@@ -157,7 +157,7 @@ void HelloTriangleSample::CreateUniformCollection()
 {
 	UniformData uniform{};
 	uniform.binding = 0;
-	uniform.shaderStage = SHADER_STAGE_FLAG_FRAGMENT;
+	uniform.shaderStageFlags = SHADER_STAGE_FLAG_FRAGMENT;
 	uniform.type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
 	UniformDataGroup uniformDataGroup{};

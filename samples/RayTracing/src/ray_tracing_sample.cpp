@@ -293,6 +293,14 @@ void RayTracingSample::InitSample()
 		}
 		m_rayTracingPipelineShaders.push_back(shadowMissShader);
 
+		ShaderHandle bounceMissShader;
+		bounceMissShader = m_pShaderManager->RegisterShader("../src/shaders/bounceMiss.rmiss.slang", SHADER_STAGE::MISS, m_renderDevice);
+		if (!bounceMissShader.IsValid())
+		{
+			return;
+		}
+		m_rayTracingPipelineShaders.push_back(bounceMissShader);
+
 		ShaderHandle closestHitShader;
 		closestHitShader = m_pShaderManager->RegisterShader("../src/shaders/closesthit.rchit.slang", SHADER_STAGE::CLOSEST_HIT, m_renderDevice);
 		if (!closestHitShader.IsValid())
@@ -317,15 +325,15 @@ void RayTracingSample::InitSample()
 		}
 		m_rayTracingPipelineShaders.push_back(bounceClosestHitShader);
 
-		// Shader indices: 0=raygen, 1=miss, 2=shadowMiss, 3=closestHit, 4=anyHit, 5=bounceClosestHit
+		// Shader indices: 0=raygen, 1=miss, 2=shadowMiss, 3=bounceMiss, 4=closestHit, 5=anyHit, 6=bounceClosestHit
 		// Hit group 0: full closest-hit + any-hit (for primary rays — traces shadow + bounce)
 		// Hit group 1: bounce closest-hit + any-hit (for bounce rays — traces shadow only, no further bounce)
 		m_rayTracingHitGroups.resize(2);
-		m_rayTracingHitGroups[0].closestHitShaderIndex = 3;
-		m_rayTracingHitGroups[0].anyHitShaderIndex = 4;
+		m_rayTracingHitGroups[0].closestHitShaderIndex = 4;
+		m_rayTracingHitGroups[0].anyHitShaderIndex = 5;
 		m_rayTracingHitGroups[0].intersectionShaderIndex = UINT32_MAX;
-		m_rayTracingHitGroups[1].closestHitShaderIndex = 5;
-		m_rayTracingHitGroups[1].anyHitShaderIndex = 4;
+		m_rayTracingHitGroups[1].closestHitShaderIndex = 6;
+		m_rayTracingHitGroups[1].anyHitShaderIndex = 5;
 		m_rayTracingHitGroups[1].intersectionShaderIndex = UINT32_MAX;
 
 		m_rayTracingPipelineDesc.pShaders = m_rayTracingPipelineShaders.data();
@@ -840,7 +848,7 @@ void RayTracingSample::CreateUniformCollections()
 	// Blit pipeline: combined image sampler for the ray tracing output
 	UniformData blitImageData{};
 	blitImageData.binding = 0;
-	blitImageData.shaderStage = SHADER_STAGE_FLAG_FRAGMENT;
+	blitImageData.shaderStageFlags = SHADER_STAGE_FLAG_FRAGMENT;
 	blitImageData.type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
 
 	UniformDataGroup blitDataGroup{};
@@ -863,33 +871,33 @@ void RayTracingSample::CreateUniformCollections()
 	// Ray tracing pipeline: output image, TLAS, scene buffers, material buffer, env cube map, accumulation image
 	UniformData rtData[8];
 	rtData[0].binding = 0;
-	rtData[0].shaderStage = SHADER_STAGE_FLAG_RAYGEN;
+	rtData[0].shaderStageFlags = SHADER_STAGE_FLAG_RAYGEN;
 	rtData[0].type = UNIFORM_TYPE::STORAGE_IMAGE;
 	rtData[1].binding = 1;
-	rtData[1].shaderStage = SHADER_STAGE_FLAG_RAYGEN | SHADER_STAGE_FLAG_CLOSEST_HIT;
+	rtData[1].shaderStageFlags = SHADER_STAGE_FLAG_RAYGEN | SHADER_STAGE_FLAG_CLOSEST_HIT;
 	rtData[1].type = UNIFORM_TYPE::ACCELERATION_STRUCTURE;
 	rtData[2].binding = 2;
-	rtData[2].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
+	rtData[2].shaderStageFlags = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
 	rtData[2].type = UNIFORM_TYPE::STORAGE_BUFFER;
 	rtData[3].binding = 3;
-	rtData[3].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
+	rtData[3].shaderStageFlags = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
 	rtData[3].type = UNIFORM_TYPE::STORAGE_BUFFER;
 	rtData[4].binding = 4;
-	rtData[4].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
+	rtData[4].shaderStageFlags = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
 	rtData[4].type = UNIFORM_TYPE::STORAGE_BUFFER;
 	rtData[5].binding = 5;
-	rtData[5].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
+	rtData[5].shaderStageFlags = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
 	rtData[5].type = UNIFORM_TYPE::STORAGE_BUFFER;
 	rtData[6].binding = 6;
-	rtData[6].shaderStage = SHADER_STAGE_FLAG_MISS | SHADER_STAGE_FLAG_CLOSEST_HIT;
+	rtData[6].shaderStageFlags = SHADER_STAGE_FLAG_MISS | SHADER_STAGE_FLAG_CLOSEST_HIT;
 	rtData[6].type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
 	rtData[7].binding = 7;
-	rtData[7].shaderStage = SHADER_STAGE_FLAG_RAYGEN;
+	rtData[7].shaderStageFlags = SHADER_STAGE_FLAG_RAYGEN;
 	rtData[7].type = UNIFORM_TYPE::STORAGE_IMAGE;
 
 	UniformData cameraData{};
 	cameraData.binding = 0;
-	cameraData.shaderStage = SHADER_STAGE_FLAG_RAYGEN;
+	cameraData.shaderStageFlags = SHADER_STAGE_FLAG_RAYGEN;
 	cameraData.type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
 	// Set 2: Scene textures (single descriptor array binding, only if textures exist)
@@ -902,7 +910,7 @@ void RayTracingSample::CreateUniformCollections()
 	{
 		texUniforms.resize(1);
 		texUniforms[0].binding = 0;
-		texUniforms[0].shaderStage = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
+		texUniforms[0].shaderStageFlags = SHADER_STAGE_FLAG_CLOSEST_HIT | SHADER_STAGE_FLAG_ANY_HIT;
 		texUniforms[0].type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
 		texUniforms[0].count = texCount;
 
@@ -1070,13 +1078,13 @@ void RayTracingSample::LoadEnvironmentMap()
 	// Create uniform collection for equirect-to-cube pass
 	UniformData equirectToCubeData[3];
 	equirectToCubeData[0].binding = 0;
-	equirectToCubeData[0].shaderStage = SHADER_STAGE_FLAG_COMPUTE;
+	equirectToCubeData[0].shaderStageFlags = SHADER_STAGE_FLAG_COMPUTE;
 	equirectToCubeData[0].type = UNIFORM_TYPE::COMBINED_IMAGE_SAMPLER;
 	equirectToCubeData[1].binding = 1;
-	equirectToCubeData[1].shaderStage = SHADER_STAGE_FLAG_COMPUTE;
+	equirectToCubeData[1].shaderStageFlags = SHADER_STAGE_FLAG_COMPUTE;
 	equirectToCubeData[1].type = UNIFORM_TYPE::STORAGE_IMAGE;
 	equirectToCubeData[2].binding = 2;
-	equirectToCubeData[2].shaderStage = SHADER_STAGE_FLAG_COMPUTE;
+	equirectToCubeData[2].shaderStageFlags = SHADER_STAGE_FLAG_COMPUTE;
 	equirectToCubeData[2].type = UNIFORM_TYPE::UNIFORM_BUFFER;
 
 	UniformDataGroup equirectToCubeGroup{};

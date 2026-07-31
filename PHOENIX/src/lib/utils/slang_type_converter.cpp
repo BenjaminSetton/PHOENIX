@@ -9,21 +9,23 @@ namespace PHX
 {
 	namespace SLANG_UTILS
 	{
-		STATIC_ASSERT(static_cast<u8>(SHADER_STAGE::MAX) == 10);
+		STATIC_ASSERT(static_cast<u8>(SHADER_STAGE::MAX) == 12);
 		SlangStage ConvertShaderStage(SHADER_STAGE kind)
 		{
 			switch (kind)
 			{
-			case SHADER_STAGE::VERTEX:       return SLANG_STAGE_VERTEX;
-			case SHADER_STAGE::GEOMETRY:     return SLANG_STAGE_GEOMETRY;
-			case SHADER_STAGE::FRAGMENT:     return SLANG_STAGE_FRAGMENT;
-			case SHADER_STAGE::COMPUTE:      return SLANG_STAGE_COMPUTE;
-			case SHADER_STAGE::RAYGEN:       return SLANG_STAGE_RAY_GENERATION;
-			case SHADER_STAGE::INTERSECTION: return SLANG_STAGE_INTERSECTION;
-			case SHADER_STAGE::ANY_HIT:      return SLANG_STAGE_ANY_HIT;
-			case SHADER_STAGE::CLOSEST_HIT:  return SLANG_STAGE_CLOSEST_HIT;
-			case SHADER_STAGE::MISS:         return SLANG_STAGE_MISS;
-			case SHADER_STAGE::CALLABLE:     return SLANG_STAGE_CALLABLE;
+			case SHADER_STAGE::VERTEX:                  return SLANG_STAGE_VERTEX;
+			case SHADER_STAGE::GEOMETRY:                return SLANG_STAGE_GEOMETRY;
+			case SHADER_STAGE::FRAGMENT:                return SLANG_STAGE_FRAGMENT;
+			case SHADER_STAGE::COMPUTE:                 return SLANG_STAGE_COMPUTE;
+			case SHADER_STAGE::RAYGEN:                  return SLANG_STAGE_RAY_GENERATION;
+			case SHADER_STAGE::INTERSECTION:            return SLANG_STAGE_INTERSECTION;
+			case SHADER_STAGE::ANY_HIT:                 return SLANG_STAGE_ANY_HIT;
+			case SHADER_STAGE::CLOSEST_HIT:             return SLANG_STAGE_CLOSEST_HIT;
+			case SHADER_STAGE::MISS:                    return SLANG_STAGE_MISS;
+			case SHADER_STAGE::CALLABLE:                return SLANG_STAGE_CALLABLE;
+			case SHADER_STAGE::TESSELLATION_CONTROL:    return SLANG_STAGE_HULL;
+			case SHADER_STAGE::TESSELLATION_EVALUATION: return SLANG_STAGE_DOMAIN;
 			}
 
 			LogError("Failed to convert shader stage. SHADER_STAGE::MAX is not a valid value!");
@@ -104,8 +106,8 @@ namespace PHX
 			switch (stage)
 			{
 			case SLANG_STAGE_VERTEX:           return SHADER_STAGE_FLAG_VERTEX;
-			case SLANG_STAGE_HULL:             break;
-			case SLANG_STAGE_DOMAIN:           break;
+			case SLANG_STAGE_HULL:             return SHADER_STAGE_FLAG_TESSELLATION_CONTROL;
+			case SLANG_STAGE_DOMAIN:           return SHADER_STAGE_FLAG_TESSELLATION_EVALUATION;
 			case SLANG_STAGE_GEOMETRY:         return SHADER_STAGE_FLAG_GEOMETRY;
 			case SLANG_STAGE_FRAGMENT:         return SHADER_STAGE_FLAG_FRAGMENT;
 			case SLANG_STAGE_COMPUTE:          return SHADER_STAGE_FLAG_COMPUTE;

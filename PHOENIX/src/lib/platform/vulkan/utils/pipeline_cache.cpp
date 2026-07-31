@@ -32,7 +32,7 @@ namespace PHX
 					{
 						const UniformData& currUniformData = currUniformGroup.uniformArray[j];
 						HashCombine(out_seed, currUniformData.binding);
-						HashCombine(out_seed, currUniformData.shaderStage);
+						HashCombine(out_seed, currUniformData.shaderStageFlags);
 						HashCombine(out_seed, currUniformData.type);
 					}
 				}
@@ -60,13 +60,14 @@ namespace PHX
 
 	size_t GraphicsPipelineDescHasher::operator()(const GraphicsPipelineDesc& desc) const
 	{
-		STATIC_ASSERT_MSG(sizeof(desc) == 248, "If graphics pipeline description changed, make sure to change this hashing function!");
+		STATIC_ASSERT_MSG(sizeof(desc) == 256, "If graphics pipeline description changed, make sure to change this hashing function!");
 
 		size_t seed = 0;
 
 		// Input assembler
 		HashCombine(seed, desc.topology);
 		HashCombine(seed, desc.enableRestartPrimitives);
+		HashCombine(seed, desc.patchControlPoints);
 
 		// Input attributes
 		if (desc.pInputAttributes != nullptr)

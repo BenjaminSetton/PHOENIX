@@ -192,12 +192,20 @@ namespace PHX
 			createInfo.depthBiasClamp, 
 			createInfo.depthBiasSlopeFactor);
 
+		// Tessellation state (only required for patch-list topology)
+		VkPipelineTessellationStateCreateInfo tessellationState{};
+		if (createInfo.topology == PRIMITIVE_TOPOLOGY::PATCH_LIST)
+		{
+			tessellationState = PopulateTessellationStateCreateInfo(createInfo.patchControlPoints);
+		}
+
 		VkGraphicsPipelineCreateInfo pipelineInfo{};
 		pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
 		pipelineInfo.stageCount = static_cast<u32>(shaderStages.size());
 		pipelineInfo.pStages = shaderStages.data();
 		pipelineInfo.pVertexInputState = &vertexInputInfo;
 		pipelineInfo.pInputAssemblyState = &inputAssembly;
+		pipelineInfo.pTessellationState = (createInfo.topology == PRIMITIVE_TOPOLOGY::PATCH_LIST) ? &tessellationState : nullptr;
 		pipelineInfo.pViewportState = &viewportState;
 		pipelineInfo.pRasterizationState = &rasterizer;
 		pipelineInfo.pMultisampleState = &multisampling;
@@ -352,7 +360,7 @@ namespace PHX
 				{
 					const UniformData& uniformData = dataGroup->uniformArray[j];
 
-					const ShaderStageFlags shaderStage = uniformData.shaderStage;
+					const ShaderStageFlags shaderStage = uniformData.shaderStageFlags;
 					const ShaderStageFlags maxShaderStage = (1 << static_cast<u32>(SHADER_STAGE::MAX));
 					if (shaderStage >= maxShaderStage)
 					{
@@ -710,10 +718,10 @@ namespace PHX
 				{
 					const UniformData& uniformData = dataGroup->uniformArray[j];
 					
-					const u32 shaderStage = static_cast<u32>(uniformData.shaderStage);
-					if (shaderStage >= static_cast<u32>(SHADER_STAGE::MAX))
+					const u32 shaderStageFlags = static_cast<u32>(uniformData.shaderStageFlags);
+					if (shaderStageFlags == 0)
 					{
-						LogWarning("Attempting to create a graphics pipeline, but the shader stage from data group %u at index %u is invalid (%i)", i, j, shaderStage);
+						LogWarning("Attempting to create a graphics pipeline, but the shader stage flags from data group %u at index %u is invalid (%i)", i, j, shaderStageFlags);
 					}
 
 					const u32 uniformType = static_cast<u32>(uniformData.type);
@@ -756,7 +764,7 @@ namespace PHX
 				{
 					const UniformData& uniformData = dataGroup->uniformArray[j];
 
-					const u32 shaderStage = static_cast<u32>(uniformData.shaderStage);
+					const u32 shaderStage = static_cast<u32>(uniformData.shaderStageFlags);
 					if (shaderStage >= static_cast<u32>(SHADER_STAGE::MAX))
 					{
 						LogWarning("Attempting to create a compute pipeline, but the shader stage from data group %u at index %u is invalid (%i)", i, j, shaderStage);

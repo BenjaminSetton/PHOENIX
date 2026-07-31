@@ -18,6 +18,7 @@ namespace PHX
 		TRIANGLE_LIST,
 		TRIANGLE_STRIP,
 		TRIANGLE_FAN,
+		PATCH_LIST,
 
 		MAX
 	};
@@ -154,6 +155,7 @@ namespace PHX
 		// Input assembler
 		PRIMITIVE_TOPOLOGY topology					= PRIMITIVE_TOPOLOGY::TRIANGLE_STRIP;
 		bool enableRestartPrimitives				= false;
+		u32 patchControlPoints						= 0; // Only used when topology is PATCH_LIST
 
 		// Vertex input layout
 		InputAttribute* pInputAttributes			= nullptr;

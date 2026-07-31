@@ -62,7 +62,7 @@ namespace PHX
 				vkSetLayoutBinding.binding = uniformData.binding;
 				vkSetLayoutBinding.descriptorType = UNIFORM_UTILS::ConvertUniformType(uniformData.type);
 				vkSetLayoutBinding.descriptorCount = uniformData.count;
-				vkSetLayoutBinding.stageFlags = SHADER_UTILS::ConvertShaderStageFlags(uniformData.shaderStage);
+				vkSetLayoutBinding.stageFlags = SHADER_UTILS::ConvertShaderStageFlags(uniformData.shaderStageFlags);
 				vkSetLayoutBinding.pImmutableSamplers = nullptr; // Optional
 
 				setBindings.push_back(vkSetLayoutBinding);

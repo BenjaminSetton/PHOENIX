@@ -91,7 +91,7 @@ namespace PHX
 	{
 		return (binding     == other.binding     &&
 				type        == other.type        &&
-				shaderStage == other.shaderStage
+				shaderStageFlags == other.shaderStageFlags
 		);
 	}
 

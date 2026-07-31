@@ -20,22 +20,26 @@ namespace PHX
 		CLOSEST_HIT,
 		MISS,
 		CALLABLE,
+		TESSELLATION_CONTROL,
+		TESSELLATION_EVALUATION,
 
 		MAX
 	};
 
 	enum SHADER_STAGE_FLAG : u32
 	{
-		SHADER_STAGE_FLAG_VERTEX       = (1 << static_cast<u32>(SHADER_STAGE::VERTEX)),
-		SHADER_STAGE_FLAG_GEOMETRY     = (1 << static_cast<u32>(SHADER_STAGE::GEOMETRY)),
-		SHADER_STAGE_FLAG_FRAGMENT     = (1 << static_cast<u32>(SHADER_STAGE::FRAGMENT)),
-		SHADER_STAGE_FLAG_COMPUTE      = (1 << static_cast<u32>(SHADER_STAGE::COMPUTE)),
-		SHADER_STAGE_FLAG_RAYGEN       = (1 << static_cast<u32>(SHADER_STAGE::RAYGEN)),
-		SHADER_STAGE_FLAG_INTERSECTION = (1 << static_cast<u32>(SHADER_STAGE::INTERSECTION)),
-		SHADER_STAGE_FLAG_ANY_HIT      = (1 << static_cast<u32>(SHADER_STAGE::ANY_HIT)),
-		SHADER_STAGE_FLAG_CLOSEST_HIT  = (1 << static_cast<u32>(SHADER_STAGE::CLOSEST_HIT)),
-		SHADER_STAGE_FLAG_MISS         = (1 << static_cast<u32>(SHADER_STAGE::MISS)),
-		SHADER_STAGE_FLAG_CALLABLE     = (1 << static_cast<u32>(SHADER_STAGE::CALLABLE)),
+		SHADER_STAGE_FLAG_VERTEX                  = (1 << static_cast<u32>(SHADER_STAGE::VERTEX)),
+		SHADER_STAGE_FLAG_GEOMETRY                = (1 << static_cast<u32>(SHADER_STAGE::GEOMETRY)),
+		SHADER_STAGE_FLAG_FRAGMENT                = (1 << static_cast<u32>(SHADER_STAGE::FRAGMENT)),
+		SHADER_STAGE_FLAG_COMPUTE                 = (1 << static_cast<u32>(SHADER_STAGE::COMPUTE)),
+		SHADER_STAGE_FLAG_RAYGEN                  = (1 << static_cast<u32>(SHADER_STAGE::RAYGEN)),
+		SHADER_STAGE_FLAG_INTERSECTION            = (1 << static_cast<u32>(SHADER_STAGE::INTERSECTION)),
+		SHADER_STAGE_FLAG_ANY_HIT                 = (1 << static_cast<u32>(SHADER_STAGE::ANY_HIT)),
+		SHADER_STAGE_FLAG_CLOSEST_HIT             = (1 << static_cast<u32>(SHADER_STAGE::CLOSEST_HIT)),
+		SHADER_STAGE_FLAG_MISS                    = (1 << static_cast<u32>(SHADER_STAGE::MISS)),
+		SHADER_STAGE_FLAG_CALLABLE                = (1 << static_cast<u32>(SHADER_STAGE::CALLABLE)),
+		SHADER_STAGE_FLAG_TESSELLATION_CONTROL    = (1 << static_cast<u32>(SHADER_STAGE::TESSELLATION_CONTROL)),
+		SHADER_STAGE_FLAG_TESSELLATION_EVALUATION = (1 << static_cast<u32>(SHADER_STAGE::TESSELLATION_EVALUATION)),
 	};
 	using ShaderStageFlags = u32;
 

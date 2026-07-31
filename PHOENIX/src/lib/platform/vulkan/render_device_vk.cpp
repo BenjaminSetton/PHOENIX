@@ -119,7 +119,13 @@ namespace PHX
 		VkPhysicalDeviceFeatures supportedFeatures;
 		vkGetPhysicalDeviceFeatures(device, &supportedFeatures);
 
-		return (indices.IsComplete() && allExtensionsSupported && swapChainAdequate && supportedFeatures.samplerAnisotropy);
+		return (indices.IsComplete()                 && 
+				allExtensionsSupported               && 
+				swapChainAdequate                    && 
+				supportedFeatures.samplerAnisotropy  && 
+				supportedFeatures.geometryShader     &&
+				supportedFeatures.tessellationShader &&
+				supportedFeatures.fillModeNonSolid);
 	}
 
 	//-----------------------------------------------------------------------------------//
@@ -797,6 +803,8 @@ namespace PHX
 		deviceFeatures.pNext = &shaderDrawParamsFeatures;
 		deviceFeatures.features.samplerAnisotropy = VK_TRUE;
 		deviceFeatures.features.geometryShader = VK_TRUE;
+		deviceFeatures.features.tessellationShader = VK_TRUE;
+		deviceFeatures.features.fillModeNonSolid = VK_TRUE;
 
 		std::vector<const char*> enabledExtensions = deviceExtensions;
 		if (m_rayTracingSupported)
