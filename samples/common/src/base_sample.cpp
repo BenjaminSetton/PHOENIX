@@ -1,8 +1,13 @@
 
+#include <cstdio>
 #include <iostream>
 
 #include "base_sample.h"
 #include "input_manager.h"
+
+#ifndef CACHE_ROOT_DIR
+	#define CACHE_ROOT_DIR "."
+#endif
 
 #define CHECK_PHX_RES(phxRes) if(phxRes != PHX::STATUS_CODE::SUCCESS) { return; }
 
@@ -234,5 +239,14 @@ namespace Common
 		{
 			m_imguiBackend.OnMouseMoved(newX, newY);
 		}
+	}
+
+	void BaseSample::GenerateRenderGraphVisualization(const char* name)
+	{
+		const u32 frameNumber = m_renderGraph.GetFrameNumber();
+		const u32 nameLen = 256;
+		char renderGraphVisName[nameLen];
+		snprintf(renderGraphVisName, nameLen, "%s/render_graph_viz/%s_RG_%u.dot", CACHE_ROOT_DIR, name, frameNumber);
+		m_renderGraph.GenerateVisualization(renderGraphVisName);
 	}
 }

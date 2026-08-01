@@ -201,7 +201,7 @@ namespace Common
 
 		std::filesystem::path ComputeCachePath(const std::filesystem::path& relativePath) const
 		{
-			std::filesystem::path cachePath = std::filesystem::path(CACHE_ROOT_DIR) / relativePath;
+			std::filesystem::path cachePath = std::filesystem::path(CACHE_ROOT_DIR) / std::filesystem::path("scene") / relativePath;
 			cachePath.replace_extension(".asset");
 			return cachePath;
 		}

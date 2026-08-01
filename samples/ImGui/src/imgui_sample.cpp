@@ -56,13 +56,7 @@ void ImGuiSample::Draw()
 	m_renderGraph.Bake(m_swapChain);
 
 	// Viz
-	{
-		const u32 frameNumber = m_renderGraph.GetFrameNumber();
-		const u32 nameLen = 64;
-		char renderGraphVisName[nameLen];
-		snprintf(renderGraphVisName, nameLen, "./ImGui_RG_%u.dot", frameNumber);
-		m_renderGraph.GenerateVisualization(renderGraphVisName);
-	}
+	GenerateRenderGraphVisualization("ImGui");
 
 	m_renderGraph.EndFrame(m_swapChain);
 }

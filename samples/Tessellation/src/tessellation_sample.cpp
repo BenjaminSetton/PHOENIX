@@ -86,7 +86,9 @@ void TessellationSample::Draw()
 
 		graphicsPass.SetTextureOutput(m_swapChain.GetCurrentImage(), ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, clearColor);
 		graphicsPass.SetDepthOutput(m_depthBuffer);
-		graphicsPass.SetBufferInput(m_vertexBuffer);
+
+		// Commented out to test RG viz bug
+		//graphicsPass.SetBufferInput(m_vertexBuffer);
 
 		graphicsPass.SetPipelineDescription(m_wireframe ? m_wireframePipelineDesc : m_solidPipelineDesc);
 
@@ -124,13 +126,7 @@ void TessellationSample::Draw()
 	m_renderGraph.Bake(m_swapChain);
 
 	// Viz
-	{
-		const u32 frameNumber = m_renderGraph.GetFrameNumber();
-		const u32 nameLen = 64;
-		char renderGraphVisName[nameLen];
-		snprintf(renderGraphVisName, nameLen, "./Tessellation_RG_%u.dot", frameNumber);
-		m_renderGraph.GenerateVisualization(renderGraphVisName);
-	}
+	GenerateRenderGraphVisualization("Tessellation");
 
 	m_renderGraph.EndFrame(m_swapChain);
 }

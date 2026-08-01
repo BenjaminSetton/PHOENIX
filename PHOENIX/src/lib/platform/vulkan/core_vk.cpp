@@ -57,7 +57,7 @@ namespace PHX
 		}
 		}
 
-		return true;
+		return VK_TRUE;
 	}
 
 	static const std::vector<const char*> g_ValidationLayers =

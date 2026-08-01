@@ -45,6 +45,8 @@ namespace Common
 		virtual void OnMouseButtonUp(PHX::MouseButtonCode mouseButton);
 		virtual void OnMouseMoved(float newX, float newY);
 
+		void GenerateRenderGraphVisualization(const char* name);
+
 	protected:
 
 		PHX::WindowHandle m_window;

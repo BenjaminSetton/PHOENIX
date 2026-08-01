@@ -1,4 +1,6 @@
 
+#include <filesystem>
+
 #include "utils/file_io.h"
 #include "utils/sanity.h"
 
@@ -6,6 +8,15 @@ namespace PHX
 {
 	FileIO::FileIO(const char* filePath)
 	{
+		// Create directory if necessary
+		std::filesystem::path filePathObj = std::filesystem::path(filePath);
+		std::filesystem::path parentPathObj = filePathObj.parent_path();
+
+		if (!parentPathObj.empty() && !std::filesystem::exists(parentPathObj))
+		{
+			std::filesystem::create_directories(parentPathObj);
+		}
+
 		m_stream.open(filePath, std::ios::out);
 	}
 

@@ -144,13 +144,7 @@ void RayTracingSample::Draw()
 	CHECK_PHX_RES(phxRes);
 
 	// Viz
-	{
-		const u32 frameNumber = m_renderGraph.GetFrameNumber();
-		const u32 nameLen = 64;
-		char renderGraphVisName[nameLen];
-		snprintf(renderGraphVisName, nameLen, "./RayTracing_RG_%u.dot", frameNumber);
-		m_renderGraph.GenerateVisualization(renderGraphVisName);
-	}
+	GenerateRenderGraphVisualization("RayTracing");
 
 	m_renderGraph.EndFrame(m_swapChain);
 }
