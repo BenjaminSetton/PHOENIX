@@ -124,6 +124,8 @@ namespace PHX
 		// that this holds barrier information for all outputs in this pass. This is useful when creating
 		// render passes, since the finalLayout of an image must be specified during subpass creation.
 		std::unordered_map<u64, Barrier> m_outputBarriers;
+
+		//bool m_isRootPass; // TODO? Might be useful to prevent certain passes from being trimmed even if unused. E.g. their result is used in subsequent frames
 	};
 
 	class RenderGraphVk : public IRenderGraph

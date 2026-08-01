@@ -137,14 +137,11 @@ namespace PHX
 		InitCRC32();
 
 		// Initialize core graphics objects
-		STATUS_CODE coreObjStatus = CoreObjectManager::Get().CreateCoreObjects(window);
-		if (coreObjStatus != STATUS_CODE::SUCCESS)
+		STATUS_CODE res = CoreObjectManager::Get().CreateCoreObjects(window);
+		if (res != STATUS_CODE::SUCCESS)
 		{
-			return coreObjStatus;
+			return res;
 		}
-
-		LogWarning("TODO - Waiting for transfer queue to be idle when copying data to buffer");
-		LogWarning("TODO - Command buffers are allocated/deallocated every frame");
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -159,6 +156,7 @@ namespace PHX
 
 	STATUS_CODE Shutdown()
 	{
+		CoreObjectManager::Get().Shutdown();
 		DeferredCaller::Get().Flush();
 		return STATUS_CODE::SUCCESS;
 	}

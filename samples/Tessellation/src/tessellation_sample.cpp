@@ -86,9 +86,7 @@ void TessellationSample::Draw()
 
 		graphicsPass.SetTextureOutput(m_swapChain.GetCurrentImage(), ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, clearColor);
 		graphicsPass.SetDepthOutput(m_depthBuffer);
-
-		// Commented out to test RG viz bug
-		//graphicsPass.SetBufferInput(m_vertexBuffer);
+		graphicsPass.SetBufferInput(m_vertexBuffer);
 
 		graphicsPass.SetPipelineDescription(m_wireframe ? m_wireframePipelineDesc : m_solidPipelineDesc);
 

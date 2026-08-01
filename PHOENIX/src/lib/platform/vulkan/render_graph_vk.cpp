@@ -1,4 +1,5 @@
 ﻿
+#include <cstdio>
 #include <sstream>
 #include <vulkan/vk_enum_string_helper.h>
 
@@ -147,7 +148,28 @@ namespace PHX
 				}
 				case RESOURCE_TYPE::TEXTURE:
 				{
-					flags |= VK_ACCESS_SHADER_READ_BIT;
+					// attachmentType distinguishes attachment reads (LOAD-op dual-registered
+					// inputs) from shader sampled reads (SetTextureInput with INVALID).
+					switch (usage.attachmentType)
+					{
+					case ATTACHMENT_TYPE::COLOR:
+					{
+						flags |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+						break;
+					}
+					case ATTACHMENT_TYPE::DEPTH:
+					case ATTACHMENT_TYPE::STENCIL:
+					case ATTACHMENT_TYPE::DEPTH_STENCIL:
+					{
+						flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
+						break;
+					}
+					default:
+					{
+						flags |= VK_ACCESS_SHADER_READ_BIT;
+						break;
+					}
+					}
 					break;
 				}
 				case RESOURCE_TYPE::UNIFORM:
@@ -187,11 +209,17 @@ namespace PHX
 						break;
 					}
 
+					// LOAD_OP_LOAD is a read-modify-write: the attachment load performs an implicit
+					// read before the pass writes to it, so the read access bit must be included
+					// or dependent barriers won't cover the access type the load actually performs
+					const bool isLoadRead = (usage.loadOp == ATTACHMENT_LOAD_OP::LOAD);
+
 					switch (usage.attachmentType)
 					{
 					case ATTACHMENT_TYPE::COLOR:
 					{
 						flags |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+						if (isLoadRead) flags |= VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 						break;
 					}
 					case ATTACHMENT_TYPE::DEPTH:
@@ -199,6 +227,7 @@ namespace PHX
 					case ATTACHMENT_TYPE::DEPTH_STENCIL: // fall-thru
 					{
 						flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+						if (isLoadRead) flags |= VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT;
 						break;
 					}
 					case ATTACHMENT_TYPE::RESOLVE:
@@ -303,6 +332,12 @@ namespace PHX
 				flags |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 				break;
 			}
+			case (VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT):
+			{
+				// LOAD_OP_LOAD on a color attachment produces a combined READ|WRITE access mask
+				flags |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				break;
+			}
 			case VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT:
 			{
 				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
@@ -310,6 +345,12 @@ namespace PHX
 			}
 			case VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT:
 			{
+				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
+				break;
+			}
+			case (VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT):
+			{
+				// LOAD_OP_LOAD on a depth/stencil attachment produces a combined READ|WRITE access mask
 				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
 				break;
 			}
@@ -376,14 +417,21 @@ namespace PHX
 			{
 				switch (usage.attachmentType)
 				{
+				case ATTACHMENT_TYPE::COLOR:
+				{
+					// LOAD-op attachment read (dual-registered input)
+					return VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+				}
 				case ATTACHMENT_TYPE::DEPTH:
 				case ATTACHMENT_TYPE::DEPTH_STENCIL:
 				case ATTACHMENT_TYPE::STENCIL:
 				{
-					return VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+					// LOAD-op attachment read (dual-registered input)
+					return VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 				}
 				default:
 				{
+					// Sampled texture input (SetTextureInput with INVALID)
 					return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				}
 				}
@@ -487,7 +535,9 @@ namespace PHX
 		ResourceUsage usage{};
 		usage.io = RESOURCE_IO::INPUT;
 		usage.passIndex = m_index;
-		usage.attachmentType = CalculateAttachmentType(texture);
+		// Sampled texture input (shader read), not an attachment read. INVALID distinguishes
+		// this from the dual-registered INPUT of a LOAD-op attachment, which sets COLOR/DEPTH.
+		usage.attachmentType = ATTACHMENT_TYPE::INVALID;
 		usage.storeOp = ATTACHMENT_STORE_OP::IGNORE;
 		usage.loadOp = ATTACHMENT_LOAD_OP::LOAD;
 
@@ -595,18 +645,43 @@ namespace PHX
 	// This is a guaranteed property of the render graph: BuildDependencyTree() only creates
 	// dependencies pointing to earlier-registered passes, and WAW hazards are included. So any two
 	// passes writing the same output are forced into submission order by the backward-only scan.
+	//
+	// LOAD-op dual registration: a LOAD_OP_LOAD attachment is a read-modify-write. The implicit
+	// load reads the attachment before the pass writes to it, so we register an INPUT usage in
+	// addition to the OUTPUT. This makes the read half visible to hazard detection (RAW against
+	// prior writers), barrier calculation, and visualization — without any LOAD special-casing
+	// in those systems. The OUTPUT usage is registered first so GetResourceUsageFromPass (which
+	// returns the first match) still returns OUTPUT for barrier/layout calculations.
 	void RenderPassVk::SetTextureOutput(TextureHandle texture, ATTACHMENT_LOAD_OP loadOp, ATTACHMENT_STORE_OP storeOp, ClearValues clearValue)
 	{
+		const ATTACHMENT_TYPE attachmentType = CalculateAttachmentType(texture);
+
 		ResourceUsage usage{};
 		usage.io = RESOURCE_IO::OUTPUT;
 		usage.passIndex = m_index;
-		usage.attachmentType = CalculateAttachmentType(texture);
+		usage.attachmentType = attachmentType;
 		usage.storeOp = storeOp;
 		usage.loadOp = loadOp;
 		usage.clearValue = clearValue;
 
 		const ResourceIndex resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
+
+		// LOAD-op outputs also read from the attachment. Register an INPUT so the render graph
+		// handles the read half naturally (hazard detection, barriers, viz).
+		if (loadOp == ATTACHMENT_LOAD_OP::LOAD)
+		{
+			ResourceUsage inputUsage{};
+			inputUsage.io = RESOURCE_IO::INPUT;
+			inputUsage.passIndex = m_index;
+			inputUsage.attachmentType = attachmentType; // Attachment read, not a shader sampled read
+			inputUsage.storeOp = ATTACHMENT_STORE_OP::IGNORE;
+			inputUsage.loadOp = ATTACHMENT_LOAD_OP::LOAD;
+			inputUsage.clearValue = {};
+
+			m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, inputUsage);
+			m_inputResources.set(resourceIndex); // Same physical resource index
+		}
 	}
 
 	void RenderPassVk::SetBufferOutput(BufferHandle buffer)
@@ -874,7 +949,6 @@ namespace PHX
 		//               all non-contributing passes are indirectly trimmed
 		std::vector<u32> activeRenderPassIndices;
 		activeRenderPassIndices.reserve(m_registeredRenderPasses.Size());
-
 		FindActivePasses(finalRPIndex, activeRenderPassIndices);
 
 		CalculateResourceBarriers(activeRenderPassIndices, finalRPIndex);
@@ -1113,14 +1187,63 @@ namespace PHX
 			return tip.str();
 		};
 
+		// ---- Color palette (dark mode) ----
+		// Base hues — one per color family. All shades are derived from these.
+		constexpr const char* HUE_BLUE   = "#2E86C1";
+		constexpr const char* HUE_GREEN  = "#239B56";
+		constexpr const char* HUE_ORANGE = "#CA6F1E";
+		constexpr const char* HUE_PURPLE = "#7D3C98";
+		constexpr const char* HUE_TEAL   = "#117864";
+		constexpr const char* HUE_RED    = "#C0392B";
+		constexpr const char* HUE_GREY   = "#656565";
+
+		// Shade offsets (added to each RGB component, clamped to 0-255)
+		constexpr int SHADE_DARK   = -0x000032;  // resource fills (darkest)
+		constexpr int SHADE_BRIGHT =  0x00001E;  // pass fills / edges
+		constexpr int SHADE_LIGHT  =  0x00003C;  // edge labels (lightest)
+
+		// Chrome (not hue-derived)
+		constexpr const char* COLOR_BG             = "#2B2B2B";
+		constexpr const char* COLOR_TEXT_PRIMARY   = "#FFFFFF";
+		constexpr const char* COLOR_TEXT_SECONDARY = "#BDC3C7";
+		constexpr const char* COLOR_PANEL_FILL     = "#3C3C3C";
+		constexpr const char* COLOR_BORDER_DEFAULT = "#BDC3C7";
+
+		// Shift each RGB component of a #RRGGBB color by delta, clamped to 0-255
+		auto ShiftColor = [](const char* hex, int delta) -> std::string
+		{
+			int r = std::stoi(std::string(hex + 1, 2), nullptr, 16);
+			int g = std::stoi(std::string(hex + 3, 2), nullptr, 16);
+			int b = std::stoi(std::string(hex + 5, 2), nullptr, 16);
+			char buf[8];
+			std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", 
+				Clamp(r + delta, 0, 255), 
+				Clamp(g + delta, 0, 255), 
+				Clamp(b + delta, 0, 255));
+			return buf;
+		};
+
+		// Precompute edge colors (used in edge loop + legend)
+		const std::string EDGE_INPUT        = ShiftColor(HUE_BLUE,  SHADE_BRIGHT);
+		const std::string EDGE_INPUT_LABEL  = ShiftColor(HUE_BLUE,  SHADE_LIGHT);
+		const std::string EDGE_OUTPUT       = ShiftColor(HUE_GREEN, SHADE_BRIGHT);
+		const std::string EDGE_OUTPUT_LABEL = ShiftColor(HUE_GREEN, SHADE_LIGHT);
+
 		std::ostringstream dot;
 		dot << "digraph RenderGraph {\n";
 		dot << "\trankdir=LR;\n";
-		dot << "\tbgcolor=\"#FBFCFC\";\n";
+		dot << "\tbgcolor=\"" << COLOR_BG << "\";\n";
 		dot << "\tnodesep=0.35;\n";
 		dot << "\tranksep=1.0;\n";
-		dot << "\tnode [fontname=\"Helvetica\", fontsize=11];\n";
+		dot << "\tnode [fontname=\"Helvetica\", fontsize=11, fontcolor=\"" << COLOR_TEXT_PRIMARY << "\"];\n";
 		dot << "\tedge [fontname=\"Helvetica\", fontsize=9, arrowsize=0.8];\n\n";
+
+		// Gather active passes to mark trimmed passes
+		const u32 finalRPIndex = FindPresentRenderPassIndex(m_presentResID);
+		ASSERT(finalRPIndex != s_invalidRenderPassIndex);
+		std::vector<u32> activePasses;
+		activePasses.reserve(m_registeredRenderPasses.Size());
+		FindActivePasses(finalRPIndex, activePasses);
 
 		// ---- Render pass nodes (rounded boxes, colored by bind point) ----
 		dot << "\t// Render passes\n";
@@ -1132,6 +1255,18 @@ namespace PHX
 				continue;
 			}
 
+			// Determine if this pass is trimmed
+			// TODO - slow
+			bool isTrimmed = true;
+			for (u32 j = 0; j < activePasses.size(); j++)
+			{
+				if (activePasses[j] == pRenderPass->m_index)
+				{
+					isTrimmed = false;
+					break;
+				}
+			}
+
 #if defined(PHX_DEBUG)
 			const char* passName = pRenderPass->m_debugName;
 #else
@@ -1140,20 +1275,29 @@ namespace PHX
 #endif
 			const char* passTypeStr = RG_UTILS::PassTypeToString(pRenderPass->m_passType);
 
-			const char* fillColor = "#FFFFFF";
-			if (pRenderPass->m_passType == PASS_TYPE::GRAPHICS)       fillColor = "#5DADE2";
-			else if (pRenderPass->m_passType == PASS_TYPE::COMPUTE)   fillColor = "#58D68D";
-			else if (pRenderPass->m_passType == PASS_TYPE::TRANSFER)  fillColor = "#EB984E";
-			else if (pRenderPass->m_passType == PASS_TYPE::RAY_TRACING) fillColor = "#AF7AC5";
-			else if (pRenderPass->m_passType == PASS_TYPE::AS_BUILD)  fillColor = "#48C9B0";
+			const char* hue = HUE_GREY;
+			if (!isTrimmed)
+			{
+				switch (pRenderPass->m_passType)
+				{
+					case PASS_TYPE::GRAPHICS:    hue = HUE_BLUE;   break;
+					case PASS_TYPE::COMPUTE:     hue = HUE_GREEN;  break;
+					case PASS_TYPE::TRANSFER:    hue = HUE_ORANGE; break;
+					case PASS_TYPE::RAY_TRACING: hue = HUE_PURPLE; break;
+					case PASS_TYPE::AS_BUILD:    hue = HUE_TEAL;   break;
+				}
+			}
 
-			const bool isFinalPass = PassWritesResource(pRenderPass->m_index, m_presentResID);
+			// Trimmed passes use the grey hue directly; active passes use a bright shade
+			const std::string fillColor = isTrimmed ? std::string(hue) : ShiftColor(hue, SHADE_BRIGHT);
+
+			const bool isFinalPass = (pRenderPass->m_index == finalRPIndex);
 
 			dot << "\tpass" << pRenderPass->m_index
-				<< " [shape=box, style=\"filled,rounded\", fontcolor=\"#FFFFFF\", margin=\"0.25,0.14\""
+				<< " [shape=box, style=\"filled,rounded\", fontcolor=\"" << COLOR_TEXT_PRIMARY << "\", margin=\"0.25,0.14\""
 				<< ", fillcolor=\"" << fillColor << "\"";
-			if (isFinalPass)  dot << ", penwidth=3, color=\"#C0392B\"";
-			else              dot << ", penwidth=1, color=\"#34495E\"";
+			if (isFinalPass)  dot << ", penwidth=3, color=\"" << HUE_RED << "\"";
+			else              dot << ", penwidth=1, color=\"" << COLOR_BORDER_DEFAULT << "\"";
 
 			dot << ", label=<<b>" << passName << "</b><br/><font point-size=\"9\">" << passTypeStr;
 			if (isFinalPass)  dot << " &#8226; FINAL";
@@ -1187,30 +1331,26 @@ namespace PHX
 			// distinguished from passes (rounded boxes) by shape, and from each other by color.
 			std::string displayName = "Texture";
 			const char* typeTag = "TEXTURE";
-			const char* fill    = "#EBF5FB";
-			const char* border  = "#2E86C1";
+			const char* hue     = HUE_BLUE;
 			u32 penWidth        = 1;
 
 			if (resource.type == RESOURCE_TYPE::BUFFER)
 			{
 				displayName = GetResourceName(resource);
 				typeTag = "BUFFER";
-				fill    = "#F4ECF7";
-				border  = "#8E44AD";
+				hue     = HUE_PURPLE;
 			}
 			else if (resource.type == RESOURCE_TYPE::UNIFORM)
 			{
 				displayName = "Uniforms";
 				typeTag = "UNIFORM";
-				fill    = "#FEF9E7";
-				border  = "#B7950B";
+				hue     = HUE_ORANGE;
 			}
 			else if (resource.type == RESOURCE_TYPE::ACCELERATION_STRUCTURE)
 			{
 				displayName = GetResourceName(resource);
 				typeTag = "ACCELERATION STRUCTURE";
-				fill    = "#E8F8F5";
-				border  = "#1ABC9C";
+				hue     = HUE_TEAL;
 			}
 			else // TEXTURE
 			{
@@ -1220,14 +1360,16 @@ namespace PHX
 			if (isBackbuffer)
 			{
 				typeTag = "PRESENT";
-				fill    = "#FADBD8";
-				border  = "#C0392B";
+				hue     = HUE_RED;
 				penWidth = 3;
 			}
 
-			dot << "\t" << nodeId << " [shape=ellipse, style=filled, fillcolor=\"" << fill
-				<< "\", color=\"" << border << "\", penwidth=" << penWidth
-				<< ", label=<<b>" << displayName << "</b><br/><font point-size=\"8\" color=\"#5D6D7E\">" << typeTag << "</font>>];\n";
+			// Fill is a dark shade of the hue; border is the base hue
+			const std::string fill = ShiftColor(hue, SHADE_DARK);
+
+			dot << "\t" << nodeId << " [shape=ellipse, style=filled, fontcolor=\"" << COLOR_TEXT_PRIMARY << "\", fillcolor=\"" << fill
+				<< "\", color=\"" << hue << "\", penwidth=" << penWidth
+				<< ", label=<<b>" << displayName << "</b><br/><font point-size=\"8\" color=\"" << COLOR_TEXT_SECONDARY << "\">" << typeTag << "</font>>];\n";
 		});
 
 		dot << "\n\t// Resource flow (inputs feed passes, passes produce outputs)\n";
@@ -1239,6 +1381,18 @@ namespace PHX
 			if (pRenderPass == nullptr) 
 			{
 				continue;
+			}
+
+			// Determine if this pass is trimmed
+			// TODO - slow
+			bool isTrimmed = true;
+			for (u32 j = 0; j < activePasses.size(); j++)
+			{
+				if (activePasses[j] == pRenderPass->m_index)
+				{
+					isTrimmed = false;
+					break;
+				}
 			}
 
 			const std::string passNode = "pass" + std::to_string(pRenderPass->m_index);
@@ -1261,8 +1415,9 @@ namespace PHX
 					tooltip = buildBarrierTooltip(barrier);
 				}
 
-				dot << "\t" << resNode << " -> " << passNode << " [color=\"#2E86C1\"";
-				if (!label.empty())   dot << ", label=\"" << label << "\", fontcolor=\"#1F618D\"";
+				dot << "\t" << resNode << " -> " << passNode << " [color=\"" << EDGE_INPUT << "\"";
+				if (isTrimmed)        dot << ", style=\"dashed\"";
+				if (!label.empty())   dot << ", label=\"" << label << "\", fontcolor=\"" << EDGE_INPUT_LABEL << "\"";
 				if (!tooltip.empty()) dot << ", labeltooltip=\"" << tooltip << "\", edgetooltip=\"" << tooltip << "\"";
 				dot << "];\n";
 			});
@@ -1285,8 +1440,9 @@ namespace PHX
 					tooltip = buildBarrierTooltip(barrier);
 				}
 
-				dot << "\t" << passNode << " -> " << resNode << " [color=\"#239B56\", penwidth=1.4";
-				if (!label.empty())   dot << ", label=\"" << label << "\", fontcolor=\"#1E8449\"";
+				dot << "\t" << passNode << " -> " << resNode << " [color=\"" << EDGE_OUTPUT << "\", penwidth=1.4";
+				if (isTrimmed)        dot << ", style=\"dashed\"";
+				if (!label.empty())   dot << ", label=\"" << label << "\", fontcolor=\"" << EDGE_OUTPUT_LABEL << "\"";
 				if (!tooltip.empty()) dot << ", labeltooltip=\"" << tooltip << "\", edgetooltip=\"" << tooltip << "\"";
 				dot << "];\n";
 			});
@@ -1294,29 +1450,30 @@ namespace PHX
 
 		// ---- Legend ----
 		dot << "\n\t// Legend (floating, not connected to the graph)\n";
-		dot << "\tlegend [shape=box, style=filled, fillcolor=\"#FFFFFF\", color=\"#34495E\", margin=0, label=<\n";
+		dot << "\tlegend [shape=box, style=filled, fillcolor=\"" << COLOR_PANEL_FILL << "\", color=\"" << COLOR_BORDER_DEFAULT << "\", fontcolor=\"" << COLOR_TEXT_PRIMARY << "\", margin=0, label=<\n";
 		dot << "\t\t<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"4\" CELLPADDING=\"3\">\n";
 		dot << "\t\t<TR><TD COLSPAN=\"2\"><B>Legend</B></TD></TR>\n";
-		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"#5D6D7E\">Passes = rounded boxes &#8226; Resources = ellipses</FONT></TD></TR>\n";
+		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"" << COLOR_TEXT_SECONDARY << "\">Passes = rounded boxes &#8226; Resources = ellipses</FONT></TD></TR>\n";
 
 		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Passes</B></FONT></TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#5DADE2\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Graphics pass</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#58D68D\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Compute pass</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#EB984E\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Transfer pass</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#AF7AC5\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Ray tracing pass</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#48C9B0\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">AS build pass</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_BLUE,   SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Graphics pass</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_GREEN,  SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Compute pass</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_ORANGE, SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Transfer pass</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_PURPLE, SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Ray tracing pass</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_TEAL,   SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">AS build pass</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << HUE_GREY                       << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Trimmed pass (not executed)</TD></TR>\n";
 
 		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Resources</B></FONT></TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#EBF5FB\" BORDER=\"1\" COLOR=\"#2E86C1\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Texture</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#F4ECF7\" BORDER=\"1\" COLOR=\"#8E44AD\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Buffer</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#FEF9E7\" BORDER=\"1\" COLOR=\"#B7950B\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Uniform</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#FCF3CF\" BORDER=\"1\" COLOR=\"#B7950B\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Depth buffer</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#FADBD8\" BORDER=\"3\" COLOR=\"#C0392B\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Backbuffer (present)</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_BLUE,   SHADE_DARK) << "\" BORDER=\"1\" COLOR=\"" << HUE_BLUE   << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Texture</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_PURPLE, SHADE_DARK) << "\" BORDER=\"1\" COLOR=\"" << HUE_PURPLE << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Buffer</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_ORANGE, SHADE_DARK) << "\" BORDER=\"1\" COLOR=\"" << HUE_ORANGE << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Uniform</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_TEAL,   SHADE_DARK) << "\" BORDER=\"1\" COLOR=\"" << HUE_TEAL   << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Acceleration structure</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_RED,    SHADE_DARK) << "\" BORDER=\"3\" COLOR=\"" << HUE_RED    << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Backbuffer (present)</TD></TR>\n";
 
 		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Edges</B></FONT></TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#2E86C1\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Resource &#8594; Pass (read / input)</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"#239B56\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Pass &#8594; Resource (write / output)</TD></TR>\n";
-		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"#5D6D7E\">Edge labels show texture layout transitions</FONT></TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << EDGE_INPUT  << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Resource &#8594; Pass (read / input)</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << EDGE_OUTPUT << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Pass &#8594; Resource (write / output)</TD></TR>\n";
+		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"" << COLOR_TEXT_SECONDARY << "\">Edge labels show texture layout transitions &#8226; Dashed = trimmed pass</FONT></TD></TR>\n";
 		dot << "\t\t</TABLE>>];\n";
 
 		dot << "}\n";

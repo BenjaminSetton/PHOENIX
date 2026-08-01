@@ -35,6 +35,9 @@ namespace PHX
 		STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, WindowHandle& window);
 		STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice);
 
+		// Waits for GPU to be idle so resources can be cleaned up properly
+		STATUS_CODE Shutdown();
+
 	private:
 		HandleList<IWindow> m_windows;
 		HandleList<IRenderDevice> m_renderDevices;

@@ -35,6 +35,9 @@ namespace PHX
 		virtual STATUS_CODE AllocateDeviceContext(const DeviceContextCreateInfo& createInfo, DeviceContextHandle& deviceContext) = 0;
 		virtual STATUS_CODE AllocateAccelerationStructure(const AccelerationStructureCreateInfo& createInfo, AccelerationStructureHandle& handle) = 0;
 
+		// Should really only be used in very specific scenarios! E.g. shutdown
+		virtual STATUS_CODE WaitIdle() = 0;
+
 		// Shader hot reloading
 		virtual STATUS_CODE ReloadShader(const ShaderCreateInfo& createInfo, ShaderHandle shader) = 0;
 		virtual void FlushPipelineCache() = 0;

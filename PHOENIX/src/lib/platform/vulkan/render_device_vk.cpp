@@ -415,6 +415,18 @@ namespace PHX
 		return HANDLE_UTILS::AllocateHandle(m_accelerationStructures, pAccelerationStructure, this, handle);
 	}
 
+	STATUS_CODE RenderDeviceVk::WaitIdle()
+	{
+		VkResult res = vkDeviceWaitIdle(m_logicalDevice);
+		if (res != VK_SUCCESS)
+		{
+			LogError("Failed to wait until device is idle! Got error: \"%s\"", string_VkResult(res));
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		return STATUS_CODE::SUCCESS;
+	}
+
 	void* RenderDeviceVk::ResolveHandle(const Handle& handle)
 	{
 		const HANDLE_TYPE type = handle.GetType();

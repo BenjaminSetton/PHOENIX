@@ -129,4 +129,25 @@ namespace PHX
 
 		return STATUS_CODE::ERR_API;
 	}
+
+	STATUS_CODE CoreObjectManager::Shutdown()
+	{
+		// Handle ref counts clean up window and render device instances
+
+		for (u32 i = 0; i < m_renderDevices.Size(); i++)
+		{
+			IRenderDevice* pRenderDevice = m_renderDevices.Get(i);
+			if (pRenderDevice != nullptr)
+			{
+				STATUS_CODE res = pRenderDevice->WaitIdle();
+				if (res != STATUS_CODE::SUCCESS)
+				{
+					// Bail early if something fails
+					return res;
+				}
+			}
+		}
+
+		return STATUS_CODE::SUCCESS;
+	}
 }
