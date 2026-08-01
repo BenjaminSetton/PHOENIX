@@ -209,16 +209,6 @@ void InstancedAnimationSample::InitSample()
 
 	m_window.SetWindowTitle("PHX %u.%u.%u | INSTANCED ANIMATION", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
 
-	// ImGui
-	if (!m_imguiBackend.Init())
-	{
-		return;
-	}
-	if (!m_imguiRenderer.Init(m_renderDevice, m_swapChain, m_pShaderManager))
-	{
-		return;
-	}
-
 	// LOAD MODEL
 	m_assetID = AssetManager::Get().LoadOrImport("wolf_model/source/WOLF_DEMO.fbx", false, true);
 	if (m_assetID == Common::INVALID_ASSET_HANDLE)
@@ -492,9 +482,6 @@ void InstancedAnimationSample::ShutdownSample()
 	m_assetTextures.clear();
 	m_computeShaders.clear();
 	m_graphicsShaders.clear();
-
-	m_imguiRenderer.Shutdown();
-	m_imguiBackend.Shutdown();
 
 	if (m_pCamera != nullptr)
 	{
@@ -896,34 +883,4 @@ void InstancedAnimationSample::BuildImGuiUI()
 	ImGui::Text("GPU frame time: %.3f ms", metrics.gpuFrameTime);
 
 	ImGui::End();
-}
-
-void InstancedAnimationSample::OnKeyDown(PHX::KeyCode keycode)
-{
-	BaseSample::OnKeyDown(keycode);
-	m_imguiBackend.OnKeyDown(keycode);
-}
-
-void InstancedAnimationSample::OnKeyUp(PHX::KeyCode keycode)
-{
-	BaseSample::OnKeyUp(keycode);
-	m_imguiBackend.OnKeyUp(keycode);
-}
-
-void InstancedAnimationSample::OnMouseButtonDown(PHX::MouseButtonCode mouseButton)
-{
-	BaseSample::OnMouseButtonDown(mouseButton);
-	m_imguiBackend.OnMouseButtonDown(mouseButton);
-}
-
-void InstancedAnimationSample::OnMouseButtonUp(PHX::MouseButtonCode mouseButton)
-{
-	BaseSample::OnMouseButtonUp(mouseButton);
-	m_imguiBackend.OnMouseButtonUp(mouseButton);
-}
-
-void InstancedAnimationSample::OnMouseMoved(float newX, float newY)
-{
-	BaseSample::OnMouseMoved(newX, newY);
-	m_imguiBackend.OnMouseMoved(newX, newY);
 }

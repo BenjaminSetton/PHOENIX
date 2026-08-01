@@ -2,6 +2,8 @@
 
 #include <PHX/phx.h>
 
+#include "backends/imgui_backend_phx.h"
+#include "backends/imgui_renderer_phx.h"
 #include "camera/base_camera.h"
 #include "input_manager.h"
 #include "utils/shader_manager.h"
@@ -52,5 +54,12 @@ namespace Common
 
 		BaseCamera* m_pCamera;
 		ShaderManager* m_pShaderManager;
+
+		ImGuiPhxBackend  m_imguiBackend;
+		ImGuiPhxRenderer m_imguiRenderer;
+
+	private:
+
+		bool m_imguiInitialized;
 	};
 }

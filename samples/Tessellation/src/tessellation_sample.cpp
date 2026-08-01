@@ -86,13 +86,7 @@ void TessellationSample::Draw()
 
 		graphicsPass.SetTextureOutput(m_swapChain.GetCurrentImage(), ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, clearColor);
 		graphicsPass.SetDepthOutput(m_depthBuffer);
-
-		// When the grid was re-uploaded this frame, declare the vertex buffer as an input
-		// so the render graph orders the graphics pass after the transfer pass.
-		if (needGridUpload)
-		{
-			graphicsPass.SetBufferInput(m_vertexBuffer);
-		}
+		graphicsPass.SetBufferInput(m_vertexBuffer);
 
 		graphicsPass.SetPipelineDescription(m_wireframe ? m_wireframePipelineDesc : m_solidPipelineDesc);
 
@@ -146,16 +140,6 @@ void TessellationSample::InitSample()
 	STATUS_CODE phxRes;
 
 	m_window.SetWindowTitle("PHX %u.%u.%u | TESSELLATION", PHX::GetMajorVersion(), PHX::GetMinorVersion(), PHX::GetPatchVersion());
-
-	// ImGui
-	if (!m_imguiBackend.Init())
-	{
-		return;
-	}
-	if (!m_imguiRenderer.Init(m_renderDevice, m_swapChain, m_pShaderManager))
-	{
-		return;
-	}
 
 	// CAMERA
 	const float cameraSpeed = 20.0f;
@@ -294,9 +278,6 @@ void TessellationSample::ShutdownSample()
 {
 	m_shaders.clear();
 
-	m_imguiRenderer.Shutdown();
-	m_imguiBackend.Shutdown();
-
 	if (m_pCamera != nullptr)
 	{
 		delete m_pCamera;
@@ -383,7 +364,7 @@ void TessellationSample::BuildImGuiUI()
 	ImGui::SliderFloat("Max Tess Factor", &m_maxTessFactor, 1.0f, 64.0f, "%.1f");
 	ImGui::SliderFloat("Min Distance", &m_minDistance, 1.0f, 50.0f, "%.1f");
 	ImGui::SliderFloat("Max Distance", &m_maxDistance, 10.0f, 200.0f, "%.1f");
-	ImGui::SliderFloat("Displacement", &m_displacementScale, 0.0f, 10.0f, "%.2f");
+	ImGui::SliderFloat("Displacement", &m_displacementScale, 0.0f, 100.0f, "%.2f");
 
 	ImGui::Separator();
 
@@ -403,7 +384,7 @@ void TessellationSample::BuildImGuiUI()
 			m_gridHeight = static_cast<uint32_t>(height);
 			changed = true;
 		}
-		if (ImGui::SliderFloat("Cell Size", &m_cellSize, 0.1f, 10.0f, "%.2f"))
+		if (ImGui::SliderFloat("Cell Size", &m_cellSize, 0.1f, 50.0f, "%.2f"))
 		{
 			changed = true;
 		}
@@ -430,34 +411,4 @@ void TessellationSample::BuildImGuiUI()
 	ImGui::Text("GPU frame time: %.3f ms", metrics.gpuFrameTime);
 
 	ImGui::End();
-}
-
-void TessellationSample::OnKeyDown(PHX::KeyCode keycode)
-{
-	BaseSample::OnKeyDown(keycode);
-	m_imguiBackend.OnKeyDown(keycode);
-}
-
-void TessellationSample::OnKeyUp(PHX::KeyCode keycode)
-{
-	BaseSample::OnKeyUp(keycode);
-	m_imguiBackend.OnKeyUp(keycode);
-}
-
-void TessellationSample::OnMouseButtonDown(PHX::MouseButtonCode mouseButton)
-{
-	BaseSample::OnMouseButtonDown(mouseButton);
-	m_imguiBackend.OnMouseButtonDown(mouseButton);
-}
-
-void TessellationSample::OnMouseButtonUp(PHX::MouseButtonCode mouseButton)
-{
-	BaseSample::OnMouseButtonUp(mouseButton);
-	m_imguiBackend.OnMouseButtonUp(mouseButton);
-}
-
-void TessellationSample::OnMouseMoved(float newX, float newY)
-{
-	BaseSample::OnMouseMoved(newX, newY);
-	m_imguiBackend.OnMouseMoved(newX, newY);
 }

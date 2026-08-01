@@ -36,8 +36,8 @@ namespace Common
 		(void)wasMaximized;
 	}
 
-	BaseSample::BaseSample() : m_window(), m_renderDevice(), m_swapChain(), m_renderGraph(), 
-		m_pCamera(nullptr), m_pShaderManager(nullptr)
+	BaseSample::BaseSample() : m_window(), m_renderDevice(), m_swapChain(), m_renderGraph(),
+		m_pCamera(nullptr), m_pShaderManager(nullptr), m_imguiInitialized(false)
 	{
 	}
 
@@ -81,12 +81,32 @@ namespace Common
 
 		m_pShaderManager = new ShaderManager();
 
+		// ImGui (always available to derived samples)
+		if (!m_imguiBackend.Init())
+		{
+			std::cout << "Failed to initialize ImGui backend!" << std::endl;
+			return;
+		}
+		if (!m_imguiRenderer.Init(m_renderDevice, m_swapChain, m_pShaderManager))
+		{
+			std::cout << "Failed to initialize ImGui renderer!" << std::endl;
+			return;
+		}
+		m_imguiInitialized = true;
+
 		InitSample();
 	}
 
 	void BaseSample::Shutdown()
 	{
 		ShutdownSample();
+
+		if (m_imguiInitialized)
+		{
+			m_imguiRenderer.Shutdown();
+			m_imguiBackend.Shutdown();
+			m_imguiInitialized = false;
+		}
 
 		delete m_pShaderManager;
 		m_pShaderManager = nullptr;
@@ -174,25 +194,45 @@ namespace Common
 	void BaseSample::OnKeyDown(PHX::KeyCode keycode)
 	{
 		InputManager::GetInstance().SetKeyCode(keycode, true);
+		if (m_imguiInitialized) 
+		{
+			m_imguiBackend.OnKeyDown(keycode);
+		}
 	}
 
 	void BaseSample::OnKeyUp(PHX::KeyCode keycode)
 	{
 		InputManager::GetInstance().SetKeyCode(keycode, false);
+		if (m_imguiInitialized)
+		{
+			m_imguiBackend.OnKeyUp(keycode);
+		}
 	}
 
 	void BaseSample::OnMouseButtonDown(PHX::MouseButtonCode mouseButton)
 	{
 		InputManager::GetInstance().SetMouseButton(mouseButton, true);
+		if (m_imguiInitialized)
+		{
+			m_imguiBackend.OnMouseButtonDown(mouseButton);
+		}
 	}
 
 	void BaseSample::OnMouseButtonUp(PHX::MouseButtonCode mouseButton)
 	{
 		InputManager::GetInstance().SetMouseButton(mouseButton, false);
+		if (m_imguiInitialized)
+		{
+			m_imguiBackend.OnMouseButtonUp(mouseButton);
+		}
 	}
 
 	void BaseSample::OnMouseMoved(float newX, float newY)
 	{
 		InputManager::GetInstance().SetMousePosition(newX, newY);
+		if (m_imguiInitialized)
+		{
+			m_imguiBackend.OnMouseMoved(newX, newY);
+		}
 	}
 }

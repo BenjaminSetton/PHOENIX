@@ -5,8 +5,6 @@
 
 #include "../../common/src/asset_manager.h"
 #include "../../common/src/base_sample.h"
-#include "../../common/src/backends/imgui_backend_phx.h"
-#include "../../common/src/backends/imgui_renderer_phx.h"
 #include "asset_loader.h"
 
 struct CameraData
@@ -90,12 +88,6 @@ protected:
 	void ShutdownSample() override;
 	void UpdateSample(float dt) override;
 
-	void OnKeyDown(PHX::KeyCode keycode) override;
-	void OnKeyUp(PHX::KeyCode keycode) override;
-	void OnMouseButtonDown(PHX::MouseButtonCode mouseButton) override;
-	void OnMouseButtonUp(PHX::MouseButtonCode mouseButton) override;
-	void OnMouseMoved(float newX, float newY) override;
-
 private:
 
 	void CreateAssetTextures();
@@ -106,9 +98,6 @@ private:
 	void BuildImGuiUI();
 
 private:
-
-	Common::ImGuiPhxBackend m_imguiBackend;
-	Common::ImGuiPhxRenderer m_imguiRenderer;
 
 	// Asset
 	Common::AssetHandle m_assetID;
