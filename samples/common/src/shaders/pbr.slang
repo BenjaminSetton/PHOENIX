@@ -42,6 +42,29 @@ float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
     return F0 + (maxF - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
 
+// Lambertian diffuse BRDF: kD * albedo / PI
+float3 DiffuseBRDF(float3 kD, float3 albedo)
+{
+    return kD * albedo / PI;
+}
+
+// Cook-Torrance specular BRDF: (D * G * F) / (4 * NdotV * NdotL)
+// NOTE - kS (the Fresnel term) is already folded in via F, so callers should
+// not multiply the result by kS again.
+float3 SpecularBRDF(float3 N, float3 V, float3 L, float3 F0, float roughness)
+{
+    float3 H = normalize(V + L);
+    float NdotV = max(dot(N, V), 0.0);
+    float NdotL = max(dot(N, L), 0.0);
+    float HdotV = max(dot(H, V), 0.0);
+
+    float  D = DistributionGGX(N, H, roughness);
+    float  G = GeometrySmith(N, V, L, roughness);
+    float3 F = FresnelSchlick(HdotV, F0);
+
+    return (D * G * F) / max(4.0 * NdotV * NdotL, EPSILON);
+}
+
 // GGX importance sampling for specular bounces
 // Returns a half-vector sampled from the GGX distribution
 float3 SampleGGX(float2 rand, float3 N, float roughness)

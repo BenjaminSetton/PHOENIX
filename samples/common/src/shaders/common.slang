@@ -2,6 +2,7 @@
 #define COMMON_SLANG
 
 static const float PI = 3.14159265359;
+static const float EPSILON = 0.000001;
 
 // Converts a color from sRGB to linear space
 float3 SrgbToLinear(float3 srgb)

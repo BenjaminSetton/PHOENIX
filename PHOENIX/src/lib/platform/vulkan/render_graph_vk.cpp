@@ -594,7 +594,7 @@ namespace PHX
 
 	void RenderPassVk::SetColorOutput(TextureHandle texture)
 	{
-		SetTextureOutput(texture, ATTACHMENT_LOAD_OP::CLEAR, ATTACHMENT_STORE_OP::STORE, {});
+		SetTextureOutput(texture, ATTACHMENT_LOAD_OP::IGNORE, ATTACHMENT_STORE_OP::STORE, {});
 	}
 
 	void RenderPassVk::SetDepthOutput(TextureHandle texture)
@@ -641,17 +641,7 @@ namespace PHX
 		m_outputResources.set(resourceIndex);
 	}
 
-	// NOTE: Ordering guarantee - passes that write the same texture execute in registration order.
-	// This is a guaranteed property of the render graph: BuildDependencyTree() only creates
-	// dependencies pointing to earlier-registered passes, and WAW hazards are included. So any two
-	// passes writing the same output are forced into submission order by the backward-only scan.
-	//
-	// LOAD-op dual registration: a LOAD_OP_LOAD attachment is a read-modify-write. The implicit
-	// load reads the attachment before the pass writes to it, so we register an INPUT usage in
-	// addition to the OUTPUT. This makes the read half visible to hazard detection (RAW against
-	// prior writers), barrier calculation, and visualization — without any LOAD special-casing
-	// in those systems. The OUTPUT usage is registered first so GetResourceUsageFromPass (which
-	// returns the first match) still returns OUTPUT for barrier/layout calculations.
+
 	void RenderPassVk::SetTextureOutput(TextureHandle texture, ATTACHMENT_LOAD_OP loadOp, ATTACHMENT_STORE_OP storeOp, ClearValues clearValue)
 	{
 		const ATTACHMENT_TYPE attachmentType = CalculateAttachmentType(texture);
@@ -667,8 +657,9 @@ namespace PHX
 		const ResourceIndex resourceIndex = m_registerResourceCallback(texture, RESOURCE_TYPE::TEXTURE, usage);
 		m_outputResources.set(resourceIndex);
 
-		// LOAD-op outputs also read from the attachment. Register an INPUT so the render graph
-		// handles the read half naturally (hazard detection, barriers, viz).
+		// LOAD-op outputs also read from the attachment (read-modify-write). Register an input so the render graph
+		// handles the read half naturally
+		// TODO - Clean this up
 		if (loadOp == ATTACHMENT_LOAD_OP::LOAD)
 		{
 			ResourceUsage inputUsage{};

@@ -104,6 +104,12 @@ namespace Common
 
 	void BaseSample::Shutdown()
 	{
+		STATUS_CODE res = PHX::Shutdown();
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			std::cout << "Failed to clean up PHX lib!" << std::endl;
+		}
+
 		ShutdownSample();
 
 		if (m_imguiInitialized)
@@ -115,12 +121,6 @@ namespace Common
 
 		delete m_pShaderManager;
 		m_pShaderManager = nullptr;
-
-		STATUS_CODE res = PHX::Shutdown();
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			std::cout << "Failed to clean up PHX lib!" << std::endl;
-		}
 	}
 
 	bool BaseSample::Update(float dt)

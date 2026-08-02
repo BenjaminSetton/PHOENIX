@@ -105,7 +105,13 @@ void TexturedModelSample::Draw()
 	renderPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
 		// Uniform collection updates
-		deviceContext.CopyDataToBuffer(m_transformBuffer, &m_transform, sizeof(TransformData));
+		// glm stores matrices column-major, but the Slang shaders use Slang's
+		// default row-major layout, so transpose before uploading.
+		TransformData rowMajorTransform;
+		rowMajorTransform.worldMat = glm::transpose(m_transform.worldMat);
+		rowMajorTransform.viewMat = glm::transpose(m_transform.viewMat);
+		rowMajorTransform.projMat = glm::transpose(m_transform.projMat);
+		deviceContext.CopyDataToBuffer(m_transformBuffer, &rowMajorTransform, sizeof(TransformData));
 		m_uniformCollection.QueueBufferUpdate(m_transformBuffer, 0, 0, 0);
 
 		for (u32 i = 0; i < m_assetTextures.size(); i++)
@@ -201,14 +207,14 @@ void TexturedModelSample::InitSample()
 
 	// SHADERS
 	ShaderHandle vertShader;
-	vertShader = m_pShaderManager->RegisterShader("../src/shaders/basic.vert", SHADER_STAGE::VERTEX, m_renderDevice);
+	vertShader = m_pShaderManager->RegisterShader("../src/shaders/basic.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!vertShader.IsValid())
 	{
 		return;
 	}
 
 	ShaderHandle fragShader;
-	fragShader = m_pShaderManager->RegisterShader("../src/shaders/basic.frag", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	fragShader = m_pShaderManager->RegisterShader("../src/shaders/basic.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!fragShader.IsValid())
 	{
 		return;
@@ -261,7 +267,7 @@ void TexturedModelSample::InitSample()
 	// TRANSFORMS + UNIFORM BUFFER
 	const float fov = 45.0f;
 	const float aspectRatio = static_cast<float>(m_window.GetCurrentWidth()) / m_window.GetCurrentHeight();
-	const float scale = 0.75f;
+	const float scale = 1.0f;
 	m_transform = InitializeTransform(m_pCamera, fov, aspectRatio, scale);
 
 	BufferCreateInfo transformUniformBufferCI{};

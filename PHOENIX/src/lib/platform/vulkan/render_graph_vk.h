@@ -70,7 +70,7 @@ namespace PHX
 
 		// Inputs
 		void SetTextureInput(TextureHandle texture) override;
-		void SetBufferInput(BufferHandle buffer) override; // Not sure if I want to keep this
+		void SetBufferInput(BufferHandle buffer) override;
 		void SetUniformInput(UniformCollectionHandle uniformCollection) override; // Not sure if I want to keep this
 		void SetAccelerationStructureInput(AccelerationStructureHandle accelerationStructure) override;
 
