@@ -39,6 +39,7 @@ namespace PHX
 		const char* GetDeviceName() const;
 		u32 GetFramesInFlight() const override;
 		bool IsRayTracingSupported() const override;
+		bool IsDrawIndirectCountSupported() const override;
 
 		// Allocations
 		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle) override;
@@ -115,6 +116,9 @@ namespace PHX
 		VkDeviceAddress GetBufferDeviceAddressKHR(const VkBufferDeviceAddressInfo* pInfo);
 		void CmdTraceRaysKHR(VkCommandBuffer commandBuffer, const VkStridedDeviceAddressRegionKHR* pRaygenShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pMissShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pHitShaderBindingTable, const VkStridedDeviceAddressRegionKHR* pCallableShaderBindingTable, u32 width, u32 height, u32 depth);
 
+		// Draw indirect count wrapper (VK_KHR_draw_indirect_count extension)
+		void CmdDrawIndexedIndirectCount(VkCommandBuffer commandBuffer, VkBuffer argsBuffer, VkDeviceSize argsOffset, VkBuffer countBuffer, VkDeviceSize countOffset, u32 maxDrawCount, u32 stride);
+
 		// Acceleration structure Vulkan wrappers around VK extension function pointers. 
 		// If ray tracing is unsupported, these result in no-ops
 		VkResult CreateAccelerationStructureKHR(const VkAccelerationStructureCreateInfoKHR* pCreateInfo, VkAccelerationStructureKHR* pAccelerationStructure);
@@ -150,6 +154,7 @@ namespace PHX
 
 		u32 m_framesInFlight;
 		bool m_rayTracingSupported;
+		bool m_drawIndirectCountSupported;
 
 		// Physical device cache
 		VkPhysicalDeviceProperties m_physicalDeviceProperties;
@@ -169,6 +174,9 @@ namespace PHX
 		PFN_vkGetAccelerationStructureBuildSizesKHR m_pfnGetAccelerationStructureBuildSizes;
 		PFN_vkGetAccelerationStructureDeviceAddressKHR m_pfnGetAccelerationStructureDeviceAddress;
 		PFN_vkCmdBuildAccelerationStructuresKHR m_pfnCmdBuildAccelerationStructures;
+
+		// Draw indirect count function pointer (VK_KHR_draw_indirect_count)
+		PFN_vkCmdDrawIndexedIndirectCount m_pfnCmdDrawIndexedIndirectCount;
 
 		// Descriptor pool
 		VkDescriptorPool m_descriptorPool;

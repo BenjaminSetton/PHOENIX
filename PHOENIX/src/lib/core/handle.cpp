@@ -9,11 +9,11 @@ namespace PHX
 {
 	static constexpr u32 INVALID_INDEX = U32_MAX;
 
-	Handle::Handle() : m_pOwner(nullptr), m_index(0), m_type(HANDLE_TYPE::INVALID)
+	Handle::Handle() : m_pOwner(nullptr), m_index(INVALID_INDEX), m_type(HANDLE_TYPE::INVALID)
 	{
 	}
 
-	Handle::Handle(HANDLE_TYPE type) : m_pOwner(nullptr), m_index(0), m_type(type)
+	Handle::Handle(HANDLE_TYPE type) : m_pOwner(nullptr), m_index(INVALID_INDEX), m_type(type)
 	{
 	}
 
@@ -84,12 +84,12 @@ namespace PHX
 
 	bool Handle::IsValid() const
 	{
-		return !IsSame(*this, INVALID_HANDLE);
+		return (m_pOwner != nullptr && m_index != INVALID_INDEX && m_type != HANDLE_TYPE::INVALID);
 	}
 
 	bool Handle::IsEmpty() const
 	{
-		return (m_pOwner == nullptr && m_index == 0 && m_type != HANDLE_TYPE::INVALID);
+		return (m_pOwner == nullptr && m_index == INVALID_INDEX && m_type != HANDLE_TYPE::INVALID);
 	}
 
 	u32 Handle::GetIndex() const

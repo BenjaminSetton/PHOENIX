@@ -53,7 +53,8 @@ namespace PHX
 		VK_KHR_SPIRV_1_4_EXTENSION_NAME
 	};
 
-	static bool SupportsAllExtensions(VkPhysicalDevice device, const std::vector<const char*>& extensions)
+	// Checks whether a specific single extension is supported by the physical device
+	static bool IsExtensionSupported(VkPhysicalDevice device, const char* extensionName)
 	{
 		u32 extensionCount = 0;
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
@@ -61,21 +62,27 @@ namespace PHX
 		std::vector<VkExtensionProperties> availableExtensions(extensionCount);
 		vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
 
-		// Must be std::string so comparisons in erase() below work correctly
-		std::set<std::string> requiredExtensions(extensions.begin(), extensions.end());
-
-		for (const auto& extension : availableExtensions)
+		for (const auto& ext : availableExtensions)
 		{
-			requiredExtensions.erase(extension.extensionName);
+			if (strcmp(ext.extensionName, extensionName) == 0)
+			{
+				return true;
+			}
 		}
 
-		return requiredExtensions.empty();
+		return false;
 	}
 
-	static bool CheckDeviceExtensionSupport(VkPhysicalDevice device)
+	static bool SupportsAllExtensions(VkPhysicalDevice device, const std::vector<const char*>& extensions)
 	{
-
-		return SupportsAllExtensions(device, deviceExtensions);
+		for (const char* extension : extensions)
+		{
+			if (!IsExtensionSupported(device, extension))
+			{
+				return false;
+			}
+		}
+		return true;
 	}
 
 	static bool CheckRayTracingExtensionSupport(VkPhysicalDevice device)
@@ -108,7 +115,7 @@ namespace PHX
 	static bool IsDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface)
 	{
 		QueueFamilyIndices indices = FindQueueFamilies(device, surface);
-		bool allExtensionsSupported = CheckDeviceExtensionSupport(device);
+		bool allExtensionsSupported = SupportsAllExtensions(device, deviceExtensions);
 		bool swapChainAdequate = false;
 		if (allExtensionsSupported)
 		{
@@ -132,9 +139,9 @@ namespace PHX
 
 	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
 		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_rayTracingPipelineProperties(), m_descriptorPool(VK_NULL_HANDLE),
-		m_rayTracingSupported(false), m_pfnCreateRayTracingPipelines(nullptr), m_pfnGetRayTracingShaderGroupHandles(nullptr), m_pfnGetBufferDeviceAddress(nullptr), m_pfnCmdTraceRays(nullptr),
+		m_rayTracingSupported(false), m_drawIndirectCountSupported(false), m_pfnCreateRayTracingPipelines(nullptr), m_pfnGetRayTracingShaderGroupHandles(nullptr), m_pfnGetBufferDeviceAddress(nullptr), m_pfnCmdTraceRays(nullptr),
 		m_pfnCreateAccelerationStructure(nullptr), m_pfnDestroyAccelerationStructure(nullptr), m_pfnGetAccelerationStructureBuildSizes(nullptr), m_pfnGetAccelerationStructureDeviceAddress(nullptr), 
-		m_pfnCmdBuildAccelerationStructures(nullptr), m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_renderGraphs(), m_accelerationStructures()
+		m_pfnCmdBuildAccelerationStructures(nullptr), m_pfnCmdDrawIndexedIndirectCount(nullptr), m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_renderGraphs(), m_accelerationStructures()
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
@@ -253,6 +260,11 @@ namespace PHX
 	bool RenderDeviceVk::IsRayTracingSupported() const
 	{
 		return m_rayTracingSupported;
+	}
+
+	bool RenderDeviceVk::IsDrawIndirectCountSupported() const
+	{
+		return m_drawIndirectCountSupported;
 	}
 
 	STATUS_CODE RenderDeviceVk::AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle)
@@ -731,8 +743,6 @@ namespace PHX
 				m_rayTracingSupported = CheckRayTracingExtensionSupport(device);
 				if (m_rayTracingSupported)
 				{
-					LogInfo("Ray tracing is supported on this device.");
-
 					m_rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
 					m_rayTracingPipelineProperties.pNext = nullptr;
 
@@ -740,10 +750,6 @@ namespace PHX
 					properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
 					properties2.pNext = &m_rayTracingPipelineProperties;
 					vkGetPhysicalDeviceProperties2(device, &properties2);
-				}
-				else
-				{
-					LogWarning("Ray tracing is not supported on this device.");
 				}
 				
 				m_physicalDevice = device;
@@ -821,11 +827,28 @@ namespace PHX
 		std::vector<const char*> enabledExtensions = deviceExtensions;
 		if (m_rayTracingSupported)
 		{
+			LogInfo("Ray tracing is supported on this device");
 			enabledExtensions.insert(enabledExtensions.end(), rayTracingExtensions.begin(), rayTracingExtensions.end());
 
 			bdaFeatures.bufferDeviceAddress = VK_TRUE;
 			asFeatures.accelerationStructure = VK_TRUE;
 			rtpFeatures.rayTracingPipeline = VK_TRUE;
+		}
+		else
+		{
+			LogWarning("Ray tracing is not supported on this device");
+		}
+
+		// Optionally enable VK_KHR_draw_indirect_count for GPU-driven indirect draws
+		m_drawIndirectCountSupported = IsExtensionSupported(physicalDevice, VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
+		if (m_drawIndirectCountSupported)
+		{
+			LogInfo("Draw indirect count is supported on this device");
+			enabledExtensions.push_back(VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
+		}
+		else
+		{
+			LogWarning("Draw indirect count is not supported on this device");
 		}
 
 		VkDeviceCreateInfo createInfo{};
@@ -842,6 +865,21 @@ namespace PHX
 		{
 			LogError("Failed to create the logical device! Got error: \"%s\"", string_VkResult(res));
 			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		// Load draw indirect count function pointer if the extension is enabled.
+		// On Vulkan 1.0/1.1, the function has the KHR suffix. On Vulkan 1.2+, it's promoted to core
+		if (m_drawIndirectCountSupported)
+		{
+			m_pfnCmdDrawIndexedIndirectCount = (PFN_vkCmdDrawIndexedIndirectCount)vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawIndexedIndirectCountKHR");
+			if (m_pfnCmdDrawIndexedIndirectCount == nullptr)
+			{
+				m_pfnCmdDrawIndexedIndirectCount = (PFN_vkCmdDrawIndexedIndirectCount)vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawIndexedIndirectCount");
+			}
+			if (m_pfnCmdDrawIndexedIndirectCount == nullptr)
+			{
+				LogWarning("VK_KHR_draw_indirect_count is supported but vkCmdDrawIndexedIndirectCount could not be loaded!");
+			}
 		}
 
 		// Get the queues from the logical device
@@ -1190,6 +1228,17 @@ namespace PHX
 		}
 
 		m_pfnCmdBuildAccelerationStructures(commandBuffer, infoCount, pInfos, ppBuildRangeInfos);
+	}
+
+	void RenderDeviceVk::CmdDrawIndexedIndirectCount(VkCommandBuffer commandBuffer, VkBuffer argsBuffer, VkDeviceSize argsOffset, VkBuffer countBuffer, VkDeviceSize countOffset, u32 maxDrawCount, u32 stride)
+	{
+		if (m_pfnCmdDrawIndexedIndirectCount == nullptr)
+		{
+			LogError("Failed to call vkCmdDrawIndexedIndirectCount. Function pointer is null!");
+			return;
+		}
+
+		m_pfnCmdDrawIndexedIndirectCount(commandBuffer, argsBuffer, argsOffset, countBuffer, countOffset, maxDrawCount, stride);
 	}
 
 	PipelineVk* RenderDeviceVk::CreateRayTracingPipeline(const RayTracingPipelineDesc& desc)

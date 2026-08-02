@@ -9,6 +9,7 @@
 #include "buffer_vk.h"
 #include "framebuffer_vk.h"
 #include "pipeline_vk.h"
+#include "render_device_vk.h"
 #include "swap_chain_vk.h"
 #include "uniform_vk.h"
 #include "utils/acceleration_structure_utils.h"
@@ -275,6 +276,71 @@ namespace PHX
 			m_pMetrics->drawCalls++;
 			m_pMetrics->indices += indexCount * instanceCount;
 			m_pMetrics->triangles += (indexCount * instanceCount) / 3;
+		}
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE DeviceContextVk::DrawIndexedIndirect(BufferHandle argsBuffer, u32 drawCount, u32 stride, u64 argsOffset)
+	{
+		BufferVk* argsBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(argsBuffer));
+		if (argsBufferVk == nullptr)
+		{
+			LogError("Failed to issue draw indexed indirect call. Args buffer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to issue draw indexed indirect call! Could not get or create command buffer");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		vkCmdDrawIndexedIndirect(cmdBuffer, argsBufferVk->GetBuffer(), argsBufferVk->GetOffset() + argsOffset, drawCount, stride);
+
+		if (m_pMetrics)
+		{
+			m_pMetrics->drawCalls += drawCount;
+		}
+
+		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE DeviceContextVk::DrawIndexedIndirectCount(BufferHandle argsBuffer, u64 argsOffset, BufferHandle countBuffer, u64 countOffset, u32 maxDrawCount, u32 stride)
+	{
+		BufferVk* argsBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(argsBuffer));
+		if (argsBufferVk == nullptr)
+		{
+			LogError("Failed to issue draw indexed indirect count call. Args buffer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		BufferVk* countBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(countBuffer));
+		if (countBufferVk == nullptr)
+		{
+			LogError("Failed to issue draw indexed indirect count call. Count buffer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
+		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to issue draw indexed indirect count call! Could not get or create command buffer");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		m_pRenderDevice->CmdDrawIndexedIndirectCount(
+			cmdBuffer,
+			argsBufferVk->GetBuffer(), argsBufferVk->GetOffset() + argsOffset,
+			countBufferVk->GetBuffer(), countBufferVk->GetOffset() + countOffset,
+			maxDrawCount, stride);
+
+		if (m_pMetrics)
+		{
+			m_pMetrics->drawCalls += maxDrawCount; // Approximate — actual count is GPU-determined
 		}
 
 		return STATUS_CODE::SUCCESS;

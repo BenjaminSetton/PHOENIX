@@ -50,9 +50,9 @@ namespace PHX
 		}
 	}
 
-	bool ShouldUseDirectMemoryMapping(BUFFER_USAGE usage)
+	bool ShouldUseDirectMemoryMapping(BufferUsageFlags usage)
 	{
 		// Only uniform buffers are directly mapped
-		return (usage == BUFFER_USAGE::UNIFORM_BUFFER);
+		return (usage & BUFFER_USAGE_FLAG_UNIFORM_BUFFER);
 	}
 }

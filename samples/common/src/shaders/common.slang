@@ -67,4 +67,47 @@ float3 SampleCosineWeightedHemisphere(float2 rand, float3 N)
     return normalize(tangent * localDir.x + bitangent * localDir.y + N * localDir.z);
 }
 
+// Extract 6 frustum planes from a view-projection matrix.
+// Plane normals point inward. Returns array of float4 (normal.xyz, distance).
+//
+// The matrix is used with the column-vector convention (clip = viewProj * pos, i.e.
+// mul(viewProj, pos) in the shaders), so the Gribb-Hartmann planes are built from the
+// ROWS of the matrix. In HLSL/Slang, viewProj[i] indexes the i-th row directly.
+// Depth range is assumed to be [-1, 1] (GLM default), so the near plane uses row3 + row2.
+void ExtractFrustumPlanes(float4x4 viewProj, out float4 planes[6])
+{
+    planes[0] = viewProj[3] + viewProj[0]; // left
+    planes[1] = viewProj[3] - viewProj[0]; // right
+    planes[2] = viewProj[3] + viewProj[1]; // bottom
+    planes[3] = viewProj[3] - viewProj[1]; // top
+    planes[4] = viewProj[3] + viewProj[2]; // near
+    planes[5] = viewProj[3] - viewProj[2]; // far
+
+    // Normalize
+    [unroll]
+    for (int i = 0; i < 6; i++)
+    {
+        float len = length(planes[i].xyz);
+        if (len > 0.0)
+        {
+            planes[i] /= len;
+        }
+    }
+}
+
+// Test if a sphere (center, radius) is inside or intersects the frustum.
+bool IsSphereInFrustum(float4 planes[6], float3 center, float radius)
+{
+    [unroll]
+    for (int i = 0; i < 6; i++)
+    {
+        float dist = dot(planes[i].xyz, center) + planes[i].w;
+        if (dist < -radius)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 #endif // COMMON_SLANG

@@ -11,7 +11,7 @@ namespace PHX
 	{
 		const char* pName		 = "";
 		u64 sizeBytes			 = 0;
-		BUFFER_USAGE bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER; // No clear default
+		BufferUsageFlags bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER; // No clear default
 	};
 
 	struct PHX_API BufferHandle : public Handle
@@ -19,7 +19,7 @@ namespace PHX
 		DECLARE_PHX_HANDLE(BufferHandle);
 
 		const char* GetName() const;
-		BUFFER_USAGE GetUsage() const;
+		BufferUsageFlags GetUsage() const;
 		u64 GetSize() const;
 	};
 }

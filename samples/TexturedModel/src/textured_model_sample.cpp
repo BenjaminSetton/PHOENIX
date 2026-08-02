@@ -104,9 +104,7 @@ void TexturedModelSample::Draw()
 	renderPass.SetPipelineDescription(m_pipelineDesc);
 	renderPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 	{
-		// Uniform collection updates
-		// glm stores matrices column-major, but the Slang shaders use Slang's
-		// default row-major layout, so transpose before uploading.
+		// Uniform collection updates (transpose to row-major)
 		TransformData rowMajorTransform;
 		rowMajorTransform.worldMat = glm::transpose(m_transform.worldMat);
 		rowMajorTransform.viewMat = glm::transpose(m_transform.viewMat);
@@ -163,7 +161,7 @@ void TexturedModelSample::InitSample()
 
 	BufferCreateInfo vBufferCI{};
 	vBufferCI.pName = "VertexBuffer";
-	vBufferCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
+	vBufferCI.bufferUsage = BUFFER_USAGE_FLAG_VERTEX_BUFFER;
 	vBufferCI.sizeBytes = vBufferSizeBytes;
 
 	phxRes = m_renderDevice.AllocateBuffer(vBufferCI, m_vertexBuffer);
@@ -174,7 +172,7 @@ void TexturedModelSample::InitSample()
 
 	BufferCreateInfo iBufferCI{};
 	iBufferCI.pName = "IndexBuffer";
-	iBufferCI.bufferUsage = BUFFER_USAGE::INDEX_BUFFER;
+	iBufferCI.bufferUsage = BUFFER_USAGE_FLAG_INDEX_BUFFER;
 	iBufferCI.sizeBytes = iBufferSizeBytes;
 
 	phxRes = m_renderDevice.AllocateBuffer(iBufferCI, m_indexBuffer);
@@ -271,14 +269,14 @@ void TexturedModelSample::InitSample()
 	m_transform = InitializeTransform(m_pCamera, fov, aspectRatio, scale);
 
 	BufferCreateInfo transformUniformBufferCI{};
-	transformUniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	transformUniformBufferCI.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 	transformUniformBufferCI.sizeBytes = sizeof(TransformData);
 
 	phxRes = m_renderDevice.AllocateBuffer(transformUniformBufferCI, m_transformBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	BufferCreateInfo cameraUniformBufferCI{};
-	cameraUniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	cameraUniformBufferCI.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 	cameraUniformBufferCI.sizeBytes = sizeof(CameraData);
 
 	phxRes = m_renderDevice.AllocateBuffer(cameraUniformBufferCI, m_cameraBuffer);

@@ -17,6 +17,10 @@ namespace PHX
 			LogError("Failed to create buffer. Buffer size is 0!");
 			return;
 		}
+
+		// Warn about mutually exclusive flags being set in createInfo
+		HasConflictingUsageFlags(createInfo.bufferUsage);
+
 		m_renderDevice = pRenderDevice;
 
 		BufferData newBuffer{};
@@ -33,7 +37,12 @@ namespace PHX
 			bufferCreateFlags |= (VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT);
 		}
 
-		const VkBufferUsageFlags bufferUsageFlags = BUFFER_UTILS::ConvertBufferUsage(createInfo.bufferUsage) | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		// TRANSFER_DST is added onto every buffer because CopyDataToBuffer uses a staging
+		// buffer + vkCmdCopyBuffer for all non-uniform buffers. This is harmless on buffers that 
+		// are never copied to (the driver ignores unused usage flags). TRANSFER_SRC is NOT added,
+		// no current API copies from a user buffer to elsewhere. If this is implemented in the future
+		// it will be handled then
+		const VkBufferUsageFlags bufferUsageFlags = BUFFER_UTILS::ConvertBufferUsageFlags(createInfo.bufferUsage) | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
 		newBuffer = CreateBuffer(m_renderDevice, createInfo.pName, createInfo.sizeBytes, bufferUsageFlags, bufferCreateFlags, 0, 0);
 		if (!newBuffer.isValid)
 		{
@@ -56,7 +65,7 @@ namespace PHX
 		return m_pName;
 	}
 
-	BUFFER_USAGE BufferVk::GetUsage() const
+	BufferUsageFlags BufferVk::GetUsage() const
 	{
 		return m_usage;
 	}
@@ -78,6 +87,7 @@ namespace PHX
 		// go through a staging buffer instead
 		if (!ShouldUseDirectMemoryMapping(m_usage))
 		{
+			LogWarning("Skipped copying to mapped buffer memory. Buffer is not mapped!");
 			return STATUS_CODE::SUCCESS;
 		}
 
@@ -98,7 +108,10 @@ namespace PHX
 
 	VkDeviceSize BufferVk::GetOffset() const
 	{
-		return m_buffer.allocInfo.offset;
+		// Each buffer is created with its own vmaCreateBuffer call, so the offset within
+		// the VkBuffer is always 0. The allocInfo.offset is the offset within the underlying
+		// VkDeviceMemory block, which is not relevant for Vulkan buffer commands.
+		return 0;
 	}
 
 	VkDeviceSize BufferVk::GetAllocatedSize() const
@@ -109,5 +122,31 @@ namespace PHX
 	bool BufferVk::IsValid() const
 	{
 		return m_buffer.isValid;
+	}
+
+	bool BufferVk::HasConflictingUsageFlags(BufferUsageFlags flags)
+	{
+		// Vertex and index buffers
+		if ((flags & BUFFER_USAGE_FLAG_VERTEX_BUFFER) && (flags & BUFFER_USAGE_FLAG_INDEX_BUFFER))
+		{
+			LogWarning("Buffer has both VERTEX_BUFFER and INDEX_BUFFER usage flags. These are mutually exclusive.");
+			return true;
+		}
+
+		// Uniform and storage buffers
+		if ((flags & BUFFER_USAGE_FLAG_UNIFORM_BUFFER) && (flags & BUFFER_USAGE_FLAG_STORAGE_BUFFER))
+		{
+			LogWarning("Buffer has both UNIFORM_BUFFER and STORAGE_BUFFER usage flags. These are mutually exclusive.");
+			return true;
+		}
+
+		// Acceleration structure storage is dedicated use
+		if ((flags & BUFFER_USAGE_FLAG_ACCELERATION_STRUCTURE) && (flags & ~BUFFER_USAGE_FLAG_ACCELERATION_STRUCTURE))
+		{
+			LogWarning("Buffer has ACCELERATION_STRUCTURE usage combined with other usage flags. AS storage buffers should be dedicated.");
+			return true;
+		}
+
+		return false;
 	}
 }

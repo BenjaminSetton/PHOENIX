@@ -208,7 +208,7 @@ void RayTracingSample::InitSample()
 	// BLIT VERTEX BUFFER
 	BufferCreateInfo blitVBufferCI{};
 	blitVBufferCI.pName = "BlitVertexBuffer";
-	blitVBufferCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
+	blitVBufferCI.bufferUsage = BUFFER_USAGE_FLAG_VERTEX_BUFFER;
 	blitVBufferCI.sizeBytes = sizeof(BlitVertex) * 3;
 	phxRes = m_renderDevice.AllocateBuffer(blitVBufferCI, m_blitVertexBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -492,14 +492,14 @@ void RayTracingSample::CreateSceneGeometryBuffers()
 
 	BufferCreateInfo vBufferCI{};
 	vBufferCI.pName = "SceneVertexBuffer";
-	vBufferCI.bufferUsage = BUFFER_USAGE::ACCELERATION_STRUCTURE_BUILD_INPUT;
+	vBufferCI.bufferUsage = BUFFER_USAGE_FLAG_ACCELERATION_STRUCTURE_BUILD_INPUT;
 	vBufferCI.sizeBytes = sizeof(AssetVertex) * m_pAsset->vertices.size();
 	phxRes = m_renderDevice.AllocateBuffer(vBufferCI, m_sceneVertexBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	BufferCreateInfo iBufferCI{};
 	iBufferCI.pName = "SceneIndexBuffer";
-	iBufferCI.bufferUsage = BUFFER_USAGE::ACCELERATION_STRUCTURE_BUILD_INPUT;
+	iBufferCI.bufferUsage = BUFFER_USAGE_FLAG_ACCELERATION_STRUCTURE_BUILD_INPUT;
 	iBufferCI.sizeBytes = sizeof(Common::AssetIndexType) * m_pAsset->indices.size();
 	phxRes = m_renderDevice.AllocateBuffer(iBufferCI, m_sceneIndexBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -524,7 +524,7 @@ void RayTracingSample::CreateSceneGeometryBuffers()
 
 	BufferCreateInfo gBufferCI{};
 	gBufferCI.pName = "GeometryInfoBuffer";
-	gBufferCI.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+	gBufferCI.bufferUsage = BUFFER_USAGE_FLAG_STORAGE_BUFFER;
 	gBufferCI.sizeBytes = sizeof(GeometryInfo) * geometryInfos.size();
 	phxRes = m_renderDevice.AllocateBuffer(gBufferCI, m_geometryInfoBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -556,14 +556,14 @@ void RayTracingSample::CreateSceneGeometryBuffers()
 
 	BufferCreateInfo matBufferCI{};
 	matBufferCI.pName = "MaterialBuffer";
-	matBufferCI.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+	matBufferCI.bufferUsage = BUFFER_USAGE_FLAG_STORAGE_BUFFER;
 	matBufferCI.sizeBytes = sizeof(MaterialInfo) * materialInfos.size();
 	phxRes = m_renderDevice.AllocateBuffer(matBufferCI, m_materialBuffer);
 	CHECK_PHX_RES(phxRes);
 
 	BufferCreateInfo camBufferCI{};
 	camBufferCI.pName = "CameraUniformBuffer";
-	camBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	camBufferCI.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 	camBufferCI.sizeBytes = sizeof(CameraData);
 	phxRes = m_renderDevice.AllocateBuffer(camBufferCI, m_cameraUniformBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -622,7 +622,7 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 	// Allocate instance buffer
 	BufferCreateInfo instanceBufferCI{};
 	instanceBufferCI.pName = "SceneInstanceBuffer";
-	instanceBufferCI.bufferUsage = BUFFER_USAGE::ACCELERATION_STRUCTURE_BUILD_INPUT;
+	instanceBufferCI.bufferUsage = BUFFER_USAGE_FLAG_ACCELERATION_STRUCTURE_BUILD_INPUT;
 	instanceBufferCI.sizeBytes = sizeof(PHX::AccelerationStructureInstance) * m_pAsset->meshes.size();
 	phxRes = m_renderDevice.AllocateBuffer(instanceBufferCI, m_instanceBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -1054,7 +1054,7 @@ void RayTracingSample::LoadEnvironmentMap()
 
 	BufferCreateInfo faceSizeBufferCI{};
 	faceSizeBufferCI.pName = "CubeFaceSizeBuffer";
-	faceSizeBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	faceSizeBufferCI.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 	faceSizeBufferCI.sizeBytes = sizeof(CubeFaceSizeUBO);
 	phxRes = m_renderDevice.AllocateBuffer(faceSizeBufferCI, m_cubeFaceSizeBuffer);
 	CHECK_PHX_RES(phxRes);

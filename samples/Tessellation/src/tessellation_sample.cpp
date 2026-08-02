@@ -202,7 +202,7 @@ void TessellationSample::InitSample()
 
 		BufferCreateInfo ci{};
 		ci.pName = "VertexBuffer";
-		ci.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_VERTEX_BUFFER;
 		ci.sizeBytes = MAX_VERTS * sizeof(GridVertex);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_vertexBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -212,7 +212,7 @@ void TessellationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "CameraBuffer";
-		ci.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;  
 		ci.sizeBytes = sizeof(CameraUBO);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_cameraBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -222,7 +222,7 @@ void TessellationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "TessParamsBuffer";
-		ci.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER; 
 		ci.sizeBytes = sizeof(TessParams);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_tessParamsBuffer);
 		CHECK_PHX_RES(phxRes);

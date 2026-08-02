@@ -1,4 +1,5 @@
 ﻿
+#include <algorithm>
 #include <cstdio>
 #include <sstream>
 #include <vulkan/vk_enum_string_helper.h>
@@ -101,26 +102,24 @@ namespace PHX
 				{
 				case RESOURCE_TYPE::BUFFER:
 				{
-					const BUFFER_USAGE bufferUsage = usage.bufferUsage;
-					switch (bufferUsage)
-					{
-					case BUFFER_USAGE::VERTEX_BUFFER:
+					const BufferUsageFlags bufferUsage = usage.bufferUsage;
+					if (bufferUsage & BUFFER_USAGE_FLAG_VERTEX_BUFFER)
 					{
 						flags |= VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT;
-						break;
 					}
-					case BUFFER_USAGE::INDEX_BUFFER:
+					if (bufferUsage & BUFFER_USAGE_FLAG_INDEX_BUFFER)
 					{
 						flags |= VK_ACCESS_INDEX_READ_BIT;
-						break;
 					}
-					case BUFFER_USAGE::STORAGE_BUFFER:
-					case BUFFER_USAGE::UNIFORM_BUFFER: // fall-thru
+					if (bufferUsage & (BUFFER_USAGE_FLAG_STORAGE_BUFFER | BUFFER_USAGE_FLAG_UNIFORM_BUFFER))
 					{
 						flags |= VK_ACCESS_SHADER_READ_BIT;
-						break;
 					}
-					case BUFFER_USAGE::ACCELERATION_STRUCTURE_BUILD_INPUT:
+					if (bufferUsage & BUFFER_USAGE_FLAG_INDIRECT_BUFFER)
+					{
+						flags |= VK_ACCESS_INDIRECT_COMMAND_READ_BIT;
+					}
+					if (bufferUsage & BUFFER_USAGE_FLAG_ACCELERATION_STRUCTURE_BUILD_INPUT)
 					{
 						if (passType == PASS_TYPE::AS_BUILD)
 						{
@@ -131,18 +130,6 @@ namespace PHX
 							// These buffers have STORAGE_BUFFER_BIT and may be read as storage buffers in shaders
 							flags |= VK_ACCESS_SHADER_READ_BIT;
 						}
-						break;
-					}
-					case BUFFER_USAGE::INDIRECT_BUFFER:
-					{
-						TODO(); // No idea what to do here
-						break;
-					}
-					default:
-					{
-						ASSERT_MSG("Failed to calculate resource access flag. Unknown buffer usage %u!", static_cast<u32>(bufferUsage));
-						break;
-					}
 					}
 					break;
 				}
@@ -279,13 +266,14 @@ namespace PHX
 		}
 
 		// Acceleration structure access flags are independent of the pass bind point
-		if (accessFlag == VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR)
+		if (accessFlag & (VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR | VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR))
 		{
-			return (passType == PASS_TYPE::RAY_TRACING) ? VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR : VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
-		}
-		if (accessFlag == VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR || accessFlag == VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR)
-		{
-			return VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+			VkPipelineStageFlags flags = VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+			if ((accessFlag & VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR) && passType == PASS_TYPE::RAY_TRACING)
+			{
+				flags |= VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+			}
+			return flags;
 		}
 
 		VkPipelineStageFlags flags = 0;
@@ -293,92 +281,87 @@ namespace PHX
 		{
 		case PASS_TYPE::GRAPHICS:
 		{
-			switch (accessFlag)
-			{
-			case VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT:
-			case VK_ACCESS_INDEX_READ_BIT:
+			if (accessFlag & (VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT | VK_ACCESS_INDEX_READ_BIT))
 			{
 				flags |= VK_PIPELINE_STAGE_VERTEX_INPUT_BIT;
-				break;
 			}
-			case VK_ACCESS_UNIFORM_READ_BIT:
+			if (accessFlag & VK_ACCESS_UNIFORM_READ_BIT)
 			{
 				// TODO - Determine proper shader stage
 				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
-				break;
 			}
-			case VK_ACCESS_INPUT_ATTACHMENT_READ_BIT:
+			if (accessFlag & VK_ACCESS_INPUT_ATTACHMENT_READ_BIT)
 			{
 				flags |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
-				break;
 			}
-			case VK_ACCESS_SHADER_READ_BIT:
-			case VK_ACCESS_SHADER_WRITE_BIT:
+			if (accessFlag & (VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT))
 			{
 				// TODO - Find a way to tell which shader is writing to the resource so we don't have to include
 				//        all the shader flags. For now, we're only covering vertex and fragment shaders, but realistically
 				//        this should cover more shader types like geometry, tesselation, etc but I don't want to
 				//        guard against all of them here
 				flags |= (VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
-				break;
 			}
-			case VK_ACCESS_COLOR_ATTACHMENT_READ_BIT:
+			if (accessFlag & VK_ACCESS_INDIRECT_COMMAND_READ_BIT)
 			{
-				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-				break;
+				flags |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
 			}
-			case VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT:
-			{
-				flags |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-				break;
-			}
-			case (VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT):
+			if (accessFlag & (VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT))
 			{
 				// LOAD_OP_LOAD on a color attachment produces a combined READ|WRITE access mask
+				// TODO - Might be missing a isSrcFlag check to OR VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT
 				flags |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-				break;
 			}
-			case VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT:
-			{
-				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
-				break;
-			}
-			case VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT:
-			{
-				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
-				break;
-			}
-			case (VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT):
+			if (accessFlag & (VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT))
 			{
 				// LOAD_OP_LOAD on a depth/stencil attachment produces a combined READ|WRITE access mask
 				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT : VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
-				break;
 			}
-			case VK_ACCESS_TRANSFER_READ_BIT:
-			case VK_ACCESS_TRANSFER_WRITE_BIT:
+			if (accessFlag & (VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT))
 			{
 				ASSERT_ALWAYS("Transfer access flags shouldn't be handled in graphics bind point");
-				break;
 			}
-			case VK_ACCESS_HOST_READ_BIT:
-			case VK_ACCESS_HOST_WRITE_BIT:
+			if (accessFlag & (VK_ACCESS_HOST_READ_BIT | VK_ACCESS_HOST_WRITE_BIT))
 			{
 				flags |= VK_PIPELINE_STAGE_HOST_BIT;
-				break;
 			}
-			case VK_ACCESS_MEMORY_READ_BIT:
-			case VK_ACCESS_MEMORY_WRITE_BIT:
+			if (accessFlag & (VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT))
 			{
 				// Not sure if these flags are good, assuming worst-case scenario
 				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
 			}
-			}
-
 			break;
 		}
 		case PASS_TYPE::COMPUTE:
 		{
-			flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			// Compute passes primarily use the compute shader stage, but may also
+			// read/write transfer or indirect command resources. Handle each access
+			// flag individually to avoid mapping incompatible flags to COMPUTE_SHADER.
+			if (accessFlag & (VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT))
+			{
+				flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			}
+			if (accessFlag & (VK_ACCESS_TRANSFER_READ_BIT | VK_ACCESS_TRANSFER_WRITE_BIT))
+			{
+				flags |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+			}
+			if (accessFlag & VK_ACCESS_INDIRECT_COMMAND_READ_BIT)
+			{
+				flags |= VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT;
+			}
+			if (accessFlag & (VK_ACCESS_HOST_READ_BIT | VK_ACCESS_HOST_WRITE_BIT))
+			{
+				flags |= VK_PIPELINE_STAGE_HOST_BIT;
+			}
+			if (accessFlag & (VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT))
+			{
+				flags |= (isSrcFlag ? VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT : VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+			}
+			// Fallback: if no specific flag matched, default to compute shader
+			if (flags == 0)
+			{
+				flags |= VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+			}
 			break;
 		}
 		case PASS_TYPE::TRANSFER:
@@ -1906,26 +1889,23 @@ namespace PHX
 		// A pass reachable via multiple dependency paths (diamond-shaped graphs) is visited
 		// more than once by the DFS, so de-duplicate here to avoid processing/executing it twice.
 		const u32 passCount = static_cast<u32>(m_registeredRenderPasses.Size());
-		std::vector<i32> alreadyActive(passCount, -1);
 
 		TraverseDependencyTree(finalPassIndex, [&](const RenderPassVk& currRenderPass)
 		{
 			const u32 passIndex = currRenderPass.m_index;
 			if (passIndex < passCount)
 			{
-				if (alreadyActive[passIndex] != -1)
+				auto lastPassIndexIter = std::find(out_activeRenderPasses.begin(), out_activeRenderPasses.end(), passIndex);
+				const bool alreadyActive = (lastPassIndexIter != out_activeRenderPasses.end());
+				if (alreadyActive)
 				{
 					// This means the same pass appeared as a dependency for an earlier pass
 					// in submission order. Therefore we must push it to the back of the list
-					i32 lastPassIndex = alreadyActive[passIndex];
-					auto lastPassIndexIter = out_activeRenderPasses.begin() + lastPassIndex;
 					std::rotate(lastPassIndexIter, lastPassIndexIter + 1, out_activeRenderPasses.end());
 				}
 				else
 				{
-					// Push back new active pass. In this case, alreadyActive holds the 
-					// index of where the pass was last inserted
-					alreadyActive[passIndex] = static_cast<i32>(out_activeRenderPasses.size());
+					// Push back new active pass
 					out_activeRenderPasses.push_back(passIndex);
 				}
 

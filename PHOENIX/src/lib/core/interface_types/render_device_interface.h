@@ -24,6 +24,7 @@ namespace PHX
 		virtual const char* GetDeviceName() const = 0;
 		virtual u32 GetFramesInFlight() const = 0;
 		virtual bool IsRayTracingSupported() const = 0;
+		virtual bool IsDrawIndirectCountSupported() const = 0;
 
 		// Allocations
 		virtual STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& handle) = 0;

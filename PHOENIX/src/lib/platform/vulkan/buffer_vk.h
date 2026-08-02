@@ -15,7 +15,7 @@ namespace PHX
 		~BufferVk();
 
 		const char* GetName() const override;
-		BUFFER_USAGE GetUsage() const override;
+		BufferUsageFlags GetUsage() const override;
 		u64 GetSize() const override;
 
 		// Copies to mapped data only. If the buffer's data is not directly mapped
@@ -29,11 +29,14 @@ namespace PHX
 
 	private:
 
+		// Detects mutually exclusive buffer usage flags
+		bool HasConflictingUsageFlags(BufferUsageFlags flags);
+
 		RenderDeviceVk* m_renderDevice;
 
 		const char* m_pName;
 		BufferData m_buffer;
-		BUFFER_USAGE m_usage;
+		BufferUsageFlags m_usage;
 
 	};
 }

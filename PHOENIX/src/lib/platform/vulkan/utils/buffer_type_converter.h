@@ -8,7 +8,7 @@ namespace PHX
 {
 	namespace BUFFER_UTILS
 	{
-		VkBufferUsageFlags ConvertBufferUsage(BUFFER_USAGE usage);
+		VkBufferUsageFlags ConvertBufferUsageFlags(BufferUsageFlags flags);
 		VkIndexType ConvertIndexType(INDEX_TYPE type);
 	}
 }

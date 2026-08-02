@@ -13,7 +13,7 @@ namespace PHX
 		virtual ~IBuffer() { }
 
 		virtual const char* GetName() const = 0;
-		virtual BUFFER_USAGE GetUsage() const = 0;
+		virtual BufferUsageFlags GetUsage() const = 0;
 		virtual u64 GetSize() const = 0;
 	};
 }

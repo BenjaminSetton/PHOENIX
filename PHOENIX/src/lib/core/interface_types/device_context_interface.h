@@ -25,6 +25,8 @@ namespace PHX
 		virtual STATUS_CODE Draw(u32 vertexCount) = 0;
 		virtual STATUS_CODE DrawIndexed(u32 indexCount, u32 firstIndex, u32 vertexOffset) = 0;
 		virtual STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex, u32 vertexOffset, u32 instanceOffset) = 0;
+		virtual STATUS_CODE DrawIndexedIndirect(BufferHandle argsBuffer, u32 drawCount, u32 stride, u64 argsOffset) = 0;
+		virtual STATUS_CODE DrawIndexedIndirectCount(BufferHandle argsBuffer, u64 argsOffset, BufferHandle countBuffer, u64 countOffset, u32 maxDrawCount, u32 stride) = 0;
 
 		virtual STATUS_CODE Dispatch(Vec3u dimensions) = 0;
 		virtual STATUS_CODE TraceRays(Vec3u dimensions) = 0;

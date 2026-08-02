@@ -47,6 +47,18 @@ namespace PHX
 		return false;
 	}
 
+	bool RenderDeviceHandle::IsDrawIndirectCountSupported() const
+	{
+		IRenderDevice* pDevice = HANDLE_UTILS::ResolveHandle(*this);
+		if (pDevice != nullptr)
+		{
+			return pDevice->IsDrawIndirectCountSupported();
+		}
+
+		ASSERT_ALWAYS("Failed to query draw indirect count support. Could not resolve render device handle!");
+		return false;
+	}
+
 	STATUS_CODE RenderDeviceHandle::AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& buffer)
 	{
 		IRenderDevice* pDevice = HANDLE_UTILS::ResolveHandle(*this);

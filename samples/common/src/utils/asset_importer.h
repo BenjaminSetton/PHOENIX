@@ -83,6 +83,22 @@ namespace Common
 		PHX::u32 materialIndex = 0;
 	};
 
+	// A single LOD level within a LOD group. Each level has its own vertex/index data
+	// and a screenRatio threshold (fraction of screen height the object must occupy
+	// to select this LOD level). Level 0 is the highest quality.
+	struct AssetDiskLodLevel
+	{
+		std::vector<AssetDiskVertex> vertices;
+		std::vector<AssetIndexType> indices;
+		float screenRatio = 1.0f;  // Screen-space ratio threshold for this LOD level
+	};
+
+	// A group of LOD levels for a single logical object. Level 0 is the highest detail.
+	struct AssetDiskLodGroup
+	{
+		std::vector<AssetDiskLodLevel> levels;
+	};
+
 	struct AssetDiskBone
 	{
 		std::string name;
@@ -132,6 +148,7 @@ namespace Common
 		std::vector<AssetDiskBone> bones;
 		std::vector<AssetDiskNode> nodes;
 		std::vector<AssetDiskAnimation> animations;
+		std::vector<AssetDiskLodGroup> lodGroups;  // Authored LOD groups (may be empty)
 	};
 
 	std::shared_ptr<AssetDisk> ImportAsset(std::filesystem::path filePath, bool importAnimations = false);

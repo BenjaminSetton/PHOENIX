@@ -120,7 +120,7 @@ void BasicModelSample::InitSample()
 
 	BufferCreateInfo vBufferCI{};
 	vBufferCI.pName = "VertexBuffer";
-	vBufferCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
+	vBufferCI.bufferUsage = BUFFER_USAGE_FLAG_VERTEX_BUFFER;
 	vBufferCI.sizeBytes = vBufferSizeBytes;
 	phxRes = m_renderDevice.AllocateBuffer(vBufferCI, m_vertexBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -130,7 +130,7 @@ void BasicModelSample::InitSample()
 
 	BufferCreateInfo iBufferCI{};
 	iBufferCI.pName = "IndexBuffer";
-	iBufferCI.bufferUsage = BUFFER_USAGE::INDEX_BUFFER;
+	iBufferCI.bufferUsage = BUFFER_USAGE_FLAG_INDEX_BUFFER;
 	iBufferCI.sizeBytes = iBufferSizeBytes;
 	phxRes = m_renderDevice.AllocateBuffer(iBufferCI, m_indexBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -202,7 +202,7 @@ void BasicModelSample::InitSample()
 	m_transform = InitializeTransform(initialCameraPos, fov, aspectRatio);
 
 	BufferCreateInfo uniformBufferCI{};
-	uniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	uniformBufferCI.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 	uniformBufferCI.sizeBytes = sizeof(TransformData);
 	phxRes = m_renderDevice.AllocateBuffer(uniformBufferCI, m_uniformBuffer);
 	CHECK_PHX_RES(phxRes);

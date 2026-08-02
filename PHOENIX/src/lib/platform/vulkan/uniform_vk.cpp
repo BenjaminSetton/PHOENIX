@@ -3,12 +3,13 @@
 
 #include "uniform_vk.h"
 
-#include "../../utils/logger.h"
-#include "../../utils/sanity.h"
 #include "acceleration_structure_vk.h"
 #include "buffer_vk.h"
+#include "core/handle/handle_utils.h"
 #include "render_device_vk.h"
 #include "texture_vk.h"
+#include "utils/logger.h"
+#include "utils/sanity.h"
 #include "utils/shader_type_converter.h"
 #include "utils/uniform_type_converter.h"
 
@@ -154,7 +155,7 @@ namespace PHX
 
 	STATUS_CODE UniformCollectionVk::QueueBufferUpdate(BufferHandle buffer, u32 set, u32 binding, u64 offset, u64 size)
 	{
-		BufferVk* bufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(buffer));
+		BufferVk* bufferVk = static_cast<BufferVk*>(HANDLE_UTILS::ResolveHandle(buffer));
 		if ((bufferVk == nullptr) || (bufferVk->GetBuffer() == nullptr))
 		{
 			LogError("Failed to queue buffer update. Buffer is null!");
@@ -163,22 +164,13 @@ namespace PHX
 
 		const bool isWholeBufferUpdate = (size == U64_MAX);
 
-		const BUFFER_USAGE usage = bufferVk->GetUsage();
-		switch (usage)
+		const BufferUsageFlags usage = bufferVk->GetUsage();
+
+		// Reject buffers that are not usable as uniform/storage descriptors
+		if (!(usage & (BUFFER_USAGE_FLAG_STORAGE_BUFFER | BUFFER_USAGE_FLAG_UNIFORM_BUFFER)))
 		{
-		case BUFFER_USAGE::VERTEX_BUFFER:
-		case BUFFER_USAGE::INDEX_BUFFER:
-		case BUFFER_USAGE::INDIRECT_BUFFER:
-		case BUFFER_USAGE::ACCELERATION_STRUCTURE:
-		{
-			LogError("Failed to queue buffer update. Buffer usage is invalid! Expected storage or uniform buffer, but found %u", static_cast<u32>(usage));
+			LogError("Failed to queue buffer update. Buffer usage is invalid! Expected storage or uniform buffer, but found %u", usage);
 			return STATUS_CODE::ERR_API;
-		}
-		default:
-		{
-			// Usage ok
-			break;
-		}
 		}
 
 		if (set >= m_descriptorSetLayouts.size())
@@ -227,26 +219,26 @@ namespace PHX
 		bufferInfo.offset = offset;
 		bufferInfo.range = range;
 
-		// TODO - Verify that all conversions are correct
-		VkDescriptorType descType = VK_DESCRIPTOR_TYPE_MAX_ENUM;
-		switch (usage)
+		UNIFORM_TYPE uniformType = GetUniformType(set, binding);
+		if (uniformType == UNIFORM_TYPE::MAX)
 		{
-		case BUFFER_USAGE::UNIFORM_BUFFER:
-		{
-			descType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-			break;
+			ASSERT_ALWAYS("Failed to queue buffer update. No uniform binding found!");
+			return STATUS_CODE::ERR_INTERNAL;
 		}
-		case BUFFER_USAGE::STORAGE_BUFFER:
-		case BUFFER_USAGE::ACCELERATION_STRUCTURE_BUILD_INPUT:
+		VkDescriptorType descType = UNIFORM_UTILS::ConvertUniformType(uniformType);
+
+		// Validate that the buffer's usage is compatible with the descriptor type
+		if (uniformType == UNIFORM_TYPE::UNIFORM_BUFFER && !(usage & BUFFER_USAGE_FLAG_UNIFORM_BUFFER))
 		{
-			descType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			break;
+			LogError("Buffer \"%s\" (usage=0x%x) bound to set %u binding %u as UNIFORM_BUFFER does not have UNIFORM_BUFFER usage flag!",
+				bufferVk->GetName(), usage, set, binding);
+			return STATUS_CODE::ERR_API;
 		}
-		default:
+		if (uniformType == UNIFORM_TYPE::STORAGE_BUFFER && !(usage & BUFFER_USAGE_FLAG_STORAGE_BUFFER))
 		{
-			ASSERT_ALWAYS("Failed to convert buffer usage to descritor type!");
-			break;
-		}
+			LogError("Buffer \"%s\" (usage=0x%x) bound to set %u binding %u as STORAGE_BUFFER does not have STORAGE_BUFFER usage flag!",
+				bufferVk->GetName(), usage, set, binding);
+			return STATUS_CODE::ERR_API;
 		}
 
 		VkWriteDescriptorSet writeDescSet{};

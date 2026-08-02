@@ -38,7 +38,7 @@ namespace PHX
 		ClearValues clearValue			= {};	// Used when loadOp == CLEAR
 
 		// Buffer only
-		BUFFER_USAGE bufferUsage		= BUFFER_USAGE::UNIFORM_BUFFER;
+		BufferUsageFlags bufferUsage	= BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 
 		u64 resourceID					= U64_MAX;	// ID of the physical resource this usage is linked to
 		u32 passIndex					= U32_MAX;	// Index of the render pass that uses this resource

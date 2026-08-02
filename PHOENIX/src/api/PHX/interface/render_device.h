@@ -28,6 +28,7 @@ namespace PHX
 		const char* GetDeviceName() const;
 		u32 GetFramesInFlight() const;
 		bool IsRayTracingSupported() const;
+		bool IsDrawIndirectCountSupported() const;
 
 		// Allocations
 		STATUS_CODE AllocateBuffer(const BufferCreateInfo& createInfo, BufferHandle& buffer);

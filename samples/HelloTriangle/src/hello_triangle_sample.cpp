@@ -96,7 +96,7 @@ void HelloTriangleSample::InitSample()
 	// VERTEX BUFFER
 	BufferCreateInfo vBufferCI{};
 	vBufferCI.pName = "VertexBuffer";
-	vBufferCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
+	vBufferCI.bufferUsage = BUFFER_USAGE_FLAG_VERTEX_BUFFER;
 	vBufferCI.sizeBytes = sizeof(SimpleVertexType) * VERTEX_COUNT;
 	phxRes = m_renderDevice.AllocateBuffer(vBufferCI, m_vertexBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -106,7 +106,7 @@ void HelloTriangleSample::InitSample()
 
 	BufferCreateInfo uniformBufferCI{};
 	uniformBufferCI.pName = "UniformBuffer";
-	uniformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	uniformBufferCI.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 	uniformBufferCI.sizeBytes = sizeof(TestUBO);
 	phxRes = m_renderDevice.AllocateBuffer(uniformBufferCI, m_uniformBuffer);
 	CHECK_PHX_RES(phxRes);

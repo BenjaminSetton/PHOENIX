@@ -36,6 +36,7 @@ namespace Common
 		std::ifstream file(path, std::ios::in);
 		if (!file.is_open())
 		{
+			std::cout << "Failed to read shader file \"" << path.c_str() << "\". Could not open file!" << std::endl;
 			return false;
 		}
 		std::stringstream buffer;

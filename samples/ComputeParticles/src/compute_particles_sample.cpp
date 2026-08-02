@@ -181,7 +181,7 @@ void ComputeParticlesSample::InitSample()
 	// PARTICLE BUFFER (one entry per particle)
 	BufferCreateInfo particlesBufferCI{};
 	particlesBufferCI.pName = "ParticlesBuffer";
-	particlesBufferCI.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+	particlesBufferCI.bufferUsage = BUFFER_USAGE_FLAG_STORAGE_BUFFER;
 	particlesBufferCI.sizeBytes = sizeof(ParticleData) * m_simData.totalParticles;
 	phxRes = m_renderDevice.AllocateBuffer(particlesBufferCI, m_particlesBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -189,7 +189,7 @@ void ComputeParticlesSample::InitSample()
 	// SIM DATA UNIFORM BUFFER
 	BufferCreateInfo simDataBufferCI{};
 	simDataBufferCI.pName = "SimDataBuffer";
-	simDataBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	simDataBufferCI.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 	simDataBufferCI.sizeBytes = sizeof(SimData);
 	phxRes = m_renderDevice.AllocateBuffer(simDataBufferCI, m_simDataBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -197,7 +197,7 @@ void ComputeParticlesSample::InitSample()
 	// CAMERA UNIFORM BUFFER
 	BufferCreateInfo cameraBufferCI{};
 	cameraBufferCI.pName = "CameraBuffer";
-	cameraBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+	cameraBufferCI.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 	cameraBufferCI.sizeBytes = sizeof(CameraData);
 	phxRes = m_renderDevice.AllocateBuffer(cameraBufferCI, m_cameraBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -230,7 +230,7 @@ void ComputeParticlesSample::InitSample()
 	// OUTLINE VERTEX BUFFER
 	BufferCreateInfo outlineVBCI{};
 	outlineVBCI.pName = "OutlineVertexBuffer";
-	outlineVBCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
+	outlineVBCI.bufferUsage = BUFFER_USAGE_FLAG_VERTEX_BUFFER;
 	outlineVBCI.sizeBytes = 8 * sizeof(glm::vec3);
 	phxRes = m_renderDevice.AllocateBuffer(outlineVBCI, m_outlineVertexBuffer);
 	CHECK_PHX_RES(phxRes);
@@ -238,7 +238,7 @@ void ComputeParticlesSample::InitSample()
 	// OUTLINE INDEX BUFFER
 	BufferCreateInfo outlineIBCI{};
 	outlineIBCI.pName = "OutlineIndexBuffer";
-	outlineIBCI.bufferUsage = BUFFER_USAGE::INDEX_BUFFER;
+	outlineIBCI.bufferUsage = BUFFER_USAGE_FLAG_INDEX_BUFFER;
 	outlineIBCI.sizeBytes = 24 * sizeof(uint32_t);
 	phxRes = m_renderDevice.AllocateBuffer(outlineIBCI, m_outlineIndexBuffer);
 	CHECK_PHX_RES(phxRes);

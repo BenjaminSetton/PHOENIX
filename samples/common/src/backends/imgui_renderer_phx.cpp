@@ -159,7 +159,7 @@ namespace Common
 		// Create transform uniform buffer (scale + translation = 2x Vec2f = 16 bytes)
 		BufferCreateInfo transformBufferCI{};
 		transformBufferCI.pName = "ImGuiTransformBuffer";
-		transformBufferCI.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+		transformBufferCI.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 		transformBufferCI.sizeBytes = sizeof(float) * 4;
 
 		res = renderDevice.AllocateBuffer(transformBufferCI, m_transformBuffer);
@@ -215,7 +215,7 @@ namespace Common
 	{
 		BufferCreateInfo vtxBufferCI{};
 		vtxBufferCI.pName = "ImGuiVertexBuffer";
-		vtxBufferCI.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
+		vtxBufferCI.bufferUsage = BUFFER_USAGE_FLAG_VERTEX_BUFFER;
 		vtxBufferCI.sizeBytes = INITIAL_VERTEX_BUFFER_SIZE;
 
 		STATUS_CODE res = renderDevice.AllocateBuffer(vtxBufferCI, m_vertexBuffer);
@@ -227,7 +227,7 @@ namespace Common
 
 		BufferCreateInfo idxBufferCI{};
 		idxBufferCI.pName = "ImGuiIndexBuffer";
-		idxBufferCI.bufferUsage = BUFFER_USAGE::INDEX_BUFFER;
+		idxBufferCI.bufferUsage = BUFFER_USAGE_FLAG_INDEX_BUFFER;
 		idxBufferCI.sizeBytes = INITIAL_INDEX_BUFFER_SIZE;
 
 		res = renderDevice.AllocateBuffer(idxBufferCI, m_indexBuffer);

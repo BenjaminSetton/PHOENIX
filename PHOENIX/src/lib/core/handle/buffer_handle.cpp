@@ -20,7 +20,7 @@ namespace PHX
 		return nullptr;
 	}
 
-	BUFFER_USAGE BufferHandle::GetUsage() const
+	BufferUsageFlags BufferHandle::GetUsage() const
 	{
 		IBuffer* pBuffer = HANDLE_UTILS::ResolveHandle(*this);
 		if (pBuffer != nullptr)
@@ -29,7 +29,7 @@ namespace PHX
 		}
 
 		// No other sensible default
-		return BUFFER_USAGE::UNIFORM_BUFFER;
+		return BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 	}
 
 	u64 BufferHandle::GetSize() const

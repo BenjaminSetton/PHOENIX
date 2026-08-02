@@ -16,7 +16,7 @@ namespace Common
 		uint32_t typeHash;        // Hash of type name — sanity check on load
 	};
 
-	static constexpr uint32_t ASSET_FORMAT_VERSION   = 4;
+	static constexpr uint32_t ASSET_FORMAT_VERSION   = 5;
 	static constexpr uint32_t TEXTURE_FORMAT_VERSION = 1;
 
 	static constexpr const char* ASSET_MAGIC   = "SMPA";

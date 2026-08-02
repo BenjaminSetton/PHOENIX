@@ -278,7 +278,7 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "VertexBuffer";
-		ci.bufferUsage = BUFFER_USAGE::VERTEX_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_VERTEX_BUFFER;
 		ci.sizeBytes = asset->vertices.size() * sizeof(AssetVertex);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_vertexBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -288,7 +288,7 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "IndexBuffer";
-		ci.bufferUsage = BUFFER_USAGE::INDEX_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_INDEX_BUFFER;
 		ci.sizeBytes = asset->indices.size() * sizeof(Common::AssetIndexType);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_indexBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -298,7 +298,7 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "SkeletonBuffer";
-		ci.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_STORAGE_BUFFER;
 		ci.sizeBytes = boneCount * sizeof(BoneInfoGPU);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_skeletonBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -348,7 +348,7 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "KeyframeBuffer";
-		ci.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_STORAGE_BUFFER;
 		ci.sizeBytes = keyframesGPU.size() * sizeof(KeyframeGPU);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_keyframeBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -359,7 +359,7 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "ChannelInfoBuffer";
-		ci.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_STORAGE_BUFFER;
 		ci.sizeBytes = channelsGPU.size() * sizeof(ChannelInfoGPU);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_channelInfoBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -370,7 +370,7 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "ClipInfoBuffer";
-		ci.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_STORAGE_BUFFER;
 		ci.sizeBytes = clipsGPU.size() * sizeof(ClipInfoGPU);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_clipInfoBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -380,7 +380,7 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "InstanceBuffer";
-		ci.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_STORAGE_BUFFER;
 		ci.sizeBytes = MAX_INSTANCES * sizeof(InstanceData);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_instanceBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -391,7 +391,7 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "NodeParentBuffer";
-		ci.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_STORAGE_BUFFER;
 		ci.sizeBytes = asset->skeleton.nodeParentIndices.size() * sizeof(int32_t);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_nodeParentBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -402,7 +402,7 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "NodeTransformBuffer";
-		ci.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_STORAGE_BUFFER;
 		ci.sizeBytes = asset->skeleton.nodeLocalTransforms.size() * sizeof(glm::mat4);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_nodeTransformBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -412,7 +412,7 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "BoneMatrixBuffer";
-		ci.bufferUsage = BUFFER_USAGE::STORAGE_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_STORAGE_BUFFER;
 		ci.sizeBytes = MAX_INSTANCES * boneCount * sizeof(glm::mat4);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_boneMatrixBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -422,7 +422,7 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "CameraBuffer";
-		ci.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 		ci.sizeBytes = sizeof(CameraData);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_cameraBuffer);
 		CHECK_PHX_RES(phxRes);
@@ -432,9 +432,10 @@ void InstancedAnimationSample::InitSample()
 	{
 		BufferCreateInfo ci{};
 		ci.pName = "AnimParamsBuffer";
-		ci.bufferUsage = BUFFER_USAGE::UNIFORM_BUFFER;
+		ci.bufferUsage = BUFFER_USAGE_FLAG_UNIFORM_BUFFER;
 		ci.sizeBytes = sizeof(AnimParamsData);
 		phxRes = m_renderDevice.AllocateBuffer(ci, m_animParamsBuffer);
+		CHECK_PHX_RES(phxRes);
 		CHECK_PHX_RES(phxRes);
 	}
 

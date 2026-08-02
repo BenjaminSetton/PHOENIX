@@ -118,6 +118,30 @@ namespace PHX
 		return STATUS_CODE::ERR_INTERNAL;
 	}
 
+	STATUS_CODE DeviceContextHandle::DrawIndexedIndirect(BufferHandle argsBuffer, u32 drawCount, u32 stride, u64 argsOffset)
+	{
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
+		if (pContext != nullptr)
+		{
+			return pContext->DrawIndexedIndirect(argsBuffer, drawCount, stride, argsOffset);
+		}
+
+		LogError("Failed to issue draw indexed indirect call. Could not resolve device context handle!");
+		return STATUS_CODE::ERR_INTERNAL;
+	}
+
+	STATUS_CODE DeviceContextHandle::DrawIndexedIndirectCount(BufferHandle argsBuffer, u64 argsOffset, BufferHandle countBuffer, u64 countOffset, u32 maxDrawCount, u32 stride)
+	{
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
+		if (pContext != nullptr)
+		{
+			return pContext->DrawIndexedIndirectCount(argsBuffer, argsOffset, countBuffer, countOffset, maxDrawCount, stride);
+		}
+
+		LogError("Failed to issue draw indexed indirect count call. Could not resolve device context handle!");
+		return STATUS_CODE::ERR_INTERNAL;
+	}
+
 	STATUS_CODE DeviceContextHandle::Dispatch(Vec3u dimensions)
 	{
 		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);

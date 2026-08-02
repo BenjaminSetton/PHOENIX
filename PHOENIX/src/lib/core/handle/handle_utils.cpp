@@ -4,9 +4,15 @@
 #include "core/handle/handle_utils.h"
 
 #define RESOLVE_HELPER(handle, HandleT) \
-	HandleOwner* pOwner = HandleAccessor::GetOwner(handle); \
-	if(pOwner != nullptr) return static_cast<HandleT*>(pOwner->ResolveHandle(handle)); \
-	else return nullptr;
+	const bool canResolve = handle.IsValid();                        \
+	if(canResolve) {                                                 \
+		HandleOwner* pOwner = HandleAccessor::GetOwner(handle);      \
+		return static_cast<HandleT*>(pOwner->ResolveHandle(handle)); \
+	}                                                                \
+	else {                                                           \
+		LogError("Failed to resolve handle. Handle is invalid!");    \
+		return nullptr;                                              \
+	}
 
 namespace PHX
 {

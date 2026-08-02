@@ -55,6 +55,8 @@ namespace PHX
 		STATUS_CODE Draw(u32 vertexCount) override;
 		STATUS_CODE DrawIndexed(u32 indexCount, u32 firstIndex, u32 vertexOffset) override;
 		STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex, u32 vertexOffset, u32 instanceOffset) override;
+		STATUS_CODE DrawIndexedIndirect(BufferHandle argsBuffer, u32 drawCount, u32 stride, u64 argsOffset) override;
+		STATUS_CODE DrawIndexedIndirectCount(BufferHandle argsBuffer, u64 argsOffset, BufferHandle countBuffer, u64 countOffset, u32 maxDrawCount, u32 stride) override;
 
 		STATUS_CODE Dispatch(Vec3u dimensions) override;
 		STATUS_CODE TraceRays(Vec3u dimensions) override;
@@ -127,16 +129,13 @@ namespace PHX
 	private:
 
 		// Returns the command buffer from the current (most recent) batch if it targets
-		// the same queue family. This is intra-frame reuse — consecutive commands on the
-		// same queue family share a single command buffer and submission.
+		// the same queue family. Command buffers returned by this function are reused
+		// per-frame only
 		bool TryReuseActiveCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer);
 
-		// Acquires a command buffer for a new batch: pulls from the cross-frame cache
-		// (already reset by vkResetCommandPool at frame start) or allocates a new one,
-		// begins recording, and registers a new submission batch.
+		// Acquires a command buffer for a new batch
 		STATUS_CODE AllocateCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer);
 
-		// Thin wrapper: tries intra-frame reuse first, then acquires a new command buffer.
 		STATUS_CODE GetOrCreateCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer);
 
 		void DeallocateCommandBuffers();
@@ -161,13 +160,10 @@ namespace PHX
 		RenderDeviceVk* m_pRenderDevice;
 
 		// Ordered list of submission batches recorded this frame, in render-graph dependency order.
-		// Each batch owns a single command buffer bound to one queue.
+		// Each batch owns a single command buffer bound to one queue
 		std::vector<SubmissionBatch> m_submissionBatches;
 
-		// Per-queue-type cache of command buffers that persist across frames. ResetCommandBuffers
-		// calls vkResetCommandPool (bulk-resetting all command buffers to initial state) then
-		// returns used command buffers here. AcquireCommandBuffer pulls from here without needing
-		// to call vkResetCommandBuffer individually, or allocates new ones if the cache is empty.
+		// Per-queue-type cache of command buffers that are reused across frames
 		std::array<std::vector<VkCommandBuffer>, static_cast<u32>(QUEUE_TYPE::COUNT)> m_commandBufferCache;
 
 		// Binary semaphores used to chain consecutive submission batches together (batch i signals

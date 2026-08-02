@@ -32,6 +32,13 @@ namespace PHX
 		STATUS_CODE DrawIndexed(u32 indexCount, u32 firstIndex = 0, u32 vertexOffset = 0);
 		STATUS_CODE DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex = 0, u32 vertexOffset = 0, u32 instanceOffset = 0);
 
+		// Indirect draws read VkDrawIndexedIndirectCommand records from argsBuffer.
+		// DrawIndexedIndirect issues a fixed CPU-known drawCount draws.
+		// DrawIndexedIndirectCount reads the actual draw count from countBuffer at draw time
+		// (requires drawIndirectCount capability — GPU-driven culling with no CPU readback).
+		STATUS_CODE DrawIndexedIndirect(BufferHandle argsBuffer, u32 drawCount, u32 stride, u64 argsOffset = 0);
+		STATUS_CODE DrawIndexedIndirectCount(BufferHandle argsBuffer, u64 argsOffset, BufferHandle countBuffer, u64 countOffset, u32 maxDrawCount, u32 stride);
+
 		STATUS_CODE Dispatch(Vec3u dimensions);
 		STATUS_CODE TraceRays(Vec3u dimensions);
 
