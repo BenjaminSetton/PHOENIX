@@ -6,8 +6,8 @@
 # ---------------------------------------------------------------------------
 $UtilsDir    = $PSScriptRoot
 $WorkspaceDir = Split-Path -Parent $UtilsDir
-$LibOut      = "$WorkspaceDir/PHOENIX/out"
-$SamplesOut  = "$WorkspaceDir/samples/common/out"
+$LibOut      = "$WorkspaceDir/src/PHOENIX/out"
+$SamplesOut  = "$WorkspaceDir/src/samples/common/out"
 
 # ---------------------------------------------------------------------------
 # Generator settings
@@ -41,7 +41,7 @@ function Build-GLFW {
     param([string]$Config = 'All')
 
     $configs = Resolve-Configs -Config $Config -IncludeSanitizer $true
-    $src = "$WorkspaceDir/PHOENIX/vendor/glfw"
+    $src = "$WorkspaceDir/src/PHOENIX/vendor/glfw"
     $out = "$LibOut/glfw"
 
     Log 'Building GLFW...'
@@ -78,11 +78,11 @@ function Build-Slang {
         $configs = @('Debug')
     }
 
-    $src = "$WorkspaceDir/PHOENIX/vendor/slang"
+    $src = "$WorkspaceDir/src/PHOENIX/vendor/slang"
     $out = "$LibOut/slang"
 
     Log 'Pulling Slang dependencies...'
-    & git -C "$WorkspaceDir/PHOENIX/vendor/slang" submodule update --init --recursive
+    & git -C "$WorkspaceDir/src/PHOENIX/vendor/slang" submodule update --init --recursive
     if ($LASTEXITCODE -ne 0) { throw 'Slang submodule init failed' }
 
     Log 'Configuring Slang...'
@@ -133,7 +133,7 @@ function Build-Assimp {
     param([string]$Config = 'All')
 
     $configs = Resolve-Configs -Config $Config -IncludeSanitizer $true
-    $src = "$WorkspaceDir/samples/common/vendor/assimp"
+    $src = "$WorkspaceDir/src/samples/common/vendor/assimp"
     $out = "$SamplesOut/assimp"
 
     Log 'Building assimp...'
@@ -177,7 +177,7 @@ function Build-GLM {
     param([string]$Config = 'All')
 
     $configs = Resolve-Configs -Config $Config -IncludeSanitizer $true
-    $src = "$WorkspaceDir/samples/common/vendor/glm"
+    $src = "$WorkspaceDir/src/samples/common/vendor/glm"
     $out = "$SamplesOut/glm"
 
     Log 'Building glm...'
@@ -207,7 +207,7 @@ function Generate-Project {
     Log "Generating solution for ($Generator)..."
     Push-Location $WorkspaceDir
     try {
-        & "$WorkspaceDir/PHOENIX/vendor/premake/premake5.exe" $Generator
+        & "$WorkspaceDir/src/PHOENIX/vendor/premake/premake5.exe" $Generator
         if ($LASTEXITCODE -ne 0) { throw 'Premake failed' }
     } finally {
         Pop-Location

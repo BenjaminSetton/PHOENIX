@@ -21,18 +21,23 @@ ConfigMap = {
 
 outputDir = "%{cfg.system}/%{configLower[cfg.buildcfg]}/%{cfg.architecture}"
 
+-- Sub-project root paths relative to the workspace directory
+PHX_ROOT     = "src/PHOENIX"
+SAMPLES_ROOT = "src/samples"
+BSL_ROOT     = "src/BSL"
+
 -- Core lib
-include "PHOENIX/premake5.lua"
+include(PHX_ROOT .. "/premake5.lua")
 
 -- Samples
 group "Samples"
-include "samples/HelloTriangle/premake5.lua"
-include "samples/RayTracing/premake5.lua"
-include "samples/BasicModel/premake5.lua"
-include "samples/TexturedModel/premake5.lua"
-include "samples/ComputeParticles/premake5.lua"
-include "samples/ImGui/premake5.lua"
-include "samples/InstancedAnimation/premake5.lua"
-include "samples/Tessellation/premake5.lua"
-include "samples/Lod/premake5.lua"
+include(SAMPLES_ROOT .. "/HelloTriangle/premake5.lua")
+include(SAMPLES_ROOT .. "/RayTracing/premake5.lua")
+include(SAMPLES_ROOT .. "/BasicModel/premake5.lua")
+include(SAMPLES_ROOT .. "/TexturedModel/premake5.lua")
+include(SAMPLES_ROOT .. "/ComputeParticles/premake5.lua")
+include(SAMPLES_ROOT .. "/ImGui/premake5.lua")
+include(SAMPLES_ROOT .. "/InstancedAnimation/premake5.lua")
+include(SAMPLES_ROOT .. "/Tessellation/premake5.lua")
+include(SAMPLES_ROOT .. "/Lod/premake5.lua")
 group ""

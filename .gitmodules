@@ -13,3 +13,6 @@
 [submodule "PHOENIX/vendor/slang"]
 	path = PHOENIX/vendor/slang
 	url = https://github.com/shader-slang/slang.git
+[submodule "src/BSL"]
+	path = src/BSL
+	url = https://github.com/BenjaminSetton/BSL.git
