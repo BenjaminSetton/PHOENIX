@@ -1,7 +1,7 @@
 #pragma once
 
+#include "BSL/integral_types.h"
 #include "PHX/types/geometry_data.h"
-#include "PHX/types/integral_types.h"
 
 namespace PHX
 {

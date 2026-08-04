@@ -2,6 +2,7 @@
 
 #include <imgui.h>
 
+#include <BSL/integral_types.h>
 #include <PHX/types/key_codes.h>
 #include <PHX/types/mouse_codes.h>
 
@@ -17,7 +18,7 @@ namespace Common
 		bool Init();
 		void Shutdown();
 
-		void NewFrame(float dt, PHX::u32 displayWidth, PHX::u32 displayHeight);
+		void NewFrame(float dt, u32 displayWidth, u32 displayHeight);
 
 		void OnKeyDown(PHX::KeyCode key);
 		void OnKeyUp(PHX::KeyCode key);

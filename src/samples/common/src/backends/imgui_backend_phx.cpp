@@ -1,7 +1,5 @@
 #include "imgui_backend_phx.h"
 
-#include <PHX/types/integral_types.h>
-
 using namespace PHX;
 
 namespace Common

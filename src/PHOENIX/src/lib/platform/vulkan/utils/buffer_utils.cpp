@@ -2,9 +2,11 @@
 
 #include <vulkan/vk_enum_string_helper.h>
 
+#include "BSL/logger.h"
 #include "buffer_utils.h"
 #include "platform/vulkan/utils/debug_utils.h"
-#include "utils/logger.h"
+
+using namespace BSL;
 
 namespace PHX
 {

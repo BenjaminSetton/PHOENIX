@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-#include <PHX/types/vec_types.h>
+#include <BSL/vec_types.h>
 #include <PHX/types/texture_desc.h>
 
 #include "utils/asset_importer.h"
@@ -14,8 +14,8 @@ namespace Common
 	struct TextureMipLevel
 	{
 		std::vector<uint8_t> data;
-		PHX::Vec2u size      = {};
-		PHX::u64 dataSize    = 0; // bytesPerPixel (uncompressed) or blockSize (compressed)
+		BSL::Vec2u size      = {};
+		u64 dataSize    = 0; // bytesPerPixel (uncompressed) or blockSize (compressed)
 	};
 
 	struct TextureType

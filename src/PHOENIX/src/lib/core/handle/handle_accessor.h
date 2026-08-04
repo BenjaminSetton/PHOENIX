@@ -1,6 +1,6 @@
 #pragma once
 
-#include "PHX/types/integral_types.h"
+#include "BSL/integral_types.h"
 #include "PHX/types/handle_types.h"
 #include "PHX/interface/handle.h"
 

@@ -35,7 +35,7 @@ namespace Common
 		void CreatePipelineDescription(PHX::SwapChainHandle swapChain);
 		void CreateBuffers(PHX::RenderDeviceHandle renderDevice);
 
-		bool EnsureBufferSize(PHX::u64 requiredVtxSize, PHX::u64 requiredIdxSize);
+		bool EnsureBufferSize(u64 requiredVtxSize, u64 requiredIdxSize);
 
 		PHX::TextureHandle               m_fontTexture;
 		PHX::ShaderHandle                m_vertShader;
@@ -49,8 +49,8 @@ namespace Common
 
 		PHX::BufferHandle                m_vertexBuffer;
 		PHX::BufferHandle                m_indexBuffer;
-		PHX::u64                         m_vertexBufferSize;
-		PHX::u64                         m_indexBufferSize;
+		u64                              m_vertexBufferSize;
+		u64                              m_indexBufferSize;
 
 		bool                             m_initialized;
 		bool                             m_fontAtlasUploaded;

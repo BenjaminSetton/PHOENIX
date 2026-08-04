@@ -1,7 +1,7 @@
 #pragma once
 
+#include "BSL/integral_types.h"
 #include "core/ref.h"
-#include "PHX/types/integral_types.h"
 #include "PHX/types/texture_desc.h"
 
 namespace PHX

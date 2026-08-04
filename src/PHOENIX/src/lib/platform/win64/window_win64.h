@@ -43,8 +43,8 @@ namespace PHX
 
 	private:
 
-		Vec2u m_size;
-		Vec2u m_position;
+		BSL::Vec2u m_size;
+		BSL::Vec2u m_position;
 		const char* m_title;
 		bool m_inFocus;
 		bool m_isMinimized;

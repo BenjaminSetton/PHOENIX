@@ -1,12 +1,12 @@
 #pragma once
 
+#include "BSL/integral_types.h"
+#include "BSL/vec_types.h"
 #include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/uniform.h"
 #include "PHX/types/clear_color.h"
-#include "PHX/types/integral_types.h"
 #include "PHX/types/status_code.h"
-#include "PHX/types/vec_types.h"
 
 #include "PHX/interface/handle.h"
 
@@ -25,8 +25,8 @@ namespace PHX
 		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType = INDEX_TYPE::U32);
 		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection);
 		STATUS_CODE FlushUniformUpdates(UniformCollectionHandle uniformCollection);
-		STATUS_CODE SetViewport(Vec2u size, Vec2u offset);
-		STATUS_CODE SetScissor(Vec2u size, Vec2u offset);
+		STATUS_CODE SetViewport(BSL::Vec2u size, BSL::Vec2u offset);
+		STATUS_CODE SetScissor(BSL::Vec2u size, BSL::Vec2u offset);
 
 		STATUS_CODE Draw(u32 vertexCount);
 		STATUS_CODE DrawIndexed(u32 indexCount, u32 firstIndex = 0, u32 vertexOffset = 0);
@@ -39,8 +39,8 @@ namespace PHX
 		STATUS_CODE DrawIndexedIndirect(BufferHandle argsBuffer, u32 drawCount, u32 stride, u64 argsOffset = 0);
 		STATUS_CODE DrawIndexedIndirectCount(BufferHandle argsBuffer, u64 argsOffset, BufferHandle countBuffer, u64 countOffset, u32 maxDrawCount, u32 stride);
 
-		STATUS_CODE Dispatch(Vec3u dimensions);
-		STATUS_CODE TraceRays(Vec3u dimensions);
+		STATUS_CODE Dispatch(BSL::Vec3u dimensions);
+		STATUS_CODE TraceRays(BSL::Vec3u dimensions);
 
 		STATUS_CODE BuildBottomLevelAccelerationStructure(AccelerationStructureHandle handle);
 		STATUS_CODE BuildTopLevelAccelerationStructure(AccelerationStructureHandle handle, BufferHandle instanceBuffer, u32 instanceCount);

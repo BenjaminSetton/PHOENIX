@@ -2,8 +2,8 @@
 
 #include <memory>
 
-#include "integral_types.h"
-#include "vec_types.h"
+#include "BSL/integral_types.h"
+#include "BSL/vec_types.h"
 #include "texture_desc.h"
 
 namespace PHX
@@ -92,7 +92,7 @@ namespace PHX
 		std::shared_ptr<ShaderIOData[]> outputs             = nullptr;
 		u32 outputCount                                     = 0;
 
-		Vec3u localSize                                     = Vec3u(0); // Only valid for compute shaders
+		BSL::Vec3u localSize                                = BSL::Vec3u(0); // Only valid for compute shaders
 	};
 
 	struct ShaderSourceData

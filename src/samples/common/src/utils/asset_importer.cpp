@@ -78,7 +78,7 @@ namespace Common
 		{ TEXTURE_TYPE::MAX					, "invalid"				},
 	};
 
-	AssetDiskTexture AllocateTexture(const char* pName, const void* const srcData, PHX::Vec2u size, PHX::u32 bytesPerPixel, TEXTURE_TYPE type)
+	AssetDiskTexture AllocateTexture(const char* pName, const void* const srcData, BSL::Vec2u size, u32 bytesPerPixel, TEXTURE_TYPE type)
 	{
 		AssetDiskTexture diskTex{};
 		if (srcData == nullptr)
@@ -362,7 +362,7 @@ namespace Common
 			else
 			{
 				// Uncompressed embedded texture - data is in ARGB8888 format, guaranteed to be 32-bit aligned
-				const PHX::Vec2u texSize = { static_cast<uint32_t>(importedTexture->mWidth), static_cast<uint32_t>(importedTexture->mHeight) };
+				const BSL::Vec2u texSize = { static_cast<uint32_t>(importedTexture->mWidth), static_cast<uint32_t>(importedTexture->mHeight) };
 				const uint64_t numBytes = static_cast<uint64_t>(texSize.GetX()) * texSize.GetY() * 4;
 				void* ownedData = new char[numBytes];
 				memcpy(ownedData, importedTexture->pcData, numBytes);

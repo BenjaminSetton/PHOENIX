@@ -1,7 +1,9 @@
 
 #include "shader_type_converter.h"
 
-#include "../../../utils/sanity.h"
+#include "BSL/sanity.h"
+
+using namespace BSL;
 
 namespace PHX
 {

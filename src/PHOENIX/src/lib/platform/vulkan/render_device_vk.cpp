@@ -21,6 +21,7 @@
 #include "render_device_vk.h"
 
 #include "acceleration_structure_vk.h"
+#include "BSL/logger.h"
 #include "buffer_vk.h"
 #include "core/handle/handle_utils.h"
 #include "core_vk.h"
@@ -31,8 +32,9 @@
 #include "swap_chain_vk.h"
 #include "texture_vk.h"
 #include "uniform_vk.h"
-#include "utils/logger.h"
 #include "utils/swap_chain_helpers.h"
+
+using namespace BSL;
 
 namespace PHX
 {

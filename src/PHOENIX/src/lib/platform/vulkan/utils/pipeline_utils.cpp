@@ -2,13 +2,15 @@
 #include "pipeline_utils.h"
 
 #include "../shader_vk.h"
+#include "BSL/logger.h"
+#include "BSL/sanity.h"
 #include "PHX/types/input_attribute.h"
 #include "pipeline_type_converter.h"
 #include "shader_type_converter.h"
 #include "texture_type_converter.h"
 #include "utils/texture_utils.h"
-#include "utils/logger.h"
-#include "utils/sanity.h"
+
+using namespace BSL;
 
 namespace PHX
 {

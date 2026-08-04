@@ -4,12 +4,14 @@
 
 #include "acceleration_structure_vk.h"
 
+#include "BSL/logger.h"
+#include "BSL/sanity.h"
 #include "buffer_vk.h"
 #include "render_device_vk.h"
 #include "platform/vulkan/utils/acceleration_structure_utils.h"
 #include "utils/buffer_utils.h"
-#include "utils/logger.h"
-#include "utils/sanity.h"
+
+using namespace BSL;
 
 namespace PHX
 {

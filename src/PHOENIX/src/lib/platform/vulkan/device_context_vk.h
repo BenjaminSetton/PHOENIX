@@ -49,8 +49,8 @@ namespace PHX
 		STATUS_CODE BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType) override;
 		STATUS_CODE BindUniformCollection(UniformCollectionHandle uniformCollection) override;
 		STATUS_CODE FlushUniformUpdates(UniformCollectionHandle uniformCollection) override;
-		STATUS_CODE SetViewport(Vec2u size, Vec2u offset) override;
-		STATUS_CODE SetScissor(Vec2u size, Vec2u offset) override;
+		STATUS_CODE SetViewport(BSL::Vec2u size, BSL::Vec2u offset) override;
+		STATUS_CODE SetScissor(BSL::Vec2u size, BSL::Vec2u offset) override;
 
 		STATUS_CODE Draw(u32 vertexCount) override;
 		STATUS_CODE DrawIndexed(u32 indexCount, u32 firstIndex, u32 vertexOffset) override;
@@ -58,8 +58,8 @@ namespace PHX
 		STATUS_CODE DrawIndexedIndirect(BufferHandle argsBuffer, u32 drawCount, u32 stride, u64 argsOffset) override;
 		STATUS_CODE DrawIndexedIndirectCount(BufferHandle argsBuffer, u64 argsOffset, BufferHandle countBuffer, u64 countOffset, u32 maxDrawCount, u32 stride) override;
 
-		STATUS_CODE Dispatch(Vec3u dimensions) override;
-		STATUS_CODE TraceRays(Vec3u dimensions) override;
+		STATUS_CODE Dispatch(BSL::Vec3u dimensions) override;
+		STATUS_CODE TraceRays(BSL::Vec3u dimensions) override;
 
 		STATUS_CODE BuildBottomLevelAccelerationStructure(AccelerationStructureHandle handle) override;
 		STATUS_CODE BuildTopLevelAccelerationStructure(AccelerationStructureHandle handle, BufferHandle instanceBuffer, u32 instanceCount) override;

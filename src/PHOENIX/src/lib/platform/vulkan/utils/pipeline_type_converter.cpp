@@ -1,7 +1,9 @@
 
 #include "pipeline_type_converter.h"
 
-#include "utils/logger.h"
+#include "BSL/logger.h"
+
+using namespace BSL;
 
 namespace PHX
 {

@@ -3,9 +3,11 @@
 
 #include "staging_buffer_pool.h"
 
+#include "BSL/logger.h"
+#include "BSL/math.h"
 #include "buffer_utils.h"
-#include "utils/logger.h"
-#include "utils/math.h"
+
+using namespace BSL;
 
 namespace PHX
 {

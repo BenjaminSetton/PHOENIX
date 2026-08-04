@@ -1,8 +1,10 @@
 
 #include "texture_type_converter.h"
 
-#include "utils/logger.h"
-#include "utils/sanity.h"
+#include "BSL/logger.h"
+#include "BSL/sanity.h"
+
+using namespace BSL;
 
 namespace PHX
 {

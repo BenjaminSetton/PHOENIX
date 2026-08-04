@@ -1,8 +1,10 @@
 
 #include "acceleration_structure_utils.h"
 
+#include "BSL/sanity.h"
 #include "platform/vulkan/render_device_vk.h"
-#include "utils/sanity.h"
+
+using namespace BSL;
 
 namespace PHX
 {

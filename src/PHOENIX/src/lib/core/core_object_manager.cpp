@@ -5,16 +5,18 @@
 #include "platform/vulkan/render_device_vk.h"
 #include "platform/vulkan/swap_chain_vk.h"
 
+#include "BSL/logger.h"
+#include "BSL/sanity.h"
 #include "core/global_settings.h"
 #include "core/handle/handle_utils.h"
-#include "utils/logger.h"
-#include "utils/sanity.h"
 
 #if defined(PHX_WINDOWS)
 #include "../platform/win64/window_win64.h"
 #else
 #error Invalid platform!
 #endif
+
+using namespace BSL;
 
 namespace PHX
 {
@@ -128,6 +130,16 @@ namespace PHX
 		}
 
 		return STATUS_CODE::ERR_API;
+	}
+
+	DeferredCaller& CoreObjectManager::GetDeferredCaller()
+	{
+		return m_deferredCaller;
+	}
+
+	const DeferredCaller& CoreObjectManager::GetDeferredCaller() const
+	{
+		return m_deferredCaller;
 	}
 
 	STATUS_CODE CoreObjectManager::Shutdown()

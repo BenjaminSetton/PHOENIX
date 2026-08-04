@@ -3,12 +3,14 @@
 
 #include "framebuffer_vk.h"
 
-#include "../../utils/logger.h"
-#include "../../utils/sanity.h"
+#include "BSL/logger.h"
+#include "BSL/sanity.h"
 #include "render_device_vk.h"
 #include "texture_vk.h"
 #include "utils/attachment_type_converter.h"
 #include "utils/debug_utils.h"
+
+using namespace BSL;
 
 namespace PHX
 {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BSL/integral_types.h"
 #include "core/handle/handle_owner.h"
 #include "core/ref.h"
 #include "PHX/interface/acceleration_structure.h"
@@ -10,7 +11,6 @@
 #include "PHX/interface/swap_chain.h"
 #include "PHX/interface/texture.h"
 #include "PHX/interface/uniform.h"
-#include "PHX/types/integral_types.h"
 
 namespace PHX
 {

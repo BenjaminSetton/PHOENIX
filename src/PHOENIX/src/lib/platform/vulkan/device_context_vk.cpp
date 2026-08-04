@@ -4,6 +4,8 @@
 
 #include "device_context_vk.h"
 
+#include "BSL/logger.h"
+#include "BSL/sanity.h"
 #include "PHX/types/acceleration_structure_desc.h"
 #include "acceleration_structure_vk.h"
 #include "buffer_vk.h"
@@ -16,8 +18,6 @@
 #include "utils/buffer_utils.h"
 #include "utils/buffer_type_converter.h"
 #include "utils/debug_utils.h"
-#include "utils/logger.h"
-#include "utils/sanity.h"
 #include "utils/texture_type_converter.h"
 #include "utils/pipeline_type_converter.h"
 
@@ -25,6 +25,8 @@ STATIC_ASSERT_MSG(sizeof(PHX::AccelerationStructureInstance) == sizeof(VkAcceler
 STATIC_ASSERT_MSG(alignof(PHX::AccelerationStructureInstance) == alignof(VkAccelerationStructureInstanceKHR), "PHX::AccelerationStructureInstance alignment mismatch with VkAccelerationStructureInstanceKHR");
 
 #define VERIFY_CMD_BUF_RETURN_ERR(cmdBuffer, msg) if(cmdBuffer == VK_NULL_HANDLE) { LogError(msg); return STATUS_CODE::ERR_INTERNAL; }
+
+using namespace BSL;
 
 namespace PHX
 {

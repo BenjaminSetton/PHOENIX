@@ -4,11 +4,11 @@
 #include <functional>
 #include <vector>
 
+#include "BSL/crc32.h"
 #include "core/handle/handle_list.h"
 #include "core/interface_types/render_graph_interface.h"
 #include "framebuffer_vk.h"
 #include "pipeline_vk.h"
-#include "utils/crc32.h"
 #include "utils/render_graph_utils.h"
 
 namespace PHX
@@ -93,7 +93,7 @@ namespace PHX
 
 	private:
 
-		CRC32 m_name;
+		BSL::CRC32 m_name;
 
 #if defined(PHX_DEBUG)
 		const char* m_debugName;
@@ -219,7 +219,7 @@ namespace PHX
 		u32 m_frameInFlightIndex;
 		u32 m_frameNumber;
 
-		const CRC32 m_reservedDepthBufferNameCRC;
+		const BSL::CRC32 m_reservedDepthBufferNameCRC;
 		u64 m_presentResID;
 		bool m_didExecuteWork;
 

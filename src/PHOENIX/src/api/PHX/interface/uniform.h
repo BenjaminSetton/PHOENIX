@@ -1,9 +1,9 @@
 #pragma once
 
+#include "BSL/integral_types.h"
 #include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/texture.h"
-#include "PHX/types/integral_types.h"
 #include "PHX/types/status_code.h"
 #include "PHX/types/uniform_desc.h"
 

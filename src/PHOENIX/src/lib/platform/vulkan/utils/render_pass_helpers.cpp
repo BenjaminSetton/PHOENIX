@@ -1,7 +1,7 @@
 
 #include "render_pass_helpers.h"
 
-#include "PHX/types/integral_types.h"
+#include "BSL/integral_types.h"
 #include "utils/cache_utils.h"
 
 namespace PHX

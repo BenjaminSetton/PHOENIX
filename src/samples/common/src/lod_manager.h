@@ -1,5 +1,6 @@
 #pragma once
 
+#include <BSL/vec_types.h>
 #include <PHX/phx.h>
 #include <glm.hpp>
 
@@ -42,9 +43,9 @@ namespace Common
 	// location 0: position (vec3), location 1: normal (vec3), location 2: uv (vec2)
 	struct LodMeshVertex
 	{
-		PHX::Vec3f position;
-		PHX::Vec3f normal;
-		PHX::Vec2f uv;
+		BSL::Vec3f position;
+		BSL::Vec3f normal;
+		BSL::Vec2f uv;
 	};
 
 	// Camera data for the cull shader

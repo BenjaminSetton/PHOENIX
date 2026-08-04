@@ -4,16 +4,18 @@
 
 #include "swap_chain_vk.h"
 
+#include "BSL/logger.h"
+#include "BSL/math.h"
+#include "BSL/sanity.h"
 #include "core/global_settings.h"
 #include "core_vk.h"
 #include "PHX/types/queue_type.h"
-#include "utils/logger.h"
-#include "utils/math.h"
 #include "utils/queue_utils.h"
-#include "utils/sanity.h"
 #include "utils/swap_chain_helpers.h"
 #include "utils/texture_type_converter.h"
 #include "utils/debug_utils.h"
+
+using namespace BSL;
 
 namespace PHX
 {

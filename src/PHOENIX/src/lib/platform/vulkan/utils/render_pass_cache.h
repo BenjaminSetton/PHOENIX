@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include <vulkan/vulkan.h>
 
-#include "PHX/types/integral_types.h"
+#include "BSL/integral_types.h"
 #include "render_pass_helpers.h"
 
 namespace PHX

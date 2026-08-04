@@ -149,7 +149,7 @@ namespace Common
 		shaderSrc.stage = stage;
 		shaderSrc.origin = GetOriginFromFilePath(filePath);
 		shaderSrc.includePaths = includePathPtrs.data();
-		shaderSrc.includePathCount = static_cast<PHX::u32>(includePathPtrs.size());
+		shaderSrc.includePathCount = static_cast<u32>(includePathPtrs.size());
 		shaderSrc.performReflection = true;
 
 		PHX::CompiledShader compiled;

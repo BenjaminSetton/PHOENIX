@@ -1,7 +1,7 @@
 #pragma once
 
 #include "PHX/types/buffer_desc.h"
-#include "PHX/types/integral_types.h"
+#include "BSL/integral_types.h"
 
 #include "PHX/interface/handle.h"
 

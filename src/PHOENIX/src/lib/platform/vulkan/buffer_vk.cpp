@@ -2,9 +2,11 @@
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vk_enum_string_helper.h>
 
+#include "BSL/logger.h"
 #include "buffer_vk.h"
-#include "utils/logger.h"
 #include "utils/buffer_type_converter.h"
+
+using namespace BSL;
 
 namespace PHX
 {

@@ -1,12 +1,12 @@
 #pragma once
 
+#include <BSL/vec_types.h>
 #include <filesystem>
 #include <functional>
 #include <glm.hpp>
 #include <gtc/quaternion.hpp>
 #include <memory.h>
 #include <PHX/types/texture_desc.h>
-#include <PHX/types/vec_types.h>
 #include <string>
 #include <vector>
 
@@ -38,30 +38,30 @@ namespace Common
 
 	struct AssetDiskVertex
 	{
-		PHX::Vec3f position;
-		PHX::Vec3f normal;
-		PHX::Vec3f tangent;
-		PHX::Vec3f bitangent;
-		PHX::Vec2f uv;
-		PHX::Vec4u boneIndices;   // up to 4 bone influences (indices into bone array)
-		PHX::Vec4f boneWeights;   // corresponding weights (sum to 1.0)
+		BSL::Vec3f position;
+		BSL::Vec3f normal;
+		BSL::Vec3f tangent;
+		BSL::Vec3f bitangent;
+		BSL::Vec2f uv;
+		BSL::Vec4u boneIndices;   // up to 4 bone influences (indices into bone array)
+		BSL::Vec4f boneWeights;   // corresponding weights (sum to 1.0)
 	};
 
 	struct AssetDiskMipLevel
 	{
 		void* pData = nullptr;
-		PHX::u32 width = 0;
-		PHX::u32 height = 0;
-		PHX::u64 dataSize = 0;
+		u32 width = 0;
+		u32 height = 0;
+		u64 dataSize = 0;
 	};
 
 	struct AssetDiskTexture
 	{
 		char* pName				= nullptr;
 		void* pData				= nullptr;      // Base mip data (for uncompressed textures, or mip 0 of compressed)
-		PHX::Vec2u size			= { 0, 0 };     // Base dimensions
+		BSL::Vec2u size			= { 0, 0 };     // Base dimensions
 		TEXTURE_TYPE type		= TEXTURE_TYPE::MAX;
-		PHX::u32 bytesPerPixel	= 0;            // 0 for compressed textures
+		u32 bytesPerPixel	= 0;            // 0 for compressed textures
 
 		// Compressed texture support
 		PHX::BASE_FORMAT format = PHX::BASE_FORMAT::INVALID; 	// Set for DDS/compressed textures
@@ -71,16 +71,16 @@ namespace Common
 	struct AssetDiskMaterial
 	{
 		std::string name;
-		std::vector<PHX::u32> textureIndices;
+		std::vector<u32> textureIndices;
 	};
 
 	struct AssetDiskMesh
 	{
-		PHX::u32 firstVertex = 0;
-		PHX::u32 vertexCount = 0;
-		PHX::u32 firstIndex = 0;
-		PHX::u32 indexCount = 0;
-		PHX::u32 materialIndex = 0;
+		u32 firstVertex = 0;
+		u32 vertexCount = 0;
+		u32 firstIndex = 0;
+		u32 indexCount = 0;
+		u32 materialIndex = 0;
 	};
 
 	// A single LOD level within a LOD group. Each level has its own vertex/index data

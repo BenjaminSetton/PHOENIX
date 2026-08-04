@@ -4,9 +4,11 @@
 #include "pipeline_cache.h"
 
 #include "../render_device_vk.h"
+#include "BSL/logger.h"
+#include "core/core_object_manager.h"
 #include "utils/cache_utils.h"
-#include "utils/deferred_caller.h"
-#include "utils/logger.h"
+
+using namespace BSL;
 
 namespace PHX
 {
@@ -359,7 +361,7 @@ namespace PHX
 	void PipelineCache::Flush()
 	{
 		u32 frameDelay = m_renderDevice->GetFramesInFlight() + 1;
-		DeferredCaller& deferredCaller = DeferredCaller::Get();
+		DeferredCaller& deferredCaller = CoreObjectManager::Get().GetDeferredCaller();
 
 		for (auto& it : m_graphicsPipelineCache)
 		{

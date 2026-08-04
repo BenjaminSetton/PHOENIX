@@ -1,9 +1,11 @@
 #include "debug_utils.h"
 
+#include "BSL/logger.h"
+#include "BSL/sanity.h"
 #include "core/global_settings.h"
-#include "utils/logger.h"
-#include "utils/sanity.h"
 #include <vulkan/vk_enum_string_helper.h>
+
+using namespace BSL;
 
 namespace PHX
 {

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "PHX/types/integral_types.h"
+#include "BSL/integral_types.h"
 
 #include "../render_device_vk.h"
 #include "buffer_utils.h"

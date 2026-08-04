@@ -366,7 +366,7 @@ namespace Common
 		uint32_t threadCount = m_instanceCount;
 		// Round up to multiple of 64 (workgroup size)
 		uint32_t workgroups = (threadCount + 63) / 64;
-		deviceContext.Dispatch(PHX::Vec3u(workgroups * 64, 1, 1));
+		deviceContext.Dispatch(BSL::Vec3u(workgroups * 64, 1, 1));
 	}
 
 	void LodManager::DrawIndirect(PHX::DeviceContextHandle deviceContext, bool useIndirectCount)

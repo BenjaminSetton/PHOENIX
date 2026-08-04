@@ -1,11 +1,13 @@
 
 #include <stdarg.h>
 
+#include "BSL/logger.h"
 #include "core/handle/handle_utils.h"
 #include "core/interface_types/window_interface.h"
 #include "PHX/interface/render_device.h"
 #include "PHX/interface/window.h"
-#include "utils/logger.h"
+
+using namespace BSL;
 
 namespace PHX
 {

@@ -20,7 +20,7 @@ namespace Common
 
 	}
 
-	void OnWindowResizedCallback(PHX::u32 newWidth, PHX::u32 newHeight)
+	void OnWindowResizedCallback(u32 newWidth, u32 newHeight)
 	{
 		(void)newWidth;
 		(void)newHeight;

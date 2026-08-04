@@ -1,17 +1,18 @@
 
+#include "BSL/logger.h"
 #include "core/handle/handle_accessor.h"
 #include "core/handle/handle_owner.h"
 #include "core/handle/handle_utils.h"
 
 #define RESOLVE_HELPER(handle, HandleT) \
-	const bool canResolve = handle.IsValid();                        \
-	if(canResolve) {                                                 \
-		HandleOwner* pOwner = HandleAccessor::GetOwner(handle);      \
-		return static_cast<HandleT*>(pOwner->ResolveHandle(handle)); \
-	}                                                                \
-	else {                                                           \
-		LogError("Failed to resolve handle. Handle is invalid!");    \
-		return nullptr;                                              \
+	const bool canResolve = handle.IsValid();                          \
+	if(canResolve) {                                                   \
+		HandleOwner* pOwner = HandleAccessor::GetOwner(handle);        \
+		return static_cast<HandleT*>(pOwner->ResolveHandle(handle));   \
+	}                                                                  \
+	else {                                                             \
+		BSL::LogError("Failed to resolve handle. Handle is invalid!"); \
+		return nullptr;                                                \
 	}
 
 namespace PHX

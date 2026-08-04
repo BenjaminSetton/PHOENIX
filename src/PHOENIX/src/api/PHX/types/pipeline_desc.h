@@ -1,12 +1,12 @@
 #pragma once
 
-#include "integral_types.h"
+#include "BSL/integral_types.h"
+#include "BSL/vec_types.h"
 #include "input_attribute.h"
 #include "PHX/interface/shader.h"
 #include "PHX/interface/uniform.h"
 #include "shader_desc.h"
 #include "texture_desc.h"
-#include "vec_types.h"
 
 namespace PHX
 {
@@ -164,13 +164,13 @@ namespace PHX
 		VERTEX_INPUT_RATE inputRate					= VERTEX_INPUT_RATE::PER_VERTEX;
 
 		// Viewport info
-		Vec2u viewportPos							= { 0, 0 };
-		Vec2u viewportSize							= { 0, 0 };
-		Vec2f viewportDepthRange					= { 0.0f, 1.0f };
+		BSL::Vec2u viewportPos						= { 0, 0 };
+		BSL::Vec2u viewportSize						= { 0, 0 };
+		BSL::Vec2f viewportDepthRange				= { 0.0f, 1.0f };
 
 		// Scissor info
-		Vec2u scissorOffset							= { 0, 0 };
-		Vec2u scissorExtent							= { 0, 0 };
+		BSL::Vec2u scissorOffset					= { 0, 0 };
+		BSL::Vec2u scissorExtent					= { 0, 0 };
 
 		// Rasterizer state
 		bool enableDepthClamp						= false;
@@ -197,7 +197,7 @@ namespace PHX
 		bool enableStencilTest						= false;
 		StencilOpState stencilFront					= { };
 		StencilOpState stencilBack					= { };
-		Vec2f depthBoundsRange						= { 0.0f, 1.0f };
+		BSL::Vec2f depthBoundsRange					= { 0.0f, 1.0f };
 
 		// Color blend state
 		BlendState blendState                       = { };

@@ -1,9 +1,11 @@
 
 #include "slang_type_converter.h"
 
+#include "BSL/sanity.h"
+#include "BSL/logger.h"
 #include "core/global_settings.h"
-#include "sanity.h"
-#include "logger.h"
+
+using namespace BSL;
 
 namespace PHX
 {

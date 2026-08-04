@@ -3,10 +3,10 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
+#include "BSL/integral_types.h"
+#include "BSL/vec_types.h"
 #include "PHX/types/input_attribute.h"
-#include "PHX/types/integral_types.h"
 #include "PHX/types/pipeline_desc.h"
-#include "PHX/types/vec_types.h"
 
 namespace PHX
 {
@@ -26,10 +26,10 @@ namespace PHX
 	VkPipelineMultisampleStateCreateInfo    PopulateMultisamplingStateCreateInfo(VkSampleCountFlagBits sampleCount, bool enableAlphaToCoverage, bool enableAlphaToOne);
 	VkPipelineColorBlendAttachmentState     PopulateColorBlendAttachment(VkBool32 blendEnable, VkBlendFactor srcColorFactor, VkBlendFactor dstColorFactor, VkBlendOp colorBlendOp, VkBlendFactor srcAlphaFactor, VkBlendFactor dstAlphaFactor, VkBlendOp alphaBlendOp, VkColorComponentFlags colorWriteMask);
 	VkPipelineColorBlendStateCreateInfo     PopulateColorBlendStateCreateInfo(const VkPipelineColorBlendAttachmentState* attachments, u32 blendAttachmentCount);
-	VkPipelineDepthStencilStateCreateInfo   PopulateDepthStencilStateCreateInfo(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp, VkBool32 depthBoundsTestEnable, Vec2f depthBoundsRange, VkBool32 stencilTestEnable, StencilOpState stencilFront, StencilOpState stencilBack);
+	VkPipelineDepthStencilStateCreateInfo   PopulateDepthStencilStateCreateInfo(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp, VkBool32 depthBoundsTestEnable, BSL::Vec2f depthBoundsRange, VkBool32 stencilTestEnable, StencilOpState stencilFront, StencilOpState stencilBack);
 	VkPipelineLayoutCreateInfo              PopulatePipelineLayoutCreateInfo(const VkDescriptorSetLayout* setLayouts, u32 setLayoutCount, const VkPushConstantRange* pushConstantRanges, u32 pushConstantCount);
 	VkPipelineShaderStageCreateInfo         PopulateShaderCreateInfo(const ShaderVk* pShader);
-	VkViewport                              PopulateViewportInfo(Vec2u viewportSize, Vec2f depthRange);
-	VkRect2D                                PopulateScissorInfo(Vec2u scissorOffset, Vec2u scissorExtent);
+	VkViewport                              PopulateViewportInfo(BSL::Vec2u viewportSize, BSL::Vec2f depthRange);
+	VkRect2D                                PopulateScissorInfo(BSL::Vec2u scissorOffset, BSL::Vec2u scissorExtent);
 
 }

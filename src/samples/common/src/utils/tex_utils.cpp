@@ -162,7 +162,7 @@ namespace Common
 		return static_cast<uint64_t>(blocksX) * blocksY * blockSize;
 	}
 
-	AssetDiskTexture AllocateTexture(const char* pName, void* ownedData, PHX::Vec2u size, PHX::u32 bytesPerPixel, TEXTURE_TYPE type)
+	AssetDiskTexture AllocateTexture(const char* pName, void* ownedData, BSL::Vec2u size, u32 bytesPerPixel, TEXTURE_TYPE type)
 	{
 		AssetDiskTexture diskTex{};
 		if (ownedData == nullptr)

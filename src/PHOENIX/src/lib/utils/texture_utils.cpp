@@ -4,7 +4,9 @@
 
 #include "texture_utils.h"
 
-#include "utils/logger.h"
+#include "BSL/logger.h"
+
+using namespace BSL;
 
 namespace PHX
 {

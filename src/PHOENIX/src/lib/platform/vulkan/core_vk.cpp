@@ -5,10 +5,10 @@
 
 #include "core_vk.h"
 
+#include "BSL/logger.h"
+#include "BSL/sanity.h"
 #include "core/global_settings.h"
 #include "core/handle/handle_utils.h"
-#include "utils/logger.h"
-#include "utils/sanity.h"
 
 #if defined(PHX_WINDOWS)
 #undef APIENTRY // Fix for "APIENTRY macro redefinition" warning. Windows.h defines this unconditionally, and glfw3.h defines it too
@@ -18,6 +18,8 @@
 #else
 #error Platform is not supported!
 #endif
+
+using namespace BSL;
 
 namespace PHX
 {

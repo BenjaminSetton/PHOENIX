@@ -1,8 +1,10 @@
 
 #include "shader_vk.h"
 
-#include "../../utils/logger.h"
+#include "BSL/logger.h"
 #include "render_device_vk.h"
+
+using namespace BSL;
 
 namespace PHX
 {

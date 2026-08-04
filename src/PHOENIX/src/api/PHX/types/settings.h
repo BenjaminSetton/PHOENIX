@@ -2,7 +2,7 @@
 
 #include <functional>
 
-#include "PHX/types/integral_types.h"
+#include "BSL/integral_types.h"
 #include "PHX/types/key_codes.h"
 #include "PHX/types/mouse_codes.h"
 

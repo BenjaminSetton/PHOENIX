@@ -2,10 +2,8 @@
 
 #include <vector>
 
-#include "PHX/types/integral_types.h"
-
-#include "utils/logger.h"
-#include "utils/sanity.h"
+#include "BSL/integral_types.h"
+#include "BSL/sanity.h"
 
 namespace PHX
 {

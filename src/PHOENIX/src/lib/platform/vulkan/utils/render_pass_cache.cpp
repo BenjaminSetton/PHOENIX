@@ -3,11 +3,13 @@
 
 #include "render_pass_cache.h"
 
-#include "utils/logger.h"
 #include "../render_device_vk.h"
 #include "../texture_vk.h"
+#include "BSL/logger.h"
 #include "texture_type_converter.h"
 #include "debug_utils.h"
+
+using namespace BSL;
 
 namespace PHX
 {

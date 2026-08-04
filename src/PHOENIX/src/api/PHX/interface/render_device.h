@@ -1,5 +1,6 @@
 #pragma once
 
+#include "BSL/integral_types.h"
 #include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/interface/render_graph.h"
@@ -7,7 +8,6 @@
 #include "PHX/interface/texture.h"
 #include "PHX/interface/uniform.h"
 #include "PHX/interface/window.h"
-#include "PHX/types/integral_types.h"
 #include "PHX/types/status_code.h"
 
 namespace PHX

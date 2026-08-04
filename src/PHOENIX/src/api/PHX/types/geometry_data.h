@@ -1,9 +1,8 @@
 #pragma once
 
+#include "BSL/integral_types.h"
 #include "PHX/interface/buffer.h"
 #include "PHX/types/buffer_desc.h"
-#include "PHX/types/integral_types.h"
-#include "PHX/types/vec_types.h"
 
 namespace PHX
 {

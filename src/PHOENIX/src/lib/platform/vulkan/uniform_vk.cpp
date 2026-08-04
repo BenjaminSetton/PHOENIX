@@ -4,14 +4,16 @@
 #include "uniform_vk.h"
 
 #include "acceleration_structure_vk.h"
+#include "BSL/logger.h"
+#include "BSL/sanity.h"
 #include "buffer_vk.h"
 #include "core/handle/handle_utils.h"
 #include "render_device_vk.h"
 #include "texture_vk.h"
-#include "utils/logger.h"
-#include "utils/sanity.h"
 #include "utils/shader_type_converter.h"
 #include "utils/uniform_type_converter.h"
+
+using namespace BSL;
 
 namespace PHX
 {

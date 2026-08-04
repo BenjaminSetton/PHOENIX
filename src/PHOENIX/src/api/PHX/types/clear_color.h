@@ -1,13 +1,13 @@
 #pragma once
 
-#include "integral_types.h"
-#include "vec_types.h"
+#include "BSL/integral_types.h"
+#include "BSL/vec_types.h"
 
 namespace PHX
 {
 	struct ClearColor
 	{
-		Vec4f color = { 0.0f, 0.0f, 0.0f, 1.0f };
+		BSL::Vec4f color = { 0.0f, 0.0f, 0.0f, 1.0f };
 	};
 
 	struct ClearDepthStencil

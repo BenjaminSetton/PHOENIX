@@ -3,12 +3,12 @@
 #include <memory>
 #include <vector>
 
+#include "BSL/deferred_caller.h"
 #include "core/handle/handle_list.h"
 #include "core/handle/handle_owner.h"
 #include "PHX/interface/render_device.h"
 #include "PHX/interface/swap_chain.h"
 #include "PHX/interface/window.h"
-#include "PHX/types/integral_types.h"
 #include "PHX/types/status_code.h"
 
 namespace PHX
@@ -35,11 +35,16 @@ namespace PHX
 		STATUS_CODE CreateWindow(const WindowCreateInfo& createInfo, WindowHandle& window);
 		STATUS_CODE CreateRenderDevice(const RenderDeviceCreateInfo& createInfo, RenderDeviceHandle& renderDevice);
 
+		BSL::DeferredCaller& GetDeferredCaller();
+		const BSL::DeferredCaller& GetDeferredCaller() const;
+
 		// Waits for GPU to be idle so resources can be cleaned up properly
 		STATUS_CODE Shutdown();
 
 	private:
 		HandleList<IWindow> m_windows;
 		HandleList<IRenderDevice> m_renderDevices;
+
+		BSL::DeferredCaller m_deferredCaller;
 	};
 }

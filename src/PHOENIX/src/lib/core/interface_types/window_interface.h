@@ -2,8 +2,8 @@
 
 #include <stdarg.h> // va_list
 
+#include "BSL/integral_types.h"
 #include "core/ref.h"
-#include "PHX/types/integral_types.h"
 
 namespace PHX
 {

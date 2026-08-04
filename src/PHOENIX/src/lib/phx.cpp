@@ -6,13 +6,15 @@
 
 #include "PHX/phx.h"
 
+#include "BSL/crc32.h"
+#include "BSL/deferred_caller.h"
+#include "BSL/logger.h"
+#include "BSL/sanity.h"
 #include "core/core_object_manager.h"
 #include "core/global_settings.h"
-#include "utils/crc32.h"
-#include "utils/deferred_caller.h"
 #include "utils/slang_type_converter.h"
-#include "utils/logger.h"
-#include "utils/sanity.h"
+
+using namespace BSL;
 
 namespace PHX
 {
@@ -133,9 +135,6 @@ namespace PHX
 		// Only this function should ever set the settings!
 		GlobalSettings::Get().SetSettings(initSettings);
 
-		// Initialize CRC32 table
-		InitCRC32();
-
 		// Initialize core graphics objects
 		STATUS_CODE res = CoreObjectManager::Get().CreateCoreObjects(window);
 		if (res != STATUS_CODE::SUCCESS)
@@ -150,14 +149,18 @@ namespace PHX
 	{
 		UNUSED(deltaTime);
 
-		DeferredCaller::Get().Update();
+		DeferredCaller& deferredCaller = CoreObjectManager::Get().GetDeferredCaller();
+		deferredCaller.Update();
+
 		return STATUS_CODE::SUCCESS;
 	}
 
 	STATUS_CODE Shutdown()
 	{
+		DeferredCaller& deferredCaller = CoreObjectManager::Get().GetDeferredCaller();
+		deferredCaller.Flush();
+
 		CoreObjectManager::Get().Shutdown();
-		DeferredCaller::Get().Flush();
 		return STATUS_CODE::SUCCESS;
 	}
 

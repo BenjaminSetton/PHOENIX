@@ -7,6 +7,10 @@
 #include "render_graph_vk.h"
 
 #include "acceleration_structure_vk.h"
+#include "BSL/file_io.h"
+#include "BSL/logger.h"
+#include "BSL/math.h"
+#include "BSL/sanity.h"
 #include "buffer_vk.h"
 #include "core/handle/handle_accessor.h"
 #include "core/handle/handle_utils.h"
@@ -17,15 +21,13 @@
 #include "texture_vk.h"
 #include "utils/attachment_type_converter.h"
 #include "utils/cache_utils.h"
-#include "utils/file_io.h"
-#include "utils/logger.h"
-#include "utils/math.h"
 #include "utils/render_graph_type_converter.h"
-#include "utils/sanity.h"
 
 // Render graph inspired from:
 // https://poniesandlight.co.uk/reflect/island_rendergraph_1/
 //
+
+using namespace BSL;
 
 namespace PHX
 {

@@ -66,7 +66,7 @@ namespace Common
 			uint32_t width  = ReadTrivial<uint32_t>(is);
 			uint32_t height = ReadTrivial<uint32_t>(is);
 			mip.size = { width, height };
-			mip.dataSize = ReadTrivial<PHX::u64>(is);
+			mip.dataSize = ReadTrivial<u64>(is);
 
 			uint64_t dataSize = ReadTrivial<uint64_t>(is);
 			mip.data.resize(dataSize);
@@ -103,7 +103,7 @@ namespace Common
 			// Uncompressed texture — single mip level from flat data
 			TextureMipLevel mip{};
 			mip.size = diskTex.size;
-			mip.dataSize = static_cast<PHX::u64>(diskTex.size.GetX()) * diskTex.size.GetY() * diskTex.bytesPerPixel;
+			mip.dataSize = static_cast<u64>(diskTex.size.GetX()) * diskTex.size.GetY() * diskTex.bytesPerPixel;
 
 			const uint8_t* pSrc = static_cast<const uint8_t*>(diskTex.pData);
 			mip.data.assign(pSrc, pSrc + mip.dataSize);
