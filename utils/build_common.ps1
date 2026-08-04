@@ -50,6 +50,8 @@ function Build-GLFW {
         '-DGLFW_BUILD_TESTS=OFF' `
         '-DGLFW_BUILD_DOCS=OFF' `
         '-DCMAKE_CONFIGURATION_TYPES=Debug;Release;Sanitizer' `
+        '-DCMAKE_C_FLAGS_DEBUG=/Z7 /Ob0 /Od /RTC1' `
+        '-DCMAKE_C_FLAGS_SANITIZER=/Z7 /Ob0 /Od /RTC1' `
         "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG=$LibOut/glfw/bin/windows/debug/x86_64" `
         "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE=$LibOut/glfw/bin/windows/release/x86_64" `
         "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER=$LibOut/glfw/bin/windows/sanitizer/x86_64" `
