@@ -21,7 +21,7 @@ PHOENIX is a cross-platform and multi-backend graphics library designed to provi
 
 ## Building
 
-PHOENIX uses [Premake5](https://premake.github.io/) as its build system. A bundled premake5 executable is included under `PHOENIX/vendor/premake/`.
+PHOENIX uses [Premake5](https://premake.github.io/) as its build system. A bundled premake5 executable is included under `PHOENIX/vendor/premake/`
 
 ### Prerequisites
 
@@ -64,27 +64,19 @@ cd utils
 
 The workspace defines two configurations:
 
-- **Debug** — includes debug symbols (`PHX_DEBUG` define) and links debug versions of all dependencies.
-- **Release** — optimized build (`PHX_RELEASE` define).
+- **Debug** — includes debug symbols (`PHX_DEBUG` define) and links debug versions of all dependencies
+- **Release** — optimized build (`PHX_RELEASE` define)
 
 ## Current Backends
 
 - **Graphics API:** Vulkan
 - **Platform:** Windows (win64)
 
-The architecture is designed to support additional backends and platforms (DirectX, OpenGL, macOS, Linux, etc) in the future.
+The architecture is designed to support additional backends and platforms (DirectX, OpenGL, macOS, Linux, etc) in the future
 
 ## Samples
 
-The project includes several sample applications that demonstrate different features of the library. All samples link against the PHOENIX static library and share common code under `samples/common/`.
-
-| Sample | Description |
-|---|---|
-| **HelloTriangle** | Renders a single colored triangle. Demonstrates the minimal setup: window creation, render device, swap chain, vertex buffer upload via a transfer pass, and a graphics pass with a render graph. |
-| **BasicModel** | Loads and renders a 3D model (Suzanne) from a `.fbx` file using assimp. Demonstrates vertex/index buffers, depth testing, uniform buffers for transform data, and camera projection. |
-| **TexturedModel** | Extends BasicModel with texture mapping. Demonstrates texture loading, sampling, and binding textures to the pipeline. |
-| **ComputeParticles** | GPU-based particle system using compute shaders. Demonstrates compute passes, storage buffers, and compute-to-graphics handoff within the render graph. |
-| **ImGui** | Integrates [Dear ImGui](https://github.com/ocornut/imgui) with PHOENIX. Demonstrates UI rendering, input handling, and overlay rendering on top of the scene. |
+The project includes several sample applications that demonstrate different features of the library. All samples link against the PHOENIX static library and share common code under `samples/common/`
 
 ## Dependencies
 
@@ -109,4 +101,4 @@ The project includes several sample applications that demonstrate different feat
 
 ## License
 
-PHOENIX is licensed under the MIT License. See [LICENSE.txt](LICENSE.txt) for details.
+PHOENIX is licensed under the MIT License. See [LICENSE.txt](LICENSE.txt) for details

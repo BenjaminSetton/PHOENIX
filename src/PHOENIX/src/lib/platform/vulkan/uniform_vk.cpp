@@ -166,8 +166,9 @@ namespace PHX
 
 		const BufferUsageFlags usage = bufferVk->GetUsage();
 
-		// Reject buffers that are not usable as uniform/storage descriptors
-		if (!(usage & (BUFFER_USAGE_FLAG_STORAGE_BUFFER | BUFFER_USAGE_FLAG_UNIFORM_BUFFER)))
+		// Reject buffers based on their usage
+		BufferUsageFlags acceptedUsages = BUFFER_USAGE_FLAG_STORAGE_BUFFER | BUFFER_USAGE_FLAG_UNIFORM_BUFFER | BUFFER_USAGE_FLAG_ACCELERATION_STRUCTURE_BUILD_INPUT;
+		if (!(usage & (acceptedUsages)))
 		{
 			LogError("Failed to queue buffer update. Buffer usage is invalid! Expected storage or uniform buffer, but found %u", usage);
 			return STATUS_CODE::ERR_API;
@@ -234,10 +235,10 @@ namespace PHX
 				bufferVk->GetName(), usage, set, binding);
 			return STATUS_CODE::ERR_API;
 		}
-		if (uniformType == UNIFORM_TYPE::STORAGE_BUFFER && !(usage & BUFFER_USAGE_FLAG_STORAGE_BUFFER))
+		if (uniformType == UNIFORM_TYPE::STORAGE_BUFFER && !(usage & BUFFER_USAGE_FLAG_STORAGE_BUFFER | BUFFER_USAGE_FLAG_ACCELERATION_STRUCTURE_BUILD_INPUT))
 		{
-			LogError("Buffer \"%s\" (usage=0x%x) bound to set %u binding %u as STORAGE_BUFFER does not have STORAGE_BUFFER usage flag!",
-				bufferVk->GetName(), usage, set, binding);
+			LogError("Buffer \"%s\" (usage %u) bound to set %u binding %u as STORAGE_BUFFER does not have STORAGE_BUFFER or ACCELERATION_STRUCTURE_BUILD_INPUT usage flag!",
+				bufferVk->GetName(), static_cast<u32>(usage), set, binding);
 			return STATUS_CODE::ERR_API;
 		}
 

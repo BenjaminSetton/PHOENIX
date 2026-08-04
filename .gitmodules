@@ -1,17 +1,17 @@
-[submodule "PHOENIX/vendor/glfw"]
-	path = PHOENIX/vendor/glfw
+[submodule "src/PHOENIX/vendor/glfw"]
+	path = src/PHOENIX/vendor/glfw
 	url = https://github.com/BenjaminSetton/glfw.git
-[submodule "samples/common/vendor/assimp"]
-	path = samples/common/vendor/assimp
+[submodule "src/samples/common/vendor/assimp"]
+	path = src/samples/common/vendor/assimp
 	url = https://github.com/BenjaminSetton/assimp.git
-[submodule "samples/common/vendor/glm"]
-	path = samples/common/vendor/glm
-	url = https://github.com/BenjaminSetton/glm.git
-[submodule "samples/common/vendor/imgui"]
-	path = samples/common/vendor/imgui
+[submodule "src/samples/common/vendor/glm"]
+	path = src/samples/common/vendor/glm
+	url = https://github.com/BenjaminSetston/glm.git
+[submodule "src/samples/common/vendor/imgui"]
+	path = src/samples/common/vendor/imgui
 	url = https://github.com/ocornut/imgui.git
-[submodule "PHOENIX/vendor/slang"]
-	path = PHOENIX/vendor/slang
+[submodule "src/PHOENIX/vendor/slang"]
+	path = src/PHOENIX/vendor/slang
 	url = https://github.com/shader-slang/slang.git
 [submodule "src/BSL"]
 	path = src/BSL
