@@ -9,8 +9,8 @@
 
 struct AssetVertex
 {
-	PHX::Vec3f position;
-	PHX::Vec3f normal;
+	BSL::Vec3f position;
+	BSL::Vec3f normal;
 };
 
 struct AssetType

@@ -85,7 +85,7 @@ private:
 
 	// Progressive accumulation
 	PHX::TextureHandle m_accumulationImageA;
-	PHX::u32 m_frameCount = 0;
+	u32 m_frameCount = 0;
 	bool m_resetAccumulation = true;
 	glm::vec3 m_prevCameraPosition = glm::vec3(0.0f);
 	glm::vec3 m_prevCameraForward = glm::vec3(0.0f);
@@ -94,7 +94,7 @@ private:
 	// Maps an index into m_pAsset->textures to its actual slot in m_sceneTextures.
 	// Needed because CreateSceneTextures may skip textures (e.g. 0 mip levels), which
 	// would otherwise desync a naive "textureIndex + defaultTextureCount" offset.
-	std::vector<PHX::u32> m_textureIndexRemap;
+	std::vector<u32> m_textureIndexRemap;
 
 	PHX::AccelerationStructureHandle m_tlas;
 	std::vector<PHX::AccelerationStructureHandle> m_blas;
@@ -109,8 +109,8 @@ private:
 		glm::vec3 cameraPosition;
 		float padding0;
 		glm::vec2 viewport;
-		PHX::u32 frameCount;
-		PHX::u32 resetAccumulation;
+		u32 frameCount;
+		u32 resetAccumulation;
 		glm::vec2 padding1;
 	};
 	CameraData m_cameraData{};

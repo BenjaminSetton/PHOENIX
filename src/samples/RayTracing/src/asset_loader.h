@@ -10,39 +10,39 @@
 
 struct AssetVertex
 {
-	PHX::Vec3f position;
+	BSL::Vec3f position;
 	float _pad0;
-	PHX::Vec3f normal;
+	BSL::Vec3f normal;
 	float _pad1;
-	PHX::Vec3f tangent;
+	BSL::Vec3f tangent;
 	float _pad2;
-	PHX::Vec3f bitangent;
+	BSL::Vec3f bitangent;
 	float _pad3;
-	PHX::Vec2f uv;
+	BSL::Vec2f uv;
 	float _pad4[2];
 };
 
 struct Mesh
 {
-	PHX::u32 firstVertex = 0;
-	PHX::u32 vertexCount = 0;
-	PHX::u32 firstIndex = 0;
-	PHX::u32 indexCount = 0;
-	PHX::u32 materialIndex = 0;
+	u32 firstVertex = 0;
+	u32 vertexCount = 0;
+	u32 firstIndex = 0;
+	u32 indexCount = 0;
+	u32 materialIndex = 0;
 };
 
 struct Material
 {
 	std::string name;
-	std::vector<PHX::u32> textureIndices;
+	std::vector<u32> textureIndices;
 };
 
 struct MaterialInfo
 {
-	PHX::u32 albedoTexIndex    = 0; // DefaultAlbedo
-	PHX::u32 normalTexIndex    = 1; // DefaultNormal
-	PHX::u32 specularTexIndex  = 2; // DefaultSpecular
-	PHX::u32 padding           = 0;
+	u32 albedoTexIndex    = 0; // DefaultAlbedo
+	u32 normalTexIndex    = 1; // DefaultNormal
+	u32 specularTexIndex  = 2; // DefaultSpecular
+	u32 padding           = 0;
 };
 
 struct AssetType

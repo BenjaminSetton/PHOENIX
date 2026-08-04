@@ -56,7 +56,7 @@ void TessellationSample::Draw()
 	STATUS_CODE phxRes;
 
 	ClearValues clearColor{};
-	clearColor.color.color = Vec4f(0.1f, 0.1f, 0.15f, 1.0f);
+	clearColor.color.color = BSL::Vec4f(0.1f, 0.1f, 0.15f, 1.0f);
 	clearColor.useClearColor = true;
 
 	m_renderGraph.BeginFrame(m_swapChain);

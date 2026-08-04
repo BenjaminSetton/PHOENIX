@@ -506,10 +506,10 @@ void RayTracingSample::CreateSceneGeometryBuffers()
 
 	struct GeometryInfo
 	{
-		PHX::u32 firstVertex;
-		PHX::u32 firstIndex;
-		PHX::u32 materialIndex;
-		PHX::u32 padding;
+		u32 firstVertex;
+		u32 firstIndex;
+		u32 materialIndex;
+		u32 padding;
 	};
 	std::vector<GeometryInfo> geometryInfos;
 	geometryInfos.reserve(m_pAsset->meshes.size());
@@ -647,10 +647,10 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 
 		struct GeometryInfo
 		{
-			PHX::u32 firstVertex;
-			PHX::u32 firstIndex;
-			PHX::u32 materialIndex;
-			PHX::u32 padding;
+			u32 firstVertex;
+			u32 firstIndex;
+			u32 materialIndex;
+			u32 padding;
 		};
 		std::vector<GeometryInfo> geometryInfos;
 		geometryInfos.reserve(m_pAsset->meshes.size());
@@ -730,11 +730,11 @@ void RayTracingSample::BuildSceneAccelerationStructures()
 
 		// Compute a uniform scale from the original asset bounds so the scene fits in world space
 		static constexpr float TARGET_SCENE_SIZE = 50.0f;
-		PHX::Vec3f min(FLT_MAX);
-		PHX::Vec3f max(-FLT_MAX);
+		BSL::Vec3f min(FLT_MAX);
+		BSL::Vec3f max(-FLT_MAX);
 		for (const AssetVertex& vert : m_pAsset->vertices)
 		{
-			const PHX::Vec3f& pos = vert.position;
+			const BSL::Vec3f& pos = vert.position;
 			min.SetX(std::min(min.GetX(), pos.GetX()));
 			min.SetY(std::min(min.GetY(), pos.GetY()));
 			min.SetZ(std::min(min.GetZ(), pos.GetZ()));

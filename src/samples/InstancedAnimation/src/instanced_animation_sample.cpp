@@ -67,7 +67,7 @@ void InstancedAnimationSample::Draw()
 	STATUS_CODE phxRes;
 
 	ClearValues clearColor{};
-	clearColor.color.color = Vec4f(0.2f, 0.2f, 0.25f, 1.0f);
+	clearColor.color.color = BSL::Vec4f(0.2f, 0.2f, 0.25f, 1.0f);
 	clearColor.useClearColor = true;
 
 	ClearValues clearDepth{};
@@ -135,7 +135,7 @@ void InstancedAnimationSample::Draw()
 			deviceContext.FlushUniformUpdates(m_computeUniformCollection);
 
 			deviceContext.BindUniformCollection(m_computeUniformCollection);
-			deviceContext.Dispatch(Vec3u(totalThreads, 1, 1));
+			deviceContext.Dispatch(BSL::Vec3u(totalThreads, 1, 1));
 		});
 	}
 

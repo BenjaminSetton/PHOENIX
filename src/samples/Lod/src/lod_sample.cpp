@@ -197,9 +197,9 @@ void LodSample::InitSample()
 				dstLevel.vertices.resize(srcLevel.vertices.size());
 				for (uint32_t v = 0; v < srcLevel.vertices.size(); v++)
 				{
-					dstLevel.vertices[v].position = PHX::Vec3f(srcLevel.vertices[v].position.x, srcLevel.vertices[v].position.y, srcLevel.vertices[v].position.z);
-					dstLevel.vertices[v].normal = PHX::Vec3f(srcLevel.vertices[v].normal.x, srcLevel.vertices[v].normal.y, srcLevel.vertices[v].normal.z);
-					dstLevel.vertices[v].uv = PHX::Vec2f(srcLevel.vertices[v].uv.x, srcLevel.vertices[v].uv.y);
+					dstLevel.vertices[v].position = BSL::Vec3f(srcLevel.vertices[v].position.x, srcLevel.vertices[v].position.y, srcLevel.vertices[v].position.z);
+					dstLevel.vertices[v].normal = BSL::Vec3f(srcLevel.vertices[v].normal.x, srcLevel.vertices[v].normal.y, srcLevel.vertices[v].normal.z);
+					dstLevel.vertices[v].uv = BSL::Vec2f(srcLevel.vertices[v].uv.x, srcLevel.vertices[v].uv.y);
 				}
 				dstLevel.indices = srcLevel.indices;
 			}
@@ -226,9 +226,9 @@ void LodSample::InitSample()
 	m_meshPipelineDesc.cullMode = PHX::CULL_MODE::BACK;
 	m_meshPipelineDesc.frontFaceWinding = PHX::FRONT_FACE_WINDING::COUNTER_CLOCKWISE;
 	m_meshPipelineDesc.pShaders = m_meshShaders.data();
-	m_meshPipelineDesc.shaderCount = static_cast<PHX::u32>(m_meshShaders.size());
+	m_meshPipelineDesc.shaderCount = static_cast<u32>(m_meshShaders.size());
 	m_meshPipelineDesc.pInputAttributes = m_meshInputAttributes.data();
-	m_meshPipelineDesc.attributeCount = static_cast<PHX::u32>(m_meshInputAttributes.size());
+	m_meshPipelineDesc.attributeCount = static_cast<u32>(m_meshInputAttributes.size());
 	m_meshPipelineDesc.uniformCollection = m_meshUniforms;
 	m_meshPipelineDesc.enableDepthTest = true;
 	m_meshPipelineDesc.enableDepthWrite = true;
@@ -240,9 +240,9 @@ void LodSample::InitSample()
 	m_debugLinePipelineDesc.topology = PHX::PRIMITIVE_TOPOLOGY::LINE_LIST;
 	m_debugLinePipelineDesc.cullMode = PHX::CULL_MODE::NONE;
 	m_debugLinePipelineDesc.pShaders = m_debugLineShaders.data();
-	m_debugLinePipelineDesc.shaderCount = static_cast<PHX::u32>(m_debugLineShaders.size());
+	m_debugLinePipelineDesc.shaderCount = static_cast<u32>(m_debugLineShaders.size());
 	m_debugLinePipelineDesc.pInputAttributes = m_debugLineInputAttributes.data();
-	m_debugLinePipelineDesc.attributeCount = static_cast<PHX::u32>(m_debugLineInputAttributes.size());
+	m_debugLinePipelineDesc.attributeCount = static_cast<u32>(m_debugLineInputAttributes.size());
 	m_debugLinePipelineDesc.uniformCollection = m_debugLineUniforms;
 	m_debugLinePipelineDesc.enableDepthTest = false;
 	m_debugLinePipelineDesc.enableDepthWrite = false;
@@ -364,13 +364,13 @@ void LodSample::CreateUniformCollections()
 	PHX::UniformDataGroup computeGroup{};
 	computeGroup.set = 0;
 	computeGroup.uniformArray = computeUniforms.data();
-	computeGroup.uniformArrayCount = static_cast<PHX::u32>(computeUniforms.size());
+	computeGroup.uniformArrayCount = static_cast<u32>(computeUniforms.size());
 
 	std::array<PHX::UniformDataGroup, 1> computeGroups = { computeGroup };
 
 	PHX::UniformCollectionCreateInfo computeCI{};
 	computeCI.dataGroups = computeGroups.data();
-	computeCI.groupCount = static_cast<PHX::u32>(computeGroups.size());
+	computeCI.groupCount = static_cast<u32>(computeGroups.size());
 
 	phxRes = m_renderDevice.AllocateUniformCollection(computeCI, m_computeUniforms);
 	if (phxRes != PHX::STATUS_CODE::SUCCESS) return;
@@ -387,13 +387,13 @@ void LodSample::CreateUniformCollections()
 	PHX::UniformDataGroup meshGroup{};
 	meshGroup.set = 0;
 	meshGroup.uniformArray = meshUniforms.data();
-	meshGroup.uniformArrayCount = static_cast<PHX::u32>(meshUniforms.size());
+	meshGroup.uniformArrayCount = static_cast<u32>(meshUniforms.size());
 
 	std::array<PHX::UniformDataGroup, 1> meshGroups = { meshGroup };
 
 	PHX::UniformCollectionCreateInfo meshCI{};
 	meshCI.dataGroups = meshGroups.data();
-	meshCI.groupCount = static_cast<PHX::u32>(meshGroups.size());
+	meshCI.groupCount = static_cast<u32>(meshGroups.size());
 
 	phxRes = m_renderDevice.AllocateUniformCollection(meshCI, m_meshUniforms);
 	if (phxRes != PHX::STATUS_CODE::SUCCESS) return;
@@ -411,13 +411,13 @@ void LodSample::CreateUniformCollections()
 	PHX::UniformDataGroup debugGroup{};
 	debugGroup.set = 0;
 	debugGroup.uniformArray = debugLineUniforms.data();
-	debugGroup.uniformArrayCount = static_cast<PHX::u32>(debugLineUniforms.size());
+	debugGroup.uniformArrayCount = static_cast<u32>(debugLineUniforms.size());
 
 	std::array<PHX::UniformDataGroup, 1> debugGroups = { debugGroup };
 
 	PHX::UniformCollectionCreateInfo debugCI{};
 	debugCI.dataGroups = debugGroups.data();
-	debugCI.groupCount = static_cast<PHX::u32>(debugGroups.size());
+	debugCI.groupCount = static_cast<u32>(debugGroups.size());
 
 	phxRes = m_renderDevice.AllocateUniformCollection(debugCI, m_debugLineUniforms);
 	if (phxRes != PHX::STATUS_CODE::SUCCESS) return;
@@ -519,7 +519,7 @@ void LodSample::Draw()
 	PHX::STATUS_CODE phxRes;
 
 	PHX::ClearValues clearColor{};
-	clearColor.color.color = PHX::Vec4f(0.15f, 0.15f, 0.2f, 1.0f);
+	clearColor.color.color = BSL::Vec4f(0.15f, 0.15f, 0.2f, 1.0f);
 	clearColor.useClearColor = true;
 
 	PHX::ClearValues clearDepth{};

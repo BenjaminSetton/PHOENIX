@@ -10,11 +10,11 @@
 
 struct AssetVertex
 {
-	PHX::Vec3f position;
-	PHX::Vec3f normal;
-	PHX::Vec3f tangent;
-	PHX::Vec3f bitangent;
-	PHX::Vec2f uv;
+	BSL::Vec3f position;
+	BSL::Vec3f normal;
+	BSL::Vec3f tangent;
+	BSL::Vec3f bitangent;
+	BSL::Vec2f uv;
 };
 
 struct AssetType

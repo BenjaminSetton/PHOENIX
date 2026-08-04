@@ -70,7 +70,7 @@ void TexturedModelSample::Draw()
 	STATUS_CODE phxRes;
 
 	ClearValues clearColor{};
-	clearColor.color.color = Vec4f(0.5f, 0.75f, 0.98f, 1.0f);
+	clearColor.color.color = BSL::Vec4f(0.5f, 0.75f, 0.98f, 1.0f);
 	clearColor.useClearColor = true;
 
 	ClearValues clearDepth{};

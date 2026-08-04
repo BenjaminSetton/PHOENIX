@@ -54,7 +54,7 @@ namespace Common
 			WriteString(os, asset.materials[i].name);
 			uint32_t texIdxCount = static_cast<uint32_t>(asset.materials[i].textureIndices.size());
 			WriteTrivial(os, texIdxCount);
-			os.write(reinterpret_cast<const char*>(asset.materials[i].textureIndices.data()), texIdxCount * sizeof(PHX::u32));
+			os.write(reinterpret_cast<const char*>(asset.materials[i].textureIndices.data()), texIdxCount * sizeof(u32));
 		}
 	}
 
@@ -115,7 +115,7 @@ namespace Common
 			asset->materials[i].name = ReadString(is);
 			uint32_t texIdxCount = ReadTrivial<uint32_t>(is);
 			asset->materials[i].textureIndices.resize(texIdxCount);
-			is.read(reinterpret_cast<char*>(asset->materials[i].textureIndices.data()), texIdxCount * sizeof(PHX::u32));
+			is.read(reinterpret_cast<char*>(asset->materials[i].textureIndices.data()), texIdxCount * sizeof(u32));
 		}
 
 		return asset;
