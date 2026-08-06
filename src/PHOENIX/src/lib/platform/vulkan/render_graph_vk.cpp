@@ -693,16 +693,43 @@ namespace PHX
 
 	void RenderPassVk::SetPipelineDescription(const GraphicsPipelineDesc& graphicsPipelineDesc)
 	{
+		if (m_passType != PASS_TYPE::GRAPHICS)
+		{
+#if defined(PHX_DEBUG)
+			LogWarning("Attempting to bind a non-graphics pipeline in a graphics render pass \"%s\". This is likely an error", m_debugName);
+#else
+			LogWarning("Attempting to bind a non-graphics pipeline in a graphics render pass. This is likely an error");
+#endif
+		}
+
 		graphicsDesc = graphicsPipelineDesc;
 	}
 
 	void RenderPassVk::SetPipelineDescription(const ComputePipelineDesc& computePipelineDesc)
 	{
+		if (m_passType != PASS_TYPE::COMPUTE)
+		{
+#if defined(PHX_DEBUG)
+			LogWarning("Attempting to bind a non-compute pipeline in a compute render pass \"%s\". This is likely an error", m_debugName);
+#else
+			LogWarning("Attempting to bind a non-compute pipeline in a compute render pass. This is likely an error");
+#endif
+		}
+
 		computeDesc = computePipelineDesc;
 	}
 
 	void RenderPassVk::SetPipelineDescription(const RayTracingPipelineDesc& rayTracingPipelineDesc)
 	{
+		if (m_passType != PASS_TYPE::RAY_TRACING)
+		{
+#if defined(PHX_DEBUG)
+			LogWarning("Attempting to bind a non-raytracing pipeline in a raytracing render pass \"%s\". This is likely an error", m_debugName);
+#else
+			LogWarning("Attempting to bind a non-raytracing pipeline in a raytracing render pass. This is likely an error");
+#endif
+		}
+
 		rayTracingDesc = rayTracingPipelineDesc;
 	}
 

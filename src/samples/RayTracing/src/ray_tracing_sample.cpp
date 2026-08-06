@@ -232,7 +232,7 @@ void RayTracingSample::InitSample()
 
 	// BLIT SHADERS
 	ShaderHandle blitVertShader;
-	blitVertShader = m_pShaderManager->RegisterShader("../src/shaders/blit.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
+	blitVertShader = m_pShaderManager->LoadShader("../src/shaders/blit.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!blitVertShader.IsValid())
 	{
 		return;
@@ -240,7 +240,7 @@ void RayTracingSample::InitSample()
 	m_blitPipelineShaders.push_back(blitVertShader);
 
 	ShaderHandle blitFragShader;
-	blitFragShader = m_pShaderManager->RegisterShader("../src/shaders/blit.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	blitFragShader = m_pShaderManager->LoadShader("../src/shaders/blit.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!blitFragShader.IsValid())
 	{
 		return;
@@ -264,7 +264,7 @@ void RayTracingSample::InitSample()
 	if (m_rayTracingSupported)
 	{
 		ShaderHandle rayGenShader;
-		rayGenShader = m_pShaderManager->RegisterShader("../src/shaders/raygen.rgen.slang", SHADER_STAGE::RAYGEN, m_renderDevice);
+		rayGenShader = m_pShaderManager->LoadShader("../src/shaders/raygen.rgen.slang", SHADER_STAGE::RAYGEN, m_renderDevice);
 		if (!rayGenShader.IsValid())
 		{
 			return;
@@ -272,7 +272,7 @@ void RayTracingSample::InitSample()
 		m_rayTracingPipelineShaders.push_back(rayGenShader);
 
 		ShaderHandle missShader;
-		missShader = m_pShaderManager->RegisterShader("../src/shaders/miss.rmiss.slang", SHADER_STAGE::MISS, m_renderDevice);
+		missShader = m_pShaderManager->LoadShader("../src/shaders/miss.rmiss.slang", SHADER_STAGE::MISS, m_renderDevice);
 		if (!missShader.IsValid())
 		{
 			return;
@@ -280,7 +280,7 @@ void RayTracingSample::InitSample()
 		m_rayTracingPipelineShaders.push_back(missShader);
 
 		ShaderHandle shadowMissShader;
-		shadowMissShader = m_pShaderManager->RegisterShader("../src/shaders/shadowMiss.rmiss.slang", SHADER_STAGE::MISS, m_renderDevice);
+		shadowMissShader = m_pShaderManager->LoadShader("../src/shaders/shadowMiss.rmiss.slang", SHADER_STAGE::MISS, m_renderDevice);
 		if (!shadowMissShader.IsValid())
 		{
 			return;
@@ -288,7 +288,7 @@ void RayTracingSample::InitSample()
 		m_rayTracingPipelineShaders.push_back(shadowMissShader);
 
 		ShaderHandle bounceMissShader;
-		bounceMissShader = m_pShaderManager->RegisterShader("../src/shaders/bounceMiss.rmiss.slang", SHADER_STAGE::MISS, m_renderDevice);
+		bounceMissShader = m_pShaderManager->LoadShader("../src/shaders/bounceMiss.rmiss.slang", SHADER_STAGE::MISS, m_renderDevice);
 		if (!bounceMissShader.IsValid())
 		{
 			return;
@@ -296,7 +296,7 @@ void RayTracingSample::InitSample()
 		m_rayTracingPipelineShaders.push_back(bounceMissShader);
 
 		ShaderHandle closestHitShader;
-		closestHitShader = m_pShaderManager->RegisterShader("../src/shaders/closesthit.rchit.slang", SHADER_STAGE::CLOSEST_HIT, m_renderDevice);
+		closestHitShader = m_pShaderManager->LoadShader("../src/shaders/closesthit.rchit.slang", SHADER_STAGE::CLOSEST_HIT, m_renderDevice);
 		if (!closestHitShader.IsValid())
 		{
 			return;
@@ -304,7 +304,7 @@ void RayTracingSample::InitSample()
 		m_rayTracingPipelineShaders.push_back(closestHitShader);
 
 		ShaderHandle anyHitShader;
-		anyHitShader = m_pShaderManager->RegisterShader("../src/shaders/anyhit.rahit.slang", SHADER_STAGE::ANY_HIT, m_renderDevice);
+		anyHitShader = m_pShaderManager->LoadShader("../src/shaders/anyhit.rahit.slang", SHADER_STAGE::ANY_HIT, m_renderDevice);
 		if (!anyHitShader.IsValid())
 		{
 			return;
@@ -312,7 +312,7 @@ void RayTracingSample::InitSample()
 		m_rayTracingPipelineShaders.push_back(anyHitShader);
 
 		ShaderHandle bounceClosestHitShader;
-		bounceClosestHitShader = m_pShaderManager->RegisterShader("../src/shaders/bounce_closesthit.rchit.slang", SHADER_STAGE::CLOSEST_HIT, m_renderDevice);
+		bounceClosestHitShader = m_pShaderManager->LoadShader("../src/shaders/bounce_closesthit.rchit.slang", SHADER_STAGE::CLOSEST_HIT, m_renderDevice);
 		if (!bounceClosestHitShader.IsValid())
 		{
 			return;
@@ -1061,7 +1061,7 @@ void RayTracingSample::LoadEnvironmentMap()
 
 	// Create equirect-to-cube compute shader
 	ShaderHandle equirectToCubeShader;
-	equirectToCubeShader = m_pShaderManager->RegisterShader("../src/shaders/equirect_to_cube.comp.slang", SHADER_STAGE::COMPUTE, m_renderDevice);
+	equirectToCubeShader = m_pShaderManager->LoadShader("../src/shaders/equirect_to_cube.comp.slang", SHADER_STAGE::COMPUTE, m_renderDevice);
 	if (!equirectToCubeShader.IsValid())
 	{
 		std::cout << "Failed to load equirect_to_cube compute shader!" << std::endl;

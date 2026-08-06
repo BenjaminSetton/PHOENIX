@@ -25,7 +25,7 @@ namespace Common
 
 		// The returned handle stays valid for the lifetime of the shader, since we
 		// update the data underneath the same handle
-		PHX::ShaderHandle RegisterShader(const std::string& filePath, PHX::SHADER_STAGE stage, PHX::RenderDeviceHandle device, const std::vector<std::string>& includePaths = GetCommonShaderIncludePath());
+		PHX::ShaderHandle LoadShader(const std::string& filePath, PHX::SHADER_STAGE stage, PHX::RenderDeviceHandle device, const std::vector<std::string>& includePaths = GetCommonShaderIncludePath());
 
 		void PollUpdates();
 

@@ -187,7 +187,7 @@ namespace Common
 		m_fileWatcher.Watch(dir);
 	}
 
-	PHX::ShaderHandle ShaderManager::RegisterShader(const std::string& filePath, PHX::SHADER_STAGE stage, PHX::RenderDeviceHandle device, const std::vector<std::string>& includePaths)
+	PHX::ShaderHandle ShaderManager::LoadShader(const std::string& filePath, PHX::SHADER_STAGE stage, PHX::RenderDeviceHandle device, const std::vector<std::string>& includePaths)
 	{
 		m_device = device;
 

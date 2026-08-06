@@ -5,6 +5,7 @@
 
 #include "../../common/src/utils/shader_utils.h"
 #include "../../common/src/camera/freefly_camera.h"
+#include "BSL/sanity.h"
 
 #include "compute_particles_sample.h"
 
@@ -12,7 +13,11 @@ using namespace PHX;
 
 #define CHECK_PHX_RES(phxRes) if(phxRes != PHX::STATUS_CODE::SUCCESS) { return; }
 
-ComputeParticlesSample::ComputeParticlesSample() : m_simData(), m_volumeMinBound(-30), m_volumeMaxBound(30)
+static constexpr u32 PARTICLE_UPDATE_WORKGROUP_COUNT = 256;
+static constexpr u32 VERTICES_PER_PARTICLE = 6;
+
+ComputeParticlesSample::ComputeParticlesSample() : m_simData(), m_volumeMinBound(-30), m_volumeMaxBound(30), 
+	m_randomEngine(), m_mt(m_randomEngine())
 {
 }
 
@@ -22,8 +27,47 @@ ComputeParticlesSample::~ComputeParticlesSample()
 
 void ComputeParticlesSample::UpdateSample(float dt)
 {
-	m_simData.dt = dt;
-	m_simData.totalTime += dt;
+	m_imguiBackend.NewFrame(dt, m_swapChain.GetWidth(), m_swapChain.GetHeight());
+
+	std::uniform_real_distribution<float> dist(0.0f, 1.0f + FLT_EPSILON); // Gotta add FLT_EPSILON since uniform_real_distribution is [a, b)
+	static bool isSimPaused = false;
+	static bool enableRandomExplosions = true;
+	ImGui::Checkbox("Pause sim", &isSimPaused);
+	ImGui::Checkbox("Enable random explosions", &enableRandomExplosions);
+
+	if (isSimPaused)
+	{
+		m_simData.dt = 0.0f;
+	}
+	else
+	{
+		m_simData.dt = dt;
+		m_simData.totalTime += dt;
+	}
+
+	m_simData.shouldExplode = 0.0f;
+	if (ImGui::Button("Explode!"))
+	{
+		// Set it to a random non-zero value since this is used to determine explosion center
+		m_simData.shouldExplode = dist(m_mt) + FLT_EPSILON;
+	}
+	else
+	{
+		// Random explosions
+		// Every few seconds, a random explosion epoch triggers. All particles
+		// compute the same epoch ID deterministically, so they agree on the
+		// explosion center. Particles near the center get a strong outward impulse
+		if (enableRandomExplosions)
+		{
+			// Only check for explosions every second, not every frame
+			bool checkExplosion = (int)m_simData.totalTime != (int)(m_simData.totalTime + dt);
+			if (checkExplosion)
+			{
+				float explosionChance = dist(m_mt);
+				m_simData.shouldExplode = explosionChance - 0.5f; // around 50% chance
+			}
+		}
+	}
 
 	if (m_pCamera != nullptr)
 	{
@@ -54,16 +98,17 @@ void ComputeParticlesSample::Draw()
 			// Uniform collection updates
 			deviceContext.CopyDataToBuffer(m_simDataBuffer, &m_simData, sizeof(SimData));
 
-			m_uniformCollection.QueueBufferUpdate(m_particlesBuffer, 0, 0, 0);
-			m_uniformCollection.QueueBufferUpdate(m_simDataBuffer, 0, 1, 0);
-			deviceContext.FlushUniformUpdates(m_uniformCollection);
+			m_computeUniformCollection.QueueBufferUpdate(m_particlesBuffer, 0, 0, 0);
+			m_computeUniformCollection.QueueBufferUpdate(m_simDataBuffer, 0, 1, 0);
+			deviceContext.FlushUniformUpdates(m_computeUniformCollection);
 
 			// Dispatch
-			deviceContext.BindUniformCollection(m_uniformCollection);
+			deviceContext.BindUniformCollection(m_computeUniformCollection);
 			deviceContext.SetScissor({ m_swapChain.GetWidth(), m_swapChain.GetHeight() }, { 0, 0 });
 			deviceContext.SetViewport({ m_swapChain.GetWidth(), m_swapChain.GetHeight() }, { 0, 0 });
 
-			float dimX = m_simData.totalParticles / 256.0f;
+			TECHDEBT("Workgroup count should be pulled from shader reflection")
+			const float dimX = static_cast<float>(m_simData.totalParticles) / PARTICLE_UPDATE_WORKGROUP_COUNT;
 			deviceContext.Dispatch({static_cast<u32>(dimX + 0.5f), 1, 1});
 		});
 
@@ -78,27 +123,24 @@ void ComputeParticlesSample::Draw()
 	drawPass.SetPipelineDescription(m_drawPipelineDesc);
 	drawPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
 		{
-			// Uniform collection updates. glm stores matrices column-major, but the Slang shaders
-			// use Slang's default row-major layout, so transpose before uploading.
-			CameraData rowMajorCamera;
-			rowMajorCamera.view = glm::transpose(m_cameraData.view);
-			rowMajorCamera.proj = glm::transpose(m_cameraData.proj);
-			deviceContext.CopyDataToBuffer(m_cameraBuffer, &rowMajorCamera, sizeof(CameraData));
+			// Uniform collection updates. Transposed since Slang is row-major
+			CameraData camData;
+			camData.view = glm::transpose(m_cameraData.view);
+			camData.proj = glm::transpose(m_cameraData.proj);
+			deviceContext.CopyDataToBuffer(m_cameraBuffer, &camData, sizeof(CameraData));
 
 			m_drawUniformCollection.QueueBufferUpdate(m_particlesBuffer, 0, 0, 0);
 			m_drawUniformCollection.QueueBufferUpdate(m_cameraBuffer, 0, 1, 0);
 			deviceContext.FlushUniformUpdates(m_drawUniformCollection);
 
-			// Draw commands - 6 vertices (2 triangles) per particle, no vertex/index buffer
+			// Draw commands
 			deviceContext.BindUniformCollection(m_drawUniformCollection);
 			deviceContext.SetScissor({ m_swapChain.GetWidth(), m_swapChain.GetHeight() }, { 0, 0 });
 			deviceContext.SetViewport({ m_swapChain.GetWidth(), m_swapChain.GetHeight() }, { 0, 0 });
-			deviceContext.Draw(6 * m_simData.totalParticles);
+			deviceContext.Draw(VERTICES_PER_PARTICLE * m_simData.totalParticles);
 		});
 
-	// Outline pass - renders the 12 edges of the [-5, 5]^3 spawn cube as white lines
-	// Registered after ParticleDrawPass; the render graph detects the WAW hazard on the
-	// swapchain and automatically orders this pass after the draw pass.
+	// Outline pass
 	RenderPassHandle outlinePass;
 	phxRes = m_renderGraph.RegisterPass("CubeOutlinePass", PASS_TYPE::GRAPHICS, outlinePass);
 	CHECK_PHX_RES(phxRes);
@@ -118,6 +160,10 @@ void ComputeParticlesSample::Draw()
 		deviceContext.BindMesh(m_outlineVertexBuffer, m_outlineIndexBuffer);
 		deviceContext.DrawIndexed(24);
 	});
+
+	// ImGui pass
+	ImGui::Render();
+	m_imguiRenderer.RenderDrawData(m_renderGraph, m_swapChain, ImGui::GetDrawData(), false);
 
 	m_renderGraph.Bake(m_swapChain);
 
@@ -139,43 +185,44 @@ void ComputeParticlesSample::InitSample()
 
 	// SHADERS
 	ShaderHandle particlesShader;
-	particlesShader = m_pShaderManager->RegisterShader("../src/shaders/particles.comp.slang", SHADER_STAGE::COMPUTE, m_renderDevice);
+	particlesShader = m_pShaderManager->LoadShader("../src/shaders/particles.comp.slang", SHADER_STAGE::COMPUTE, m_renderDevice);
 	if (!particlesShader.IsValid())
 	{
 		return;
 	}
-	m_shaders.push_back(particlesShader);
+	m_particleComputeShader.push_back(particlesShader);
 
 	ShaderHandle vertShader;
-	vertShader = m_pShaderManager->RegisterShader("../src/shaders/particles.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
+	vertShader = m_pShaderManager->LoadShader("../src/shaders/particles.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!vertShader.IsValid())
 	{
 		return;
 	}
+	m_drawShaders.push_back(vertShader);
 
 	ShaderHandle fragShader;
-	fragShader = m_pShaderManager->RegisterShader("../src/shaders/particles.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	fragShader = m_pShaderManager->LoadShader("../src/shaders/particles.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!fragShader.IsValid())
 	{
 		return;
 	}
-	m_drawShaders.push_back(vertShader);
 	m_drawShaders.push_back(fragShader);
 
 	// OUTLINE SHADERS
 	ShaderHandle outlineVertShader;
-	outlineVertShader = m_pShaderManager->RegisterShader("../src/shaders/outline.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
+	outlineVertShader = m_pShaderManager->LoadShader("../src/shaders/outline.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!outlineVertShader.IsValid())
 	{
 		return;
 	}
+	m_outlineShaders.push_back(outlineVertShader);
+
 	ShaderHandle outlineFragShader;
-	outlineFragShader = m_pShaderManager->RegisterShader("../src/shaders/outline.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	outlineFragShader = m_pShaderManager->LoadShader("../src/shaders/outline.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!outlineFragShader.IsValid())
 	{
 		return;
 	}
-	m_outlineShaders.push_back(outlineVertShader);
 	m_outlineShaders.push_back(outlineFragShader);
 
 	// PARTICLE BUFFER (one entry per particle)
@@ -244,24 +291,24 @@ void ComputeParticlesSample::InitSample()
 	CHECK_PHX_RES(phxRes);
 
 	// CAMERA
-	const float cameraSpeed = 10.0f;
+	const float cameraSpeed = 15.0f;
 	const float cameraSensitivity = 0.15f;
 	m_pCamera = new Common::FreeflyCamera(cameraSpeed, cameraSensitivity, glm::vec3(0.0f, 5.0f, 70.0f), glm::vec3(0.0f, 5.0f, 0.0f));
 
-	const float fov = glm::radians(45.0f);
+	constexpr float fov = glm::radians(45.0f);
 	const float aspectRatio = static_cast<float>(m_swapChain.GetWidth()) / m_swapChain.GetHeight();
 	m_cameraData.view = m_pCamera->GetViewMatrix();
 	m_cameraData.proj = glm::perspective(fov, aspectRatio, 0.01f, 1000.0f);
 	m_cameraData.proj[1][1] *= -1.0f;
 
 	// UNIFORM COLLECTIONS
-	CreateUniformCollection();
+	CreateComputeUniformCollection();
 	CreateDrawUniformCollection();
 	CreateOutlineUniformCollection();
 
 	// COMPUTE PIPELINE
 	m_particlesPipelineDesc.shader = particlesShader;
-	m_particlesPipelineDesc.uniformCollection = m_uniformCollection;
+	m_particlesPipelineDesc.uniformCollection = m_computeUniformCollection;
 
 	// GRAPHICS PIPELINE (no vertex layout - particle data is pulled from the storage buffer)
 	m_drawPipelineDesc.viewportSize = { m_swapChain.GetWidth(), m_swapChain.GetHeight() };
@@ -304,7 +351,7 @@ void ComputeParticlesSample::ShutdownSample()
 {
 	m_outlineShaders.clear();
 	m_drawShaders.clear();
-	m_shaders.clear();
+	m_particleComputeShader.clear();
 
 	if (m_pCamera != nullptr)
 	{
@@ -313,7 +360,7 @@ void ComputeParticlesSample::ShutdownSample()
 	}
 }
 
-void ComputeParticlesSample::CreateUniformCollection()
+void ComputeParticlesSample::CreateComputeUniformCollection()
 {
 	// SET 0, BINDING 0
 	UniformData particleBufferData;
@@ -347,7 +394,7 @@ void ComputeParticlesSample::CreateUniformCollection()
 	uniformCollectionCI.dataGroups = dataGroups.data();
 	uniformCollectionCI.groupCount = static_cast<u32>(dataGroups.size());
 
-	STATUS_CODE phxRes = m_renderDevice.AllocateUniformCollection(uniformCollectionCI, m_uniformCollection);
+	STATUS_CODE phxRes = m_renderDevice.AllocateUniformCollection(uniformCollectionCI, m_computeUniformCollection);
 	CHECK_PHX_RES(phxRes);
 }
 
@@ -428,45 +475,24 @@ void ComputeParticlesSample::InitializeParticleBuffer()
 
 	initPass.SetBufferOutput(m_particlesBuffer);
 	initPass.SetExecuteCallback([&](DeviceContextHandle deviceContext)
+	{
+		std::vector<ParticleData> initialParticles(m_simData.totalParticles);
+		for (u32 i = 0; i < m_simData.totalParticles; i++)
 		{
-			std::vector<ParticleData> initialParticles(m_simData.totalParticles);
-			for (u32 i = 0; i < m_simData.totalParticles; i++)
-			{
-				float fx = static_cast<float>((i * 73u) % 1000u) / 1000.0f;
-				float fy = static_cast<float>((i * 179u) % 1000u) / 1000.0f;
-				float fz = static_cast<float>((i * 283u) % 1000u) / 1000.0f;
+			// Zero all data except position. Particles spawn underneath the spawn area, so they're immediately
+			// killed and recycled by the compute shader. 
+			glm::mat4 transform(1.0f);
+			transform[0] = glm::vec4(0.0f);                     // velocity
+			transform[1] = glm::vec4(0.0f);                     // (lifetime, scale, maxLifetime)
+			transform[3] = glm::vec4(0.0f, -1.0f, 0.0f, 1.0f);  // position
 
-				// Spawn at the bottom plane with upward velocity (bonfire base).
-				glm::vec3 position(
-					(fx - 0.5f) * 20.0f,
-					static_cast<float>(m_volumeMinBound) + 1.0f,
-					(fz - 0.5f) * 20.0f
-				);
+			initialParticles[i].transform = transform;
+			initialParticles[i].color = glm::vec4(1.0f, 0.6f, 0.2f, 1.0f); // hot orange
+		}
 
-				// Random upward velocity.
-				glm::vec3 velocity(
-					(fy - 0.5f) * 4.0f,
-					1.0f + fx * 5.0f + fy * 2.0f,
-					(fz - 0.5f) * 4.0f
-				);
-
-				// Stagger initial lifetimes so particles don't all respawn simultaneously.
-				float maxLifetime = 1.5f + fy * 3.0f;
-				float lifetime = maxLifetime * fx;
-				float scale = 0.1f + fz * 0.25f;
-
-				glm::mat4 transform(1.0f);
-				transform[0] = glm::vec4(velocity, 0.0f);                    // velocity
-				transform[1] = glm::vec4(lifetime, scale, maxLifetime, 0.0f); // (lifetime, scale, maxLifetime)
-				transform[3] = glm::vec4(position, 1.0f);                   // position
-
-				initialParticles[i].transform = transform;
-				initialParticles[i].color = glm::vec4(1.0f, 0.6f, 0.2f, 1.0f); // hot orange
-			}
-
-			deviceContext.CopyDataToBuffer(m_particlesBuffer, initialParticles.data(),
-				sizeof(ParticleData) * m_simData.totalParticles);
-		});
+		deviceContext.CopyDataToBuffer(m_particlesBuffer, initialParticles.data(),
+			sizeof(ParticleData) * m_simData.totalParticles);
+	});
 }
 
 void ComputeParticlesSample::InitializeOutlineBuffers()
@@ -486,7 +512,7 @@ void ComputeParticlesSample::InitializeOutlineBuffers()
 			{m_volumeMinBound, m_volumeMinBound, m_volumeMaxBound}, {m_volumeMaxBound, m_volumeMinBound, m_volumeMaxBound},
 			{m_volumeMaxBound, m_volumeMaxBound, m_volumeMaxBound}, {m_volumeMinBound, m_volumeMaxBound, m_volumeMaxBound}
 		};
-		const uint32_t cubeIndices[24] =
+		const u32 cubeIndices[24] =
 		{
 			0, 1,  1, 2,  2, 3,  3, 0,  // bottom face (-Z)
 			4, 5,  5, 6,  6, 7,  7, 4,  // top face (+Z)

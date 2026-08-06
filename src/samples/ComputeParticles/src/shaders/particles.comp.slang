@@ -13,10 +13,10 @@ RWStructuredBuffer<Particle> particleBuffer;
 
 struct SimParams
 {
-    float deltaTime;   // seconds elapsed since last update
-    float totalTime;   // total elapsed time in seconds
+    float deltaTime;     // seconds elapsed since last update
+    float totalTime;     // total elapsed time in seconds
+    float shouldExplode; // Float -> bool
     uint  particleCount;
-    float _pad0;
 };
 
 [[vk::binding(1, 0)]]
@@ -69,26 +69,16 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     float scale       = particle.columns[1].y;
     float maxLifetime = particle.columns[1].z;
 
-    // --- Random explosions ---
-    // Every few seconds, a random explosion epoch triggers. All particles
-    // compute the same epoch ID deterministically, so they agree on the
-    // explosion center. Particles near the center get a strong outward impulse.
-    uint explosionEpoch = uint(sim.totalTime / 3.5);  // new explosion every ~3.5s
-    uint explosionSeed = explosionEpoch * 997u + 13u;
-    float explosionTrigger = Hash(explosionSeed);
-    // Only ~60% of epochs actually explode.
-    bool hasExplosion = explosionTrigger > 0.4;
-
     float3 explosionCenter = float3(0.0, 0.0, 0.0);
     float explosionDist = 9999.0;
     float explosionForce = 0.0;
 
-    if (hasExplosion)
+    if (sim.shouldExplode > 0.0)
     {
         explosionCenter = float3(
-            (Hash(explosionSeed * 7u + 1u) - 0.5) * 40.0,
-            float(m_volumeMin) + Hash(explosionSeed * 11u + 3u) * 20.0,
-            (Hash(explosionSeed * 13u + 7u) - 0.5) * 40.0
+            (Hash(sim.shouldExplode * 7u + 1u) - 0.5) * 40.0,
+            float(m_volumeMin) + Hash(sim.shouldExplode * 11u + 3u) * 20.0,
+            (Hash(sim.shouldExplode * 13u + 7u) - 0.5) * 40.0
         );
         float3 toParticle = position - explosionCenter;
         explosionDist = length(toParticle);
@@ -103,11 +93,6 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
     // Buoyancy: hot air rises. World-space +Y is up on screen.
     velocity.y += 5.0 * sim.deltaTime;
-
-    // Turbulent horizontal motion using time-varying noise.
-    float t = sim.totalTime + seedA * 6.28;
-    velocity.x += sin(t * 2.0 + position.y * 0.3) * 1.5 * sim.deltaTime;
-    velocity.z += cos(t * 1.7 + position.y * 0.4) * 1.5 * sim.deltaTime;
 
     // Drag to prevent particles from accelerating forever.
     velocity *= (1.0 - 0.5 * sim.deltaTime);
@@ -139,14 +124,25 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
 
         // Random upward velocity.
         velocity = float3(
-            (seedA - 0.5) * 5.0,
+            (seedA - 0.5) * 10.0,
             1.0 + seedB * 6.0 + r3 * 3.0,
-            (seedC - 0.5) * 5.0
+            (seedC - 0.5) * 10.0
         );
 
         maxLifetime = 1.5 + seedD * 3.0;
         lifetime = maxLifetime;
     }
+
+    // Calculate properties based on remaining lifetime
+    float lifetimePct = lifetime / maxLifetime; // 0 - 1
+    float invExpLifetimePct = (1.0 - lifetimePct) * (1.0 - lifetimePct);
+    float turbulence = 5.0 * invExpLifetimePct;
+    float minScale = 0.2;
+
+    scale = lifetimePct + minScale; // Prevent from going all the way to 0
+    velocity.x += turbulence * sim.deltaTime;
+    velocity.y += 5.0 * (invExpLifetimePct + 0.8) * sim.deltaTime;
+    velocity.z += turbulence * sim.deltaTime;
 
     // --- Rebuild transform ---
     particle.columns[0] = float4(velocity,     0.0);
@@ -154,11 +150,8 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     particle.columns[2] = float4(0.0, 0.0, 1.0, 0.0);
     particle.columns[3] = float4(position,    1.0);
 
-    // --- Color: temperature gradient based on height ---
-    // Fire rises from world min (screen bottom) to world max (screen top).
-    // Hot at spawn point (low Y) -> cool at top (high Y).
-    float heightRatio = clamp((position.y - float(m_volumeMin)) / 30.0, 0.0, 1.0);
-    float heat = 1.0 - heightRatio;
+    // Color - temperature gradient based on lifetime
+    float heat = lifetimePct;
 
     // Temperature curve: sharp white->orange near base, gradual red->dark higher up.
     float3 color;
@@ -187,11 +180,7 @@ void main(uint3 dispatchThreadID : SV_DispatchThreadID)
     }
     color = lerp(color, float3(1.0, 1.0, 0.95), explosionFlash);
 
-    // Fade out near end of lifetime.
-    float lifeRatio = clamp(lifetime / maxLifetime, 0.0, 1.0);
-    float alpha = lifeRatio * lifeRatio;
-
-    particle.color = float4(color * (0.5 + heat * 0.5), alpha);
+    particle.color = float4(color * (0.5 + heat * 0.5), 1.0);
 
     particleBuffer[index] = particle;
 }

@@ -113,20 +113,20 @@ void LodSample::InitSample()
 
 	// SHADERS
 	{
-		PHX::ShaderHandle computeShader = m_pShaderManager->RegisterShader("../src/shaders/lod_cull.comp.slang", PHX::SHADER_STAGE::COMPUTE, m_renderDevice);
+		PHX::ShaderHandle computeShader = m_pShaderManager->LoadShader("../src/shaders/lod_cull.comp.slang", PHX::SHADER_STAGE::COMPUTE, m_renderDevice);
 		if (!computeShader.IsValid()) return;
 		m_computeShaders = { computeShader };
 
-		PHX::ShaderHandle vertShader = m_pShaderManager->RegisterShader("../src/shaders/lod_mesh.vert.slang", PHX::SHADER_STAGE::VERTEX, m_renderDevice);
+		PHX::ShaderHandle vertShader = m_pShaderManager->LoadShader("../src/shaders/lod_mesh.vert.slang", PHX::SHADER_STAGE::VERTEX, m_renderDevice);
 		if (!vertShader.IsValid()) return;
-		PHX::ShaderHandle fragShader = m_pShaderManager->RegisterShader("../src/shaders/lod_mesh.frag.slang", PHX::SHADER_STAGE::FRAGMENT, m_renderDevice);
+		PHX::ShaderHandle fragShader = m_pShaderManager->LoadShader("../src/shaders/lod_mesh.frag.slang", PHX::SHADER_STAGE::FRAGMENT, m_renderDevice);
 		if (!fragShader.IsValid()) return;
 		m_meshShaders = { vertShader, fragShader };
 
 		// Debug line shaders (from common shaders)
-		PHX::ShaderHandle debugVert = m_pShaderManager->RegisterShader("../../common/src/shaders/debug_line.vert.slang", PHX::SHADER_STAGE::VERTEX, m_renderDevice);
+		PHX::ShaderHandle debugVert = m_pShaderManager->LoadShader("../../common/src/shaders/debug_line.vert.slang", PHX::SHADER_STAGE::VERTEX, m_renderDevice);
 		if (!debugVert.IsValid()) return;
-		PHX::ShaderHandle debugFrag = m_pShaderManager->RegisterShader("../../common/src/shaders/debug_line.frag.slang", PHX::SHADER_STAGE::FRAGMENT, m_renderDevice);
+		PHX::ShaderHandle debugFrag = m_pShaderManager->LoadShader("../../common/src/shaders/debug_line.frag.slang", PHX::SHADER_STAGE::FRAGMENT, m_renderDevice);
 		if (!debugFrag.IsValid()) return;
 		m_debugLineShaders = { debugVert, debugFrag };
 	}

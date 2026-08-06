@@ -149,13 +149,13 @@ void TessellationSample::InitSample()
 	m_cameraData.camPos = m_pCamera->GetPosition();
 
 	// SHADERS
-	ShaderHandle vertShader = m_pShaderManager->RegisterShader("../src/shaders/grid.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
+	ShaderHandle vertShader = m_pShaderManager->LoadShader("../src/shaders/grid.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!vertShader.IsValid()) return;
-	ShaderHandle tescShader = m_pShaderManager->RegisterShader("../src/shaders/grid.tesc.slang", SHADER_STAGE::TESSELLATION_CONTROL, m_renderDevice);
+	ShaderHandle tescShader = m_pShaderManager->LoadShader("../src/shaders/grid.tesc.slang", SHADER_STAGE::TESSELLATION_CONTROL, m_renderDevice);
 	if (!tescShader.IsValid()) return;
-	ShaderHandle teseShader = m_pShaderManager->RegisterShader("../src/shaders/grid.tese.slang", SHADER_STAGE::TESSELLATION_EVALUATION, m_renderDevice);
+	ShaderHandle teseShader = m_pShaderManager->LoadShader("../src/shaders/grid.tese.slang", SHADER_STAGE::TESSELLATION_EVALUATION, m_renderDevice);
 	if (!teseShader.IsValid()) return;
-	ShaderHandle fragShader = m_pShaderManager->RegisterShader("../src/shaders/grid.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	ShaderHandle fragShader = m_pShaderManager->LoadShader("../src/shaders/grid.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!fragShader.IsValid()) return;
 
 	m_shaders = { vertShader, tescShader, teseShader, fragShader };

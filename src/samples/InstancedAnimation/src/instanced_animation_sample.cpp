@@ -228,13 +228,13 @@ void InstancedAnimationSample::InitSample()
 	m_cameraData.proj[1][1] *= -1.0f;
 
 	// SHADERS
-	ShaderHandle computeShader = m_pShaderManager->RegisterShader("../src/shaders/animation.comp.slang", SHADER_STAGE::COMPUTE, m_renderDevice);
+	ShaderHandle computeShader = m_pShaderManager->LoadShader("../src/shaders/animation.comp.slang", SHADER_STAGE::COMPUTE, m_renderDevice);
 	if (!computeShader.IsValid()) return;
 	m_computeShaders = { computeShader };
 
-	ShaderHandle vertShader = m_pShaderManager->RegisterShader("../src/shaders/animated_model.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
+	ShaderHandle vertShader = m_pShaderManager->LoadShader("../src/shaders/animated_model.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!vertShader.IsValid()) return;
-	ShaderHandle fragShader = m_pShaderManager->RegisterShader("../src/shaders/animated_model.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	ShaderHandle fragShader = m_pShaderManager->LoadShader("../src/shaders/animated_model.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!fragShader.IsValid()) return;
 	m_graphicsShaders = { vertShader, fragShader };
 

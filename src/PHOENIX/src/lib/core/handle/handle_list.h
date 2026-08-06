@@ -156,6 +156,7 @@ namespace PHX
 
 		void Free(u32 index)
 		{
+			BSL::LogDebug("Freeing object at 0x%p", m_slots[index]);
 			SAFE_DEL(m_slots[index]);
 			m_freeList.push_back(index);
 		}

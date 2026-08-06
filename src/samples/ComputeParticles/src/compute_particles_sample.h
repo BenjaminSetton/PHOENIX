@@ -1,5 +1,7 @@
 #pragma once
 
+#include <random>
+
 #include "../../common/src/base_sample.h"
 
 struct ParticleData
@@ -12,7 +14,8 @@ struct SimData
 {
 	float dt = 0.0f;
 	float totalTime = 0.0f;
-	uint32_t totalParticles = 0;
+	float shouldExplode = 0.0f;
+	u32 totalParticles = 0;
 };
 
 struct CameraData
@@ -36,7 +39,7 @@ private:
 	void ShutdownSample() override;
 	void UpdateSample(float dt) override;
 
-	void CreateUniformCollection();
+	void CreateComputeUniformCollection();
 	void CreateDrawUniformCollection();
 	void CreateOutlineUniformCollection();
 
@@ -45,10 +48,10 @@ private:
 
 private:
 
-	std::vector<PHX::ShaderHandle> m_shaders;
+	std::vector<PHX::ShaderHandle> m_particleComputeShader;
 	std::vector<PHX::ShaderHandle> m_drawShaders;
 
-	PHX::UniformCollectionHandle m_uniformCollection;
+	PHX::UniformCollectionHandle m_computeUniformCollection;
 	PHX::UniformCollectionHandle m_drawUniformCollection;
 
 	PHX::BufferHandle m_particlesBuffer;
@@ -70,6 +73,9 @@ private:
 	SimData m_simData;
 	CameraData m_cameraData;
 
-	int32_t m_volumeMinBound;
-	int32_t m_volumeMaxBound;
+	i32 m_volumeMinBound;
+	i32 m_volumeMaxBound;
+
+	std::random_device m_randomEngine;
+	std::mt19937 m_mt;
 };

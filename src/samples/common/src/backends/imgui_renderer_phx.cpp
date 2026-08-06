@@ -94,13 +94,13 @@ namespace Common
 			return;
 		}
 
-		m_vertShader = pShaderManager->RegisterShader("../../common/src/shaders/imgui.vert.slang", SHADER_STAGE::VERTEX, renderDevice);
+		m_vertShader = pShaderManager->LoadShader("../../common/src/shaders/imgui.vert.slang", SHADER_STAGE::VERTEX, renderDevice);
 		if (!m_vertShader.IsValid())
 		{
 			return;
 		}
 
-		m_fragShader = pShaderManager->RegisterShader("../../common/src/shaders/imgui.frag.slang", SHADER_STAGE::FRAGMENT, renderDevice);
+		m_fragShader = pShaderManager->LoadShader("../../common/src/shaders/imgui.frag.slang", SHADER_STAGE::FRAGMENT, renderDevice);
 		if (!m_fragShader.IsValid())
 		{
 			return;

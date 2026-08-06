@@ -162,14 +162,14 @@ void BasicModelSample::InitSample()
 
 	// SHADERS
 	ShaderHandle vertShader;
-	vertShader = m_pShaderManager->RegisterShader("../src/shaders/basic.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
+	vertShader = m_pShaderManager->LoadShader("../src/shaders/basic.vert.slang", SHADER_STAGE::VERTEX, m_renderDevice);
 	if (!vertShader.IsValid())
 	{
 		return;
 	}
 
 	ShaderHandle fragShader;
-	fragShader = m_pShaderManager->RegisterShader("../src/shaders/basic.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
+	fragShader = m_pShaderManager->LoadShader("../src/shaders/basic.frag.slang", SHADER_STAGE::FRAGMENT, m_renderDevice);
 	if (!fragShader.IsValid())
 	{
 		return;
