@@ -35,6 +35,7 @@ namespace PHX
 	typedef std::function<void(KeyCode keycode)>                    fpWindowKeyEventCallback;
 	typedef std::function<void(float newX, float newY)>             fpMouseMovedEventCallback;
 	typedef std::function<void(MouseButtonCode keycode)>            fpMouseButtonEventCallback;
+	typedef std::function<void(float scrollX, float scrollY)>       fpMouseScrollEventCallback;
 	typedef std::function<void(const char* msg, LOG_TYPE severity)> fpLogCallback;
 
 	struct Settings
@@ -54,8 +55,9 @@ namespace PHX
 		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyRepeatCallback          = nullptr; // Callback for when the window detects a repeated key-press
 		
 		/* [OPTIONAL ] */ fpMouseMovedEventCallback mouseMovedCallback              = nullptr; // Callback for when the mouse moves over the window. Provides new mouse coordinates relative to the window's top-left corner
-		/* [OPTIONAL ] */ fpMouseButtonEventCallback windowMouseButtonDownCallback  = nullptr; // Callback for when the window detects a mouse button press
-		/* [OPTIONAL ] */ fpMouseButtonEventCallback windowMouseButtonUpCallback    = nullptr; // Callback for when the window detects a mouse button de-press
+		/* [OPTIONAL ] */ fpMouseButtonEventCallback mouseButtonDownCallback        = nullptr; // Callback for when the window detects a mouse button press
+		/* [OPTIONAL ] */ fpMouseButtonEventCallback mouseButtonUpCallback          = nullptr; // Callback for when the window detects a mouse button de-press
+		/* [OPTIONAL ] */ fpMouseScrollEventCallback mouseScrollCallback            = nullptr; // Callback for when the window detects a mouse scroll
 
 		/* [OPTIONAL ] */ fpLogCallback logCallback                                 = nullptr; // Provide a callback for log messages. If null, logs will use PHX's default log callback
 		/* [OPTIONAL ] */ bool enableValidation                                     = false;   // Enable validation messages, whenever applicable

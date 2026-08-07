@@ -44,6 +44,7 @@ namespace Common
 		virtual void OnMouseButtonDown(PHX::MouseButtonCode mouseButton);
 		virtual void OnMouseButtonUp(PHX::MouseButtonCode mouseButton);
 		virtual void OnMouseMoved(float newX, float newY);
+		virtual void OnMouseScroll(float scrollX, float scrollY);
 
 		void GenerateRenderGraphVisualization(const char* name);
 

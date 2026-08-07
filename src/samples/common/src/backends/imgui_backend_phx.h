@@ -24,6 +24,7 @@ namespace Common
 		void OnKeyUp(PHX::KeyCode key);
 		void OnKeyRepeat(PHX::KeyCode key);
 		void OnMouseMoved(float x, float y);
+		void OnMouseScroll(float x, float y);
 		void OnMouseButtonDown(PHX::MouseButtonCode button);
 		void OnMouseButtonUp(PHX::MouseButtonCode button);
 

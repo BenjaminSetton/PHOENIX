@@ -51,7 +51,11 @@ namespace Common
 
 	void ImGuiPhxBackend::OnKeyDown(KeyCode key)
 	{
-		if (m_io == nullptr) return;
+		if (m_io == nullptr)
+		{
+			return;
+		}
+
 		ImGuiKey imguiKey = ConvertKeyCode(key);
 		if (imguiKey != ImGuiKey_None)
 		{
@@ -61,7 +65,11 @@ namespace Common
 
 	void ImGuiPhxBackend::OnKeyUp(KeyCode key)
 	{
-		if (m_io == nullptr) return;
+		if (m_io == nullptr)
+		{
+			return;
+		}
+
 		ImGuiKey imguiKey = ConvertKeyCode(key);
 		if (imguiKey != ImGuiKey_None)
 		{
@@ -71,7 +79,11 @@ namespace Common
 
 	void ImGuiPhxBackend::OnKeyRepeat(KeyCode key)
 	{
-		if (m_io == nullptr) return;
+		if (m_io == nullptr)
+		{
+			return;
+		}
+
 		ImGuiKey imguiKey = ConvertKeyCode(key);
 		if (imguiKey != ImGuiKey_None)
 		{
@@ -83,6 +95,16 @@ namespace Common
 	{
 		m_mouseX = x;
 		m_mouseY = y;
+	}
+
+	void ImGuiPhxBackend::OnMouseScroll(float x, float y)
+	{
+		if (m_io == nullptr)
+		{
+			return;
+		}
+
+		m_io->AddMouseWheelEvent(x, y);
 	}
 
 	void ImGuiPhxBackend::OnMouseButtonDown(MouseButtonCode button)

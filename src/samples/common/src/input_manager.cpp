@@ -4,7 +4,7 @@
 namespace Common
 {
 	InputManager::InputManager() : m_keyValues(0), m_prevMousePosition({0.0f, 0.0f}), m_newMousePosition({0.0f, 0.0f}), 
-		m_mouseDelta({0.0f, 0.0f}), m_isMousePositionInitialized(false)
+		m_mouseDelta({ 0.0f, 0.0f }), m_mouseScroll({ 0.0f, 0.0f }), m_isMousePositionInitialized(false)
 	{
 	}
 
@@ -52,6 +52,12 @@ namespace Common
 		out_Y = m_mouseDelta.second;
 	}
 
+	void InputManager::GetMouseScroll(float& out_X, float& out_Y) const
+	{
+		out_X = m_mouseScroll.first;
+		out_Y = m_mouseScroll.second;
+	}
+
 	void InputManager::SetKeyCode(PHX::KeyCode keycode, bool value)
 	{
 		m_keyValues.set(static_cast<size_t>(keycode), value);
@@ -72,5 +78,10 @@ namespace Common
 	void InputManager::SetMouseButton(PHX::MouseButtonCode mouseButton, bool value)
 	{
 		m_mouseButtonValues.set(static_cast<size_t>(mouseButton), value);
+	}
+
+	void InputManager::SetMouseScroll(float scrollX, float scrollY)
+	{
+		m_mouseScroll = { scrollX, scrollY };
 	}
 }

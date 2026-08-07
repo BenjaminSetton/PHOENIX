@@ -35,6 +35,7 @@ namespace Common
 
 		void GetMousePosition(float& out_X, float& out_Y) const;
 		void GetMouseDelta(float& out_X, float& out_Y) const;
+		void GetMouseScroll(float& out_X, float& out_Y) const;
 
 	private:
 
@@ -43,6 +44,7 @@ namespace Common
 		void SetKeyCode(PHX::KeyCode keycode, bool value);
 		void SetMousePosition(float newX, float newY);
 		void SetMouseButton(PHX::MouseButtonCode mouseButton, bool value);
+		void SetMouseScroll(float scrollX, float scrollY);
 
 	private:
 
@@ -52,6 +54,7 @@ namespace Common
 		std::pair<float, float> m_prevMousePosition;
 		std::pair<float, float> m_newMousePosition;
 		std::pair<float, float> m_mouseDelta;
+		std::pair<float, float> m_mouseScroll;
 		bool m_isMousePositionInitialized;
 	};
 }

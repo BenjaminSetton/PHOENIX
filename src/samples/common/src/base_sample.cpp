@@ -70,8 +70,9 @@ namespace Common
 		settings.windowKeyDownCallback = [=](KeyCode keycode) { this->OnKeyDown(keycode); };
 		settings.windowKeyUpCallback = [=](KeyCode keycode) { this->OnKeyUp(keycode); };
 		settings.mouseMovedCallback = [=](float newX, float newY) { this->OnMouseMoved(newX, newY); };
-		settings.windowMouseButtonDownCallback = [=](MouseButtonCode mouseButton) { this->OnMouseButtonDown(mouseButton); };
-		settings.windowMouseButtonUpCallback = [=](MouseButtonCode mouseButton) { this->OnMouseButtonUp(mouseButton); };
+		settings.mouseButtonDownCallback = [=](MouseButtonCode mouseButton) { this->OnMouseButtonDown(mouseButton); };
+		settings.mouseButtonUpCallback = [=](MouseButtonCode mouseButton) { this->OnMouseButtonUp(mouseButton); };
+		settings.mouseScrollCallback = [=](float scrollX, float scrollY) { this->OnMouseScroll(scrollX, scrollY); };
 		settings.windowKeyRepeatCallback = nullptr;
 
 		// Allow derived classes to cherry-pick settings to override
@@ -238,6 +239,15 @@ namespace Common
 		if (m_imguiInitialized)
 		{
 			m_imguiBackend.OnMouseMoved(newX, newY);
+		}
+	}
+
+	void BaseSample::OnMouseScroll(float scrollX, float scrollY)
+	{
+		InputManager::GetInstance().SetMouseScroll(scrollX, scrollY);
+		if (m_imguiInitialized)
+		{
+			m_imguiBackend.OnMouseScroll(scrollX, scrollY);
 		}
 	}
 

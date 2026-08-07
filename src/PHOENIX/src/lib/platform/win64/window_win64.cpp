@@ -136,12 +136,14 @@ namespace PHX
 	static void Global_OnWindowResized(GLFWwindow* window, int newWidth, int newHeight)
 	{
 		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		ASSERT_PTR(userPointer);
 		userPointer->OnWindowResizedCallback(static_cast<u32>(newWidth), static_cast<u32>(newHeight));
 	}
 
 	static void Global_OnWindowMoved(GLFWwindow* window, int newX, int newY)
 	{
 		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		ASSERT_PTR(userPointer);
 		userPointer->OnWindowMovedCallback(newX, newY);
 	}
 
@@ -151,6 +153,7 @@ namespace PHX
 		const bool bInFocus = static_cast<bool>(isFocused);
 
 		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		ASSERT_PTR(userPointer);
 		userPointer->OnWindowFocusChangedCallback(bInFocus);
 	}
 
@@ -161,6 +164,7 @@ namespace PHX
 		const bool bWasIconified = static_cast<bool>(wasIconified);
 
 		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		ASSERT_PTR(userPointer);
 		userPointer->OnWindowMinimizedCallback(bWasIconified);
 	}
 
@@ -171,6 +175,7 @@ namespace PHX
 		const bool bWasMaximized = static_cast<bool>(wasMaximized);
 
 		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		ASSERT_PTR(userPointer);
 		userPointer->OnWindowMaximizedCallback(bWasMaximized);
 	}
 
@@ -179,6 +184,7 @@ namespace PHX
 		UNUSED(mods);
 
 		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		ASSERT_PTR(userPointer);
 		userPointer->OnWindowKeyEventCallback(key, scancode, action);
 	}
 
@@ -188,6 +194,7 @@ namespace PHX
 		const float newY = static_cast<float>(ypos);
 
 		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		ASSERT_PTR(userPointer);
 		userPointer->OnMouseMovedCallback(newX, newY);
 	}
 
@@ -196,7 +203,18 @@ namespace PHX
 		UNUSED(mods);
 
 		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		ASSERT_PTR(userPointer);
 		userPointer->OnMouseButtonEvent(button, action);
+	}
+
+	static void Global_OnMouseScrollEvent(GLFWwindow* window, double scrollX, double scrollY)
+	{
+		const float fScrollX = static_cast<float>(scrollX);
+		const float fScrollY = static_cast<float>(scrollY);
+
+		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		ASSERT_PTR(userPointer);
+		userPointer->OnMouseScrollEvent(fScrollX, fScrollY);
 	}
 
 	static u32 ConvertGLFWCursorTypeToInternal(CURSOR_TYPE cursorType)
@@ -252,6 +270,7 @@ namespace PHX
 		glfwSetWindowMaximizeCallback(m_handle, Global_OnWindowMaximized);
 		glfwSetCursorPosCallback(m_handle, Global_OnMouseMoved);
 		glfwSetMouseButtonCallback(m_handle, Global_OnMouseButtonEvent);
+		glfwSetScrollCallback(m_handle, Global_OnMouseScrollEvent);
 		glfwSetKeyCallback(m_handle, Global_OnKeyEvent);
 
 		// Take the user's desired position and add it to the top-left coordinate to account for the menu bar
@@ -493,17 +512,17 @@ namespace PHX
 		{
 		case GLFW_RELEASE:
 		{
-			if (settings.windowMouseButtonUpCallback != nullptr)
+			if (settings.mouseButtonUpCallback != nullptr)
 			{
-				settings.windowMouseButtonUpCallback(mouseButton);
+				settings.mouseButtonUpCallback(mouseButton);
 			}
 			break;
 		}
 		case GLFW_PRESS:
 		{
-			if (settings.windowMouseButtonDownCallback != nullptr)
+			if (settings.mouseButtonDownCallback != nullptr)
 			{
-				settings.windowMouseButtonDownCallback(mouseButton);
+				settings.mouseButtonDownCallback(mouseButton);
 			}
 			break;
 		}
@@ -516,6 +535,15 @@ namespace PHX
 		{
 			break;
 		}
+		}
+	}
+
+	void WindowWin64::OnMouseScrollEvent(float scrollX, float scrollY)
+	{
+		auto& settings = GetSettings();
+		if (settings.mouseScrollCallback != nullptr)
+		{
+			settings.mouseScrollCallback(scrollX, scrollY);
 		}
 	}
 
