@@ -9,6 +9,7 @@ namespace Common
 
 	// Monitors directories on a background thread and reports changed files
 	// to the main thread via Poll()
+	// TODO - Migrate to BSL
 	class FileWatcher
 	{
 	public:

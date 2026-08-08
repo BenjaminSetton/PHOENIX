@@ -11,26 +11,26 @@ namespace Common
 
 		// Write LOD groups
 		uint32_t groupCount = static_cast<uint32_t>(asset.lodGroups.size());
-		WriteTrivial(os, groupCount);
+		BSL::WriteTrivial(os, groupCount);
 
 		for (uint32_t g = 0; g < groupCount; g++)
 		{
 			const LodGroupData& group = asset.lodGroups[g];
 			uint32_t levelCount = static_cast<uint32_t>(group.levels.size());
-			WriteTrivial(os, levelCount);
+			BSL::WriteTrivial(os, levelCount);
 
 			for (uint32_t l = 0; l < levelCount; l++)
 			{
 				const LodLevelData& level = group.levels[l];
 
-				WriteTrivial(os, level.screenRatio);
+				BSL::WriteTrivial(os, level.screenRatio);
 
 				uint32_t vertexCount = static_cast<uint32_t>(level.vertices.size());
-				WriteTrivial(os, vertexCount);
+				BSL::WriteTrivial(os, vertexCount);
 				os.write(reinterpret_cast<const char*>(level.vertices.data()), vertexCount * sizeof(LodVertex));
 
 				uint32_t indexCount = static_cast<uint32_t>(level.indices.size());
-				WriteTrivial(os, indexCount);
+				BSL::WriteTrivial(os, indexCount);
 				os.write(reinterpret_cast<const char*>(level.indices.data()), indexCount * sizeof(Common::AssetIndexType));
 			}
 		}
@@ -43,26 +43,26 @@ namespace Common
 
 		AssetType* asset = new AssetType();
 
-		uint32_t groupCount = ReadTrivial<uint32_t>(is);
+		uint32_t groupCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->lodGroups.resize(groupCount);
 
 		for (uint32_t g = 0; g < groupCount; g++)
 		{
 			LodGroupData& group = asset->lodGroups[g];
-			uint32_t levelCount = ReadTrivial<uint32_t>(is);
+			uint32_t levelCount = BSL::ReadTrivial<uint32_t>(is);
 			group.levels.resize(levelCount);
 
 			for (uint32_t l = 0; l < levelCount; l++)
 			{
 				LodLevelData& level = group.levels[l];
 
-				level.screenRatio = ReadTrivial<float>(is);
+				level.screenRatio = BSL::ReadTrivial<float>(is);
 
-				uint32_t vertexCount = ReadTrivial<uint32_t>(is);
+				uint32_t vertexCount = BSL::ReadTrivial<uint32_t>(is);
 				level.vertices.resize(vertexCount);
 				is.read(reinterpret_cast<char*>(level.vertices.data()), vertexCount * sizeof(LodVertex));
 
-				uint32_t indexCount = ReadTrivial<uint32_t>(is);
+				uint32_t indexCount = BSL::ReadTrivial<uint32_t>(is);
 				level.indices.resize(indexCount);
 				is.read(reinterpret_cast<char*>(level.indices.data()), indexCount * sizeof(Common::AssetIndexType));
 			}

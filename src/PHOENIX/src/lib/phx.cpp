@@ -1,4 +1,5 @@
 
+#include <filesystem>
 #include <slang.h>
 #include <slang-com-ptr.h>
 #include <string>
@@ -12,6 +13,8 @@
 #include "BSL/sanity.h"
 #include "core/core_object_manager.h"
 #include "core/global_settings.h"
+#include "core/shader/shader_cache.h"
+#include "core/shader/shader_include_parser.h"
 #include "utils/slang_type_converter.h"
 
 using namespace BSL;
@@ -31,6 +34,9 @@ namespace PHX
 		(major << (VER_MINOR_SIZE + VER_PATCH_SIZE)) | \
 		(minor << (VER_PATCH_SIZE)				   ) | \
 		(patch << 0								   )
+
+	// Static shader cache instance used by LoadOrCompileShader
+	static ShaderCache g_shaderCache;
 
 	static constexpr const char* SHADER_STAGE_NAMES[static_cast<u32>(SHADER_STAGE::MAX)] =
 	{
@@ -114,6 +120,12 @@ namespace PHX
 			isValid = false;
 		}
 
+		if (settings.cacheDirectory == nullptr || settings.cacheDirectory[0] == '\0')
+		{
+			LogError("Mandatory setting \"cacheDirectory\" has not been set or is empty!");
+			isValid = false;
+		}
+
 		return isValid;
 	}
 
@@ -130,6 +142,13 @@ namespace PHX
 			// Errors are logged in the check function specifically for what's missing
 			LogError("Failed to initialize library! One or more mandatory settings have not been set");
 			return STATUS_CODE::ERR_API;
+		}
+
+		// Create the cache directory, if applicable
+		std::filesystem::path cacheDir = initSettings.cacheDirectory;
+		if (!cacheDir.empty() && !std::filesystem::exists(cacheDir))
+		{
+			std::filesystem::create_directories(cacheDir);
 		}
 
 		// Only this function should ever set the settings!
@@ -528,6 +547,89 @@ namespace PHX
 			out_result.reflectionData.isValid = true;
 		}
 
+		LogInfo("Compiled shader");
+
+		// Write to cache if cache metadata was provided
+		if (srcData.sourceFilePath != nullptr)
+		{
+			g_shaderCache.WriteToCache(srcData.sourceFilePath, srcData.stage, srcData.origin, static_cast<i32>(target), srcData.contentHash, out_result);
+		}
+
 		return STATUS_CODE::SUCCESS;
+	}
+
+	STATUS_CODE LoadOrCompileShader(const ShaderFileSourceData& fileSrcData, CompiledShader& out_result, ResolvedShaderIncludes* out_includes)
+	{
+		if (fileSrcData.filePath == nullptr)
+		{
+			LogError("LoadOrCompileShader: filePath is null");
+			return STATUS_CODE::ERR_API;
+		}
+
+		std::string filePath(fileSrcData.filePath);
+
+		// Collect search paths
+		std::vector<std::string> searchPaths;
+		for (u32 i = 0; i < fileSrcData.includePathCount; i++)
+		{
+			searchPaths.push_back(fileSrcData.includePaths[i]);
+		}
+
+		// Read + parse the shader file and all transitive includes
+		std::string mainContent;
+		std::vector<ResolvedInclude> includes;
+		if (!ReadAndParseShaderFile(filePath, searchPaths, mainContent, includes))
+		{
+			LogError("LoadOrCompileShader: Failed to read shader file: %s", filePath.c_str());
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		// Fill out_includes if requested
+		if (out_includes != nullptr)
+		{
+			out_includes->mainFilePath = filePath;
+			out_includes->includeFilePaths.clear();
+			out_includes->includeFilePaths.reserve(includes.size());
+			for (const ResolvedInclude& inc : includes)
+			{
+				out_includes->includeFilePaths.push_back(inc.path);
+			}
+		}
+
+		// Derive origin from file extension
+		SHADER_ORIGIN origin = g_shaderCache.GetOriginFromFilePath(filePath);
+
+		// Get compile target from backend settings
+		const Settings& settings = GlobalSettings::Get().GetSettings();
+		SlangCompileTarget compileTarget = SLANG_UTILS::ConvertTarget(settings.backendAPI, settings.backendAPIMajorVersion, settings.backendAPIMinorVersion);
+
+		// Compute content hash
+		u32 contentHash = ComputeShaderContentHash(filePath, mainContent, includes, static_cast<i32>(compileTarget));
+
+		// Check cache (if enabled)
+		if (g_shaderCache.IsCacheEnabled())
+		{
+			std::string cacheFilePath = g_shaderCache.ComputeCacheFilePath(filePath, fileSrcData.stage);
+			if (g_shaderCache.TryLoadFromCache(cacheFilePath, contentHash, fileSrcData.stage, out_result))
+			{
+				LogInfo("Shader cache hit for \"%s\"", filePath.c_str());
+				return STATUS_CODE::SUCCESS;
+			}
+		}
+
+		// Cache miss or disabled — compile
+		ShaderSourceData srcData{};
+		srcData.data = mainContent.c_str();
+		srcData.entryPoint = fileSrcData.entryPoint;
+		srcData.stage = fileSrcData.stage;
+		srcData.origin = origin;
+		srcData.optimizationLevel = fileSrcData.optimizationLevel;
+		srcData.performReflection = fileSrcData.performReflection;
+		srcData.includePaths = fileSrcData.includePaths;
+		srcData.includePathCount = fileSrcData.includePathCount;
+		srcData.sourceFilePath = fileSrcData.filePath;
+		srcData.contentHash = contentHash;
+
+		return CompileShader(srcData, out_result);
 	}
 }

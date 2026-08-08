@@ -67,6 +67,8 @@ namespace Common
 		settings.windowMinimizedCallback = OnWindowMinimizedCallback;
 		settings.windowResizedCallback = OnWindowResizedCallback;
 		settings.gatherMetrics = true;
+		settings.cacheDirectory = CACHE_ROOT_DIR;
+
 		settings.windowKeyDownCallback = [=](KeyCode keycode) { this->OnKeyDown(keycode); };
 		settings.windowKeyUpCallback = [=](KeyCode keycode) { this->OnKeyUp(keycode); };
 		settings.mouseMovedCallback = [=](float newX, float newY) { this->OnMouseMoved(newX, newY); };
@@ -256,7 +258,7 @@ namespace Common
 		const u32 frameNumber = m_renderGraph.GetFrameNumber();
 		const u32 nameLen = 256;
 		char renderGraphVisName[nameLen];
-		snprintf(renderGraphVisName, nameLen, "%s/render_graph_viz/%s_RG_%u.dot", CACHE_ROOT_DIR, name, frameNumber);
+		snprintf(renderGraphVisName, nameLen, "render_graph_viz/%s_RG_%u.dot", name, frameNumber);
 		m_renderGraph.GenerateVisualization(renderGraphVisName);
 	}
 }

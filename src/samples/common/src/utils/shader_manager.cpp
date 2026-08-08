@@ -1,9 +1,6 @@
 
 #include <algorithm>
-#include <functional>
-#include <fstream>
 #include <iostream>
-#include <sstream>
 
 #include <PHX/phx.h>
 
@@ -31,110 +28,8 @@ namespace Common
 		return filePath.substr(0, pos);
 	}
 
-	bool ShaderManager::ReadFile(const std::string& path, std::string& out_content)
+	bool ShaderManager::CompileAndAllocate(const std::string& filePath, PHX::SHADER_STAGE stage, PHX::RenderDeviceHandle device, const std::vector<std::string>& includePaths, PHX::ShaderHandle& handle, PHX::ResolvedShaderIncludes* out_resolvedIncludes)
 	{
-		std::ifstream file(path, std::ios::in);
-		if (!file.is_open())
-		{
-			std::cout << "Failed to read shader file \"" << path.c_str() << "\". Could not open file!" << std::endl;
-			return false;
-		}
-		std::stringstream buffer;
-		buffer << file.rdbuf();
-		out_content = buffer.str();
-		return true;
-	}
-
-	std::vector<std::string> ShaderManager::ParseIncludes(const std::string& source, const std::string& baseDir, const std::vector<std::string>& searchPaths)
-	{
-		std::vector<std::string> result;
-		std::unordered_set<std::string> visited;
-
-		// Recursive lambda for parsing includes
-		std::function<void(const std::string&, const std::string&)> parseRecursive =
-			[&](const std::string& src, const std::string& currDir)
-		{
-			std::istringstream stream(src);
-			std::string line;
-			while (std::getline(stream, line))
-			{
-				// Find #include "..." pattern
-				size_t includePos = line.find("#include");
-				if (includePos == std::string::npos)
-					continue;
-
-				size_t quoteStart = line.find('"', includePos);
-				if (quoteStart == std::string::npos)
-					continue;
-
-				size_t quoteEnd = line.find('"', quoteStart + 1);
-				if (quoteEnd == std::string::npos)
-					continue;
-
-				std::string includeName = line.substr(quoteStart + 1, quoteEnd - quoteStart - 1);
-
-				// Try to resolve the include path
-				std::string resolvedPath;
-				bool found = false;
-
-				// First, search relative to the current directory
-				{
-					std::string candidate = currDir + "/" + includeName;
-					std::ifstream testFile(candidate);
-					if (testFile.is_open())
-					{
-						resolvedPath = candidate;
-						found = true;
-					}
-				}
-
-				// Then, search in the provided search paths
-				if (!found)
-				{
-					for (const std::string& searchPath : searchPaths)
-					{
-						std::string candidate = searchPath + "/" + includeName;
-						std::ifstream testFile(candidate);
-						if (testFile.is_open())
-						{
-							resolvedPath = candidate;
-							found = true;
-							break;
-						}
-					}
-				}
-
-				if (!found)
-					continue;
-
-				if (visited.count(resolvedPath) > 0)
-					continue;
-
-				visited.insert(resolvedPath);
-				result.push_back(resolvedPath);
-
-				// Recursively parse the included file
-				std::string includeContent;
-				if (ReadFile(resolvedPath, includeContent))
-				{
-					std::string includeDir = GetDirectory(resolvedPath);
-					parseRecursive(includeContent, includeDir);
-				}
-			}
-		};
-
-		parseRecursive(source, baseDir);
-		return result;
-	}
-
-	bool ShaderManager::CompileAndAllocate(const std::string& filePath, PHX::SHADER_STAGE stage, PHX::RenderDeviceHandle device, const std::vector<std::string>& includePaths, PHX::ShaderHandle& handle)
-	{
-		std::string source;
-		if (!ReadFile(filePath, source))
-		{
-			return false;
-		}
-
 		// Build include paths
 		std::vector<const char*> includePathPtrs;
 		includePathPtrs.reserve(includePaths.size());
@@ -143,17 +38,16 @@ namespace Common
 			includePathPtrs.push_back(path.c_str());
 		}
 
-		PHX::ShaderSourceData shaderSrc{};
-		shaderSrc.data = source.c_str();
-		shaderSrc.entryPoint = "main";
-		shaderSrc.stage = stage;
-		shaderSrc.origin = GetOriginFromFilePath(filePath);
-		shaderSrc.includePaths = includePathPtrs.data();
-		shaderSrc.includePathCount = static_cast<u32>(includePathPtrs.size());
-		shaderSrc.performReflection = true;
+		PHX::ShaderFileSourceData fileSrc{};
+		fileSrc.filePath = filePath.c_str();
+		fileSrc.entryPoint = "main";
+		fileSrc.stage = stage;
+		fileSrc.includePaths = includePathPtrs.data();
+		fileSrc.includePathCount = static_cast<u32>(includePathPtrs.size());
+		fileSrc.performReflection = true;
 
 		PHX::CompiledShader compiled;
-		if (PHX::CompileShader(shaderSrc, compiled) != PHX::STATUS_CODE::SUCCESS)
+		if (PHX::LoadOrCompileShader(fileSrc, compiled, out_resolvedIncludes) != PHX::STATUS_CODE::SUCCESS)
 		{
 			return false;
 		}
@@ -197,26 +91,19 @@ namespace Common
 		entry.includePaths = includePaths;
 		entry.handle = PHX::ShaderHandle{};
 
-		// Read and parse includes
-		std::string source;
-		if (!ReadFile(filePath, source))
+		// Load/compile — PHX returns resolved includes for file watcher registration
+		PHX::ResolvedShaderIncludes resolved;
+		if (!CompileAndAllocate(filePath, stage, device, includePaths, entry.handle, &resolved))
 		{
 			return PHX::INVALID_HANDLE;
 		}
 
-		std::string baseDir = GetDirectory(filePath);
-		entry.resolvedIncludes = ParseIncludes(source, baseDir, includePaths);
-
-		// Compile and allocate
-		if (!CompileAndAllocate(filePath, stage, device, includePaths, entry.handle))
-		{
-			return PHX::INVALID_HANDLE;
-		}
+		entry.resolvedIncludes = resolved.includeFilePaths;
 
 		size_t index = m_shaders.size();
 
 		// Register directories with the file watcher
-		RegisterWatchDir(baseDir);
+		RegisterWatchDir(GetDirectory(filePath));
 		for (const std::string& includePath : entry.resolvedIncludes)
 		{
 			RegisterWatchDir(GetDirectory(includePath));
@@ -277,15 +164,12 @@ namespace Common
 		{
 			ShaderEntry& entry = m_shaders[shaderIdx];
 
-			// Re-read source and re-parse includes
-			std::string source;
-			if (!ReadFile(entry.filePath, source))
+			// Recompile — LoadOrCompileShader will detect content hash change (cache miss) and recompile + update cache
+			PHX::ResolvedShaderIncludes newResolved;
+			if (!CompileAndAllocate(entry.filePath, entry.stage, m_device, entry.includePaths, entry.handle, &newResolved))
 			{
 				continue;
 			}
-
-			std::string baseDir = GetDirectory(entry.filePath);
-			std::vector<std::string> newIncludes = ParseIncludes(source, baseDir, entry.includePaths);
 
 			// Update dependency map: remove old include dependencies
 			for (const std::string& oldInclude : entry.resolvedIncludes)
@@ -299,18 +183,13 @@ namespace Common
 			}
 
 			// Update dependency map: add new include dependencies
-			for (const std::string& newInclude : newIncludes)
+			for (const std::string& newInclude : newResolved.includeFilePaths)
 			{
 				m_includeDependencyMap[newInclude].push_back(shaderIdx);
 			}
 
-			entry.resolvedIncludes = newIncludes;
-
-			// Recompile and reload
-			if (CompileAndAllocate(entry.filePath, entry.stage, m_device, entry.includePaths, entry.handle))
-			{
-				anyReloaded = true;
-			}
+			entry.resolvedIncludes = newResolved.includeFilePaths;
+			anyReloaded = true;
 		}
 
 		// Step 4: Flush pipeline cache (FlushPipelineCache calls vkDeviceWaitIdle internally)

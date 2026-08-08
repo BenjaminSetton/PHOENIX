@@ -11,27 +11,27 @@ namespace Common
 	{
 		(void)outputDir; // Textures are self-contained — no external files needed
 		// Write header
-		WriteHeader(os, TEXTURE_MAGIC, TEXTURE_FORMAT_VERSION, TEXTURE_TYPE_HASH);
+		BSL::WriteHeader(os, TEXTURE_MAGIC, TEXTURE_FORMAT_VERSION, TEXTURE_TYPE_HASH);
 
 		// Write texture metadata
-		WriteString(os, texture.name);
-		WriteTrivial(os, static_cast<uint32_t>(texture.type));
-		WriteTrivial(os, static_cast<uint32_t>(texture.format));
+		BSL::WriteString(os, texture.name);
+		BSL::WriteTrivial(os, static_cast<uint32_t>(texture.type));
+		BSL::WriteTrivial(os, static_cast<uint32_t>(texture.format));
 
 		// Write mip levels
 		uint32_t mipCount = static_cast<uint32_t>(texture.mipLevels.size());
-		WriteTrivial(os, mipCount);
+		BSL::WriteTrivial(os, mipCount);
 
 		for (uint32_t i = 0; i < mipCount; i++)
 		{
 			const TextureMipLevel& mip = texture.mipLevels[i];
 
-			WriteTrivial(os, mip.size.GetX());
-			WriteTrivial(os, mip.size.GetY());
-			WriteTrivial(os, mip.dataSize);
+			BSL::WriteTrivial(os, mip.size.GetX());
+			BSL::WriteTrivial(os, mip.size.GetY());
+			BSL::WriteTrivial(os, mip.dataSize);
 
 			uint64_t dataSize = static_cast<uint64_t>(mip.data.size());
-			WriteTrivial(os, dataSize);
+			BSL::WriteTrivial(os, dataSize);
 			os.write(reinterpret_cast<const char*>(mip.data.data()), dataSize);
 		}
 	}
@@ -43,7 +43,7 @@ namespace Common
 		TextureType* texture = new TextureType{};
 
 		// Read and validate header
-		if (!ReadAndValidateHeader(is, TEXTURE_MAGIC, TEXTURE_FORMAT_VERSION, TEXTURE_TYPE_HASH))
+		if (!BSL::ReadAndValidateHeader(is, TEXTURE_MAGIC, TEXTURE_FORMAT_VERSION, TEXTURE_TYPE_HASH))
 		{
 			std::cout << "[ASSET] Failed to validate texture file header" << std::endl;
 			delete texture;
@@ -51,24 +51,24 @@ namespace Common
 		}
 
 		// Read texture metadata
-		texture->name   = ReadString(is);
-		texture->type   = static_cast<TEXTURE_TYPE>(ReadTrivial<uint32_t>(is));
-		texture->format = static_cast<PHX::BASE_FORMAT>(ReadTrivial<uint32_t>(is));
+		texture->name   = BSL::ReadString(is);
+		texture->type   = static_cast<TEXTURE_TYPE>(BSL::ReadTrivial<uint32_t>(is));
+		texture->format = static_cast<PHX::BASE_FORMAT>(BSL::ReadTrivial<uint32_t>(is));
 
 		// Read mip levels
-		uint32_t mipCount = ReadTrivial<uint32_t>(is);
+		uint32_t mipCount = BSL::ReadTrivial<uint32_t>(is);
 		texture->mipLevels.resize(mipCount);
 
 		for (uint32_t i = 0; i < mipCount; i++)
 		{
 			TextureMipLevel& mip = texture->mipLevels[i];
 
-			uint32_t width  = ReadTrivial<uint32_t>(is);
-			uint32_t height = ReadTrivial<uint32_t>(is);
+			uint32_t width  = BSL::ReadTrivial<uint32_t>(is);
+			uint32_t height = BSL::ReadTrivial<uint32_t>(is);
 			mip.size = { width, height };
-			mip.dataSize = ReadTrivial<u64>(is);
+			mip.dataSize = BSL::ReadTrivial<u64>(is);
 
-			uint64_t dataSize = ReadTrivial<uint64_t>(is);
+			uint64_t dataSize = BSL::ReadTrivial<uint64_t>(is);
 			mip.data.resize(dataSize);
 			is.read(reinterpret_cast<char*>(mip.data.data()), dataSize);
 		}

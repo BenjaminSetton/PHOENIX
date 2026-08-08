@@ -49,6 +49,7 @@ namespace PHX
 		/* [MANDATORY] */ fpWindowMinimizedCallback windowMinimizedCallback         = nullptr; // Callback for when window is minimized (wasMinimized is true) or restored from a minimize (wasMinimized is false)
 		/* [MANDATORY] */ fpWindowMaximizedCallback windowMaximizedCallback         = nullptr; // Callback for when window is maximized (wasMaximized is true) or restored from a maximize (wasMaximized is false)
 		/* [MANDATORY] */ bool gatherMetrics                                        = false;   // Enable metric gathering. If false, calling GetMetrics() will return default data
+		/* [MANDATORY] */ const char* cacheDirectory                                = nullptr; // Root directory for all cache files (shaders, render graph viz, etc.)
 
 		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyDownCallback            = nullptr; // Callback for when the window detects a key-press
 		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyUpCallback              = nullptr; // Callback for when the window detects a key-press has been lifted
@@ -61,5 +62,7 @@ namespace PHX
 
 		/* [OPTIONAL ] */ fpLogCallback logCallback                                 = nullptr; // Provide a callback for log messages. If null, logs will use PHX's default log callback
 		/* [OPTIONAL ] */ bool enableValidation                                     = false;   // Enable validation messages, whenever applicable
+
+		/* [OPTIONAL ] */ bool enableShaderCache                                    = true;    // Toggle shader caching without clearing the cache directory. If false, always compiles
 	};
 }

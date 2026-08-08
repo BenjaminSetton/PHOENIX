@@ -39,15 +39,9 @@ namespace Common
 			PHX::ShaderHandle handle = PHX::INVALID_HANDLE;
 		};
 
-		// Reads a file and returns its contents as a string. Returns false on failure
-		bool ReadFile(const std::string& path, std::string& out_content);
-
-		// Scans source text for #include "filename" directives, and returns full 
-		// paths of all included files
-		std::vector<std::string> ParseIncludes(const std::string& source, const std::string& baseDir, const std::vector<std::string>& searchPaths);
-
-		// Compiles shader source and allocates (or reloads) the shader handle
-		bool CompileAndAllocate(const std::string& filePath, PHX::SHADER_STAGE stage, PHX::RenderDeviceHandle device, const std::vector<std::string>& includePaths, PHX::ShaderHandle& handle);
+		// Loads or compiles the shader via LoadOrCompileShader and allocates (or reloads) the handle.
+		// If out_resolvedIncludes is non-null, fills it with the main file + all transitive include paths.
+		bool CompileAndAllocate(const std::string& filePath, PHX::SHADER_STAGE stage, PHX::RenderDeviceHandle device, const std::vector<std::string>& includePaths, PHX::ShaderHandle& handle, PHX::ResolvedShaderIncludes* out_resolvedIncludes = nullptr);
 
 		// Returns the directory portion of a file path
 		static std::string GetDirectory(const std::string& filePath);

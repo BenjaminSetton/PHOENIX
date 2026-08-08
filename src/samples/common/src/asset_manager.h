@@ -114,7 +114,7 @@ namespace Common
 				return INVALID_ASSET_HANDLE;
 			}
 
-			if (!ReadAndValidateHeader(file, ASSET_MAGIC, ASSET_FORMAT_VERSION, Serializer<AssetType>::TypeHash))
+			if (!BSL::ReadAndValidateHeader(file, ASSET_MAGIC, ASSET_FORMAT_VERSION, Serializer<AssetType>::TypeHash))
 			{
 				std::cout << "[ASSET] Cache file header validation failed: '" << cachePath << "'" << std::endl;
 				return INVALID_ASSET_HANDLE;
@@ -221,8 +221,8 @@ namespace Common
 				return false;
 			}
 
-			FileHeader header{};
-			file.read(reinterpret_cast<char*>(&header), sizeof(FileHeader));
+			BSL::FileHeader header{};
+			file.read(reinterpret_cast<char*>(&header), sizeof(BSL::FileHeader));
 			if (!file.good())
 			{
 				return false;
@@ -263,7 +263,7 @@ namespace Common
 				return;
 			}
 
-			WriteHeader(file, ASSET_MAGIC, ASSET_FORMAT_VERSION, Serializer<AssetType>::TypeHash);
+			BSL::WriteHeader(file, ASSET_MAGIC, ASSET_FORMAT_VERSION, Serializer<AssetType>::TypeHash);
 			Serializer<AssetType>::Write(file, asset, parentDir);
 
 			std::cout << "[ASSET] Serialized asset: '" << cachePath << "'" << std::endl;

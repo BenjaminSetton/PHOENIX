@@ -1,8 +1,11 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "BSL/integral_types.h"
+#include "BSL/sanity.h"
 #include "BSL/vec_types.h"
 #include "texture_desc.h"
 
@@ -93,18 +96,46 @@ namespace PHX
 		u32 outputCount                                     = 0;
 
 		BSL::Vec3u localSize                                = BSL::Vec3u(0); // Only valid for compute shaders
+
+		// Owned string storage for name pointers when loaded from cache.
+		// When compiled via Slang, names point into Slang's internal string pool and this is null.
+		// When deserialized from cache, names point into this arena.
+		TECHDEBT("Remove this shit")
+		std::shared_ptr<std::vector<char>> stringArena      = nullptr;
 	};
 
 	struct ShaderSourceData
 	{
-		const char* data = nullptr;
-		const char* entryPoint = nullptr;
+		const char* data							= nullptr;
+		const char* entryPoint						= nullptr;
+		SHADER_STAGE stage							= SHADER_STAGE::MAX;
+		SHADER_ORIGIN origin						= SHADER_ORIGIN::MAX;
+		SHADER_OPTIMIZATION_LEVEL optimizationLevel	= SHADER_OPTIMIZATION_LEVEL::NONE;
+		bool performReflection						= true;
+		const char** includePaths					= nullptr;	// Array of include search directory paths
+		u32 includePathCount						= 0;		// Number of entries in includePaths
+
+		// Optional cache metadata. When sourceFilePath is non-null, CompileShader
+		// writes the result to the shader cache after successful compilation.
+		const char* sourceFilePath					= nullptr;	// Original file path (for cache key). Null = no cache write
+		u32 contentHash								= 0;		// CRC32 of source + includes + compile target
+	};
+
+	struct ShaderFileSourceData
+	{
+		const char* filePath = nullptr;
+		const char* entryPoint = "main";
 		SHADER_STAGE stage = SHADER_STAGE::MAX;
-		SHADER_ORIGIN origin = SHADER_ORIGIN::MAX;
 		SHADER_OPTIMIZATION_LEVEL optimizationLevel = SHADER_OPTIMIZATION_LEVEL::NONE;
 		bool performReflection = true;
-		const char** includePaths = nullptr; // Array of include search directory paths
-		u32 includePathCount = 0;            // Number of entries in includePaths
+		const char** includePaths = nullptr; // Additional include search directories
+		u32 includePathCount = 0;
+	};
+
+	struct ResolvedShaderIncludes
+	{
+		std::string mainFilePath;
+		std::vector<std::string> includeFilePaths; // All transitive includes, full paths
 	};
 
 	struct CompiledShader

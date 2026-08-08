@@ -11,23 +11,23 @@ namespace Common
 	{
 		// Write vertices
 		uint32_t vertexCount = static_cast<uint32_t>(asset.vertices.size());
-		WriteTrivial(os, vertexCount);
+		BSL::WriteTrivial(os, vertexCount);
 		os.write(reinterpret_cast<const char*>(asset.vertices.data()), vertexCount * sizeof(AssetVertex));
 
 		// Write indices
 		uint32_t indexCount = static_cast<uint32_t>(asset.indices.size());
-		WriteTrivial(os, indexCount);
+		BSL::WriteTrivial(os, indexCount);
 		os.write(reinterpret_cast<const char*>(asset.indices.data()), indexCount * sizeof(Common::AssetIndexType));
 
 		// Write textures as separate .tex files
 		uint32_t textureCount = static_cast<uint32_t>(asset.textures.size());
-		WriteTrivial(os, textureCount);
+		BSL::WriteTrivial(os, textureCount);
 
 		for (uint32_t i = 0; i < textureCount; i++)
 		{
 			// Write texture filename in the .asset stream
 			std::string texFileName = "tex_" + std::to_string(i) + ".tex";
-			WriteString(os, texFileName);
+			BSL::WriteString(os, texFileName);
 
 			// Write the .tex file alongside the .asset file
 			std::filesystem::path texPath = outputDir / texFileName;
@@ -48,22 +48,22 @@ namespace Common
 		AssetType* asset = new AssetType{};
 
 		// Read vertices
-		uint32_t vertexCount = ReadTrivial<uint32_t>(is);
+		uint32_t vertexCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->vertices.resize(vertexCount);
 		is.read(reinterpret_cast<char*>(asset->vertices.data()), vertexCount * sizeof(AssetVertex));
 
 		// Read indices
-		uint32_t indexCount = ReadTrivial<uint32_t>(is);
+		uint32_t indexCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->indices.resize(indexCount);
 		is.read(reinterpret_cast<char*>(asset->indices.data()), indexCount * sizeof(Common::AssetIndexType));
 
 		// Read textures from separate .tex files
-		uint32_t textureCount = ReadTrivial<uint32_t>(is);
+		uint32_t textureCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->textures.reserve(textureCount);
 
 		for (uint32_t i = 0; i < textureCount; i++)
 		{
-			std::string texFileName = ReadString(is);
+			std::string texFileName = BSL::ReadString(is);
 			std::filesystem::path texPath = inputDir / texFileName;
 
 			std::ifstream texFile(texPath, std::ios::binary);

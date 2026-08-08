@@ -1484,10 +1484,13 @@ namespace PHX
 
 		// Write to file
 		{
-			FileIO io(fileName);
+			const Settings& settings = GlobalSettings::Get().GetSettings();
+
+			std::string fullPath = std::string(settings.cacheDirectory) + "/" + fileName;
+			FileIO io(fullPath.c_str());
 			if (!io.IsOpen())
 			{
-				LogError("Failed to generate render graph visualization. Could not open file \"%s\" for writing!", fileName);
+				LogError("Failed to generate render graph visualization. Could not open file \"%s\" for writing!", fullPath.c_str());
 				return STATUS_CODE::ERR_INTERNAL;
 			}
 
@@ -1946,7 +1949,7 @@ namespace PHX
 	{
 		// Traverse the dependency tree from bottom-to-top, and for every dependency:
 		// 1. Find which resource usages caused that dependency
-		// 2. For all those resource usages, generate a barrier. Only generate pipeline barriers for now, and ignore cross-queue synchronization
+		// 2. For all those resource usages, generate a barrier
 		for (u32 activeRenderPassIndex : activeRenderPasses)
 		{
 			RenderPassVk* pDstRenderPass = m_registeredRenderPasses.Get(activeRenderPassIndex);

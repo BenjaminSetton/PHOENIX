@@ -12,22 +12,22 @@ namespace Common
 	{
 		// Write vertices
 		uint32_t vertexCount = static_cast<uint32_t>(asset.vertices.size());
-		WriteTrivial(os, vertexCount);
+		BSL::WriteTrivial(os, vertexCount);
 		os.write(reinterpret_cast<const char*>(asset.vertices.data()), vertexCount * sizeof(AssetVertex));
 
 		// Write indices
 		uint32_t indexCount = static_cast<uint32_t>(asset.indices.size());
-		WriteTrivial(os, indexCount);
+		BSL::WriteTrivial(os, indexCount);
 		os.write(reinterpret_cast<const char*>(asset.indices.data()), indexCount * sizeof(Common::AssetIndexType));
 
 		// Write textures as separate .tex files
 		uint32_t textureCount = static_cast<uint32_t>(asset.textures.size());
-		WriteTrivial(os, textureCount);
+		BSL::WriteTrivial(os, textureCount);
 
 		for (uint32_t i = 0; i < textureCount; i++)
 		{
 			std::string texFileName = "tex_" + std::to_string(i) + ".tex";
-			WriteString(os, texFileName);
+			BSL::WriteString(os, texFileName);
 
 			std::filesystem::path texPath = outputDir / texFileName;
 			std::ofstream texFile(texPath, std::ios::binary);
@@ -43,55 +43,55 @@ namespace Common
 
 		// Write skeleton
 		uint32_t boneCount = static_cast<uint32_t>(asset.skeleton.bones.size());
-		WriteTrivial(os, boneCount);
+		BSL::WriteTrivial(os, boneCount);
 		for (uint32_t i = 0; i < boneCount; i++)
 		{
 			const BoneInfo& bone = asset.skeleton.bones[i];
-			WriteTrivial(os, bone.parentIndex);
-			WriteTrivial(os, bone.nodeIndex);
-			WriteTrivial(os, bone.offsetMatrix);
+			BSL::WriteTrivial(os, bone.parentIndex);
+			BSL::WriteTrivial(os, bone.nodeIndex);
+			BSL::WriteTrivial(os, bone.offsetMatrix);
 		}
 
 		uint32_t nodeTransformCount = static_cast<uint32_t>(asset.skeleton.nodeLocalTransforms.size());
-		WriteTrivial(os, nodeTransformCount);
+		BSL::WriteTrivial(os, nodeTransformCount);
 		for (uint32_t i = 0; i < nodeTransformCount; i++)
 		{
-			WriteTrivial(os, asset.skeleton.nodeLocalTransforms[i]);
+			BSL::WriteTrivial(os, asset.skeleton.nodeLocalTransforms[i]);
 		}
 
 		// Write node parent indices
-		WriteTrivial(os, nodeTransformCount); // same count
+		BSL::WriteTrivial(os, nodeTransformCount); // same count
 		for (uint32_t i = 0; i < nodeTransformCount; i++)
 		{
-			WriteTrivial(os, asset.skeleton.nodeParentIndices[i]);
+			BSL::WriteTrivial(os, asset.skeleton.nodeParentIndices[i]);
 		}
 
 		// Write animations
 		uint32_t animCount = static_cast<uint32_t>(asset.animations.size());
-		WriteTrivial(os, animCount);
+		BSL::WriteTrivial(os, animCount);
 		for (uint32_t i = 0; i < animCount; i++)
 		{
 			const AnimationClip& clip = asset.animations[i];
-			WriteString(os, clip.name);
-			WriteTrivial(os, clip.duration);
-			WriteTrivial(os, clip.ticksPerSecond);
+			BSL::WriteString(os, clip.name);
+			BSL::WriteTrivial(os, clip.duration);
+			BSL::WriteTrivial(os, clip.ticksPerSecond);
 
 			uint32_t channelCount = static_cast<uint32_t>(clip.channels.size());
-			WriteTrivial(os, channelCount);
+			BSL::WriteTrivial(os, channelCount);
 			for (uint32_t j = 0; j < channelCount; j++)
 			{
 				const AnimationChannel& channel = clip.channels[j];
-				WriteTrivial(os, channel.nodeIndex);
+				BSL::WriteTrivial(os, channel.nodeIndex);
 
 				uint32_t keyCount = static_cast<uint32_t>(channel.keys.size());
-				WriteTrivial(os, keyCount);
+				BSL::WriteTrivial(os, keyCount);
 				for (uint32_t k = 0; k < keyCount; k++)
 				{
 					const AnimationKey& key = channel.keys[k];
-					WriteTrivial(os, key.time);
-					WriteTrivial(os, key.translation);
-					WriteTrivial(os, key.rotation);
-					WriteTrivial(os, key.scale);
+					BSL::WriteTrivial(os, key.time);
+					BSL::WriteTrivial(os, key.translation);
+					BSL::WriteTrivial(os, key.rotation);
+					BSL::WriteTrivial(os, key.scale);
 				}
 			}
 		}
@@ -102,21 +102,21 @@ namespace Common
 		AssetType* asset = new AssetType{};
 
 		// Read vertices
-		uint32_t vertexCount = ReadTrivial<uint32_t>(is);
+		uint32_t vertexCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->vertices.resize(vertexCount);
 		is.read(reinterpret_cast<char*>(asset->vertices.data()), vertexCount * sizeof(AssetVertex));
 
 		// Read indices
-		uint32_t indexCount = ReadTrivial<uint32_t>(is);
+		uint32_t indexCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->indices.resize(indexCount);
 		is.read(reinterpret_cast<char*>(asset->indices.data()), indexCount * sizeof(Common::AssetIndexType));
 
 		// Read textures
-		uint32_t textureCount = ReadTrivial<uint32_t>(is);
+		uint32_t textureCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->textures.reserve(textureCount);
 		for (uint32_t i = 0; i < textureCount; i++)
 		{
-			std::string texFileName = ReadString(is);
+			std::string texFileName = BSL::ReadString(is);
 			std::filesystem::path texPath = inputDir / texFileName;
 
 			std::ifstream texFile(texPath, std::ios::binary);
@@ -141,55 +141,55 @@ namespace Common
 		}
 
 		// Read skeleton
-		uint32_t boneCount = ReadTrivial<uint32_t>(is);
+		uint32_t boneCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->skeleton.bones.resize(boneCount);
 		for (uint32_t i = 0; i < boneCount; i++)
 		{
-			asset->skeleton.bones[i].parentIndex = ReadTrivial<int32_t>(is);
-			asset->skeleton.bones[i].nodeIndex = ReadTrivial<uint32_t>(is);
-			asset->skeleton.bones[i].offsetMatrix = ReadTrivial<glm::mat4>(is);
+			asset->skeleton.bones[i].parentIndex = BSL::ReadTrivial<int32_t>(is);
+			asset->skeleton.bones[i].nodeIndex = BSL::ReadTrivial<uint32_t>(is);
+			asset->skeleton.bones[i].offsetMatrix = BSL::ReadTrivial<glm::mat4>(is);
 		}
 
-		uint32_t nodeTransformCount = ReadTrivial<uint32_t>(is);
+		uint32_t nodeTransformCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->skeleton.nodeLocalTransforms.resize(nodeTransformCount);
 		for (uint32_t i = 0; i < nodeTransformCount; i++)
 		{
-			asset->skeleton.nodeLocalTransforms[i] = ReadTrivial<glm::mat4>(is);
+			asset->skeleton.nodeLocalTransforms[i] = BSL::ReadTrivial<glm::mat4>(is);
 		}
 
 		// Read node parent indices
-		uint32_t nodeParentCount = ReadTrivial<uint32_t>(is);
+		uint32_t nodeParentCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->skeleton.nodeParentIndices.resize(nodeParentCount);
 		for (uint32_t i = 0; i < nodeParentCount; i++)
 		{
-			asset->skeleton.nodeParentIndices[i] = ReadTrivial<int32_t>(is);
+			asset->skeleton.nodeParentIndices[i] = BSL::ReadTrivial<int32_t>(is);
 		}
 
 		// Read animations
-		uint32_t animCount = ReadTrivial<uint32_t>(is);
+		uint32_t animCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->animations.reserve(animCount);
 		for (uint32_t i = 0; i < animCount; i++)
 		{
 			AnimationClip clip;
-			clip.name = ReadString(is);
-			clip.duration = ReadTrivial<float>(is);
-			clip.ticksPerSecond = ReadTrivial<float>(is);
+			clip.name = BSL::ReadString(is);
+			clip.duration = BSL::ReadTrivial<float>(is);
+			clip.ticksPerSecond = BSL::ReadTrivial<float>(is);
 
-			uint32_t channelCount = ReadTrivial<uint32_t>(is);
+			uint32_t channelCount = BSL::ReadTrivial<uint32_t>(is);
 			clip.channels.resize(channelCount);
 			for (uint32_t j = 0; j < channelCount; j++)
 			{
-				clip.channels[j].nodeIndex = ReadTrivial<uint32_t>(is);
+				clip.channels[j].nodeIndex = BSL::ReadTrivial<uint32_t>(is);
 
-				uint32_t keyCount = ReadTrivial<uint32_t>(is);
+				uint32_t keyCount = BSL::ReadTrivial<uint32_t>(is);
 				clip.channels[j].keys.resize(keyCount);
 				for (uint32_t k = 0; k < keyCount; k++)
 				{
 					AnimationKey& key = clip.channels[j].keys[k];
-					key.time = ReadTrivial<float>(is);
-					key.translation = ReadTrivial<glm::vec3>(is);
-					key.rotation = ReadTrivial<glm::quat>(is);
-					key.scale = ReadTrivial<glm::vec3>(is);
+					key.time = BSL::ReadTrivial<float>(is);
+					key.translation = BSL::ReadTrivial<glm::vec3>(is);
+					key.rotation = BSL::ReadTrivial<glm::quat>(is);
+					key.scale = BSL::ReadTrivial<glm::vec3>(is);
 				}
 			}
 

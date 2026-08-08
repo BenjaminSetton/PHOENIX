@@ -32,4 +32,7 @@ namespace PHX
 	// UTILS
 	// TODO - Support multi-stage compilation
 	PHX_API STATUS_CODE CompileShader(const ShaderSourceData& srcData, CompiledShader& out_result);
+
+	// Compiles or loads shaders from the cache, if applicable. Shader cache loading can be disabled through the "enableShaderCache" setting
+	PHX_API STATUS_CODE LoadOrCompileShader(const ShaderFileSourceData& fileSrcData, CompiledShader& out_result, ResolvedShaderIncludes* out_includes = nullptr);
 }

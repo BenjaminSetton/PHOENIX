@@ -8,12 +8,12 @@ namespace Common
 
 		// Write vertices
 		uint32_t vertexCount = static_cast<uint32_t>(asset.vertices.size());
-		WriteTrivial(os, vertexCount);
+		BSL::WriteTrivial(os, vertexCount);
 		os.write(reinterpret_cast<const char*>(asset.vertices.data()), vertexCount * sizeof(AssetVertex));
 
 		// Write indices
 		uint32_t indexCount = static_cast<uint32_t>(asset.indices.size());
-		WriteTrivial(os, indexCount);
+		BSL::WriteTrivial(os, indexCount);
 		os.write(reinterpret_cast<const char*>(asset.indices.data()), indexCount * sizeof(Common::AssetIndexType));
 	}
 
@@ -24,12 +24,12 @@ namespace Common
 		AssetType* asset = new AssetType{};
 
 		// Read vertices
-		uint32_t vertexCount = ReadTrivial<uint32_t>(is);
+		uint32_t vertexCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->vertices.resize(vertexCount);
 		is.read(reinterpret_cast<char*>(asset->vertices.data()), vertexCount * sizeof(AssetVertex));
 
 		// Read indices
-		uint32_t indexCount = ReadTrivial<uint32_t>(is);
+		uint32_t indexCount = BSL::ReadTrivial<uint32_t>(is);
 		asset->indices.resize(indexCount);
 		is.read(reinterpret_cast<char*>(asset->indices.data()), indexCount * sizeof(Common::AssetIndexType));
 
