@@ -16,6 +16,10 @@ $SamplesOut  = "$WorkspaceDir/src/samples/common/out"
 # Can be overridden via -Generator parameter on generate_project.ps1.
 $DefaultGenerator = 'vs2022'
 
+# Target architecture for premake generation (x86_64, arm64, etc.)
+# Can be overridden via -Architecture parameter on generate_project.ps1.
+$DefaultArchitecture = 'x86_64'
+
 # MSVC CMake toolset version (v143 = VS2022, v142 = VS2019)
 $CmakeToolset = 'v143'
 
@@ -205,8 +209,12 @@ function Build-GLM {
 # Premake / VS solution generation
 # ---------------------------------------------------------------------------
 function Generate-Project {
-    param([string]$Generator = $DefaultGenerator)
-    Log "Generating solution for ($Generator)..."
+    param(
+        [string]$Generator = $DefaultGenerator,
+        [string]$Architecture = $DefaultArchitecture
+    )
+    Log "Generating solution for $Generator on $Architecture..."
+    $env:PHX_ARCH = $Architecture
     Push-Location $WorkspaceDir
     try {
         & "$WorkspaceDir/src/PHOENIX/vendor/premake/premake5.exe" $Generator

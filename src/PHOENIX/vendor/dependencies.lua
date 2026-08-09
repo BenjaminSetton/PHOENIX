@@ -1,7 +1,7 @@
 
 VULKAN_SDK = os.getenv("VULKAN_SDK")
 if not VULKAN_SDK or VULKAN_SDK == "" then
-	error("VULKAN_SDK environment variable is not set. Install the Vulkan SDK and ensure VULKAN_SDK points to its root.", 0)
+	error("VULKAN_SDK environment variable is not set. Vulkan is likely not installed or misconfigured!", 0)
 end
 
 PHX_IncludeDirs                                      = {}

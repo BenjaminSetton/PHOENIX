@@ -1,12 +1,8 @@
 local function GetArchitecture()
-	-- os.hostarch() doesn't seem to be working as intended for detecting WoA, instead
-	-- returning x86_64. We'll hack our way around that for now:
-	-- https://github.com/premake/premake-core/issues/2472
-	local hostArch = os.hostarch()
-	if os.host() == "windows" and os.isdir("C:/Windows/SysArm64") then
-		hostArch = "arm64"
-	end
-
+	-- Get the host architecture from a custom PHX_ARCH that's explicitly set by the user.
+	-- The premake5 binary uses x86_64, so we're not able to distinguish Windows-on-ARM, since
+	-- it returns AMD64 in all cases. x86_64 emulation in WoA makes it very hard to get processor architecture
+	local hostArch = os.getenv("PHX_ARCH")
 	print("Using architecture \"" .. hostArch .. "\"")
 	return hostArch
 end
