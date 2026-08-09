@@ -1,6 +1,20 @@
+local function GetArchitecture()
+	local hostArch = os.hostarch()
+	local arch
+	if hostArch == "x86_64" or hostArch == "x86" then
+		arch = "x64"
+	elseif hostArch == "arm64" or hostArch == "aarch64" then
+		arch = "ARM64"
+	else
+		error("Unsupported host architecture: " .. tostring(hostArch), 0)
+	end
+	print("Detected host architecture \"" .. hostArch .. "\", building for \"" .. arch .. "\"")
+	return arch
+end
+
 workspace "PHOENIX"
 
-	architecture "x64"
+	architecture(GetArchitecture())
 	startproject "ImGui"
 
 	-- Enable multi-threaded builds
