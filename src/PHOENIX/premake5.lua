@@ -53,6 +53,7 @@ project "PHOENIX"
 
 	filter "configurations:Debug"
 		defines "PHX_DEBUG"
+		defines "BSL_ENABLE_DEBUG_LOG"
 		symbols "On"
 
 	filter "configurations:Release"
