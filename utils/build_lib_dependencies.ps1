@@ -1,7 +1,7 @@
 param(
     [ValidateSet('Debug', 'Release', 'Sanitizer', 'All')]
     [string]$Config = 'All',
-    [string]$Architecture = 'x86_64'
+    [string]$Architecture = 'x64'
 )
 
 . "$PSScriptRoot\build_common.ps1"

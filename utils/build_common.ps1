@@ -1,5 +1,5 @@
 # Shared build functions and CMake flags for PHOENIX dependencies.
-# Dot-sourced by build_lib_dependencies.ps1, build_sample_dependencies.ps1, generate_project.ps1.
+# Dot-sourced by build_lib_dependencies.ps1, build_sample_dependencies.ps1
 
 # ---------------------------------------------------------------------------
 # Paths (replaces config.bat)
@@ -19,16 +19,6 @@ $CmakeToolset = 'v143'
 # Helpers
 # ---------------------------------------------------------------------------
 function Log([string]$msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" }
-
-# Maps Premake architecture names (x86_64, arm64) to CMake -A values (x64, ARM64).
-function ConvertTo-CMakeArch {
-    param([string]$Architecture)
-    switch ($Architecture) {
-        'x86_64' { return 'x64' }
-        'arm64'  { return 'ARM64' }
-        default  { return $Architecture }
-    }
-}
 
 function Resolve-Configs {
     param([string]$Config, [bool]$IncludeSanitizer)
@@ -50,12 +40,11 @@ function Build-GLFW {
     )
 
     $configs = Resolve-Configs -Config $Config -IncludeSanitizer $true
-    $cmakeArch = ConvertTo-CMakeArch $Architecture
     $src = "$WorkspaceDir/src/PHOENIX/vendor/glfw"
     $out = "$LibOut/glfw"
 
     Log 'Building GLFW...'
-    & cmake --fresh -A $cmakeArch -T $CmakeToolset -S $src -B $out `
+    & cmake --fresh -A $Architecture -T $CmakeToolset -S $src -B $out `
         '-DGLFW_BUILD_EXAMPLES=OFF' `
         '-DGLFW_BUILD_TESTS=OFF' `
         '-DGLFW_BUILD_DOCS=OFF' `
@@ -93,7 +82,6 @@ function Build-Slang {
         $configs = @('Debug')
     }
 
-    $cmakeArch = ConvertTo-CMakeArch $Architecture
     $src = "$WorkspaceDir/src/PHOENIX/vendor/slang"
     $out = "$LibOut/slang"
 
@@ -102,7 +90,7 @@ function Build-Slang {
     if ($LASTEXITCODE -ne 0) { throw 'Slang submodule init failed' }
 
     Log 'Configuring Slang...'
-    & cmake --fresh -A $cmakeArch -T $CmakeToolset -S $src -B $out `
+    & cmake --fresh -A $Architecture -T $CmakeToolset -S $src -B $out `
         '-DSLANG_LIB_TYPE=SHARED' `
         '-DSLANG_ENABLE_TESTS=OFF' `
         '-DSLANG_ENABLE_EXAMPLES=OFF' `
@@ -152,12 +140,11 @@ function Build-Assimp {
     )
 
     $configs = Resolve-Configs -Config $Config -IncludeSanitizer $true
-    $cmakeArch = ConvertTo-CMakeArch $Architecture
     $src = "$WorkspaceDir/src/samples/common/vendor/assimp"
     $out = "$SamplesOut/assimp"
 
     Log 'Building assimp...'
-    & cmake --fresh -A $cmakeArch -T $CmakeToolset -S $src -B $out `
+    & cmake --fresh -A $Architecture -T $CmakeToolset -S $src -B $out `
         '-DBUILD_SHARED_LIBS=OFF' `
         '-DASSIMP_BUILD_TESTS=OFF' `
         '-DASSIMP_BUILD_ZLIB=ON' `
@@ -200,12 +187,11 @@ function Build-GLM {
     )
 
     $configs = Resolve-Configs -Config $Config -IncludeSanitizer $true
-    $cmakeArch = ConvertTo-CMakeArch $Architecture
     $src = "$WorkspaceDir/src/samples/common/vendor/glm"
     $out = "$SamplesOut/glm"
 
     Log 'Building glm...'
-    & cmake --fresh -A $cmakeArch -T $CmakeToolset -S $src -B $out `
+    & cmake --fresh -A $Architecture -T $CmakeToolset -S $src -B $out `
         '-DGLM_BUILD_LIBRARY=ON' `
         '-DGLM_BUILD_TESTS=OFF' `
         '-DCMAKE_CONFIGURATION_TYPES=Debug;Release;Sanitizer' `
@@ -221,24 +207,4 @@ function Build-GLM {
         if ($LASTEXITCODE -ne 0) { throw "glm build failed for $cfg" }
     }
     Log 'glm build complete.'
-}
-
-# ---------------------------------------------------------------------------
-# Premake / VS solution generation
-# ---------------------------------------------------------------------------
-function Generate-Project {
-    param(
-        [string]$Generator,
-        [string]$Architecture
-    )
-    Log "Generating solution for $Generator on $Architecture..."
-    $env:PHX_ARCH = $Architecture
-    Push-Location $WorkspaceDir
-    try {
-        & "$WorkspaceDir/src/PHOENIX/vendor/premake/premake5.exe" $Generator
-        if ($LASTEXITCODE -ne 0) { throw 'Premake failed' }
-    } finally {
-        Pop-Location
-    }
-    Log 'Solution generated.'
 }

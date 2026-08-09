@@ -1,0 +1,1 @@
+add_sample(RayTracing INCLUDE_COMMON_SHADERS)

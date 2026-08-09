@@ -36,13 +36,13 @@ jobs:
           vulkan-use-cache: true
 
       - name: Build lib dependencies
-        run: ./utils/build_lib_dependencies.ps1 -Config ${{ matrix.config }} -Architecture x86_64
+        run: ./utils/build_lib_dependencies.ps1 -Config ${{ matrix.config }} -Architecture x64
 
       - name: Build sample dependencies
-        run: ./utils/build_sample_dependencies.ps1 -Config ${{ matrix.config }} -Architecture x86_64
+        run: ./utils/build_sample_dependencies.ps1 -Config ${{ matrix.config }} -Architecture x64
 
-      - name: Generate VS solution
-        run: ./utils/generate_project.ps1 -Generator vs2022 -Architecture x86_64
+      - name: Configure CMake
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64
 
-      - name: Build solution
-        run: msbuild PHOENIX.sln /p:Configuration=${{ matrix.config }} /m
+      - name: Build
+        run: cmake --build build --config ${{ matrix.config }} --parallel

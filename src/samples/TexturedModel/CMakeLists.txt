@@ -1,0 +1,1 @@
+add_sample(TexturedModel INCLUDE_COMMON_SHADERS)

@@ -1,0 +1,1 @@
+add_sample(Tessellation INCLUDE_COMMON_SHADERS)

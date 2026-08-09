@@ -1,0 +1,1 @@
+add_sample(Lod INCLUDE_COMMON_SHADERS)

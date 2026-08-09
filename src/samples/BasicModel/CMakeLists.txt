@@ -1,0 +1,1 @@
+add_sample(BasicModel INCLUDE_COMMON_SHADERS)

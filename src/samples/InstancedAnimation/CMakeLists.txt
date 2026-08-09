@@ -1,0 +1,1 @@
+add_sample(InstancedAnimation INCLUDE_COMMON_SHADERS)
