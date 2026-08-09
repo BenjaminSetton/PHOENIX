@@ -1,15 +1,14 @@
 local function GetArchitecture()
+	-- os.hostarch() doesn't seem to be working as intended for detecting WoA, instead
+	-- returning x86_64. We'll hack our way around that for now:
+	-- https://github.com/premake/premake-core/issues/2472
 	local hostArch = os.hostarch()
-	local arch
-	if hostArch == "x86_64" or hostArch == "x86" then
-		arch = "x64"
-	elseif hostArch == "arm64" or hostArch == "aarch64" then
-		arch = "ARM64"
-	else
-		error("Unsupported host architecture: " .. tostring(hostArch), 0)
+	if os.host() == "windows" and os.isdir("C:/Windows/SysArm64") then
+		hostArch = "arm64"
 	end
-	print("Detected host architecture \"" .. hostArch .. "\", building for \"" .. arch .. "\"")
-	return arch
+
+	print("Using architecture \"" .. hostArch .. "\"")
+	return hostArch
 end
 
 workspace "PHOENIX"
