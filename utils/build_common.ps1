@@ -12,14 +12,6 @@ $SamplesOut  = "$WorkspaceDir/src/samples/common/out"
 # ---------------------------------------------------------------------------
 # Generator settings
 # ---------------------------------------------------------------------------
-# VS solution generator for premake (vs2019, vs2022, etc.)
-# Can be overridden via -Generator parameter on generate_project.ps1.
-$DefaultGenerator = 'vs2022'
-
-# Target architecture for premake generation (x86_64, arm64, etc.)
-# Can be overridden via -Architecture parameter on generate_project.ps1.
-$DefaultArchitecture = 'x86_64'
-
 # MSVC CMake toolset version (v143 = VS2022, v142 = VS2019)
 $CmakeToolset = 'v143'
 
@@ -27,6 +19,16 @@ $CmakeToolset = 'v143'
 # Helpers
 # ---------------------------------------------------------------------------
 function Log([string]$msg) { Write-Host "[$(Get-Date -Format 'HH:mm:ss')] $msg" }
+
+# Maps Premake architecture names (x86_64, arm64) to CMake -A values (x64, ARM64).
+function ConvertTo-CMakeArch {
+    param([string]$Architecture)
+    switch ($Architecture) {
+        'x86_64' { return 'x64' }
+        'arm64'  { return 'ARM64' }
+        default  { return $Architecture }
+    }
+}
 
 function Resolve-Configs {
     param([string]$Config, [bool]$IncludeSanitizer)
@@ -42,23 +44,27 @@ function Resolve-Configs {
 # GLFW
 # ---------------------------------------------------------------------------
 function Build-GLFW {
-    param([string]$Config = 'All')
+    param(
+        [string]$Config,
+        [string]$Architecture
+    )
 
     $configs = Resolve-Configs -Config $Config -IncludeSanitizer $true
+    $cmakeArch = ConvertTo-CMakeArch $Architecture
     $src = "$WorkspaceDir/src/PHOENIX/vendor/glfw"
     $out = "$LibOut/glfw"
 
     Log 'Building GLFW...'
-    & cmake --fresh -A x64 -T $CmakeToolset -S $src -B $out `
+    & cmake --fresh -A $cmakeArch -T $CmakeToolset -S $src -B $out `
         '-DGLFW_BUILD_EXAMPLES=OFF' `
         '-DGLFW_BUILD_TESTS=OFF' `
         '-DGLFW_BUILD_DOCS=OFF' `
         '-DCMAKE_CONFIGURATION_TYPES=Debug;Release;Sanitizer' `
         '-DCMAKE_C_FLAGS_DEBUG=/Z7 /Ob0 /Od /RTC1' `
         '-DCMAKE_C_FLAGS_SANITIZER=/Z7 /Ob0 /Od /RTC1' `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG=$LibOut/glfw/bin/windows/debug/x86_64" `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE=$LibOut/glfw/bin/windows/release/x86_64" `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER=$LibOut/glfw/bin/windows/sanitizer/x86_64" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG=$LibOut/glfw/bin/windows/debug/$Architecture" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE=$LibOut/glfw/bin/windows/release/$Architecture" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER=$LibOut/glfw/bin/windows/sanitizer/$Architecture" `
         '-DCMAKE_DEBUG_POSTFIX=d' `
         '-DCMAKE_SANITIZER_POSTFIX=d' `
         '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
@@ -76,7 +82,10 @@ function Build-GLFW {
 # Slang  (Debug + Release; Sanitizer links against Debug Slang)
 # ---------------------------------------------------------------------------
 function Build-Slang {
-    param([string]$Config = 'All')
+    param(
+        [string]$Config,
+        [string]$Architecture
+    )
 
     $configs = Resolve-Configs -Config $Config -IncludeSanitizer $false
     if ($configs.Count -eq 0) {
@@ -84,6 +93,7 @@ function Build-Slang {
         $configs = @('Debug')
     }
 
+    $cmakeArch = ConvertTo-CMakeArch $Architecture
     $src = "$WorkspaceDir/src/PHOENIX/vendor/slang"
     $out = "$LibOut/slang"
 
@@ -92,7 +102,7 @@ function Build-Slang {
     if ($LASTEXITCODE -ne 0) { throw 'Slang submodule init failed' }
 
     Log 'Configuring Slang...'
-    & cmake --fresh -A x64 -T $CmakeToolset -S $src -B $out `
+    & cmake --fresh -A $cmakeArch -T $CmakeToolset -S $src -B $out `
         '-DSLANG_LIB_TYPE=SHARED' `
         '-DSLANG_ENABLE_TESTS=OFF' `
         '-DSLANG_ENABLE_EXAMPLES=OFF' `
@@ -110,12 +120,12 @@ function Build-Slang {
         '-DSLANG_ENABLE_DXIL=OFF' `
         '-DSLANG_ENABLE_SLANG_GLSLANG=ON' `
         '-DCMAKE_CONFIGURATION_TYPES=Debug;Release' `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG=$LibOut/slang/bin/windows/debug/x86_64" `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE=$LibOut/slang/bin/windows/release/x86_64" `
-        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG=$LibOut/slang/bin/windows/debug/x86_64" `
-        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=$LibOut/slang/bin/windows/release/x86_64" `
-        "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG=$LibOut/slang/bin/windows/debug/x86_64" `
-        "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE=$LibOut/slang/bin/windows/release/x86_64" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG=$LibOut/slang/bin/windows/debug/$Architecture" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE=$LibOut/slang/bin/windows/release/$Architecture" `
+        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG=$LibOut/slang/bin/windows/debug/$Architecture" `
+        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE=$LibOut/slang/bin/windows/release/$Architecture" `
+        "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG=$LibOut/slang/bin/windows/debug/$Architecture" `
+        "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE=$LibOut/slang/bin/windows/release/$Architecture" `
         '-DCMAKE_DEBUG_POSTFIX=d' `
         '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>DLL'
     if ($LASTEXITCODE -ne 0) { throw 'Slang CMake configure failed' }
@@ -136,14 +146,18 @@ function Build-Slang {
 # Assimp
 # ---------------------------------------------------------------------------
 function Build-Assimp {
-    param([string]$Config = 'All')
+    param(
+        [string]$Config,
+        [string]$Architecture
+    )
 
     $configs = Resolve-Configs -Config $Config -IncludeSanitizer $true
+    $cmakeArch = ConvertTo-CMakeArch $Architecture
     $src = "$WorkspaceDir/src/samples/common/vendor/assimp"
     $out = "$SamplesOut/assimp"
 
     Log 'Building assimp...'
-    & cmake --fresh -A x64 -T $CmakeToolset -S $src -B $out `
+    & cmake --fresh -A $cmakeArch -T $CmakeToolset -S $src -B $out `
         '-DBUILD_SHARED_LIBS=OFF' `
         '-DASSIMP_BUILD_TESTS=OFF' `
         '-DASSIMP_BUILD_ZLIB=ON' `
@@ -158,12 +172,12 @@ function Build-Assimp {
         '-DCMAKE_CONFIGURATION_TYPES=Debug;Release;Sanitizer' `
         '-DCMAKE_C_FLAGS_SANITIZER=/fsanitize=address /Zi' `
         '-DCMAKE_CXX_FLAGS_SANITIZER=/fsanitize=address /Zi' `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$SamplesOut/assimp/bin/windows/x86_64" `
-        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=$SamplesOut/assimp/bin/windows/x86_64" `
-        "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$SamplesOut/assimp/bin/windows/x86_64" `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG=$SamplesOut/assimp/bin/windows/debug/x86_64" `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE=$SamplesOut/assimp/bin/windows/release/x86_64" `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER=$SamplesOut/assimp/bin/windows/sanitizer/x86_64" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=$SamplesOut/assimp/bin/windows/$Architecture" `
+        "-DCMAKE_RUNTIME_OUTPUT_DIRECTORY=$SamplesOut/assimp/bin/windows/$Architecture" `
+        "-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=$SamplesOut/assimp/bin/windows/$Architecture" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG=$SamplesOut/assimp/bin/windows/debug/$Architecture" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE=$SamplesOut/assimp/bin/windows/release/$Architecture" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER=$SamplesOut/assimp/bin/windows/sanitizer/$Architecture" `
         '-DCMAKE_SANITIZER_POSTFIX=d' `
         '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
     if ($LASTEXITCODE -ne 0) { throw 'assimp CMake configure failed' }
@@ -180,20 +194,24 @@ function Build-Assimp {
 # GLM
 # ---------------------------------------------------------------------------
 function Build-GLM {
-    param([string]$Config = 'All')
+    param(
+        [string]$Config,
+        [string]$Architecture
+    )
 
     $configs = Resolve-Configs -Config $Config -IncludeSanitizer $true
+    $cmakeArch = ConvertTo-CMakeArch $Architecture
     $src = "$WorkspaceDir/src/samples/common/vendor/glm"
     $out = "$SamplesOut/glm"
 
     Log 'Building glm...'
-    & cmake --fresh -A x64 -T $CmakeToolset -S $src -B $out `
+    & cmake --fresh -A $cmakeArch -T $CmakeToolset -S $src -B $out `
         '-DGLM_BUILD_LIBRARY=ON' `
         '-DGLM_BUILD_TESTS=OFF' `
         '-DCMAKE_CONFIGURATION_TYPES=Debug;Release;Sanitizer' `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG=$SamplesOut/glm/bin/windows/debug/x86_64" `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE=$SamplesOut/glm/bin/windows/release/x86_64" `
-        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER=$SamplesOut/glm/bin/windows/sanitizer/x86_64" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG=$SamplesOut/glm/bin/windows/debug/$Architecture" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE=$SamplesOut/glm/bin/windows/release/$Architecture" `
+        "-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY_SANITIZER=$SamplesOut/glm/bin/windows/sanitizer/$Architecture" `
         '-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL'
     if ($LASTEXITCODE -ne 0) { throw 'glm CMake configure failed' }
 
@@ -210,8 +228,8 @@ function Build-GLM {
 # ---------------------------------------------------------------------------
 function Generate-Project {
     param(
-        [string]$Generator = $DefaultGenerator,
-        [string]$Architecture = $DefaultArchitecture
+        [string]$Generator,
+        [string]$Architecture
     )
     Log "Generating solution for $Generator on $Architecture..."
     $env:PHX_ARCH = $Architecture
