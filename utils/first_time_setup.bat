@@ -2,7 +2,7 @@
 
 :: Configurable settings
 set "CONFIG=All"
-set "ARCHITECTURE=x64"
+set "ARCHITECTURE=arm64"
 set "GENERATOR=Visual Studio 17 2022"
 
 echo Running first time setup...

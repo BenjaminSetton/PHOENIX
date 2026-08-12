@@ -256,6 +256,15 @@ namespace PHX
 			targetDesc.flags &= ~SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
 		}
 
+		// Slang's direct SPIR-V backend only stably supports SPIR-V 1.3 and later. For Vulkan 1.0
+		// (which requires SPIR-V 1.0), the direct backend may emit instructions from newer SPIR-V
+		// versions. Force the via-glslang path for all shader origins when targeting Vulkan 1.0.
+		if (settings.backendAPI == GRAPHICS_API::VULKAN &&
+			settings.backendAPIMajorVersion == 1 && settings.backendAPIMinorVersion == 0)
+		{
+			targetDesc.flags &= ~SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
+		}
+
 		// Collect search paths for include resolution
 		std::vector<const char*> searchPaths;
 		for (u32 i = 0; i < srcData.includePathCount; i++)

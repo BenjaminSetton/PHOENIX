@@ -101,7 +101,6 @@ namespace PHX
 		VkQueue GetQueue(QUEUE_TYPE type) const;
 		u32 GetQueueFamilyIndex(QUEUE_TYPE type) const;
 		VkSemaphore GetImageAvailableSemaphore(u32 index) const;
-		VkSemaphore GetRenderFinishedSemaphore(u32 index) const;
 		VkFence GetQueueFence(QUEUE_TYPE type, u32 index) const;
 
 		// Device info
@@ -191,7 +190,6 @@ namespace PHX
 
 		// Sync objects
 		std::vector<VkSemaphore> m_imageAvailableSemaphores;
-		std::vector<VkSemaphore> m_renderFinishedSemaphores;
 
 		std::array<std::vector<VkFence>, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_queueFences;
 

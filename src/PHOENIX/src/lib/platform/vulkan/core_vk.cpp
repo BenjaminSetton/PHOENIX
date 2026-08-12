@@ -59,7 +59,9 @@ namespace PHX
 		}
 		}
 
-		return VK_TRUE;
+		// Per the spec, applications should always return VK_FALSE
+		// to see the same behavior with and without validation layers enabled
+		return VK_FALSE;
 	}
 
 	static const std::vector<const char*> g_ValidationLayers =

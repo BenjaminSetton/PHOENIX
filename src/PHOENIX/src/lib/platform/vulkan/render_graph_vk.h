@@ -221,6 +221,10 @@ namespace PHX
 
 		const BSL::CRC32 m_reservedDepthBufferNameCRC;
 		u64 m_presentResID;
+
+		// True if last frame submitted work, false otherwise
+		// NOTE - This is NOT equivalent to DeviceContext->WasWorkFlushed()
+		//        because device contexts represent frames-in-flight, not sequential frames
 		bool m_didExecuteWork;
 
 		// Metrics

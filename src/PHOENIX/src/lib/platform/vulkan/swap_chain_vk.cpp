@@ -133,9 +133,9 @@ namespace PHX
 		return m_currImageIndex;
 	}
 
-	STATUS_CODE SwapChainVk::Present(u32 currentFrameIndex)
+	STATUS_CODE SwapChainVk::Present()
 	{
-		VkSemaphore renderFinishedSemaphore = m_renderDevice->GetRenderFinishedSemaphore(currentFrameIndex);
+		VkSemaphore renderFinishedSemaphore = GetRenderFinishedSemaphore();
 
 		VkPresentInfoKHR presentInfo{};
 		presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -207,6 +207,11 @@ namespace PHX
 		}
 
 		return STATUS_CODE::SUCCESS;
+	}
+
+	VkSemaphore SwapChainVk::GetRenderFinishedSemaphore() const
+	{
+		return m_renderFinishedSemaphores[m_currImageIndex];
 	}
 
 	VkSwapchainKHR SwapChainVk::GetSwapChain() const
@@ -320,6 +325,26 @@ namespace PHX
 			return res;
 		}
 
+		// Render finished semaphores
+		m_renderFinishedSemaphores.resize(m_imageCount);
+		for (u32 i = 0; i < m_imageCount; i++)
+		{
+			VkSemaphoreCreateInfo semaphoreCI{};
+			semaphoreCI.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+			resVk = vkCreateSemaphore(logicalDevice, &semaphoreCI, nullptr, &m_renderFinishedSemaphores[i]);
+			if (resVk != VK_SUCCESS)
+			{
+				LogError("Failed to create render finished semaphore! Got error: \"%s\"", string_VkResult(resVk));
+				DestroySwapChain();
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+
+			char semaphoreName[64];
+			snprintf(semaphoreName, sizeof(semaphoreName), "RenderFinishedSemaphore_%u", i);
+			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_SEMAPHORE, reinterpret_cast<uint64_t>(m_renderFinishedSemaphores[i]), semaphoreName);
+		}
+
 		m_currImageIndex = 0;
 
 		LogInfo("Successfully created swap chain with dimensions %ux%u!", m_width, m_height);
@@ -399,6 +424,12 @@ namespace PHX
 			LogError("Failed to destroy swap chain! Render device is null");
 			return;
 		}
+
+		for (VkSemaphore semaphore : m_renderFinishedSemaphores)
+		{
+			vkDestroySemaphore(m_renderDevice->GetLogicalDevice(), semaphore, nullptr);
+		}
+		m_renderFinishedSemaphores.clear();
 
 		if (m_swapChain != VK_NULL_HANDLE)
 		{

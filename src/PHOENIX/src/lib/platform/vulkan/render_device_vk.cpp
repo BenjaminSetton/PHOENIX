@@ -1,5 +1,4 @@
-
-#include <array>
+﻿
 #include <set>
 #include <string>
 #include <vector>
@@ -46,6 +45,7 @@ namespace PHX
 
 	static const std::vector<const char*> rayTracingExtensions =
 	{
+		VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, // Needed to query extensions below
 		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
 		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
 		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
@@ -204,7 +204,6 @@ namespace PHX
 		for (u32 i = 0; i < m_framesInFlight; i++)
 		{
 			vkDestroySemaphore(m_logicalDevice, m_imageAvailableSemaphores[i], nullptr);
-			vkDestroySemaphore(m_logicalDevice, m_renderFinishedSemaphores[i], nullptr);
 
 			for (u32 j = 0; j < static_cast<u32>(QUEUE_TYPE::COUNT); j++)
 			{
@@ -215,7 +214,6 @@ namespace PHX
 			}
 		}
 		m_imageAvailableSemaphores.clear();
-		m_renderFinishedSemaphores.clear();
 		for (auto& fences : m_queueFences)
 		{
 			fences.clear();
@@ -652,16 +650,6 @@ namespace PHX
 		return m_imageAvailableSemaphores[index];
 	}
 
-	VkSemaphore RenderDeviceVk::GetRenderFinishedSemaphore(u32 index) const
-	{
-		if (index >= m_framesInFlight)
-		{
-			return VK_NULL_HANDLE;
-		}
-
-		return m_renderFinishedSemaphores[index];
-	}
-
 	VkFence RenderDeviceVk::GetQueueFence(QUEUE_TYPE type, u32 index) const
 	{
 		u32 queueIdx = static_cast<u32>(type);
@@ -733,30 +721,42 @@ namespace PHX
 		std::vector<VkPhysicalDevice> devices(deviceCount);
 		vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
+		LogInfo("Found physical devices:");
+		VkPhysicalDevice selectedPhysicalDevice = VK_NULL_HANDLE;
 		for (const auto& device : devices)
 		{
+			VkPhysicalDeviceProperties physicalDeviceProps;
+			vkGetPhysicalDeviceProperties(device, &physicalDeviceProps);
+			LogInfo("\t- \"%s\"", physicalDeviceProps.deviceName);
 			if (IsDeviceSuitable(device, surface))
 			{
-				vkGetPhysicalDeviceProperties(device, &m_physicalDeviceProperties);
-				vkGetPhysicalDeviceFeatures(device, &m_physicalDeviceFeatures);
-				vkGetPhysicalDeviceMemoryProperties(device, &m_physicalDeviceMemoryProperties);
-				LogInfo("Using physical device: \"%s\"", m_physicalDeviceProperties.deviceName);
-
-				m_rayTracingSupported = CheckRayTracingExtensionSupport(device);
-				if (m_rayTracingSupported)
-				{
-					m_rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
-					m_rayTracingPipelineProperties.pNext = nullptr;
-
-					VkPhysicalDeviceProperties2 properties2{};
-					properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-					properties2.pNext = &m_rayTracingPipelineProperties;
-					vkGetPhysicalDeviceProperties2(device, &properties2);
-				}
-				
-				m_physicalDevice = device;
-				return STATUS_CODE::SUCCESS;
+				// Get the last suitable device
+				TECHDEBT("Add device selection heuristics");
+				selectedPhysicalDevice = device;
 			}
+		}
+
+		if (selectedPhysicalDevice != VK_NULL_HANDLE)
+		{
+			vkGetPhysicalDeviceProperties(selectedPhysicalDevice, &m_physicalDeviceProperties);
+			vkGetPhysicalDeviceFeatures(selectedPhysicalDevice, &m_physicalDeviceFeatures);
+			vkGetPhysicalDeviceMemoryProperties(selectedPhysicalDevice, &m_physicalDeviceMemoryProperties);
+			LogInfo("Using physical device: \"%s\"", m_physicalDeviceProperties.deviceName);
+
+			m_rayTracingSupported = CheckRayTracingExtensionSupport(selectedPhysicalDevice);
+			if (m_rayTracingSupported)
+			{
+				m_rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+				m_rayTracingPipelineProperties.pNext = nullptr;
+
+				VkPhysicalDeviceProperties2 properties2{};
+				properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+				properties2.pNext = &m_rayTracingPipelineProperties;
+				vkGetPhysicalDeviceProperties2(selectedPhysicalDevice, &properties2);
+			}
+
+			m_physicalDevice = selectedPhysicalDevice;
+			return STATUS_CODE::SUCCESS;
 		}
 
 		LogError("Failed to find a suitable physical device!");
@@ -917,19 +917,17 @@ namespace PHX
 		const u32 numAccelerationStructures = 50 * framesInFlight;
 		const u32 maxSets = 500 * framesInFlight;
 
-		std::array<VkDescriptorPoolSize, 6> poolSizes{};
-		poolSizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-		poolSizes[0].descriptorCount = numUniformBuffers;
-		poolSizes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		poolSizes[1].descriptorCount = numImageSamplers;
-		poolSizes[2].type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-		poolSizes[2].descriptorCount = numImageSamplers;
-		poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-		poolSizes[3].descriptorCount = numStorageBuffers;
-		poolSizes[4].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-		poolSizes[4].descriptorCount = numStorageImages;
-		poolSizes[5].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-		poolSizes[5].descriptorCount = numAccelerationStructures;
+		std::vector<VkDescriptorPoolSize> poolSizes{};
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, numUniformBuffers });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, numImageSamplers });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, numImageSamplers });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, numStorageBuffers });
+		poolSizes.push_back({ VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, numStorageImages });
+
+		if (m_rayTracingSupported)
+		{
+			poolSizes.push_back({ VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR, numAccelerationStructures });
+		}
 
 		VkDescriptorPoolCreateInfo poolInfo{};
 		poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1017,7 +1015,6 @@ namespace PHX
 		fenceCI.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
 		m_imageAvailableSemaphores.resize(framesInFlight);
-		m_renderFinishedSemaphores.resize(framesInFlight);
 
 		// Only GRAPHICS, COMPUTE, and TRANSFER queues need fences
 		const QUEUE_TYPE fencedQueues[] = { QUEUE_TYPE::GRAPHICS, QUEUE_TYPE::COMPUTE, QUEUE_TYPE::TRANSFER };
@@ -1033,14 +1030,6 @@ namespace PHX
 			if (res != VK_SUCCESS)
 			{
 				LogError("Failed to create image available semaphore! Got error: \"%s\"", string_VkResult(res));
-				return STATUS_CODE::ERR_INTERNAL;
-			}
-
-			// RENDER FINISHED SEMAPHORE
-			res = vkCreateSemaphore(m_logicalDevice, &semaphoreCI, nullptr, &(m_renderFinishedSemaphores[i]));
-			if (res != VK_SUCCESS)
-			{
-				LogError("Failed to create render finished semaphore! Got error: \"%s\"", string_VkResult(res));
 				return STATUS_CODE::ERR_INTERNAL;
 			}
 
@@ -1252,6 +1241,11 @@ namespace PHX
 		}
 
 		return pipeline;
+	}
+
+	void RenderDeviceVk::DestroyRayTracingPipeline(const RayTracingPipelineDesc& desc)
+	{
+		m_pipelineCache->Delete(desc);
 	}
 }
 

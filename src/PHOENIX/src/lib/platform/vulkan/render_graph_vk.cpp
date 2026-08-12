@@ -821,13 +821,9 @@ namespace PHX
 		ASSERT_PTR(swapChainVk);
 
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
-		res = pDeviceContext->BeginFrame(swapChainVk);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to begin frame. Device context could not begin frame!");
-			return res;
-		}
+		ASSERT_PTR(pDeviceContext);
 
+		// Metrics
 		if (GetSettings().gatherMetrics)
 		{
 			// Reset all per-frame metrics to default values
@@ -859,6 +855,13 @@ namespace PHX
 			}
 		}
 
+		res = pDeviceContext->BeginFrame(swapChainVk);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to begin frame. Device context could not begin frame!");
+			return res;
+		}
+
 		m_didExecuteWork = false;
 
 		return res;
@@ -887,17 +890,25 @@ namespace PHX
 			pDeviceContext->WriteEndTimestamp();
 		}
 
-		res = pDeviceContext->EndFrame();
+		res = pDeviceContext->EndFrame(swapChainVk);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to end frame #%u. Device context could not flush!", m_frameNumber);
 		}
 
 		// Present
-		res = swapChainVk->Present(m_frameInFlightIndex);
-		if (res != STATUS_CODE::SUCCESS)
+		if (res == STATUS_CODE::SUCCESS && pDeviceContext->WasWorkFlushed())
 		{
-			LogError("Failed to end frame #%u. Swap chain present failed!", m_frameNumber);
+			res = swapChainVk->Present();
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to end frame #%u. Swap chain present failed!", m_frameNumber);
+			}
+			else
+			{
+				// Cache work submitted so next frame can use this information
+				m_didExecuteWork = true;
+			}
 		}
 
 		// Now that all the work has been done for the current frame, move onto the next one
@@ -2524,7 +2535,6 @@ namespace PHX
 		if (renderPass.m_execCallback)
 		{
 			renderPass.m_execCallback(deviceContext);
-			m_didExecuteWork = true;
 		}
 	}
 }

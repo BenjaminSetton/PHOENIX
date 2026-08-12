@@ -84,23 +84,39 @@ namespace PHX
 
 		SlangProfileID ConvertProfile(slang::IGlobalSession* globalSession, GRAPHICS_API api, i32 majorVer, i32 minorVer)
 		{
-			UNUSED(majorVer);
-			UNUSED(minorVer);
-
+			SlangProfileID profile = SLANG_PROFILE_UNKNOWN;
 			switch (api)
 			{
 			case GRAPHICS_API::VULKAN:
 			{
-				return globalSession->findProfile("glsl_450");
+				// Map the Vulkan API version to the minimum SPIR-V version it supports:
+				//
+				// Vulkan 1.0 -> SPIR-V 1.0
+				// Vulkan 1.1 -> SPIR-V 1.3
+				// Vulkan 1.2 -> SPIR-V 1.4
+				// Vulkan 1.3 -> SPIR-V 1.5
+				// Vulkan 1.4 -> SPIR-V 1.6
+				const char* profileName = nullptr;
+				if      (majorVer >= 1 && minorVer >= 4) profileName = "spirv_1_6";
+				else if (majorVer >= 1 && minorVer >= 3) profileName = "spirv_1_5";
+				else if (majorVer >= 1 && minorVer >= 2) profileName = "spirv_1_4";
+				else if (majorVer >= 1 && minorVer >= 1) profileName = "spirv_1_3";
+				else                                     profileName = "spirv_1_0";
+
+				profile = globalSession->findProfile(profileName);
 			}
 			default:
 			{
+				ASSERT_ALWAYS("Failed to convert Slang profile. Unsupported backend API!");
 				break;
 			}
 			}
 
-			ASSERT_ALWAYS("Failed to convert Slang profile. Unsupported backend API!");
-			return SLANG_PROFILE_UNKNOWN;
+			if (profile == SLANG_PROFILE_UNKNOWN)
+			{
+				LogError("Failed to find Slang profile for API version %d.%d!", majorVer, minorVer);
+			}
+			return profile;
 		}
 
 		ShaderStageFlags ConvertSlangStageToFlags(SlangStage stage)
