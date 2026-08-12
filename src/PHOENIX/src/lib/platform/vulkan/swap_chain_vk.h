@@ -19,13 +19,16 @@ namespace PHX
 		TextureHandle GetCurrentImage() const override;
 		u32 GetImageCount() const override;
 		u32 GetCurrentImageIndex() const override;
-		STATUS_CODE Present(u32 currentFrameIndex) override;
+		STATUS_CODE Present() override;
 		void Resize(u32 newWidth, u32 newHeight) override;
 
 		u32 GetWidth() const override;
 		u32 GetHeight() const override;
 
 		STATUS_CODE AcquireNextImage(VkSemaphore imageAvailableSemaphore);
+
+		// Returns the semaphore for the most recently acquired swapchain image
+		VkSemaphore GetRenderFinishedSemaphore() const;
 
 		VkSwapchainKHR GetSwapChain() const;
 		VkFormat GetSwapChainFormat() const;
@@ -51,5 +54,7 @@ namespace PHX
 		u32 m_currImageIndex;
 		u32 m_imageCount;
 		bool m_isVSyncEnabled;
+
+		std::vector<VkSemaphore> m_renderFinishedSemaphores;
 	};
 }

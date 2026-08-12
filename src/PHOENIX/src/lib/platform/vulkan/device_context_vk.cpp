@@ -31,7 +31,7 @@ using namespace BSL;
 namespace PHX
 {
 	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo) : m_pRenderDevice(nullptr),
-		m_submissionBatches(), m_chainSemaphores(), m_stagingPool(pRenderDevice), m_workSubmitted(true), m_assignedFrameIndex(0), m_contextualPipeline(nullptr),
+		m_submissionBatches(), m_chainSemaphores(), m_stagingPool(pRenderDevice), m_workFlushed(true), m_assignedFrameIndex(0), m_contextualPipeline(nullptr),
 		m_pMetrics(nullptr), m_queryPool(VK_NULL_HANDLE), m_queryFrameBaseIndex(0), m_beginTimestampWritten(false)
 	{
 		UNUSED(createInfo);
@@ -45,7 +45,7 @@ namespace PHX
 
 		// Initialize to true so that BeginFrame waits on (and resets) the frame fence on the first frame.
 		// Fences are created in the signaled state, so the initial wait returns immediately.
-		m_workSubmitted = true;
+		m_workFlushed = true;
 
 		m_assignedFrameIndex = createInfo.assignedFrameIndex;
 	}
@@ -757,7 +757,7 @@ namespace PHX
 		// with this index. Because batches are chained with semaphores (each waits on the previous),
 		// the last batch completing guarantees that every batch — and therefore all command buffers and
 		// staging memory — from that frame is done on the GPU.
-		if (m_workSubmitted)
+		if (m_workFlushed)
 		{
 			VkFence frameFence = m_pRenderDevice->GetQueueFence(QUEUE_TYPE::GRAPHICS, m_assignedFrameIndex);
 			vkRes = vkWaitForFences(m_pRenderDevice->GetLogicalDevice(), 1, &frameFence, VK_TRUE, UINT64_MAX);
@@ -790,12 +790,12 @@ namespace PHX
 		}
 
 		// Reset work submission tracking for the new frame
-		m_workSubmitted = false;
+		m_workFlushed = false;
 
 		return STATUS_CODE::SUCCESS;
 	}
 
-	STATUS_CODE DeviceContextVk::EndFrame()
+	STATUS_CODE DeviceContextVk::EndFrame(SwapChainVk* pSwapChain)
 	{
 		const u32 batchCount = static_cast<u32>(m_submissionBatches.size());
 		if (batchCount == 0)
@@ -822,8 +822,14 @@ namespace PHX
 			return res;
 		}
 
+		if (pSwapChain == nullptr)
+		{
+			LogError("Failed to end frame! Swap chain pointer is null");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
 		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(m_assignedFrameIndex);
-		VkSemaphore renderFinishedSemaphore = m_pRenderDevice->GetRenderFinishedSemaphore(m_assignedFrameIndex);
+		VkSemaphore renderFinishedSemaphore = pSwapChain->GetRenderFinishedSemaphore();
 		VkFence frameFence = m_pRenderDevice->GetQueueFence(QUEUE_TYPE::GRAPHICS, m_assignedFrameIndex);
 
 		for (u32 i = 0; i < batchCount; i++)
@@ -856,9 +862,14 @@ namespace PHX
 
 		// At least one batch was submitted and the last one signaled the frame fence, so BeginFrame
 		// must wait on it next time this frame index comes around.
-		m_workSubmitted = true;
+		m_workFlushed = true;
 
 		return STATUS_CODE::SUCCESS;
+	}
+
+	bool DeviceContextVk::WasWorkFlushed() const
+	{
+		return m_workFlushed;
 	}
 
 	STATUS_CODE DeviceContextVk::BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount)

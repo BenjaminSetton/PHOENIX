@@ -33,7 +33,8 @@ namespace PHX
 		createInfoVk.codeSize = createInfo.size * sizeof(u32);
 		createInfoVk.pCode = createInfo.pBytecode;
 
-		if (vkCreateShaderModule(pRenderDevice->GetLogicalDevice(), &createInfoVk, nullptr, &m_shader) != VK_SUCCESS)
+		VkResult res = vkCreateShaderModule(pRenderDevice->GetLogicalDevice(), &createInfoVk, nullptr, &m_shader);
+		if (res != VK_SUCCESS)
 		{
 			LogError("Failed to create shader of type %u", static_cast<u32>(createInfo.stage));
 			return;

@@ -85,7 +85,11 @@ namespace PHX
 		void ResetContextualPipeline();
 
 		STATUS_CODE BeginFrame(SwapChainVk* pSwapChain);
-		STATUS_CODE EndFrame();
+		STATUS_CODE EndFrame(SwapChainVk* pSwapChain);
+
+		// Returns true if any command buffers were submitted during the current frame. Used to determine
+		// whether presenting is valid, and used to prevent softlocks if no work was submitted
+		bool WasWorkFlushed() const;
 
 		STATUS_CODE BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount);
 		STATUS_CODE EndRenderPass();
@@ -176,7 +180,7 @@ namespace PHX
 
 		// True if any command buffers were submitted last frame (tells BeginFrame whether the
 		// frame fence will actually be signaled, so it knows whether to wait on it).
-		bool m_workSubmitted;
+		bool m_workFlushed;
 
 		// Assigned frame index, unique per device context
 		u32 m_assignedFrameIndex;
