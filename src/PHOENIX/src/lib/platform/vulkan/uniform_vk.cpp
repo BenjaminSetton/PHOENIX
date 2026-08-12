@@ -8,6 +8,7 @@
 #include "BSL/sanity.h"
 #include "buffer_vk.h"
 #include "core/handle/handle_utils.h"
+#include "core/profiling.h"
 #include "render_device_vk.h"
 #include "texture_vk.h"
 #include "utils/shader_type_converter.h"
@@ -157,6 +158,8 @@ namespace PHX
 
 	STATUS_CODE UniformCollectionVk::QueueBufferUpdate(BufferHandle buffer, u32 set, u32 binding, u64 offset, u64 size)
 	{
+		PROFILE_SCOPE("UniformCollectionVk_QueueBufferUpdate");
+
 		BufferVk* bufferVk = static_cast<BufferVk*>(HANDLE_UTILS::ResolveHandle(buffer));
 		if ((bufferVk == nullptr) || (bufferVk->GetBuffer() == nullptr))
 		{
@@ -260,6 +263,8 @@ namespace PHX
 
 	STATUS_CODE UniformCollectionVk::QueueImageUpdate(TextureHandle texture, u32 set, u32 binding, u32 imageViewIndex, u32 arrayElement)
 	{
+		PROFILE_SCOPE("UniformCollectionVk_QueueImageUpdate");
+
 		TextureVk* textureVk = static_cast<TextureVk*>(m_pRenderDevice->ResolveHandle(texture));
 		if (textureVk == nullptr)
 		{
@@ -319,6 +324,8 @@ namespace PHX
 
 	STATUS_CODE UniformCollectionVk::QueueAccelerationStructureUpdate(AccelerationStructureHandle accelerationStructure, u32 set, u32 binding)
 	{
+		PROFILE_SCOPE("UniformCollectionVk_QueueAccelerationStructureUpdate");
+
 		AccelerationStructureVk* pAccelerationStructure = static_cast<AccelerationStructureVk*>(m_pRenderDevice->ResolveHandle(accelerationStructure));
 		if ((pAccelerationStructure == nullptr) || (pAccelerationStructure->GetAccelerationStructure() == nullptr))
 		{
@@ -359,6 +366,8 @@ namespace PHX
 
 	STATUS_CODE UniformCollectionVk::Flush(u32 frameIndex)
 	{
+		PROFILE_SCOPE("UniformCollectionVk_Flush");
+
 		if (m_pRenderDevice == nullptr)
 		{
 			LogError("Failed to flush descriptor writes for frame %u! Render device is null", frameIndex);

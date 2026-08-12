@@ -6,6 +6,7 @@
 
 #include "BSL/logger.h"
 #include "BSL/sanity.h"
+#include "core/profiling.h"
 #include "PHX/types/acceleration_structure_desc.h"
 #include "acceleration_structure_vk.h"
 #include "buffer_vk.h"
@@ -59,6 +60,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::BindVertexBuffer(BufferHandle vertexBuffer)
 	{
+		PROFILE_SCOPE("DeviceContextVk_BindVertexBuffer");
+
 		BufferVk* vBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(vertexBuffer));
 		if (vBufferVk == nullptr)
 		{
@@ -83,6 +86,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType)
 	{
+		PROFILE_SCOPE("DeviceContextVk_BindMesh");
+
 		BufferVk* vBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(vertexBuffer));
 		if (vBufferVk == nullptr)
 		{
@@ -115,6 +120,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::BindUniformCollection(UniformCollectionHandle uniformCollection)
 	{
+		PROFILE_SCOPE("DeviceContextVk_BindUniformCollection");
+
 		UniformCollectionVk* uniformCollectionVk = static_cast<UniformCollectionVk*>(m_pRenderDevice->ResolveHandle(uniformCollection));
 		if (uniformCollectionVk == nullptr)
 		{
@@ -152,6 +159,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::FlushUniformUpdates(UniformCollectionHandle uniformCollection)
 	{
+		PROFILE_SCOPE("DeviceContextVk_FlushUniformUpdates");
+
 		UniformCollectionVk* uniformCollectionVk = static_cast<UniformCollectionVk*>(m_pRenderDevice->ResolveHandle(uniformCollection));
 		if (uniformCollectionVk == nullptr)
 		{
@@ -169,6 +178,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::SetViewport(Vec2u size, Vec2u offset)
 	{
+		PROFILE_SCOPE("DeviceContextVk_SetViewport");
+
 		if (size.GetX() == 0 && size.GetY() == 0)
 		{
 			LogWarning("Attempting to set viewport with a size of 0!");
@@ -196,6 +207,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::SetScissor(Vec2u size, Vec2u offset)
 	{
+		PROFILE_SCOPE("DeviceContextVk_SetScissor");
+
 		if (size.GetX() == 0 && size.GetY() == 0)
 		{
 			LogWarning("Attempting to set scissor with a size of 0!");
@@ -219,6 +232,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::Draw(u32 vertexCount)
 	{
+		PROFILE_SCOPE("DeviceContextVk_Draw");
+
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
@@ -241,6 +256,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::DrawIndexed(u32 indexCount, u32 firstIndex, u32 vertexOffset)
 	{
+		PROFILE_SCOPE("DeviceContextVk_DrawIndexed");
+
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
@@ -263,6 +280,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::DrawIndexedInstanced(u32 indexCount, u32 instanceCount, u32 firstIndex, u32 vertexOffset, u32 instanceOffset)
 	{
+		PROFILE_SCOPE("DeviceContextVk_DrawIndexedInstanced");
+
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
@@ -285,6 +304,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::DrawIndexedIndirect(BufferHandle argsBuffer, u32 drawCount, u32 stride, u64 argsOffset)
 	{
+		PROFILE_SCOPE("DeviceContextVk_DrawIndexedIndirect");
+
 		BufferVk* argsBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(argsBuffer));
 		if (argsBufferVk == nullptr)
 		{
@@ -312,6 +333,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::DrawIndexedIndirectCount(BufferHandle argsBuffer, u64 argsOffset, BufferHandle countBuffer, u64 countOffset, u32 maxDrawCount, u32 stride)
 	{
+		PROFILE_SCOPE("DeviceContextVk_DrawIndexedIndirectCount");
+
 		BufferVk* argsBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(argsBuffer));
 		if (argsBufferVk == nullptr)
 		{
@@ -350,6 +373,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::Dispatch(Vec3u dimensions)
 	{
+		PROFILE_SCOPE("DeviceContextVk_Dispatch");
+
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::COMPUTE, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
@@ -364,6 +389,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::TraceRays(Vec3u dimensions)
 	{
+		PROFILE_SCOPE("DeviceContextVk_TraceRays");
+
 		ASSERT_PTR(m_contextualPipeline);
 
 		QUEUE_TYPE cmdQueueType = GetQueueTypeFromBindPoint(m_contextualPipeline->GetBindPoint());
@@ -397,6 +424,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::BuildBottomLevelAccelerationStructure(AccelerationStructureHandle handle)
 	{
+		PROFILE_SCOPE("DeviceContextVk_BuildBottomLevelAccelerationStructure");
+
 		ASSERT_MSG(m_pRenderDevice->IsRayTracingSupported(), "Failed to build acceleration structure. Ray tracing is not supported on this device!");
 
 		AccelerationStructureVk* pAS = static_cast<AccelerationStructureVk*>(m_pRenderDevice->ResolveHandle(handle));
@@ -530,6 +559,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::BuildTopLevelAccelerationStructure(AccelerationStructureHandle handle, BufferHandle instanceBuffer, u32 instanceCount)
 	{
+		PROFILE_SCOPE("DeviceContextVk_BuildTopLevelAccelerationStructure");
+
 		ASSERT_MSG(m_pRenderDevice->IsRayTracingSupported(), "Failed to build top-level acceleration structure. Ray tracing is not supported on this device!");
 
 		AccelerationStructureVk* pAS = static_cast<AccelerationStructureVk*>(m_pRenderDevice->ResolveHandle(handle));
@@ -612,6 +643,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes)
 	{
+		PROFILE_SCOPE("DeviceContextVk_CopyDataToBuffer");
+
 		if (data == nullptr)
 		{
 			LogError("Failed to copy data to buffer. Data pointer is null!");
@@ -674,6 +707,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel)
 	{
+		PROFILE_SCOPE("DeviceContextVk_CopyDataToTexture");
+
 		TextureVk* textureVk = static_cast<TextureVk*>(m_pRenderDevice->ResolveHandle(texture));
 		if (textureVk == nullptr)
 		{
@@ -738,6 +773,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::BeginFrame(SwapChainVk* pSwapChain)
 	{
+		PROFILE_SCOPE("DeviceContextVk_BeginFrame");
+
 		if (m_pRenderDevice == nullptr)
 		{
 			LogError("Failed to begin frame! Render device is null");
@@ -797,6 +834,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::EndFrame(SwapChainVk* pSwapChain)
 	{
+		PROFILE_SCOPE("DeviceContextVk_EndFrame");
+
 		const u32 batchCount = static_cast<u32>(m_submissionBatches.size());
 		if (batchCount == 0)
 		{
@@ -874,6 +913,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::BeginRenderPass(VkRenderPass renderPass, FramebufferVk* pFramebuffer, ClearValues* pClearColors, u32 clearColorCount)
 	{
+		PROFILE_SCOPE("DeviceContextVk_BeginRenderPass");
+
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
@@ -915,6 +956,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::EndRenderPass()
 	{
+		PROFILE_SCOPE("DeviceContextVk_EndRenderPass");
+
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
@@ -958,6 +1001,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::InsertImageMemoryBarrier(TextureVk* pTexture, QUEUE_TYPE queueType, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask, VkImageLayout oldLayout, VkImageLayout newLayout)
 	{
+		PROFILE_SCOPE("DeviceContextVk_InsertImageMemoryBarrier");
+
 		if (pTexture == nullptr)
 		{
 			LogError("Failed to insert image memory barrier. Texture pointer is null!");
@@ -1009,6 +1054,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::InsertBufferMemoryBarrier(BufferVk* pBuffer, QUEUE_TYPE queueType, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask)
 	{
+		PROFILE_SCOPE("DeviceContextVk_InsertBufferMemoryBarrier");
+
 		if (pBuffer == nullptr)
 		{
 			LogError("Failed to insert buffer memory barrier. Buffer pointer is null!");
@@ -1049,6 +1096,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::InsertAccelerationStructureMemoryBarrier(AccelerationStructureVk* pAS, QUEUE_TYPE queueType, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask)
 	{
+		PROFILE_SCOPE("DeviceContextVk_InsertAccelerationStructureMemoryBarrier");
+
 		ASSERT_MSG(m_pRenderDevice->IsRayTracingSupported(), "Failed to insert acceleration structure memory barrier. Ray tracing is not supported on this device!");
 
 		if (pAS == nullptr)
@@ -1097,6 +1146,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::GetOrCreateCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer)
 	{
+		PROFILE_SCOPE("DeviceContextVk_GetOrCreateCommandBuffer");
+
 		if (m_pRenderDevice == nullptr)
 		{
 			LogError("Failed to create command buffer. Render device is null!");
@@ -1310,6 +1361,8 @@ namespace PHX
 
 	STATUS_CODE DeviceContextVk::FlushInternal(QUEUE_TYPE queueType, const VkCommandBuffer* pCommandBuffers, u32 commandBufferCount, const FlushSyncData& syncData)
 	{
+		PROFILE_SCOPE("DeviceContextVk_FlushInternal");
+
 		VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
 		VkSubmitInfo vkSubmitInfo{};

@@ -8,6 +8,7 @@
 #include "BSL/math.h"
 #include "BSL/sanity.h"
 #include "core/global_settings.h"
+#include "core/profiling.h"
 #include "core_vk.h"
 #include "PHX/types/queue_type.h"
 #include "utils/queue_utils.h"
@@ -120,6 +121,8 @@ namespace PHX
 
 	TextureHandle SwapChainVk::GetCurrentImage() const
 	{
+		PROFILE_SCOPE("SwapChainVk_GetCurrentImage");
+
 		return m_images[m_currImageIndex];
 	}
 
@@ -130,11 +133,15 @@ namespace PHX
 
 	u32 SwapChainVk::GetCurrentImageIndex() const
 	{
+		PROFILE_SCOPE("SwapChainVk_GetCurrentImageIndex");
+
 		return m_currImageIndex;
 	}
 
 	STATUS_CODE SwapChainVk::Present()
 	{
+		PROFILE_SCOPE("SwapChainVk_Present");
+
 		VkSemaphore renderFinishedSemaphore = GetRenderFinishedSemaphore();
 
 		VkPresentInfoKHR presentInfo{};
@@ -195,6 +202,8 @@ namespace PHX
 
 	STATUS_CODE SwapChainVk::AcquireNextImage(VkSemaphore imageAvailableSemaphore)
 	{
+		PROFILE_SCOPE("SwapChainVk_AcquireNextImage");
+
 		VkResult resVk = vkAcquireNextImageKHR(m_renderDevice->GetLogicalDevice(), m_swapChain, UINT64_MAX, imageAvailableSemaphore, VK_NULL_HANDLE, &m_currImageIndex);
 		if (resVk == VK_ERROR_OUT_OF_DATE_KHR || resVk == VK_SUBOPTIMAL_KHR)
 		{
@@ -410,7 +419,12 @@ namespace PHX
 		{
 			TextureHandle texture;
 			STATUS_CODE res = pRenderDevice->AllocateSwapchainTexture(texBaseCI, imageViews.at(i), texture);
-			ASSERT_MSG(res == STATUS_CODE::SUCCESS, "Failed to allocate swapchain texture!");
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				ASSERT_ALWAYS("Failed to allocate swapchain texture!");
+				continue;
+			}
+
 			m_images.push_back(texture);
 		}
 

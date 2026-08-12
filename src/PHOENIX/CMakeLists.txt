@@ -1,16 +1,20 @@
 # Change PHX_SHARED_LIB to ON to build as a DLL instead of a static lib
 option(PHX_SHARED_LIB "Build PHX as a shared library" OFF)
 
+# Tracy profiler
+set(TRACY_ROOT "${PHX_ROOT}/vendor/tracy/public")
+set(TRACY_CLIENT_SOURCE "${TRACY_ROOT}/TracyClient.cpp")
+
 file(GLOB_RECURSE PHX_SOURCES
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp"
 )
 
 if(PHX_SHARED_LIB)
-    add_library(PHOENIX SHARED ${PHX_SOURCES})
+    add_library(PHOENIX SHARED ${PHX_SOURCES} ${TRACY_CLIENT_SOURCE})
     target_compile_definitions(PHOENIX PRIVATE PHX_BUILDING_LIB PHX_DYNAMIC_LIB)
 else()
-    add_library(PHOENIX STATIC ${PHX_SOURCES})
+    add_library(PHOENIX STATIC ${PHX_SOURCES} ${TRACY_CLIENT_SOURCE})
 endif()
 
 # Mirror the directory structure
@@ -21,6 +25,7 @@ target_include_directories(PHOENIX
         "${PHX_ROOT}/src/api"
     PRIVATE
         "${PHX_ROOT}/src/lib"
+        "${TRACY_ROOT}"
 )
 
 # Link dependencies must be PUBLIC for a static library: the static lib doesn't
@@ -43,6 +48,10 @@ target_compile_definitions(PHOENIX PRIVATE
     $<$<CONFIG:Sanitizer>:PHX_DEBUG>
     $<$<CONFIG:Sanitizer>:PHX_SANITIZE>
     $<$<CONFIG:Sanitizer>:BSL_ENABLE_DEBUG_LOG>
+    
+    # Profiling (only in Release)
+	$<$<CONFIG:Release>:TRACY_ENABLE>
+    $<$<CONFIG:Release>:PROFILER_TRACY>
 )
 
 # Platform-specific settings

@@ -5,6 +5,7 @@
 
 #include "BSL/logger.h"
 #include "BSL/sanity.h"
+#include "core/profiling.h"
 #include "render_device_vk.h"
 #include "texture_vk.h"
 #include "utils/attachment_type_converter.h"
@@ -101,6 +102,8 @@ namespace PHX
 
 	FramebufferVk::FramebufferVk(RenderDeviceVk* pRenderDevice, const FramebufferDescription& desc)
 	{
+		PROFILE_SCOPE("FramebufferVk_FramebufferVk");
+
 		if (VerifyDescription(desc) != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to create framebuffer. Description verification failed!");

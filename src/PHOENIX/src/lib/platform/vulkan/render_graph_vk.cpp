@@ -15,6 +15,7 @@
 #include "core/handle/handle_accessor.h"
 #include "core/handle/handle_utils.h"
 #include "core/global_settings.h"
+#include "core/profiling.h"
 #include "device_context_vk.h"
 #include "render_device_vk.h"
 #include "swap_chain_vk.h"
@@ -809,6 +810,8 @@ namespace PHX
 
 	STATUS_CODE RenderGraphVk::BeginFrame(SwapChainHandle swapChain)
 	{
+		PROFILE_SCOPE("RenderGraphVk_BeginFrame");
+
 		if (!swapChain.IsValid())
 		{
 			LogError("Failed to begin frame. Swap chain handle is invalid!");
@@ -869,6 +872,9 @@ namespace PHX
 
 	STATUS_CODE RenderGraphVk::EndFrame(SwapChainHandle swapChain)
 	{
+		PROFILE_SCOPE("RenderGraphVk_EndFrame");
+		PROFILE_LOOP("Frame");
+
 		if (!swapChain.IsValid())
 		{
 			LogError("Failed to begin frame. Swap chain handle is invalid!");
@@ -940,6 +946,8 @@ namespace PHX
 
 	STATUS_CODE RenderGraphVk::Bake(SwapChainHandle swapChain)
 	{
+		PROFILE_SCOPE("RenderGraphVk_Bake");
+
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
 		// Resolve the current swapchain image and compute its resource ID.
@@ -1537,6 +1545,8 @@ namespace PHX
 
 	void* RenderGraphVk::ResolveHandle(const Handle& handle)
 	{
+		PROFILE_SCOPE("RenderGraphVk_ResolveHandle");
+
 		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
@@ -1589,6 +1599,8 @@ namespace PHX
 
 	VkRenderPass RenderGraphVk::CreateRenderPass(const RenderPassVk& renderPass)
 	{
+		PROFILE_SCOPE("RenderGraphVk_CreateRenderPass");
+
 		RenderPassDescription renderPassDesc{};
 		renderPassDesc.attachments.reserve(renderPass.m_outputResources.size());
 		renderPassDesc.subpasses.reserve(1); // TODO - Support multiple subpasses
@@ -1705,6 +1717,8 @@ namespace PHX
 
 	FramebufferVk* RenderGraphVk::CreateFramebuffer(const RenderPassVk& renderPass, VkRenderPass renderPassVk, bool isBackBuffer)
 	{
+		PROFILE_SCOPE("RenderGraphVk_CreateFramebuffer");
+
 		std::vector<FramebufferAttachmentDesc> attachments;
 		attachments.reserve(renderPass.m_outputResources.size());
 
@@ -1764,6 +1778,8 @@ namespace PHX
 
 	PipelineVk* RenderGraphVk::CreatePipeline(const RenderPassVk& renderPass, VkRenderPass renderPassVk)
 	{
+		PROFILE_SCOPE("RenderGraphVk_CreatePipeline");
+
 		PipelineVk* pipeline = nullptr;
 
 		PASS_TYPE renderPassBindPoint = renderPass.m_passType;
@@ -1847,6 +1863,8 @@ namespace PHX
 
 	u32 RenderGraphVk::FindPresentRenderPassIndex(u64 presentResID)
 	{
+		PROFILE_SCOPE("RenderGraphVk_FindPresentRenderPassIndex");
+
 		u32 presentRPIndex = s_invalidRenderPassIndex;
 
 		for (const ResourceUsage& usage : m_resourceUsages)
@@ -1883,6 +1901,8 @@ namespace PHX
 
 	void RenderGraphVk::BuildDependencyTree(u32 renderPassIndex)
 	{
+		PROFILE_SCOPE("RenderGraphVk_BuildDependencyTree");
+
 		// Base cases
 		if (renderPassIndex >= m_registeredRenderPasses.Size())
 		{
@@ -1928,6 +1948,8 @@ namespace PHX
 
 	void RenderGraphVk::FindActivePasses(u32 finalPassIndex, std::vector<u32>& out_activeRenderPasses)
 	{
+		PROFILE_SCOPE("RenderGraphVk_FindActivePasses");
+
 		// Traverse dependency tree and tag all passes which contribute to the final pass.
 		// A pass reachable via multiple dependency paths (diamond-shaped graphs) is visited
 		// more than once by the DFS, so de-duplicate here to avoid processing/executing it twice.
@@ -1958,6 +1980,8 @@ namespace PHX
 
 	void RenderGraphVk::CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex)
 	{
+		PROFILE_SCOPE("RenderGraphVk_CalculateResourceBarriers");
+
 		// Traverse the dependency tree from bottom-to-top, and for every dependency:
 		// 1. Find which resource usages caused that dependency
 		// 2. For all those resource usages, generate a barrier
@@ -2152,6 +2176,8 @@ namespace PHX
 
 	STATUS_CODE RenderGraphVk::InsertResourceBarriers(const RenderPassVk& renderPass)
 	{
+		PROFILE_SCOPE("RenderGraphVk_InsertResourceBarriers");
+
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
 
@@ -2434,6 +2460,8 @@ namespace PHX
 
 	u64 RenderGraphVk::HashState() const
 	{
+		PROFILE_SCOPE("RenderGraphVk_HashState");
+
 		size_t seed = 0;
 
 		// Render passes
@@ -2532,6 +2560,8 @@ namespace PHX
 
 	void RenderGraphVk::CallExecutionCallback(const RenderPassVk& renderPass, const DeviceContextHandle& deviceContext)
 	{
+		PROFILE_SCOPE("RenderGraphVk_CallExecutionCallback");
+
 		if (renderPass.m_execCallback)
 		{
 			renderPass.m_execCallback(deviceContext);

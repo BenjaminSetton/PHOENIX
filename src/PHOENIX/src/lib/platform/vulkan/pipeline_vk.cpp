@@ -6,6 +6,7 @@
 
 #include "BSL/logger.h"
 #include "BSL/sanity.h"
+#include "core/profiling.h"
 #include "framebuffer_vk.h"
 #include "render_device_vk.h"
 #include "shader_vk.h"
@@ -116,6 +117,8 @@ namespace PHX
 
 	STATUS_CODE PipelineVk::CreateGraphicsPipeline(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, VkRenderPass renderPass, const GraphicsPipelineDesc& createInfo)
 	{
+		PROFILE_SCOPE("PipelineVk_CreateGraphicsPipeline");
+
 		STATUS_CODE createInfoRes = VerifyCreateInfo(createInfo);
 		if (createInfoRes != STATUS_CODE::SUCCESS)
 		{
@@ -257,6 +260,8 @@ namespace PHX
 
 	STATUS_CODE PipelineVk::CreateComputePipeline(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const ComputePipelineDesc& createInfo)
 	{
+		PROFILE_SCOPE("PipelineVk_CreateComputePipeline");
+
 		STATUS_CODE createInfoRes = VerifyCreateInfo(createInfo);
 		if (createInfoRes != STATUS_CODE::SUCCESS)
 		{
@@ -383,6 +388,8 @@ namespace PHX
 
 	STATUS_CODE PipelineVk::CreateRayTracingPipeline(RenderDeviceVk* pRenderDevice, VkPipelineCache cache, const RayTracingPipelineDesc& createInfo)
 	{
+		PROFILE_SCOPE("PipelineVk_CreateRayTracingPipeline");
+
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		VkResult vkRes = VK_SUCCESS;
 
@@ -786,6 +793,8 @@ namespace PHX
 
 	VkPipelineLayout PipelineVk::CreatePipelineLayout(VkDevice logicalDevice, UniformCollectionHandle uniformCollection)
 	{
+		PROFILE_SCOPE("PipelineVk_CreatePipelineLayout");
+
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		if (uniformCollection.IsValid())
 		{

@@ -6,6 +6,7 @@
 #include "BSL/logger.h"
 #include "BSL/math.h"
 #include "buffer_utils.h"
+#include "core/profiling.h"
 
 using namespace BSL;
 
@@ -32,6 +33,8 @@ namespace PHX
 
 	StagingAllocation StagingBufferPool::Allocate(u64 sizeBytes, u64 alignment)
 	{
+		PROFILE_SCOPE("StagingBufferPool_Allocate");
+
 		StagingAllocation alloc{};
 
 		if (m_renderDevice == nullptr)
@@ -102,6 +105,8 @@ namespace PHX
 
 	void StagingBufferPool::Reset()
 	{
+		PROFILE_SCOPE("StagingBufferPool_Reset");
+
 		for (u64& offset : m_poolOffsets)
 		{
 			offset = 0;

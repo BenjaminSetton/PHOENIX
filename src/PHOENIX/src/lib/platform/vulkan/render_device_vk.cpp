@@ -23,6 +23,7 @@
 #include "BSL/logger.h"
 #include "buffer_vk.h"
 #include "core/handle/handle_utils.h"
+#include "core/profiling.h"
 #include "core_vk.h"
 #include "device_context_vk.h"
 #include "pipeline_vk.h"
@@ -441,6 +442,8 @@ namespace PHX
 
 	void* RenderDeviceVk::ResolveHandle(const Handle& handle)
 	{
+		PROFILE_SCOPE("RenderDeviceVk_ResolveHandle");
+
 		const HANDLE_TYPE type = handle.GetType();
 		switch (type)
 		{
@@ -464,6 +467,8 @@ namespace PHX
 
 	void RenderDeviceVk::IncrementHandleRefCount(const Handle& handle)
 	{
+		PROFILE_SCOPE("RenderDeviceVk_IncrementHandleRefCount");
+
 		const HANDLE_TYPE handleType = handle.GetType();
 		switch (handleType)
 		{
@@ -485,6 +490,8 @@ namespace PHX
 
 	void RenderDeviceVk::DecrementHandleRefCount(const Handle& handle)
 	{
+		PROFILE_SCOPE("RenderDeviceVk_DecrementHandleRefCount");
+
 		const HANDLE_TYPE handleType = handle.GetType();
 		switch (handleType)
 		{
@@ -506,6 +513,8 @@ namespace PHX
 
 	FramebufferVk* RenderDeviceVk::CreateFramebuffer(const FramebufferDescription& desc)
 	{
+		PROFILE_SCOPE("RenderDeviceVk_CreateFramebuffer");
+
 		return m_framebufferCache->FindOrCreate(this, desc);
 	}
 
@@ -516,6 +525,8 @@ namespace PHX
 
 	VkRenderPass RenderDeviceVk::GetOrCreateRenderPass(const RenderPassDescription& desc)
 	{
+		PROFILE_SCOPE("RenderDeviceVk_GetOrCreateRenderPass");
+
 		return m_renderPassCache->GetOrCreate(this, desc);
 	}
 
@@ -531,6 +542,8 @@ namespace PHX
 
 	PipelineVk* RenderDeviceVk::CreateGraphicsPipeline(const GraphicsPipelineDesc& desc, VkRenderPass renderPass)
 	{
+		PROFILE_SCOPE("RenderDeviceVk_CreateGraphicsPipeline");
+
 		PipelineVk* pipeline = m_pipelineCache->FindOrCreate(this, renderPass, desc);
 		if (pipeline == nullptr)
 		{
@@ -547,6 +560,8 @@ namespace PHX
 
 	PipelineVk* RenderDeviceVk::CreateComputePipeline(const ComputePipelineDesc& desc)
 	{
+		PROFILE_SCOPE("RenderDeviceVk_CreateComputePipeline");
+
 		PipelineVk* pipeline = m_pipelineCache->FindOrCreate(this, desc);
 		if (pipeline == nullptr)
 		{
@@ -609,6 +624,8 @@ namespace PHX
 
 	VkCommandPool RenderDeviceVk::GetCommandPool(QUEUE_TYPE type, u32 frameIndex) const
 	{
+		PROFILE_SCOPE("RenderDeviceVk_GetCommandPool");
+
 		u32 queueIdx = static_cast<u32>(type);
 		if (queueIdx >= static_cast<u32>(QUEUE_TYPE::COUNT) || frameIndex >= m_framesInFlight)
 		{
@@ -626,6 +643,8 @@ namespace PHX
 
 	VkQueue RenderDeviceVk::GetQueue(QUEUE_TYPE type) const
 	{
+		PROFILE_SCOPE("RenderDeviceVk_GetQueue");
+
 		auto iter = m_queues.find(type);
 		if (iter == m_queues.end())
 		{
@@ -637,6 +656,8 @@ namespace PHX
 
 	u32 RenderDeviceVk::GetQueueFamilyIndex(QUEUE_TYPE type) const
 	{
+		PROFILE_SCOPE("RenderDeviceVk_GetQueueFamilyIndex");
+
 		return m_queueFamilyIndices.GetIndex(type);
 	}
 
@@ -1234,6 +1255,8 @@ namespace PHX
 
 	PipelineVk* RenderDeviceVk::CreateRayTracingPipeline(const RayTracingPipelineDesc& desc)
 	{
+		PROFILE_SCOPE("RenderDeviceVk_CreateRayTracingPipeline");
+
 		PipelineVk* pipeline = m_pipelineCache->FindOrCreate(this, desc);
 		if (pipeline == nullptr)
 		{

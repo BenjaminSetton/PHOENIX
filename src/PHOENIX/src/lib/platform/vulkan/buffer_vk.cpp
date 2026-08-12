@@ -4,6 +4,7 @@
 
 #include "BSL/logger.h"
 #include "buffer_vk.h"
+#include "core/profiling.h"
 #include "utils/buffer_type_converter.h"
 
 using namespace BSL;
@@ -79,6 +80,8 @@ namespace PHX
 
 	STATUS_CODE BufferVk::CopyToMappedData(const void* data, u64 sizeBytes)
 	{
+		PROFILE_SCOPE("BufferVk_CopyToMappedData");
+
 		if (!m_buffer.isValid)
 		{
 			LogError("Failed to copy data to buffer! Buffer is invalid");

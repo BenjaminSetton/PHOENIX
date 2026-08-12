@@ -7,6 +7,7 @@
 #include "BSL/logger.h"
 #include "BSL/sanity.h"
 #include "buffer_vk.h"
+#include "core/profiling.h"
 #include "render_device_vk.h"
 #include "platform/vulkan/utils/acceleration_structure_utils.h"
 #include "utils/buffer_utils.h"
@@ -137,6 +138,8 @@ namespace PHX
 
 	STATUS_CODE AccelerationStructureVk::Create(RenderDeviceVk* pRenderDevice, const AccelerationStructureCreateInfo& createInfo)
 	{
+		PROFILE_SCOPE("AccelerationStructureVk_Create");
+
 		std::vector<VkAccelerationStructureGeometryKHR> geometries;
 		std::vector<u32> maxPrimitiveCounts;
 
