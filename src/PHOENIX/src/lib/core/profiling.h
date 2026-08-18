@@ -11,7 +11,7 @@
 
 #else
 
-#define PROFILE_SCOPE(x)
-#define PROFILE_LOOP(x)
+#define PROFILE_SCOPE(name)
+#define PROFILE_LOOP(name)
 
 #endif

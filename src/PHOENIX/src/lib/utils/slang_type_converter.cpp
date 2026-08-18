@@ -104,6 +104,7 @@ namespace PHX
 				else                                     profileName = "spirv_1_0";
 
 				profile = globalSession->findProfile(profileName);
+				break;
 			}
 			default:
 			{

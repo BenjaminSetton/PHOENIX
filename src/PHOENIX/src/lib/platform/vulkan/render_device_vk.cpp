@@ -658,7 +658,7 @@ namespace PHX
 	{
 		PROFILE_SCOPE("RenderDeviceVk_GetQueueFamilyIndex");
 
-		return m_queueFamilyIndices.GetIndex(type);
+		return m_queueFamilyIndices.GetQueueIndex(type);
 	}
 
 	VkSemaphore RenderDeviceVk::GetImageAvailableSemaphore(u32 index) const
@@ -795,17 +795,17 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		LogInfo("Selected graphics queue from queue family at index %u", indices.GetIndex(QUEUE_TYPE::GRAPHICS));
-		LogInfo("Selected compute queue from queue family at index %u" , indices.GetIndex(QUEUE_TYPE::COMPUTE ));
-		LogInfo("Selected transfer queue from queue family at index %u", indices.GetIndex(QUEUE_TYPE::TRANSFER));
-		LogInfo("Selected present queue from queue family at index %u" , indices.GetIndex(QUEUE_TYPE::PRESENT ));
+		LogInfo("Selected graphics queue from queue family at index %u", indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS));
+		LogInfo("Selected compute queue from queue family at index %u" , indices.GetQueueIndex(QUEUE_TYPE::COMPUTE ));
+		LogInfo("Selected transfer queue from queue family at index %u", indices.GetQueueIndex(QUEUE_TYPE::TRANSFER));
+		LogInfo("Selected present queue from queue family at index %u" , indices.GetQueueIndex(QUEUE_TYPE::PRESENT ));
 
 		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 		std::set<u32> uniqueQueueFamilies = {
-			indices.GetIndex(QUEUE_TYPE::GRAPHICS),
-			indices.GetIndex(QUEUE_TYPE::COMPUTE),
-			indices.GetIndex(QUEUE_TYPE::PRESENT),
-			indices.GetIndex(QUEUE_TYPE::TRANSFER)
+			indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS),
+			indices.GetQueueIndex(QUEUE_TYPE::COMPUTE),
+			indices.GetQueueIndex(QUEUE_TYPE::PRESENT),
+			indices.GetQueueIndex(QUEUE_TYPE::TRANSFER)
 		};
 
 		// TODO - Determine priority of the different queue types
@@ -906,10 +906,10 @@ namespace PHX
 		}
 
 		// Get the queues from the logical device
-		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::GRAPHICS), 0, &m_queues[QUEUE_TYPE::GRAPHICS]);
-		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::COMPUTE ), 0, &m_queues[QUEUE_TYPE::COMPUTE ]);
-		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::TRANSFER), 0, &m_queues[QUEUE_TYPE::TRANSFER]);
-		vkGetDeviceQueue(m_logicalDevice, indices.GetIndex(QUEUE_TYPE::PRESENT ), 0, &m_queues[QUEUE_TYPE::PRESENT ]);
+		vkGetDeviceQueue(m_logicalDevice, indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS), 0, &m_queues[QUEUE_TYPE::GRAPHICS]);
+		vkGetDeviceQueue(m_logicalDevice, indices.GetQueueIndex(QUEUE_TYPE::COMPUTE ), 0, &m_queues[QUEUE_TYPE::COMPUTE ]);
+		vkGetDeviceQueue(m_logicalDevice, indices.GetQueueIndex(QUEUE_TYPE::TRANSFER), 0, &m_queues[QUEUE_TYPE::TRANSFER]);
+		vkGetDeviceQueue(m_logicalDevice, indices.GetQueueIndex(QUEUE_TYPE::PRESENT ), 0, &m_queues[QUEUE_TYPE::PRESENT ]);
 
 		m_queueFamilyIndices = indices;
 
@@ -993,8 +993,8 @@ namespace PHX
 
 	STATUS_CODE RenderDeviceVk::AllocateCommandPool_Helper(QUEUE_TYPE type, VkCommandPoolCreateFlags flags, u32 framesInFlight)
 	{
-		u32 queueFamilyIndex = m_queueFamilyIndices.GetIndex(type);
-		if (!m_queueFamilyIndices.IsValid(queueFamilyIndex))
+		u32 queueFamilyIndex = m_queueFamilyIndices.GetQueueIndex(type);
+		if (!m_queueFamilyIndices.IsValid({ queueFamilyIndex, 0 }))
 		{
 			LogError("Failed to allocate command pool of type %u! Queue family index is not valid", static_cast<u32>(type));
 			return STATUS_CODE::ERR_INTERNAL;

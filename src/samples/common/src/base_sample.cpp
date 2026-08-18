@@ -175,7 +175,7 @@ namespace Common
 	void BaseSample::CreateSwapChain()
 	{
 		SwapChainCreateInfo swapChainCI{};
-		swapChainCI.enableVSync = true;
+		swapChainCI.enableVSync = false;
 		swapChainCI.width = m_window.GetCurrentWidth();
 		swapChainCI.height = m_window.GetCurrentHeight();
 
@@ -186,7 +186,7 @@ namespace Common
 	void BaseSample::CreateRenderDevice()
 	{
 		RenderDeviceCreateInfo renderDeviceCI{};
-		renderDeviceCI.framesInFlight = 2;
+		renderDeviceCI.framesInFlight = 3;
 		renderDeviceCI.window = m_window;
 
 		STATUS_CODE phxRes = PHX::CreateRenderDevice(renderDeviceCI, m_renderDevice);

@@ -281,7 +281,7 @@ namespace PHX
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // Allow reads/writes from and to backbuffer
 
 		QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
-		uint32_t queueFamilyIndices[2] = { indices.GetIndex(QUEUE_TYPE::GRAPHICS), indices.GetIndex(QUEUE_TYPE::PRESENT) };
+		uint32_t queueFamilyIndices[2] = { indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS), indices.GetQueueIndex(QUEUE_TYPE::PRESENT) };
 
 		if (queueFamilyIndices[0] != queueFamilyIndices[1])
 		{
@@ -461,6 +461,8 @@ namespace PHX
 
 	void SwapChainVk::OnSwapChainOutdated()
 	{
+		PROFILE_SCOPE("SwapChainVk_OnSwapChainOutdated");
+
 		auto& settings = GetSettings();
 		if (settings.swapChainOutdatedCallback == nullptr)
 		{

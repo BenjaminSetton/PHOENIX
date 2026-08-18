@@ -11,6 +11,7 @@
 #include "acceleration_structure_vk.h"
 #include "buffer_vk.h"
 #include "framebuffer_vk.h"
+#include "profiling_vk.h"
 #include "pipeline_vk.h"
 #include "render_device_vk.h"
 #include "swap_chain_vk.h"
@@ -49,10 +50,13 @@ namespace PHX
 		m_workFlushed = true;
 
 		m_assignedFrameIndex = createInfo.assignedFrameIndex;
+
+		InitTracyContexts();
 	}
 
 	DeviceContextVk::~DeviceContextVk()
 	{
+		DestroyTracyContexts();
 		DeallocateCommandBuffers();
 		DestroyChainSemaphores();
 		m_stagingPool.Destroy();
@@ -76,6 +80,12 @@ namespace PHX
 			LogError("Failed to bind vertex buffer! Could not get or create command buffer");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::GRAPHICS)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "BindVertexBuffer");
+#endif
 
 		VkBuffer vkBuffer = vBufferVk->GetBuffer();
 		VkDeviceSize offset = vBufferVk->GetOffset();
@@ -109,6 +119,12 @@ namespace PHX
 			LogError("Failed to bind mesh! Could not get or create command buffer");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::GRAPHICS)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "BindMesh");
+#endif
 
 		VkBuffer vkBuffer = vBufferVk->GetBuffer();
 		VkDeviceSize offset = vBufferVk->GetOffset();
@@ -150,7 +166,12 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		// TODO - Consider switching to a contextual pipeline object instead of just the bind point, mainly because of GetLayout() below
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(cmdQueueType)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "BindUniformCollection");
+#endif
+
 		const VkDescriptorSet* descriptorSets = uniformCollectionVk->GetDescriptorSets(m_assignedFrameIndex);
 		vkCmdBindDescriptorSets(cmdBuffer, m_contextualPipeline->GetBindPoint(), m_contextualPipeline->GetLayout(), 0, uniformCollectionVk->GetDescriptorSetCount(m_assignedFrameIndex), descriptorSets, 0, nullptr);
 
@@ -193,6 +214,12 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::GRAPHICS)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "SetViewport");
+#endif
+
 		VkViewport viewport{};
 		viewport.x = static_cast<float>(offset.GetX());
 		viewport.y = static_cast<float>(offset.GetY());
@@ -222,6 +249,12 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::GRAPHICS)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "SetScissor");
+#endif
+
 		VkRect2D scissor{};
 		scissor.offset = { static_cast<int>(offset.GetX()), static_cast<int>(offset.GetY()) };
 		scissor.extent = { size.GetX(), size.GetY() };
@@ -241,6 +274,12 @@ namespace PHX
 			LogError("Failed to issue draw call! Could not get or create command buffer");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::GRAPHICS)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "Draw");
+#endif
 
 		vkCmdDraw(cmdBuffer, vertexCount, 1, 0, 0);
 
@@ -266,6 +305,12 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::GRAPHICS)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "DrawIndexed");
+#endif
+
 		vkCmdDrawIndexed(cmdBuffer, indexCount, 1, firstIndex, vertexOffset, 0);
 
 		if (m_pMetrics)
@@ -289,6 +334,12 @@ namespace PHX
 			LogError("Failed to issue draw indexed instanced call! Could not get or create command buffer");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::GRAPHICS)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "DrawIndexedInstanced");
+#endif
 
 		vkCmdDrawIndexed(cmdBuffer, indexCount, instanceCount, firstIndex, vertexOffset, instanceOffset);
 
@@ -320,6 +371,12 @@ namespace PHX
 			LogError("Failed to issue draw indexed indirect call! Could not get or create command buffer");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::GRAPHICS)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "DrawIndexedIndirect");
+#endif
 
 		vkCmdDrawIndexedIndirect(cmdBuffer, argsBufferVk->GetBuffer(), argsBufferVk->GetOffset() + argsOffset, drawCount, stride);
 
@@ -357,6 +414,12 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::GRAPHICS)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "DrawIndexedIndirectCount");
+#endif
+
 		m_pRenderDevice->CmdDrawIndexedIndirectCount(
 			cmdBuffer,
 			argsBufferVk->GetBuffer(), argsBufferVk->GetOffset() + argsOffset,
@@ -365,7 +428,7 @@ namespace PHX
 
 		if (m_pMetrics)
 		{
-			m_pMetrics->drawCalls += maxDrawCount; // Approximate — actual count is GPU-determined
+			m_pMetrics->drawCalls += maxDrawCount; // Approximate, actual count is GPU-determined
 		}
 
 		return STATUS_CODE::SUCCESS;
@@ -382,6 +445,12 @@ namespace PHX
 			LogError("Failed to issue dispatch call! Could not get or create command buffer");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::COMPUTE)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "Dispatch");
+#endif
 
 		vkCmdDispatch(cmdBuffer, dimensions.GetX(), dimensions.GetY(), dimensions.GetZ());
 		return STATUS_CODE::SUCCESS;
@@ -407,6 +476,12 @@ namespace PHX
 			LogError("Failed to issue trace rays call! Could not get or create command buffer");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(cmdQueueType)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "TraceRays");
+#endif
 
 		m_pRenderDevice->CmdTraceRaysKHR(
 			cmdBuffer,
@@ -455,6 +530,12 @@ namespace PHX
 			LogError("Failed to build acceleration structure. Could not get or create command buffer!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::GRAPHICS)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "BuildBLAS");
+#endif
 
 		const u32 geometryCount = pAS->GetGeometryCount();
 		const GeometryData* pGeometries = pAS->GetGeometries();
@@ -598,6 +679,12 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::GRAPHICS)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "BuildTLAS");
+#endif
+
 		auto GetBufferAddress = [&](VkBuffer buffer) -> VkDeviceAddress
 		{
 			VkBufferDeviceAddressInfo addressInfo{};
@@ -692,6 +779,12 @@ namespace PHX
 				return res;
 			}
 
+#if defined(PROFILER_TRACY)
+			tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::TRANSFER)];
+			ASSERT_PTR(pTracyCtx);
+			PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "CopyDataToBuffer");
+#endif
+
 			memcpy(stagingAlloc.mappedData, data, sizeBytes);
 
 			// Copy from staging buffer to GPU buffer
@@ -738,6 +831,12 @@ namespace PHX
 			LogError("Failed to copy data to texture! Command buffer creation failed");
 			return res;
 		}
+
+#if defined(PROFILER_TRACY)
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(QUEUE_TYPE::TRANSFER)];
+		ASSERT_PTR(pTracyCtx);
+		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "CopyDataToTexture");
+#endif
 
 		// Sub-allocate from staging pool and copy data
 		StagingAllocation stagingAlloc = AllocateStaging(sizeBytes);
@@ -797,19 +896,28 @@ namespace PHX
 		if (m_workFlushed)
 		{
 			VkFence frameFence = m_pRenderDevice->GetQueueFence(QUEUE_TYPE::GRAPHICS, m_assignedFrameIndex);
-			vkRes = vkWaitForFences(m_pRenderDevice->GetLogicalDevice(), 1, &frameFence, VK_TRUE, UINT64_MAX);
-			if (vkRes != VK_SUCCESS)
+
+			// Wait for fences
 			{
-				// This should never happen and will mess up upcoming frames
-				LogError("Failed to wait for frame fence, skipping frame. Got error: \"%s\"", string_VkResult(vkRes));
-				return STATUS_CODE::ERR_INTERNAL;
+				PROFILE_SCOPE("DeviceContextVk_WaitForFences");
+				vkRes = vkWaitForFences(m_pRenderDevice->GetLogicalDevice(), 1, &frameFence, VK_TRUE, UINT64_MAX);
+				if (vkRes != VK_SUCCESS)
+				{
+					// This should never happen and will mess up upcoming frames
+					LogError("Failed to wait for frame fence, skipping frame. Got error: \"%s\"", string_VkResult(vkRes));
+					return STATUS_CODE::ERR_INTERNAL;
+				}
 			}
 
-			vkRes = vkResetFences(m_pRenderDevice->GetLogicalDevice(), 1, &frameFence);
-			if (vkRes != VK_SUCCESS)
+			// Reset fences
 			{
-				LogError("Failed to reset frame fence, skipping frame. Got error: \"%s\"", string_VkResult(vkRes));
-				return STATUS_CODE::ERR_INTERNAL;
+				PROFILE_SCOPE("DeviceContextVk_ResetFences");
+				vkRes = vkResetFences(m_pRenderDevice->GetLogicalDevice(), 1, &frameFence);
+				if (vkRes != VK_SUCCESS)
+				{
+					LogError("Failed to reset frame fence, skipping frame. Got error: \"%s\"", string_VkResult(vkRes));
+					return STATUS_CODE::ERR_INTERNAL;
+				}
 			}
 		}
 
@@ -818,12 +926,17 @@ namespace PHX
 		ResetStagingPool();
 		ResetCommandBuffers();
 
-		VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(m_assignedFrameIndex);
-		res = pSwapChain->AcquireNextImage(imageAvailableSemaphore);
-		if (res != STATUS_CODE::SUCCESS)
+		// Acquire next image
 		{
-			LogError("Failed to begin frame! Swap chain could not acquire next image");
-			return res;
+			PROFILE_SCOPE("DeviceContextVk_AcquireNextImage");
+
+			VkSemaphore imageAvailableSemaphore = m_pRenderDevice->GetImageAvailableSemaphore(m_assignedFrameIndex);
+			res = pSwapChain->AcquireNextImage(imageAvailableSemaphore);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				LogError("Failed to begin frame! Swap chain could not acquire next image");
+				return res;
+			}
 		}
 
 		// Reset work submission tracking for the new frame
@@ -876,8 +989,6 @@ namespace PHX
 			const SubmissionBatch& batch = m_submissionBatches[i];
 			const bool isFirstBatch = (i == 0);
 			const bool isLastBatch  = (i == batchCount - 1);
-
-			vkEndCommandBuffer(batch.cmdBuffer);
 
 			VkSemaphore waitSemaphore   = isFirstBatch ? imageAvailableSemaphore : m_chainSemaphores[i - 1];
 			VkSemaphore signalSemaphore = isLastBatch  ? renderFinishedSemaphore : m_chainSemaphores[i];
@@ -1178,8 +1289,82 @@ namespace PHX
 		return false;
 	}
 
+	void DeviceContextVk::InitTracyContexts()
+	{
+#if defined(PROFILER_TRACY)
+		VkDevice device = m_pRenderDevice->GetLogicalDevice();
+		VkPhysicalDevice physDevice = m_pRenderDevice->GetPhysicalDevice();
+
+		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
+		{
+			QUEUE_TYPE queueType = static_cast<QUEUE_TYPE>(i);
+
+			// PRESENT queues are not used for command recording
+			if (queueType == QUEUE_TYPE::PRESENT)
+			{
+				continue;
+			}
+
+			VkQueue queue = m_pRenderDevice->GetQueue(queueType);
+			VkCommandPool pool = m_pRenderDevice->GetCommandPool(queueType, m_assignedFrameIndex);
+			if (queue == VK_NULL_HANDLE)
+			{
+				continue;
+			}
+
+			if(pool == VK_NULL_HANDLE)
+			{
+				continue;
+			}
+
+			// Allocate a scratch command buffer for the calibration
+			VkCommandBuffer scratchCmdBuffer = VK_NULL_HANDLE;
+			VkCommandBufferAllocateInfo allocInfo{};
+			allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+			allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+			allocInfo.commandPool = pool;
+			allocInfo.commandBufferCount = 1;
+
+			VkResult res = vkAllocateCommandBuffers(device, &allocInfo, &scratchCmdBuffer);
+			if (res != VK_SUCCESS)
+			{
+				LogError("Failed to create Tracy VkCtx for queue type %s! Could not allocate scratch command buffer: \"%s\"", GetQueueTypeName(queueType), string_VkResult(res));
+				continue;
+			}
+
+			// This call waits until device is idle, so we can safely free resources after
+			tracy::VkCtx* pTracyCtx = PROFILE_VKCONTEXT_CREATE(physDevice, device, queue, scratchCmdBuffer);
+
+			constexpr u16 tracyCtxNameMaxLen = 32;
+			char tracyCtxName[tracyCtxNameMaxLen];
+			const u16 tracyCtxNameLen = static_cast<u16>(snprintf(tracyCtxName, tracyCtxNameMaxLen, "Queue_%s", GetQueueTypeName(queueType)));
+			PROFILE_VKCONTEXT_NAME(pTracyCtx, tracyCtxName, tracyCtxNameLen);
+
+			m_tracyCtxs[i] = pTracyCtx;
+
+			vkFreeCommandBuffers(device, pool, 1, &scratchCmdBuffer);
+		}
+#endif
+	}
+
+	void DeviceContextVk::DestroyTracyContexts()
+	{
+#if defined(PROFILER_TRACY)
+		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
+		{
+			if (m_tracyCtxs[i] != nullptr)
+			{
+				PROFILE_VKCONTEXT_DESTROY(m_tracyCtxs[i]);
+				m_tracyCtxs[i] = nullptr;
+			}
+		}
+#endif
+	}
+
 	STATUS_CODE DeviceContextVk::AllocateCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer)
 	{
+		PROFILE_SCOPE("DeviceContextVk_AllocateCommandBuffer")
+
 		u32 queueType = static_cast<u32>(type);
 		u32 familyIndex = m_pRenderDevice->GetQueueFamilyIndex(type);
 		VkDevice device = m_pRenderDevice->GetLogicalDevice();
@@ -1203,11 +1388,11 @@ namespace PHX
 			VkResult res = vkAllocateCommandBuffers(device, &allocInfo, &out_cmdBuffer);
 			if (res != VK_SUCCESS)
 			{
-				LogError("Failed to allocate command buffer for queue type %u! Got result: \"%s\"", queueType, string_VkResult(res));
+				LogError("Failed to allocate command buffer for queue type %s! Got result: \"%s\"", GetQueueTypeName(type), string_VkResult(res));
 				return STATUS_CODE::ERR_INTERNAL;
 			}
 
-			LogDebug("Allocated new command buffer for queue type %u", queueType);
+			LogDebug("Allocated new command buffer for queue type %s", GetQueueTypeName(type));
 		}
 
 		VkCommandBufferBeginInfo beginInfo{};
@@ -1267,6 +1452,8 @@ namespace PHX
 
 	void DeviceContextVk::ResetCommandBuffers()
 	{
+		PROFILE_SCOPE("DeviceContextVk_ResetCommandBuffers");
+
 		// vkResetCommandPool resets all command buffers allocated from each pool to their
 		// initial state in one call. No need to individually reset each command buffer.
 		VkDevice device = m_pRenderDevice->GetLogicalDevice();
@@ -1363,6 +1550,29 @@ namespace PHX
 	{
 		PROFILE_SCOPE("DeviceContextVk_FlushInternal");
 
+#if defined(PROFILER_TRACY)
+		// Collect must be called while the command buffer is still recording
+		tracy::VkCtx* pTracyCtx = m_tracyCtxs[static_cast<u32>(queueType)];
+		if (pTracyCtx != nullptr)
+		{
+			for (u32 i = 0; i < commandBufferCount; i++)
+			{
+				PROFILE_VK_COLLECT(pTracyCtx, pCommandBuffers[i]);
+			}
+		}
+#endif
+
+		// End recording on all command buffers
+		for (u32 i = 0; i < commandBufferCount; i++)
+		{
+			VkResult res = vkEndCommandBuffer(pCommandBuffers[i]);
+			if (res != VK_SUCCESS)
+			{
+				LogError("Failed to flush command buffers! Got error: \"%s\"", string_VkResult(res));
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+		}
+
 		VkPipelineStageFlags waitDstFlags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
 
 		VkSubmitInfo vkSubmitInfo{};
@@ -1393,6 +1603,8 @@ namespace PHX
 
 	void DeviceContextVk::ResetStagingPool()
 	{
+		PROFILE_SCOPE("DeviceContextVk_ResetStagingPool");
+
 		m_stagingPool.Reset();
 	}
 

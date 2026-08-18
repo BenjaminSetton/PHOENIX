@@ -18,7 +18,7 @@ using namespace PHX;
 
 #define CHECK_PHX_RES(phxRes) if(phxRes != PHX::STATUS_CODE::SUCCESS) { return; }
 
-static constexpr uint32_t MAX_INSTANCES = 10000;
+static constexpr uint32_t MAX_INSTANCES = 500;
 
 InstancedAnimationSample::InstancedAnimationSample()
 	: m_assetID(Common::INVALID_ASSET_HANDLE)

@@ -838,6 +838,8 @@ namespace PHX
 			const bool canQueryResults = m_queryPool != VK_NULL_HANDLE && m_frameNumber > 0;
 			if (m_didExecuteWork && canQueryResults)
 			{
+				PROFILE_SCOPE("RenderGraphVk_BeginFrame_GatherMetrics");
+
 				u32 prevFrameIndex = (m_frameInFlightIndex == 0) ? (m_pRenderDevice->GetFramesInFlight() - 1) : (m_frameInFlightIndex - 1);
 				u64 timestamps[2] = { 0, 0 };
 				VkResult vkRes = vkGetQueryPoolResults(
@@ -873,7 +875,6 @@ namespace PHX
 	STATUS_CODE RenderGraphVk::EndFrame(SwapChainHandle swapChain)
 	{
 		PROFILE_SCOPE("RenderGraphVk_EndFrame");
-		PROFILE_LOOP("Frame");
 
 		if (!swapChain.IsValid())
 		{
@@ -925,6 +926,8 @@ namespace PHX
 
 		m_resourceUsages.clear();
 		m_physicalResources.clear();
+
+		PROFILE_LOOP("Frame");
 
 		return res;
 	}

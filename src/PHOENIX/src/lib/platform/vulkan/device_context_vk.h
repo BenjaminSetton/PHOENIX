@@ -10,12 +10,17 @@
 #include "texture_vk.h"
 #include "utils/staging_buffer_pool.h"
 
+#if defined(PROFILER_TRACY)
+namespace tracy
+{
+	class VkCtx;
+}
+#endif
+
 namespace PHX
 {
 	// Forward declarations
 	class SwapChainVk;
-
-	using CommandBufferList = std::vector<VkCommandBuffer>;
 
 	struct FlushSyncData
 	{
@@ -145,6 +150,10 @@ namespace PHX
 		void DeallocateCommandBuffers();
 		void ResetCommandBuffers();
 
+		// Manages the tracy VkCtx instances
+		void InitTracyContexts();
+		void DestroyTracyContexts();
+
 		// Ensures at least 'count' chain semaphores exist for this frame slot, creating more as needed.
 		// Chain semaphores are reused every frame (the BeginFrame fence wait guarantees they are unsignaled).
 		STATUS_CODE EnsureChainSemaphores(u32 count);
@@ -190,6 +199,10 @@ namespace PHX
 
 		// Non-owning, nullable
 		Metrics* m_pMetrics;
+
+#if defined(PROFILER_TRACY)
+		std::array<tracy::VkCtx*, static_cast<u32>(QUEUE_TYPE::COUNT)> m_tracyCtxs;
+#endif
 
 		// Non-owning. Set by RenderGraphVk before Bake() to enable GPU timestamp queries.
 		// When non-null, the first graphics/compute command buffer created gets a begin
