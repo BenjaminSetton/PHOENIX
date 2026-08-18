@@ -259,7 +259,13 @@ namespace PHX
 			// I don't believe GLFW accepts nullptr for the title
 			titleUsed = "";
 		}
-		m_handle = glfwCreateWindow(createInfo.size.GetX(), createInfo.size.GetY(), titleUsed, nullptr, nullptr);
+
+		GLFWmonitor* pMonitor = nullptr;
+		if (createInfo.windowMode == WINDOW_MODE::FULLSCREEN)
+		{
+			pMonitor = glfwGetPrimaryMonitor();
+		}
+		m_handle = glfwCreateWindow(createInfo.size.GetX(), createInfo.size.GetY(), titleUsed, pMonitor, nullptr);
 
 		glfwSetWindowUserPointer(m_handle, this);
 		glfwSetInputMode(m_handle, GLFW_CURSOR, ConvertGLFWCursorTypeToInternal(createInfo.cursorType));
@@ -294,7 +300,14 @@ namespace PHX
 		m_title = titleUsed;
 		m_inFocus = true;
 
-		LogInfo("Successfully created window with dimensions %ux%u at position (%u, %u)!", m_size.GetX(), m_size.GetY(), m_position.GetX(), m_position.GetY());
+		if (createInfo.windowMode == WINDOW_MODE::FULLSCREEN)
+		{
+			LogInfo("Successfully created fullscreen window with dimensions %ux%u!", m_size.GetX(), m_size.GetY());
+		}
+		else
+		{
+			LogInfo("Successfully created window with dimensions %ux%u at position (%u, %u)!", m_size.GetX(), m_size.GetY(), m_position.GetX(), m_position.GetY());
+		}
 	}
 
 	WindowWin64::~WindowWin64()

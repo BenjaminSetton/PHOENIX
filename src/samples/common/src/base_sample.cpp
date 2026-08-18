@@ -164,6 +164,7 @@ namespace Common
 	{
 		WindowCreateInfo windowCI{};
 		windowCI.cursorType = CURSOR_TYPE::SHOWN;
+		windowCI.windowMode = WINDOW_MODE::FULLSCREEN;
 		windowCI.canResize = false;
 		windowCI.size = { 2560, 1440 };
 		windowCI.position = { 400, 400 };

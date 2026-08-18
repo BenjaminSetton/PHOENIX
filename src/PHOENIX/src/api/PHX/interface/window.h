@@ -13,12 +13,19 @@ namespace PHX
 		DISABLED   // OS cursor is hidden and bound (unlimited mouse movement within screen)
 	};
 
+	enum class WINDOW_MODE
+	{
+		WINDOWED = 0,
+		FULLSCREEN
+	};
+
 	struct WindowCreateInfo
 	{
 		const char* title		= nullptr;
 		BSL::Vec2u size			= { 1920, 1080 };
 		BSL::Vec2u position		= { 0, 0 };
 		CURSOR_TYPE cursorType	= CURSOR_TYPE::SHOWN;
+		WINDOW_MODE windowMode	= WINDOW_MODE::WINDOWED;
 		bool canResize			= true;
 	};
 
