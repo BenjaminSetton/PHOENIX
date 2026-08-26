@@ -97,11 +97,18 @@ namespace PHX
 		VkPhysicalDevice GetPhysicalDevice() const;
 		VmaAllocator GetAllocator() const;
 		VkDescriptorPool GetDescriptorPool() const;
+		VkQueryPool GetQueryPool() const;
 		VkCommandPool GetCommandPool(QUEUE_TYPE type, u32 frameIndex) const;
 		VkQueue GetQueue(QUEUE_TYPE type) const;
 		u32 GetQueueFamilyIndex(QUEUE_TYPE type) const;
+		u32 GetQueueIndex(QUEUE_TYPE type) const;
 		VkSemaphore GetImageAvailableSemaphore(u32 index) const;
 		VkFence GetQueueFence(QUEUE_TYPE type, u32 index) const;
+
+		bool IsTimestampQuerySupported(QUEUE_TYPE type) const;
+		float GetTimestampPeriod() const;
+		u32 GetMaxQueryCount() const;
+		void ResetQueryPool(u32 firstQuery, u32 queryCount);
 
 		// Device info
 		const VkPhysicalDeviceProperties& GetDeviceProperties() const;
@@ -135,6 +142,8 @@ namespace PHX
 
 		STATUS_CODE AllocateDescriptorPool(u32 framesInFlight);
 
+		STATUS_CODE AllocateQueryPool(u32 framesInFlight);
+
 		STATUS_CODE AllocateCommandPools(u32 framesInFlight);
 		STATUS_CODE AllocateCommandPool_Helper(QUEUE_TYPE type, VkCommandPoolCreateFlags flags, u32 framesInFlight);
 
@@ -154,6 +163,7 @@ namespace PHX
 		u32 m_framesInFlight;
 		bool m_rayTracingSupported;
 		bool m_drawIndirectCountSupported;
+		std::array<bool, static_cast<u32>(QUEUE_TYPE::COUNT)> m_timestampQuerySupported;
 
 		// Physical device cache
 		VkPhysicalDeviceProperties m_physicalDeviceProperties;
@@ -177,8 +187,14 @@ namespace PHX
 		// Draw indirect count function pointer (VK_KHR_draw_indirect_count)
 		PFN_vkCmdDrawIndexedIndirectCount m_pfnCmdDrawIndexedIndirectCount;
 
+		// Query pool reset function pointer (VK_EXT_host_query_reset)
+		PFN_vkResetQueryPoolEXT m_pfnResetQueryPool;
+
 		// Descriptor pool
 		VkDescriptorPool m_descriptorPool;
+
+		// Query pool
+		VkQueryPool m_queryPool;
 
 		// Command pools (per queue type, per frame-in-flight)
 		std::array<std::vector<VkCommandPool>, static_cast<size_t>(QUEUE_TYPE::COUNT)> m_commandPools;

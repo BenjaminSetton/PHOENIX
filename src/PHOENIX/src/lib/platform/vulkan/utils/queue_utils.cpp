@@ -83,48 +83,47 @@ namespace PHX
 
 	QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR surface)
 	{
-		// PLAN:
-		// - Loop through all queue families.
-		// - Try to find queues for all supported QUEUE_TYPE values
-		// - Try to find separate TRANSFER queue (even if within same queue family)
-		// - Try to find separate PRESENT queue (even if within same queue family)
-		// - Optimal scenario could be that all QUEUE_TYPE values have distinct
-		//   queue indices, but it's fine if GRAPHICS and COMPUTE share a queue for now.
-		// - PRESENT MUST have it's own queue to avoid blocking subsequent frames in flight
-		//   on work that's currently in-flight. This is seen through a very long fence wait in DeviceContextVk::BeginFrame()
-
 		QueueFamilyIndices indices;
 
-		// TEMP
-		indices.SetIndices(QUEUE_TYPE::COMPUTE, 0, 0);
-		indices.SetIndices(QUEUE_TYPE::GRAPHICS, 0, 0);
-		indices.SetIndices(QUEUE_TYPE::PRESENT, 0, 0);
-		indices.SetIndices(QUEUE_TYPE::TRANSFER, 0, 1);
-		return indices;
-		// TEMP
-
-		uint32_t queueFamilyCount = 0;
+		u32 queueFamilyCount = 0;
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
 		std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
 		vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-		LogDebug("Found %u queue families:", queueFamilies.size());
-		uint32_t graphicsTransferQueue = std::numeric_limits<uint32_t>::max();
-		uint32_t i = 0;
-		for (const auto& queueFamily : queueFamilies)
+		// Tracks how many queue indices have already been taken up from each family
+		std::vector<u32> nextFreeQueueInFamily(queueFamilyCount, 0);
+
+		auto ClaimQueueIndex = [&](u32 familyIndex) -> u32
 		{
-			// Check that the device supports a graphics queue and compute queue
-			// NOTE - We could potentially select separate queues for graphics and
-			//        compute, but let's keep it simple for now
-			if ((queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) && (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT))
+			const u32 queueCount = queueFamilies[familyIndex].queueCount;
+			const u32 nextFree = nextFreeQueueInFamily[familyIndex];
+			if (nextFree < queueCount)
 			{
-				indices.SetIndices(QUEUE_TYPE::GRAPHICS, i, 0);
-				indices.SetIndices(QUEUE_TYPE::COMPUTE, i, 0);
+				nextFreeQueueInFamily[familyIndex] = nextFree + 1;
+				return nextFree;
 			}
 
-			// Check that the device supports present queues
-			VkBool32 presentSupport = false;
+			// Family is out of unclaimed queues; fall back to reusing the last valid index
+			// rather than handing out something out of range
+			LogWarning("Queue family %u has no more unclaimed queues left (total %u). Reusing an existing queue index!", familyIndex, queueCount);
+			return queueCount > 0 ? queueCount - 1 : 0;
+		};
+
+		LogDebug("Found %u queue families:", queueFamilyCount);
+
+		u32 dedicatedComputeFamily  = QueueFamilyIndices::INVALID_INDEX; // Family with COMPUTE but not GRAPHICS (async-compute)
+		u32 dedicatedTransferFamily = QueueFamilyIndices::INVALID_INDEX; // Family with TRANSFER but not GRAPHICS/COMPUTE (async-transfer)
+
+		for (u32 i = 0; i < queueFamilyCount; i++)
+		{
+			const VkQueueFamilyProperties& queueFamily = queueFamilies[i];
+
+			const bool supportsGraphics = (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0;
+			const bool supportsCompute  = (queueFamily.queueFlags & VK_QUEUE_COMPUTE_BIT ) != 0;
+			const bool supportsTransfer = (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT) != 0;
+
+			VkBool32 presentSupport = VK_FALSE;
 			vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
 
 			LogDebug("\t[%u] - %u queues: %s, PresentSupported(%s) ", 
@@ -133,34 +132,72 @@ namespace PHX
 				string_VkQueueFlags(queueFamily.queueFlags).c_str(),
 				presentSupport ? "YES" : "NO");
 
+			// GRAPHICS
+			// Take the first family that supports it. The Vulkan spec guarantees any
+			// family that supports GRAPHICS also supports COMPUTE, so this family is always a
+			// valid fallback home for COMPUTE too
+			if (indices.GetFamilyIndex(QUEUE_TYPE::GRAPHICS) == QueueFamilyIndices::INVALID_INDEX && supportsGraphics)
+			{
+				u32 queueIndex = ClaimQueueIndex(i);
+				indices.SetIndices(QUEUE_TYPE::GRAPHICS, i, queueIndex);
+			}
+
+			// PRESENT
+			// Required to be in it's own queue. Prefer the graphics family if it supports presenting,
+			// since most drivers require present-capable queues to also support graphics. Otherwise
+			// take whatever present-capable family we find
 			if (presentSupport)
 			{
-				indices.SetIndices(QUEUE_TYPE::PRESENT, i, 0);
+				const bool alreadyAssigned = indices.GetFamilyIndex(QUEUE_TYPE::PRESENT) != QueueFamilyIndices::INVALID_INDEX;
+				const bool isGraphicsFamily = indices.GetFamilyIndex(QUEUE_TYPE::GRAPHICS) == i;
+
+				if (!alreadyAssigned || isGraphicsFamily)
+				{
+					u32 queueIndex = ClaimQueueIndex(i);
+					indices.SetIndices(QUEUE_TYPE::PRESENT, i, queueIndex);
+				}
 			}
 
-			// Check that the device supports a transfer queue
-			if (queueFamily.queueFlags & VK_QUEUE_TRANSFER_BIT)
+			// Store async-compute queue, if applicable
+			if (supportsCompute && !supportsGraphics && dedicatedComputeFamily == QueueFamilyIndices::INVALID_INDEX)
 			{
-				// Choose a different queue from the graphics queue, if possible
-				if (indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS) == i)
-				{
-					graphicsTransferQueue = i;
-				}
-				else
-				{
-					indices.SetIndices(QUEUE_TYPE::TRANSFER, i, 0);
-				}
+				dedicatedComputeFamily = i;
 			}
 
-			i++;
+			// Store async-transfer queue, if applicable
+			if (supportsTransfer && !supportsGraphics && !supportsCompute && dedicatedTransferFamily == QueueFamilyIndices::INVALID_INDEX)
+			{
+				dedicatedTransferFamily = i;
+			}
 		}
 
-		// If we couldn't find a different queue for the TRANSFER and GRAPHICS operations, then simply
-		// use the same queue for both (if it supports TRANSFER operations)
-		if (!indices.IsValid({ 0, static_cast<u32>(QUEUE_TYPE::TRANSFER) }) && graphicsTransferQueue != QueueFamilyIndices::INVALID_INDEX)
+		if (dedicatedComputeFamily != QueueFamilyIndices::INVALID_INDEX)
 		{
-			LogDebug("Failed to find separate queue family for transfer and graphics. Using the same queue for both operations!");
-			indices.SetIndices(QUEUE_TYPE::TRANSFER, 0, graphicsTransferQueue);
+			u32 queueIndex = ClaimQueueIndex(dedicatedComputeFamily);
+			indices.SetIndices(QUEUE_TYPE::COMPUTE, dedicatedComputeFamily, queueIndex);
+		}
+		else if (indices.GetFamilyIndex(QUEUE_TYPE::GRAPHICS) != QueueFamilyIndices::INVALID_INDEX)
+		{
+			LogInfo("Could not find a dedicated queue family for async compute. Sharing the graphics queue instead!");
+			u32 graphicsFamily = indices.GetFamilyIndex(QUEUE_TYPE::GRAPHICS);
+			indices.SetIndices(QUEUE_TYPE::COMPUTE, graphicsFamily, indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS));
+		}
+
+		// Prefer a truly dedicated transfer family/queue if one was found
+		if (dedicatedTransferFamily != QueueFamilyIndices::INVALID_INDEX)
+		{
+			u32 queueIndex = ClaimQueueIndex(dedicatedTransferFamily);
+			indices.SetIndices(QUEUE_TYPE::TRANSFER, dedicatedTransferFamily, queueIndex);
+		}
+		else if (indices.GetFamilyIndex(QUEUE_TYPE::GRAPHICS) != QueueFamilyIndices::INVALID_INDEX)
+		{
+			// No dedicated transfer family exists. Try to claim a distinct queue *index* within
+			// the graphics family so transfer work isn't forced to share a queue object with
+			// render work; if the family is out of spare queues this just reuses one instead
+			LogDebug("Could not find a dedicated queue family for transfer. Using a queue from the graphics family instead!");
+			u32 graphicsFamily = indices.GetFamilyIndex(QUEUE_TYPE::GRAPHICS);
+			u32 queueIndex = ClaimQueueIndex(graphicsFamily);
+			indices.SetIndices(QUEUE_TYPE::TRANSFER, graphicsFamily, queueIndex);
 		}
 
 		// Check that we filled in all of our queue families, otherwise log a warning

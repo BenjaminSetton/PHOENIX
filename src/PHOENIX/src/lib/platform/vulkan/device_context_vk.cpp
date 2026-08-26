@@ -33,8 +33,8 @@ using namespace BSL;
 namespace PHX
 {
 	DeviceContextVk::DeviceContextVk(RenderDeviceVk* pRenderDevice, const DeviceContextCreateInfo& createInfo) : m_pRenderDevice(nullptr),
-		m_submissionBatches(), m_chainSemaphores(), m_stagingPool(pRenderDevice), m_workFlushed(true), m_assignedFrameIndex(0), m_contextualPipeline(nullptr),
-		m_pMetrics(nullptr), m_queryPool(VK_NULL_HANDLE), m_queryFrameBaseIndex(0), m_beginTimestampWritten(false)
+		m_submissionBatches(), m_chainSemaphores(), m_stagingPool(pRenderDevice), m_workFlushed(true), m_assignedFrameIndex(0), m_queryBaseIndex(0), m_queryIndexCount(0),
+		m_contextualPipeline(nullptr), m_pMetrics(nullptr)
 	{
 		UNUSED(createInfo);
 
@@ -201,6 +201,13 @@ namespace PHX
 	{
 		PROFILE_SCOPE("DeviceContextVk_SetViewport");
 
+		// Only relevant for graphics calls
+		if (GetContextualBindPoint() != VK_PIPELINE_BIND_POINT_GRAPHICS)
+		{
+			LogError("Failed to set viewport! The currently bound pipeline is not a graphics pipeline");
+			return STATUS_CODE::ERR_API;
+		}
+
 		if (size.GetX() == 0 && size.GetY() == 0)
 		{
 			LogWarning("Attempting to set viewport with a size of 0!");
@@ -235,6 +242,13 @@ namespace PHX
 	STATUS_CODE DeviceContextVk::SetScissor(Vec2u size, Vec2u offset)
 	{
 		PROFILE_SCOPE("DeviceContextVk_SetScissor");
+
+		// Only relevant for graphics calls
+		if (GetContextualBindPoint() != VK_PIPELINE_BIND_POINT_GRAPHICS)
+		{
+			LogError("Failed to set scissor! The currently bound pipeline is not a graphics pipeline");
+			return STATUS_CODE::ERR_API;
+		}
 
 		if (size.GetX() == 0 && size.GetY() == 0)
 		{
@@ -870,6 +884,16 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	bool DeviceContextVk::EnsureSubmissionBatch(QUEUE_TYPE type)
+	{
+		// Ensure submission batch is created through command buffer creation. If a submission batch
+		// does not exist for the provided queue type it will be created here and subsequent
+		// calls will simply get their data from the cache
+		VkCommandBuffer throwaway;
+		STATUS_CODE res = GetOrCreateCommandBuffer(type, throwaway);
+		return (res == STATUS_CODE::SUCCESS);
+	}
+
 	STATUS_CODE DeviceContextVk::BeginFrame(SwapChainVk* pSwapChain)
 	{
 		PROFILE_SCOPE("DeviceContextVk_BeginFrame");
@@ -895,6 +919,7 @@ namespace PHX
 		// staging memory — from that frame is done on the GPU.
 		if (m_workFlushed)
 		{
+			TECHDEBT("Verify that hard-coding GRAPHICS here is expected");
 			VkFence frameFence = m_pRenderDevice->GetQueueFence(QUEUE_TYPE::GRAPHICS, m_assignedFrameIndex);
 
 			// Wait for fences
@@ -921,8 +946,7 @@ namespace PHX
 			}
 		}
 
-		// Reset staging pool for reuse. The fence wait above guarantees the GPU is done
-		// with the staging memory from the previous frame with the same index.
+		// Reset staging pools for reuse
 		ResetStagingPool();
 		ResetCommandBuffers();
 
@@ -1276,14 +1300,18 @@ namespace PHX
 
 	bool DeviceContextVk::TryReuseActiveCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer)
 	{
-		u32 familyIndex = m_pRenderDevice->GetQueueFamilyIndex(type);
+		const u32 queueIndex = m_pRenderDevice->GetQueueIndex(type);
 
-		// Reuse the current (most recent) batch if it targets the same queue family. Commands
-		// recorded back-to-back on the same queue family belong in a single submission
-		if (!m_submissionBatches.empty() && m_submissionBatches.back().queueFamilyIndex == familyIndex)
+		TECHDEBT("Double check this logic");
+		if (!m_submissionBatches.empty())
 		{
-			out_cmdBuffer = m_submissionBatches.back().cmdBuffer;
-			return true;
+			// Reuse submission batches based on whether or not they're for the same queue
+			const SubmissionBatch& lastSubmissionBatch = m_submissionBatches.back();
+			if (lastSubmissionBatch.queueIndex == queueIndex)
+			{
+				out_cmdBuffer = lastSubmissionBatch.cmdBuffer;
+				return true;
+			}
 		}
 
 		return false;
@@ -1366,7 +1394,7 @@ namespace PHX
 		PROFILE_SCOPE("DeviceContextVk_AllocateCommandBuffer")
 
 		u32 queueType = static_cast<u32>(type);
-		u32 familyIndex = m_pRenderDevice->GetQueueFamilyIndex(type);
+		u32 queueIndex = m_pRenderDevice->GetQueueIndex(type);
 		VkDevice device = m_pRenderDevice->GetLogicalDevice();
 		VkCommandPool pool = m_pRenderDevice->GetCommandPool(type, m_assignedFrameIndex);
 
@@ -1405,20 +1433,9 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		// If timestamp queries are enabled and this is the first graphics/compute command buffer
-		// of the frame, reset the query slots and write the begin timestamp. Transfer queues don't
-		// support timestamp queries, so we skip them and wait for a compatible queue
-		if (!m_beginTimestampWritten && m_queryPool != VK_NULL_HANDLE &&
-			(type == QUEUE_TYPE::GRAPHICS || type == QUEUE_TYPE::COMPUTE))
-		{
-			vkCmdResetQueryPool(out_cmdBuffer, m_queryPool, m_queryFrameBaseIndex, 2);
-			vkCmdWriteTimestamp(out_cmdBuffer, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, m_queryPool, m_queryFrameBaseIndex);
-			m_beginTimestampWritten = true;
-		}
-
 		SubmissionBatch newBatch{};
 		newBatch.queueType = type;
-		newBatch.queueFamilyIndex = familyIndex;
+		newBatch.queueIndex = queueIndex;
 		newBatch.cmdBuffer = out_cmdBuffer;
 		m_submissionBatches.push_back(newBatch);
 
@@ -1546,6 +1563,16 @@ namespace PHX
 		return cmdQueueType;
 	}
 
+	VkPipelineBindPoint DeviceContextVk::GetContextualBindPoint() const
+	{
+		if (m_contextualPipeline == nullptr)
+		{
+			return VK_PIPELINE_BIND_POINT_MAX_ENUM;
+		}
+
+		return m_contextualPipeline->GetBindPoint();
+	}
+
 	STATUS_CODE DeviceContextVk::FlushInternal(QUEUE_TYPE queueType, const VkCommandBuffer* pCommandBuffers, u32 commandBufferCount, const FlushSyncData& syncData)
 	{
 		PROFILE_SCOPE("DeviceContextVk_FlushInternal");
@@ -1608,6 +1635,50 @@ namespace PHX
 		m_stagingPool.Reset();
 	}
 
+	STATUS_CODE DeviceContextVk::WriteTimestamp(VkPipelineStageFlagBits pipelineStage, u32& out_timestampIndex)
+	{
+		PROFILE_SCOPE("DeviceContextVk_WriteTimestamp");
+
+		VkQueryPool queryPool = m_pRenderDevice->GetQueryPool();
+		if (queryPool == VK_NULL_HANDLE)
+		{
+			LogError("Failed to write timestamp. Query pool is null!");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		if (m_submissionBatches.empty())
+		{
+			LogError("Failed to write timestamp. No command buffers have been recorded this frame");
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		const u32 maxQueryCount = m_pRenderDevice->GetMaxQueryCount();
+		const u32 currQueryIndex = (m_queryBaseIndex + m_queryIndexCount);
+
+		// NOTE - Not sure if this should be above the warnings below
+		out_timestampIndex = currQueryIndex;
+
+		if (currQueryIndex >= maxQueryCount)
+		{
+			// Reaching max query count is not an error, just warn
+			LogWarning("Failed to write timestamp. Max query limit of %u has been reached!", maxQueryCount);
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		const SubmissionBatch& batch = m_submissionBatches.back();
+		if (!m_pRenderDevice->IsTimestampQuerySupported(batch.queueType))
+		{
+			// Nothing to do. Don't return SUCCESS so that callers avoid using this timestamp
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		// Write a timestamp into the command buffer from the last submission batch, and increment the query index count
+		vkCmdWriteTimestamp(batch.cmdBuffer, pipelineStage, queryPool, currQueryIndex);
+		m_queryIndexCount++;
+
+		return STATUS_CODE::SUCCESS;
+	}
+
 	STATUS_CODE DeviceContextVk::SetContextualPipeline(PipelineVk* pPipeline)
 	{
 		if (pPipeline == nullptr)
@@ -1654,40 +1725,29 @@ namespace PHX
 		m_pMetrics = nullptr;
 	}
 
-	void DeviceContextVk::SetQueryPool(VkQueryPool queryPool, u32 frameBaseQueryIndex)
+	STATUS_CODE DeviceContextVk::WriteBeginTimestamp(u32& out_timestampIndex)
 	{
-		m_queryPool = queryPool;
-		m_queryFrameBaseIndex = frameBaseQueryIndex;
-		m_beginTimestampWritten = false;
+		return WriteTimestamp(VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, out_timestampIndex);
+	}
+
+	STATUS_CODE DeviceContextVk::WriteEndTimestamp(u32& out_timestampIndex)
+	{
+		return WriteTimestamp(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, out_timestampIndex);
+	}
+
+	void DeviceContextVk::SetBaseQueryIndex(u32 index)
+	{
+		m_queryBaseIndex = index;
 	}
 
 	void DeviceContextVk::ResetQueryPool()
 	{
-		m_queryPool = VK_NULL_HANDLE;
-		m_queryFrameBaseIndex = 0;
-		m_beginTimestampWritten = false;
-	}
+		PROFILE_SCOPE("DeviceContextVk_ResetQueryPool");
 
-	STATUS_CODE DeviceContextVk::WriteEndTimestamp()
-	{
-		if (m_queryPool == VK_NULL_HANDLE)
+		if (m_queryIndexCount != 0)
 		{
-			return STATUS_CODE::SUCCESS;
+			m_pRenderDevice->ResetQueryPool(m_queryBaseIndex, m_queryIndexCount);
+			m_queryIndexCount = 0;
 		}
-
-		if (m_submissionBatches.empty())
-		{
-			LogError("Failed to write end timestamp. No command buffers have been recorded this frame");
-			return STATUS_CODE::ERR_INTERNAL;
-		}
-
-		// Write the end timestamp into the last command buffer. Since batches are chained
-		// with semaphores, the last batch only starts after all previous ones complete.
-		// BOTTOM_OF_PIPE fires after all work in that command buffer finishes, so the
-		// delta between begin (first cmd buffer, TOP_OF_PIPE) and end (last cmd buffer,
-		// BOTTOM_OF_PIPE) captures the entire frame's GPU execution time
-		VkCommandBuffer cmdBuffer = m_submissionBatches.back().cmdBuffer;
-		vkCmdWriteTimestamp(cmdBuffer, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, m_queryPool, m_queryFrameBaseIndex + 1);
-		return STATUS_CODE::SUCCESS;
 	}
 }

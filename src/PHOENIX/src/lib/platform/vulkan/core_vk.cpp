@@ -21,6 +21,9 @@
 
 using namespace BSL;
 
+// Enable for more verbose logs for things like allocations, objects lifetimes, etc
+//#define ENABLE_VERBOSE_VALIDATION
+
 namespace PHX
 {
 	static VkBool32 OnValidationMessageReceived(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageTypes, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
@@ -215,10 +218,16 @@ namespace PHX
 			VkDebugUtilsMessengerCreateInfoEXT validationMessengerCreateInfo{};
 			validationMessengerCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
 
-			validationMessengerCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-															VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT | 
-															VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | 
-															VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+			// VERBOSE/INFO severities include a lot of noise unrelated to actual problems (e.g. the
+			// validation layer's own internal object-lifetime tracking: "DebugUtils : Device memory
+			// allocation", "DebugUtils : Resource Device Address Binding", etc.). Only surface
+			// WARNING/ERROR by default; flip these back on locally if you need to dig into layer internals
+			validationMessengerCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | 
+#if defined(ENABLE_VERBOSE_VALIDATION)
+					VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+					VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT |
+#endif
+					VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
 
 			validationMessengerCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | 
 														VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | 

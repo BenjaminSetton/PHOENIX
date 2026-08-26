@@ -1,6 +1,7 @@
-﻿
+
 #include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <sstream>
 #include <vulkan/vk_enum_string_helper.h>
 
@@ -35,6 +36,7 @@ namespace PHX
 	static const char* s_pReservedDepthBufferName = "INTERNAL_depthbuffer";
 	static constexpr u32 s_invalidRenderPassIndex = U32_MAX;
 
+	TECHDEBT("Move all these statics to render_graph_utils.h");
 	static u64 HashResource(Handle resource, const RESOURCE_TYPE& type)
 	{
 		size_t seed = 0;
@@ -748,8 +750,8 @@ namespace PHX
 	//--------------------------------------------------------------------------------------------
 
 	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pRenderDevice(nullptr), m_deviceContextHandles(), m_currentFrameGraphHash(0), m_uniqueVisualizationHashes(),
-		m_frameInFlightIndex(0), m_frameNumber(0), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), m_presentResID(0), m_didExecuteWork(false),
-		m_metrics(), m_queryPool(VK_NULL_HANDLE), m_timestampPeriod(0.0f)
+		m_frameInFlightIndex(0), m_frameNumber(0), m_lastTimestampIndex(0), m_pendingTimestamps(), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), 
+		m_presentResID(0), m_didExecuteWork(false), m_metrics()
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -775,37 +777,12 @@ namespace PHX
 			}
 			m_deviceContextHandles.push_back(deviceContext);
 		}
-
-		// Create timestamp query pool for GPU frame time metrics
-		if (GetSettings().gatherMetrics)
-		{
-			m_timestampPeriod = static_cast<float>(m_pRenderDevice->GetDeviceProperties().limits.timestampPeriod);
-
-			VkQueryPoolCreateInfo queryPoolCI{};
-			queryPoolCI.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
-			// TODO: Look into using VK_QUERY_TYPE_PIPELINE_STATISTICS for pipeline stats (vertex shader invocations, clipping primitives, etc.)
-			queryPoolCI.queryType = VK_QUERY_TYPE_TIMESTAMP;
-			queryPoolCI.queryCount = framesInFlight * 2; // 2 queries per frame-in-flight (begin + end)
-
-			VkResult vkRes = vkCreateQueryPool(m_pRenderDevice->GetLogicalDevice(), &queryPoolCI, nullptr, &m_queryPool);
-			if (vkRes != VK_SUCCESS)
-			{
-				LogError("Failed to create timestamp query pool for metrics. Got error: \"%s\"", string_VkResult(vkRes));
-				m_queryPool = VK_NULL_HANDLE;
-			}
-		}
 	}
 
 	RenderGraphVk::~RenderGraphVk()
 	{
 		m_deviceContextHandles.clear();
 		m_registeredRenderPasses.DeleteAll();
-
-		if (m_queryPool != VK_NULL_HANDLE)
-		{
-			vkDestroyQueryPool(m_pRenderDevice->GetLogicalDevice(), m_queryPool, nullptr);
-			m_queryPool = VK_NULL_HANDLE;
-		}
 	}
 
 	STATUS_CODE RenderGraphVk::BeginFrame(SwapChainHandle swapChain)
@@ -826,45 +803,38 @@ namespace PHX
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
 		ASSERT_PTR(pDeviceContext);
 
-		// Metrics
-		if (GetSettings().gatherMetrics)
-		{
-			// Reset all per-frame metrics to default values
-			m_metrics = Metrics{};
-
-			// Read back timestamp query results from the previous frame.
-			// Guarded by m_didExecuteWork so that we can safely wait on
-			// the query results if work was submitted, otherwise no waiting is done
-			const bool canQueryResults = m_queryPool != VK_NULL_HANDLE && m_frameNumber > 0;
-			if (m_didExecuteWork && canQueryResults)
-			{
-				PROFILE_SCOPE("RenderGraphVk_BeginFrame_GatherMetrics");
-
-				u32 prevFrameIndex = (m_frameInFlightIndex == 0) ? (m_pRenderDevice->GetFramesInFlight() - 1) : (m_frameInFlightIndex - 1);
-				u64 timestamps[2] = { 0, 0 };
-				VkResult vkRes = vkGetQueryPoolResults(
-					m_pRenderDevice->GetLogicalDevice(),
-					m_queryPool,
-					prevFrameIndex * 2,
-					2,
-					sizeof(timestamps),
-					timestamps,
-					sizeof(u64),
-					VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
-
-				if (vkRes == VK_SUCCESS)
-				{
-					u64 diff = timestamps[1] - timestamps[0];
-					m_metrics.gpuFrameTime = static_cast<float>(diff) * m_timestampPeriod / 1e6f;
-				}
-			}
-		}
-
 		res = pDeviceContext->BeginFrame(swapChainVk);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to begin frame. Device context could not begin frame!");
 			return res;
+		}
+
+		// Metrics
+		if (GetSettings().gatherMetrics)
+		{
+			// Reset to defaults
+			m_metrics = Metrics{};
+
+			// Do not attempt to read from frame 0 when no work has been submitted
+			const bool canQueryResults = (m_frameNumber > 0);
+			if (m_didExecuteWork && canQueryResults)
+			{
+				ResolvePendingTimestampQueries();
+			}
+
+			// Now that the previous results (if any) have been read, it's safe to reset this
+			// device context's query range for reuse
+			pDeviceContext->ResetQueryPool();
+
+			// Give the device context the next timestamp base index
+			const u32 framesInFlight = m_pRenderDevice->GetFramesInFlight();
+			if (framesInFlight > 0 && (m_frameNumber % framesInFlight == 0))
+			{
+				// Reset the timestamp index since we've wrapped around the frames in flight
+				m_lastTimestampIndex = 0;
+			}
+			pDeviceContext->SetBaseQueryIndex(m_lastTimestampIndex);
 		}
 
 		m_didExecuteWork = false;
@@ -888,14 +858,6 @@ namespace PHX
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
-
-		// Write end-of-frame timestamp before submission so it's recorded in the command buffer.
-		// This writes into the last command buffer (BOTTOM_OF_PIPE), which only executes after
-		// all previous batches complete
-		if (GetSettings().gatherMetrics && m_queryPool != VK_NULL_HANDLE)
-		{
-			pDeviceContext->WriteEndTimestamp();
-		}
 
 		res = pDeviceContext->EndFrame(swapChainVk);
 		if (res != STATUS_CODE::SUCCESS)
@@ -990,17 +952,6 @@ namespace PHX
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
 		DeviceContextHandle deviceContext = GetCurrentDeviceContextHandle();
 
-		// Inject metrics pointer and query pool so draw/uniform stats are accumulated during pass execution
-		// and GPU timestamps bracket the entire frame's command buffer workload
-		if (GetSettings().gatherMetrics)
-		{
-			pDeviceContext->SetMetricsPointer(&m_metrics);
-			if (m_queryPool != VK_NULL_HANDLE)
-			{
-				pDeviceContext->SetQueryPool(m_queryPool, m_frameInFlightIndex * 2);
-			}
-		}
-
 		for (u32 activeRenderPassIndex : activeRenderPassIndices)
 		{
 			const RenderPassVk& currRenderPass = *m_registeredRenderPasses.Get(activeRenderPassIndex);
@@ -1024,12 +975,17 @@ namespace PHX
 				pDeviceContext->BeginLabel(passQueueType, passName);
 			}
 
+			bool submissionBatchEnsured = pDeviceContext->EnsureSubmissionBatch(ConvertPassTypeToQueueType(currRenderPass.m_passType));
+			ASSERT_MSG(submissionBatchEnsured, "Failed to ensure submission batch");
+
 			switch (currRenderPass.m_passType)
 			{
 				case PASS_TYPE::GRAPHICS:
 				{
 					// Get or create render pass (refers to internal cache)
 					VkRenderPass renderPassVk = CreateRenderPass(currRenderPass);
+
+					WriteBeginTimestamp(pDeviceContext, currRenderPass);
 		
 					// Get or create framebuffer from render device (refers to internal cache)
 					// isBackbuffer: true if this pass writes the swapchain image (triggers resize invalidation)
@@ -1076,6 +1032,8 @@ namespace PHX
 						pDeviceContext->ResetContextualPipeline();
 					}
 
+					WriteEndTimestamp(pDeviceContext, currRenderPass);
+
 					res = pDeviceContext->EndRenderPass();
 					if (res != STATUS_CODE::SUCCESS)
 					{
@@ -1091,14 +1049,18 @@ namespace PHX
 				}
 				case PASS_TYPE::COMPUTE:
 				{
-					// Get or create pipeline from render device (refes to internal cache)
+					// Get or create pipeline from render device (refers to internal cache)
 					// NOTE - The render pass isn't used for compute pipeline creation, so it can
 					// be ignored by passing in VK_NULL_HANDLE
 					PipelineVk* pPipeline = CreatePipeline(currRenderPass, VK_NULL_HANDLE);
 
+					WriteBeginTimestamp(pDeviceContext, currRenderPass);
+
 					pDeviceContext->SetContextualPipeline(pPipeline);
 					CallExecutionCallback(currRenderPass, deviceContext);
 					pDeviceContext->ResetContextualPipeline();
+
+					WriteEndTimestamp(pDeviceContext, currRenderPass);
 
 					break;
 				}
@@ -1138,7 +1100,6 @@ namespace PHX
 			// End the label for this pass
 			pDeviceContext->EndLabel(ConvertPassTypeToQueueType(currRenderPass.m_passType));
 		}
-
 
 		// Clear metrics pointer after pass execution
 		if (GetSettings().gatherMetrics)
@@ -2569,5 +2530,150 @@ namespace PHX
 		{
 			renderPass.m_execCallback(deviceContext);
 		}
+	}
+
+	void RenderGraphVk::WriteBeginTimestamp(DeviceContextVk* pDeviceContext, const RenderPassVk& renderPass)
+	{
+		PROFILE_SCOPE("RenderGraphVk_WriteBeginTimestamp");
+
+		if (GetSettings().gatherMetrics)
+		{
+			u32 timestampIndex = U32_MAX;
+			if (pDeviceContext->WriteBeginTimestamp(timestampIndex) == STATUS_CODE::SUCCESS)
+			{
+				// Add new pending timestamp entry
+				TimestampPendingQueryInfo newQuery{};
+				newQuery.beginTimestampIndex = timestampIndex;
+
+				// Copy the pass name because it'll outlive the current frame
+#if defined(PHX_DEBUG)
+				const char* passName = renderPass.m_debugName;
+#else
+				const char* passName = "UnnamedPass";
+#endif
+				strncpy(newQuery.renderPassName, passName, MAX_PASS_NAME_LEN - 1);
+				newQuery.renderPassName[MAX_PASS_NAME_LEN - 1] = '\0'; // Null-terminate in case it overflows char buffer
+
+				m_pendingTimestamps.push_back(newQuery);
+
+				m_lastTimestampIndex = timestampIndex;
+			}
+		}
+	}
+
+	void RenderGraphVk::WriteEndTimestamp(DeviceContextVk* pDeviceContext, const RenderPassVk& renderPass)
+	{
+		PROFILE_SCOPE("RenderGraphVk_WriteEndTimestamp");
+
+		if (GetSettings().gatherMetrics)
+		{
+			u32 timestampIndex = U32_MAX;
+			if (pDeviceContext->WriteEndTimestamp(timestampIndex) == STATUS_CODE::SUCCESS)
+			{
+				ASSERT_MSG(m_pendingTimestamps.size() > 0, "Trying to write end timestamp but no begin timestamp was found!");
+				TimestampPendingQueryInfo& pendingQuery = m_pendingTimestamps.back();
+				pendingQuery.endTimestampIndex = timestampIndex;
+
+				m_lastTimestampIndex = timestampIndex;
+			}
+		}
+	}
+
+	void RenderGraphVk::ResolvePendingTimestampQueries()
+	{
+		PROFILE_SCOPE("RenderGraphVk_ResolvePendingTimestampQueries");
+
+		if (m_pendingTimestamps.empty())
+		{
+			return;
+		}
+
+		// Calculate the query count
+		const u32 firstQuery = m_pendingTimestamps.front().beginTimestampIndex;
+		ASSERT_MSG(firstQuery != U32_MAX, "First pending timestamp has an invalid begin index!");
+
+		u32 lastQuery = firstQuery;
+		for (const TimestampPendingQueryInfo& q : m_pendingTimestamps)
+		{
+			lastQuery = BSL::Max(q.endTimestampIndex, lastQuery);
+		}
+
+		const u32 queryCount = (lastQuery - firstQuery) + 1;
+
+		// With VK_QUERY_RESULT_WITH_AVAILABILITY_BIT, each query returns two u64s:
+		// timestamp value and availability
+		constexpr u64 valuesPerQuery = 2;
+		std::vector<u64> results(queryCount * valuesPerQuery, 0);
+
+		VkResult vkRes = vkGetQueryPoolResults(
+			m_pRenderDevice->GetLogicalDevice(),
+			m_pRenderDevice->GetQueryPool(),
+			firstQuery,
+			queryCount,
+			results.size() * sizeof(u64),
+			results.data(),
+			valuesPerQuery * sizeof(u64),
+			VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
+
+		// VK_NOT_READY is also an expected return value for any queries which are not ready
+		if (vkRes != VK_SUCCESS && vkRes != VK_NOT_READY)
+		{
+			LogWarning("Failed to read back timestamp query results. Got error: \"%s\"", string_VkResult(vkRes));
+			m_pendingTimestamps.clear();
+			return;
+		}
+
+		const float timestampPeriod = m_pRenderDevice->GetTimestampPeriod();
+
+		// Track the full frame span (across all pass types) for gpuFrameTime.
+		u64 minBeginTimestamp = U64_MAX;
+		u64 maxEndTimestamp = 0;
+		bool anyAvailable = false;
+
+		m_metrics.passTimings.clear();
+		m_metrics.passTimings.reserve(m_pendingTimestamps.size());
+		for (TimestampPendingQueryInfo& pendingTimestamp : m_pendingTimestamps)
+		{
+			const u64 beginOffset = pendingTimestamp.beginTimestampIndex - firstQuery;
+			const u64 beginValue  = results[beginOffset * valuesPerQuery];
+			const u64 beginAvail  = results[beginOffset * valuesPerQuery + 1];
+
+			// Skip unavailable timestamps
+			if (beginAvail == 0)
+			{
+				continue;
+			}
+
+			const u64 endOffset = pendingTimestamp.endTimestampIndex - firstQuery;
+			const u64 endValue = results[endOffset * valuesPerQuery];
+			const u64 endAvail = results[endOffset * valuesPerQuery + 1];
+
+			// Skip unavailable timestamps
+			if (endAvail == 0)
+			{
+				continue;
+			}
+
+			// Track the overall frame span from every available pass.
+			if (beginValue < minBeginTimestamp) { minBeginTimestamp = beginValue; }
+			if (endValue > maxEndTimestamp)     { maxEndTimestamp = endValue; }
+			anyAvailable = true;
+
+			const u64 tickDiff = (endValue >= beginValue) ? (endValue - beginValue) : 0;
+			const float durationMs = static_cast<float>(tickDiff) * timestampPeriod / 1000000.0f;
+
+			PassTiming& timing = m_metrics.passTimings.emplace_back();
+			std::memcpy(timing.passName, pendingTimestamp.renderPassName, MAX_PASS_NAME_LEN);
+			timing.timeInMs = durationMs;
+		}
+
+		if (anyAvailable)
+		{
+			const u64 frameSpanTicks = (maxEndTimestamp >= minBeginTimestamp) ? (maxEndTimestamp - minBeginTimestamp) : 0;
+			m_metrics.gpuFrameTime = static_cast<float>(frameSpanTicks) * timestampPeriod / 1000000.0f;
+		}
+
+		// Clear the pending timestamps for next frame
+		m_pendingTimestamps.clear();
 	}
 }

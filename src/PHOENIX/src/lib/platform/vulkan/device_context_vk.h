@@ -32,14 +32,11 @@ namespace PHX
 	};
 
 	// A single, contiguous run of commands recorded for one queue. Consecutive passes that
-	// use the same queue share a batch's command buffer; a queue switch (e.g. graphics -> compute)
-	// starts a new batch. Batches are submitted in recording (render-graph dependency) order and
-	// chained together with binary semaphores so that cross-queue producer/consumer dependencies
-	// are respected on the GPU.
+	// use the same queue share a batch's command buffer
 	struct SubmissionBatch
 	{
 		QUEUE_TYPE queueType       = QUEUE_TYPE::GRAPHICS;
-		u32 queueFamilyIndex       = QueueFamilyIndices::INVALID_INDEX;
+		u32 queueIndex             = QueueFamilyIndices::INVALID_INDEX;
 		VkCommandBuffer cmdBuffer  = VK_NULL_HANDLE;
 	};
 
@@ -72,15 +69,19 @@ namespace PHX
 		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) override;
 		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel) override;
 
+		// Ensures a submission batch for the provided queue type is created in advance. This is used
+		// for calls that use the last submission batch (e.g. WriteBeginTimestamp, WriteEndTimestamp)
+		bool EnsureSubmissionBatch(QUEUE_TYPE type);
+
 		void SetMetricsPointer(Metrics* pMetrics) override;
 		void ResetMetricsPointer() override;
 
-		// Configures the query pool for this frame's timestamp queries
-		void SetQueryPool(VkQueryPool queryPool, u32 frameBaseQueryIndex);
+		// Timestamp queries
+		STATUS_CODE WriteBeginTimestamp(u32& out_timestampIndex);
+		STATUS_CODE WriteEndTimestamp(u32& out_timestampIndex);
+		
+		void SetBaseQueryIndex(u32 index);
 		void ResetQueryPool();
-
-		// Writes the end-of-frame timestamp into the last recorded command buffer
-		STATUS_CODE WriteEndTimestamp();
 
 		// This is called by the current render pass during baking, so that the device context
 		// is aware of the pipeline contextually and can use it directly. This is different
@@ -163,10 +164,16 @@ namespace PHX
 		// Returns the queue type from the bind point. May return invalid result in the form of QUEUE_TYPE::COUNT!
 		QUEUE_TYPE GetQueueTypeFromBindPoint(VkPipelineBindPoint bindPoint);
 
+		// Returns the currently bound contextual pipeline's bind point, or VK_PIPELINE_BIND_POINT_MAX_ENUM
+		// if no pipeline is currently bound
+		VkPipelineBindPoint GetContextualBindPoint() const;
+
 		STATUS_CODE FlushInternal(QUEUE_TYPE queueType, const VkCommandBuffer* pCommandBuffers, u32 commandBufferCount, const FlushSyncData& syncData);
 
 		StagingAllocation AllocateStaging(u64 sizeBytes, u64 alignment = 16);
 		void ResetStagingPool();
+
+		STATUS_CODE WriteTimestamp(VkPipelineStageFlagBits pipelineStage, u32& out_timestampIndex);
 
 	private:
 
@@ -180,7 +187,8 @@ namespace PHX
 		std::array<std::vector<VkCommandBuffer>, static_cast<u32>(QUEUE_TYPE::COUNT)> m_commandBufferCache;
 
 		// Binary semaphores used to chain consecutive submission batches together (batch i signals
-		// m_chainSemaphores[i], batch i+1 waits on it). Grown on demand and reused across frames.
+		// m_chainSemaphores[i], batch i+1 waits on it). Grown on demand and reused across frames
+		TECHDEBT("Remove this in favor or better sync");
 		std::vector<VkSemaphore> m_chainSemaphores;
 
 		// Staging buffer pool for efficient sub-allocation. Avoids creating thousands
@@ -194,6 +202,11 @@ namespace PHX
 		// Assigned frame index, unique per device context
 		u32 m_assignedFrameIndex;
 
+		// Query indices - base index stores the index of the first query within the query pool,
+		//                 and index count contains the number of queries written
+		u32 m_queryBaseIndex;
+		u32 m_queryIndexCount;
+
 		// Non-owning
 		PipelineVk* m_contextualPipeline;
 
@@ -203,12 +216,5 @@ namespace PHX
 #if defined(PROFILER_TRACY)
 		std::array<tracy::VkCtx*, static_cast<u32>(QUEUE_TYPE::COUNT)> m_tracyCtxs;
 #endif
-
-		// Non-owning. Set by RenderGraphVk before Bake() to enable GPU timestamp queries.
-		// When non-null, the first graphics/compute command buffer created gets a begin
-		// timestamp, and WriteEndTimestamp() writes the end timestamp into the last command buffer.
-		VkQueryPool m_queryPool;
-		u32 m_queryFrameBaseIndex;
-		bool m_beginTimestampWritten;
 	};
 }

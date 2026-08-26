@@ -104,8 +104,6 @@ void ComputeParticlesSample::Draw()
 
 			// Dispatch
 			deviceContext.BindUniformCollection(m_computeUniformCollection);
-			deviceContext.SetScissor({ m_swapChain.GetWidth(), m_swapChain.GetHeight() }, { 0, 0 });
-			deviceContext.SetViewport({ m_swapChain.GetWidth(), m_swapChain.GetHeight() }, { 0, 0 });
 
 			TECHDEBT("Workgroup count should be pulled from shader reflection")
 			const float dimX = static_cast<float>(m_simData.totalParticles) / PARTICLE_UPDATE_WORKGROUP_COUNT;

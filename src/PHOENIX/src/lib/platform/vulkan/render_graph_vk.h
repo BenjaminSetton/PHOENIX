@@ -8,6 +8,7 @@
 #include "core/handle/handle_list.h"
 #include "core/interface_types/render_graph_interface.h"
 #include "framebuffer_vk.h"
+#include "PHX/types/pass_timing.h"
 #include "pipeline_vk.h"
 #include "utils/render_graph_utils.h"
 
@@ -57,6 +58,14 @@ namespace PHX
 	{
 		RenderPassVk* renderPass = nullptr;
 		ResourceIndexBitset resources;
+	};
+
+	// Holds information about pending timestamp queries
+	struct TimestampPendingQueryInfo
+	{
+		char     renderPassName[MAX_PASS_NAME_LEN] = {};
+		u32      beginTimestampIndex               = U32_MAX;
+		u32      endTimestampIndex                 = U32_MAX;
 	};
 
 	class RenderPassVk : public IRenderPass
@@ -202,6 +211,13 @@ namespace PHX
 
 		void CallExecutionCallback(const RenderPassVk& renderPass, const DeviceContextHandle& deviceContext);
 
+		void WriteBeginTimestamp(DeviceContextVk* pDeviceContext, const RenderPassVk& renderPass);
+		void WriteEndTimestamp(DeviceContextVk* pDeviceContext, const RenderPassVk& renderPass);
+
+		// Reads back the timestamp queries submitted last frame and resolves them into
+		// time taken in milliseconds for each pass
+		void ResolvePendingTimestampQueries();
+
 	private:
 
 		HandleList<RenderPassVk> m_registeredRenderPasses;
@@ -219,6 +235,11 @@ namespace PHX
 		u32 m_frameInFlightIndex;
 		u32 m_frameNumber;
 
+		u32 m_lastTimestampIndex;
+
+		// Holds information about pending timestamp queries submitted this frame
+		std::vector<TimestampPendingQueryInfo> m_pendingTimestamps;
+
 		const BSL::CRC32 m_reservedDepthBufferNameCRC;
 		u64 m_presentResID;
 
@@ -229,7 +250,5 @@ namespace PHX
 
 		// Metrics
 		mutable Metrics m_metrics;
-		VkQueryPool m_queryPool;
-		float m_timestampPeriod;
 	};
 }

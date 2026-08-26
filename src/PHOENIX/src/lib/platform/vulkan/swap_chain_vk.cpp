@@ -11,7 +11,6 @@
 #include "core/profiling.h"
 #include "core_vk.h"
 #include "PHX/types/queue_type.h"
-#include "utils/queue_utils.h"
 #include "utils/swap_chain_helpers.h"
 #include "utils/texture_type_converter.h"
 #include "utils/debug_utils.h"
@@ -280,20 +279,23 @@ namespace PHX
 		createInfo.imageArrayLayers = 1;
 		createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT; // Allow reads/writes from and to backbuffer
 
-		QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
-		uint32_t queueFamilyIndices[2] = { indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS), indices.GetQueueIndex(QUEUE_TYPE::PRESENT) };
+		uint32_t queueFamilyIndices[2] = { pRenderDevice->GetQueueFamilyIndex(QUEUE_TYPE::GRAPHICS), pRenderDevice->GetQueueFamilyIndex(QUEUE_TYPE::PRESENT) };
 
 		if (queueFamilyIndices[0] != queueFamilyIndices[1])
 		{
 			createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 			createInfo.queueFamilyIndexCount = 2;
 			createInfo.pQueueFamilyIndices = queueFamilyIndices;
+			
+			LogInfo("Using concurrent swap chain sharing mode with queue family indices %u and %u", queueFamilyIndices[0], queueFamilyIndices[1]);
 		}
 		else
 		{
 			createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 			createInfo.queueFamilyIndexCount = 0; // Optional
 			createInfo.pQueueFamilyIndices = nullptr; // Optional
+
+			LogInfo("Using exclusive swap chain sharing mode");
 		}
 
 		createInfo.preTransform = details.capabilities.currentTransform;

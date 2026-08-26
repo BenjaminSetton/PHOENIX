@@ -1,6 +1,8 @@
 ﻿
+#include <algorithm>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 #include <vulkan/vk_enum_string_helper.h>
 
@@ -22,6 +24,7 @@
 #include "acceleration_structure_vk.h"
 #include "BSL/logger.h"
 #include "buffer_vk.h"
+#include "core/global_settings.h"
 #include "core/handle/handle_utils.h"
 #include "core/profiling.h"
 #include "core_vk.h"
@@ -41,7 +44,8 @@ namespace PHX
 	static const std::vector<const char*> deviceExtensions =
 	{
 		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-		VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME
+		VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
+		VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME
 	};
 
 	static const std::vector<const char*> rayTracingExtensions =
@@ -141,13 +145,16 @@ namespace PHX
 	//-----------------------------------------------------------------------------------//
 
 	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
-		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_rayTracingPipelineProperties(), m_descriptorPool(VK_NULL_HANDLE),
-		m_rayTracingSupported(false), m_drawIndirectCountSupported(false), m_pfnCreateRayTracingPipelines(nullptr), m_pfnGetRayTracingShaderGroupHandles(nullptr), m_pfnGetBufferDeviceAddress(nullptr), m_pfnCmdTraceRays(nullptr),
+		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_rayTracingPipelineProperties(), m_descriptorPool(VK_NULL_HANDLE), m_queryPool(VK_NULL_HANDLE),
+		m_rayTracingSupported(false), m_drawIndirectCountSupported(false), m_timestampQuerySupported(), m_pfnCreateRayTracingPipelines(nullptr), m_pfnGetRayTracingShaderGroupHandles(nullptr), m_pfnGetBufferDeviceAddress(nullptr), m_pfnCmdTraceRays(nullptr),
 		m_pfnCreateAccelerationStructure(nullptr), m_pfnDestroyAccelerationStructure(nullptr), m_pfnGetAccelerationStructureBuildSizes(nullptr), m_pfnGetAccelerationStructureDeviceAddress(nullptr), 
-		m_pfnCmdBuildAccelerationStructures(nullptr), m_pfnCmdDrawIndexedIndirectCount(nullptr), m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_renderGraphs(), m_accelerationStructures()
+		m_pfnCmdBuildAccelerationStructures(nullptr), m_pfnCmdDrawIndexedIndirectCount(nullptr), m_pfnResetQueryPool(nullptr), m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_renderGraphs(), m_accelerationStructures()
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
+
+		// Initialize timestampQuery support for all queues to false
+		std::fill(m_timestampQuerySupported.begin(), m_timestampQuerySupported.end(), false);
 
 		res = CreatePhysicalDevice(surface);
 		if (res != STATUS_CODE::SUCCESS)
@@ -171,6 +178,16 @@ namespace PHX
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return;
+		}
+
+		const Settings& settings = GlobalSettings::Get().GetSettings();
+		if (settings.gatherMetrics)
+		{
+			res = AllocateQueryPool(ci.framesInFlight);
+			if (res != STATUS_CODE::SUCCESS)
+			{
+				return;
+			}
 		}
 
 		res = AllocateCommandPools(ci.framesInFlight);
@@ -238,6 +255,9 @@ namespace PHX
 		m_shaders.DeleteAll();
 		m_swapChains.DeleteAll();
 		m_renderGraphs.DeleteAll();
+
+		// Destroy query pool
+		vkDestroyQueryPool(m_logicalDevice, m_queryPool, nullptr);
 		
 		// Destroy descriptor pool
 		vkDestroyDescriptorPool(m_logicalDevice, m_descriptorPool, nullptr);
@@ -622,6 +642,11 @@ namespace PHX
 		return m_descriptorPool;
 	}
 
+	VkQueryPool RenderDeviceVk::GetQueryPool() const
+	{
+		return m_queryPool;
+	}
+
 	VkCommandPool RenderDeviceVk::GetCommandPool(QUEUE_TYPE type, u32 frameIndex) const
 	{
 		PROFILE_SCOPE("RenderDeviceVk_GetCommandPool");
@@ -658,6 +683,13 @@ namespace PHX
 	{
 		PROFILE_SCOPE("RenderDeviceVk_GetQueueFamilyIndex");
 
+		return m_queueFamilyIndices.GetFamilyIndex(type);
+	}
+
+	u32 RenderDeviceVk::GetQueueIndex(QUEUE_TYPE type) const
+	{
+		PROFILE_SCOPE("RenderDeviceVk_GetQueueIndex");
+
 		return m_queueFamilyIndices.GetQueueIndex(type);
 	}
 
@@ -681,6 +713,43 @@ namespace PHX
 		}
 
 		return m_queueFences[queueIdx][index];
+	}
+
+	bool RenderDeviceVk::IsTimestampQuerySupported(QUEUE_TYPE type) const
+	{
+		if (type == QUEUE_TYPE::COUNT)
+		{
+			ASSERT_ALWAYS("Failed to get timestamp query support for queue type. Queue type is outside of expected range!");
+			return false;
+		}
+
+		return m_timestampQuerySupported[static_cast<u32>(type)];
+	}
+
+	float RenderDeviceVk::GetTimestampPeriod() const
+	{
+		return m_physicalDeviceProperties.limits.timestampPeriod;
+	}
+
+	u32 RenderDeviceVk::GetMaxQueryCount() const
+	{
+		// Doubled for the begin + end pairs
+		static constexpr u32 MAX_QUERIES = 50 * 2;
+		return MAX_QUERIES;
+	}
+
+	void RenderDeviceVk::ResetQueryPool(u32 firstQuery, u32 queryCount)
+	{
+		if (m_pfnResetQueryPool == nullptr)
+		{
+			LogError("Failed to reset query pool. Function pointer is null!");
+			return;
+		}
+
+		if (queryCount != 0)
+		{
+			m_pfnResetQueryPool(m_logicalDevice, m_queryPool, firstQuery, queryCount);
+		}
 	}
 
 	const VkPhysicalDeviceProperties& RenderDeviceVk::GetDeviceProperties() const
@@ -764,18 +833,6 @@ namespace PHX
 			vkGetPhysicalDeviceMemoryProperties(selectedPhysicalDevice, &m_physicalDeviceMemoryProperties);
 			LogInfo("Using physical device: \"%s\"", m_physicalDeviceProperties.deviceName);
 
-			m_rayTracingSupported = CheckRayTracingExtensionSupport(selectedPhysicalDevice);
-			if (m_rayTracingSupported)
-			{
-				m_rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
-				m_rayTracingPipelineProperties.pNext = nullptr;
-
-				VkPhysicalDeviceProperties2 properties2{};
-				properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-				properties2.pNext = &m_rayTracingPipelineProperties;
-				vkGetPhysicalDeviceProperties2(selectedPhysicalDevice, &properties2);
-			}
-
 			m_physicalDevice = selectedPhysicalDevice;
 			return STATUS_CODE::SUCCESS;
 		}
@@ -795,28 +852,107 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		LogInfo("Selected graphics queue from queue family at index %u", indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS));
-		LogInfo("Selected compute queue from queue family at index %u" , indices.GetQueueIndex(QUEUE_TYPE::COMPUTE ));
-		LogInfo("Selected transfer queue from queue family at index %u", indices.GetQueueIndex(QUEUE_TYPE::TRANSFER));
-		LogInfo("Selected present queue from queue family at index %u" , indices.GetQueueIndex(QUEUE_TYPE::PRESENT ));
+		LogInfo("Selected graphics queue from queue family %u, queue index %u", indices.GetFamilyIndex(QUEUE_TYPE::GRAPHICS), indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS));
+		LogInfo("Selected compute queue from queue family %u, queue index %u" , indices.GetFamilyIndex(QUEUE_TYPE::COMPUTE ), indices.GetQueueIndex(QUEUE_TYPE::COMPUTE ));
+		LogInfo("Selected transfer queue from queue family %u, queue index %u", indices.GetFamilyIndex(QUEUE_TYPE::TRANSFER), indices.GetQueueIndex(QUEUE_TYPE::TRANSFER));
+		LogInfo("Selected present queue from queue family %u, queue index %u" , indices.GetFamilyIndex(QUEUE_TYPE::PRESENT ), indices.GetQueueIndex(QUEUE_TYPE::PRESENT ));
 
-		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
-		std::set<u32> uniqueQueueFamilies = {
-			indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS),
-			indices.GetQueueIndex(QUEUE_TYPE::COMPUTE),
-			indices.GetQueueIndex(QUEUE_TYPE::PRESENT),
-			indices.GetQueueIndex(QUEUE_TYPE::TRANSFER)
-		};
+#pragma region FEATURE_SUPPORT
+		LogInfo("Checking feature support:");
+
+		// Check ray-tracing support
+		m_rayTracingSupported = CheckRayTracingExtensionSupport(physicalDevice);
+		if (m_rayTracingSupported)
+		{
+			m_rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
+			m_rayTracingPipelineProperties.pNext = nullptr;
+
+			VkPhysicalDeviceProperties2 properties2{};
+			properties2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+			properties2.pNext = &m_rayTracingPipelineProperties;
+			vkGetPhysicalDeviceProperties2(physicalDevice, &properties2);
+
+			LogInfo("\t- Ray tracing is supported on this device");
+		}
+		else
+		{
+			LogWarning("\t- Ray tracing is not supported on this device!");
+		}
+
+		// Check timestamp query support
+		const bool timestampQuerySupported = (m_physicalDeviceProperties.limits.timestampPeriod != 0);
+		if (timestampQuerySupported)
+		{
+			if (!m_physicalDeviceProperties.limits.timestampComputeAndGraphics)
+			{
+				uint32_t queueFamilyCount = 0;
+				vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, nullptr);
+
+				std::vector<VkQueueFamilyProperties> queueFamilyProps(queueFamilyCount);
+				vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilyProps.data());
+
+				auto FindTimestampQuerySupport = [&](QUEUE_TYPE type) -> void
+				{
+					u32 familyIndex = indices.GetFamilyIndex(type);
+					const VkQueueFamilyProperties& familyProperties = queueFamilyProps[familyIndex];
+					const bool supportsTimestampQueries = (familyProperties.timestampValidBits != 0);
+					m_timestampQuerySupported[static_cast<u32>(type)] = supportsTimestampQueries;
+					if (supportsTimestampQueries)
+					{
+						LogInfo("\t- %s queues support timestamp queries", GetQueueTypeName(type));
+					}
+					else
+					{
+						LogWarning("\t- %s queues does not support timestamp queries!", GetQueueTypeName(type));
+					}
+				};
+
+				FindTimestampQuerySupport(QUEUE_TYPE::GRAPHICS);
+				FindTimestampQuerySupport(QUEUE_TYPE::COMPUTE);
+			}
+			else
+			{
+				// All graphics and compute queues support timestamp queries
+				m_timestampQuerySupported[static_cast<u32>(QUEUE_TYPE::GRAPHICS)] = true;
+				m_timestampQuerySupported[static_cast<u32>(QUEUE_TYPE::COMPUTE)] = true;
+				LogInfo("\t- Graphics queues support timestamp queries");
+				LogInfo("\t- Compute queues support timestamp queries");
+			}
+		}
+		else
+		{
+			LogWarning("Timestamp queries are not supported on this device!");
+		}
+#pragma endregion
+		
+		// Figure out, per unique family, how many distinct queue indices we actually need to
+		// request (some QUEUE_TYPEs may share both a family AND a queue index, e.g. GRAPHICS/COMPUTE,
+		// while others may share a family but use distinct indices, e.g. GRAPHICS/TRANSFER)
+		std::unordered_map<u32, u32> queueCountPerFamily; // familyIndex -> highest queue index used + 1
+		for (u32 typeIndex = 0; typeIndex < static_cast<u32>(QUEUE_TYPE::COUNT); typeIndex++)
+		{
+			QUEUE_TYPE type = static_cast<QUEUE_TYPE>(typeIndex);
+			u32 familyIndex = indices.GetFamilyIndex(type);
+			u32 queueIndex = indices.GetQueueIndex(type);
+			u32& count = queueCountPerFamily[familyIndex];
+			count = std::max(count, queueIndex + 1);
+		}
 
 		// TODO - Determine priority of the different queue types
-		float queuePriority = 1.0f;
-		for (u32 queueFamily : uniqueQueueFamilies)
+		std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+		
+		std::vector<std::vector<float>> queuePrioritiesPerFamily;
+		queuePrioritiesPerFamily.reserve(queueCountPerFamily.size());
+
+		for (const auto& [familyIndex, queueCount] : queueCountPerFamily)
 		{
+			queuePrioritiesPerFamily.emplace_back(queueCount, 1.0f);
+
 			VkDeviceQueueCreateInfo queueCreateInfo{};
 			queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-			queueCreateInfo.queueFamilyIndex = queueFamily;
-			queueCreateInfo.queueCount = 1;
-			queueCreateInfo.pQueuePriorities = &queuePriority;
+			queueCreateInfo.queueFamilyIndex = familyIndex;
+			queueCreateInfo.queueCount = queueCount;
+			queueCreateInfo.pQueuePriorities = queuePrioritiesPerFamily.back().data();
 			queueCreateInfos.push_back(queueCreateInfo);
 		}
 
@@ -831,13 +967,18 @@ namespace PHX
 		rtpFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR;
 		rtpFeatures.pNext = &asFeatures;
 
+		VkPhysicalDeviceHostQueryResetFeatures hostQueryFeatures{};
+		hostQueryFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES;
+		hostQueryFeatures.pNext = m_rayTracingSupported ? &rtpFeatures : nullptr;
+		hostQueryFeatures.hostQueryReset = VK_TRUE;
+
 		// Required for shaders that use per-draw vertex/instance indexing builtins (e.g. Slang's
 		// SV_VertexID/SV_InstanceID boils down to SPIR-V's BaseVertex/BaseInstance, which declare
 		// the DrawParameters capability). This is core in Vulkan 1.1, but declaring here just in case
 		VkPhysicalDeviceShaderDrawParametersFeatures shaderDrawParamsFeatures{};
 		shaderDrawParamsFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_DRAW_PARAMETERS_FEATURES;
 		shaderDrawParamsFeatures.shaderDrawParameters = VK_TRUE;
-		shaderDrawParamsFeatures.pNext = &rtpFeatures;
+		shaderDrawParamsFeatures.pNext = &hostQueryFeatures;
 
 		VkPhysicalDeviceFeatures2 deviceFeatures{};
 		deviceFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
@@ -850,16 +991,11 @@ namespace PHX
 		std::vector<const char*> enabledExtensions = deviceExtensions;
 		if (m_rayTracingSupported)
 		{
-			LogInfo("Ray tracing is supported on this device");
 			enabledExtensions.insert(enabledExtensions.end(), rayTracingExtensions.begin(), rayTracingExtensions.end());
 
 			bdaFeatures.bufferDeviceAddress = VK_TRUE;
 			asFeatures.accelerationStructure = VK_TRUE;
 			rtpFeatures.rayTracingPipeline = VK_TRUE;
-		}
-		else
-		{
-			LogWarning("Ray tracing is not supported on this device");
 		}
 
 		// Optionally enable VK_KHR_draw_indirect_count for GPU-driven indirect draws
@@ -890,8 +1026,7 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		// Load draw indirect count function pointer if the extension is enabled.
-		// On Vulkan 1.0/1.1, the function has the KHR suffix. On Vulkan 1.2+, it's promoted to core
+		// Load draw indirect count function pointer if the extension is enabled. Core on Vulkan 1.2
 		if (m_drawIndirectCountSupported)
 		{
 			m_pfnCmdDrawIndexedIndirectCount = (PFN_vkCmdDrawIndexedIndirectCount)vkGetDeviceProcAddr(m_logicalDevice, "vkCmdDrawIndexedIndirectCountKHR");
@@ -905,11 +1040,22 @@ namespace PHX
 			}
 		}
 
+		// Load host query reset function pointer (VK_EXT_host_query_reset). Core on Vulkan 1.2
+		m_pfnResetQueryPool = (PFN_vkResetQueryPoolEXT)vkGetDeviceProcAddr(m_logicalDevice, "vkResetQueryPoolEXT");
+		if (m_pfnResetQueryPool == nullptr)
+		{
+			m_pfnResetQueryPool = (PFN_vkResetQueryPoolEXT)vkGetDeviceProcAddr(m_logicalDevice, "vkResetQueryPool");
+		}
+		if (m_pfnResetQueryPool == nullptr)
+		{
+			LogWarning("VK_EXT_host_query_reset is supported but vkResetQueryPoolEXT could not be loaded!");
+		}
+
 		// Get the queues from the logical device
-		vkGetDeviceQueue(m_logicalDevice, indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS), 0, &m_queues[QUEUE_TYPE::GRAPHICS]);
-		vkGetDeviceQueue(m_logicalDevice, indices.GetQueueIndex(QUEUE_TYPE::COMPUTE ), 0, &m_queues[QUEUE_TYPE::COMPUTE ]);
-		vkGetDeviceQueue(m_logicalDevice, indices.GetQueueIndex(QUEUE_TYPE::TRANSFER), 0, &m_queues[QUEUE_TYPE::TRANSFER]);
-		vkGetDeviceQueue(m_logicalDevice, indices.GetQueueIndex(QUEUE_TYPE::PRESENT ), 0, &m_queues[QUEUE_TYPE::PRESENT ]);
+		vkGetDeviceQueue(m_logicalDevice, indices.GetFamilyIndex(QUEUE_TYPE::GRAPHICS), indices.GetQueueIndex(QUEUE_TYPE::GRAPHICS), &m_queues[QUEUE_TYPE::GRAPHICS]);
+		vkGetDeviceQueue(m_logicalDevice, indices.GetFamilyIndex(QUEUE_TYPE::COMPUTE ), indices.GetQueueIndex(QUEUE_TYPE::COMPUTE ), &m_queues[QUEUE_TYPE::COMPUTE ]);
+		vkGetDeviceQueue(m_logicalDevice, indices.GetFamilyIndex(QUEUE_TYPE::TRANSFER), indices.GetQueueIndex(QUEUE_TYPE::TRANSFER), &m_queues[QUEUE_TYPE::TRANSFER]);
+		vkGetDeviceQueue(m_logicalDevice, indices.GetFamilyIndex(QUEUE_TYPE::PRESENT ), indices.GetQueueIndex(QUEUE_TYPE::PRESENT ), &m_queues[QUEUE_TYPE::PRESENT ]);
 
 		m_queueFamilyIndices = indices;
 
@@ -966,6 +1112,28 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	STATUS_CODE RenderDeviceVk::AllocateQueryPool(u32 framesInFlight)
+	{
+		TECHDEBT("Look into using VK_QUERY_TYPE_PIPELINE_STATISTICS for pipeline stats (vertex shader invocations, clipping primitives, etc.)");
+
+		VkQueryPoolCreateInfo queryPoolCI{};
+		queryPoolCI.sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO;
+		queryPoolCI.queryType = VK_QUERY_TYPE_TIMESTAMP;
+		queryPoolCI.queryCount = framesInFlight * GetMaxQueryCount();
+
+		VkResult vkRes = vkCreateQueryPool(m_logicalDevice, &queryPoolCI, nullptr, &m_queryPool);
+		if (vkRes != VK_SUCCESS)
+		{
+			LogError("Failed to create timestamp query pool for metrics. Got error: \"%s\"", string_VkResult(vkRes));
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		// All queries must be reset once after pool creation before their first use
+		ResetQueryPool(0, queryPoolCI.queryCount);
+
+		return STATUS_CODE::SUCCESS;
+	}
+
 	STATUS_CODE RenderDeviceVk::AllocateCommandPools(u32 framesInFlight)
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
@@ -993,7 +1161,7 @@ namespace PHX
 
 	STATUS_CODE RenderDeviceVk::AllocateCommandPool_Helper(QUEUE_TYPE type, VkCommandPoolCreateFlags flags, u32 framesInFlight)
 	{
-		u32 queueFamilyIndex = m_queueFamilyIndices.GetQueueIndex(type);
+		u32 queueFamilyIndex = m_queueFamilyIndices.GetFamilyIndex(type);
 		if (!m_queueFamilyIndices.IsValid({ queueFamilyIndex, 0 }))
 		{
 			LogError("Failed to allocate command pool of type %u! Queue family index is not valid", static_cast<u32>(type));

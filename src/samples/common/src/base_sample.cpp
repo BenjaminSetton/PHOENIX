@@ -1,5 +1,7 @@
 
+#include <algorithm>
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 
 #include "base_sample.h"
@@ -57,10 +59,10 @@ namespace Common
 		Settings settings{};
 		settings.backendAPI = GRAPHICS_API::VULKAN;
 		settings.backendAPIMajorVersion = 1;
-		settings.backendAPIMinorVersion = 0;
+		settings.backendAPIMinorVersion = 1;
 		settings.logCallback = nullptr;
 
-		settings.enableValidation = true; // TODO - Add DEBUG project define for samples and guard this setting based on that
+		settings.enableValidation = false; // TODO - Add DEBUG project define for samples and guard this setting based on that
 		settings.swapChainOutdatedCallback = OnSwapChainOutdatedCallback;
 		settings.windowFocusChangedCallback = OnWindowFocusChangedCallback;
 		settings.windowMaximizedCallback = OnWindowMaximizedCallback;
@@ -151,7 +153,118 @@ namespace Common
 
 		UpdateSample(dt);
 
+		ShowMetrics(dt);
+
 		return m_window.ShouldClose();
+	}
+
+	void BaseSample::ShowMetrics(float dt)
+	{
+		m_metricsAccumulatedTime += dt;
+		const float windowStart = m_metricsAccumulatedTime - METRICS_WINDOW_SECONDS;
+
+		const PHX::Metrics& metrics = m_renderGraph.GetMetrics();
+
+		// --- GPU frame time rolling stats ---
+		// Only add non-zero samples; zero means queries were unavailable this frame
+		if (metrics.gpuFrameTime > 0.0f)
+		{
+			m_gpuFrameTimeSamples.push_back({m_metricsAccumulatedTime, metrics.gpuFrameTime});
+		}
+
+		// Prune samples outside the time window
+		m_gpuFrameTimeSamples.erase(
+			std::remove_if(m_gpuFrameTimeSamples.begin(), m_gpuFrameTimeSamples.end(),
+				[windowStart](const MetricSample& s) { return s.time < windowStart; }),
+			m_gpuFrameTimeSamples.end());
+
+		float gpuAvg = 0.0f, gpuDev = 0.0f;
+		if (!m_gpuFrameTimeSamples.empty())
+		{
+			float sum = 0.0f, minVal = m_gpuFrameTimeSamples[0].value, maxVal = m_gpuFrameTimeSamples[0].value;
+			for (const MetricSample& s : m_gpuFrameTimeSamples)
+			{
+				sum += s.value;
+				minVal = std::min(minVal, s.value);
+				maxVal = std::max(maxVal, s.value);
+			}
+			gpuAvg = sum / static_cast<float>(m_gpuFrameTimeSamples.size());
+			gpuDev = maxVal - minVal;
+		}
+
+		ImGui::Text("CPU dt: %.3f ms", dt * 1000.0f);
+		ImGui::Text("GPU frame time: %.3f ms. Average %.3f (+- %.3f) ms", metrics.gpuFrameTime, gpuAvg, gpuDev);
+
+		// History plot stores rolling averages, sampled at a fixed interval (not every frame)
+		if (m_metricsAccumulatedTime >= m_nextHistorySampleTime)
+		{
+			m_gpuFrameTimeHistory[m_gpuFrameTimeHistoryOffset] = gpuAvg;
+			m_gpuFrameTimeHistoryOffset = (m_gpuFrameTimeHistoryOffset + 1) % GPU_FRAME_TIME_HISTORY_COUNT;
+			m_nextHistorySampleTime = m_metricsAccumulatedTime + HISTORY_SAMPLE_INTERVAL;
+		}
+
+		float historyMax = 0.0f;
+		for (float sample : m_gpuFrameTimeHistory)
+		{
+			historyMax = std::max(historyMax, sample);
+		}
+
+		char overlayText[32];
+		snprintf(overlayText, sizeof(overlayText), "%.3f ms", gpuAvg);
+		ImGui::PlotLines("GPU frame time history (rolling avg)", m_gpuFrameTimeHistory, static_cast<int>(GPU_FRAME_TIME_HISTORY_COUNT),
+			static_cast<int>(m_gpuFrameTimeHistoryOffset), overlayText, 0.0f, historyMax * 1.1f, ImVec2(0.0f, 80.0f));
+
+		// --- Per-pass rolling stats ---
+		// Update rolling samples for each pass reported this frame
+		for (const PHX::PassTiming& timing : metrics.passTimings)
+		{
+			if (timing.timeInMs <= 0.0f) { continue; }
+
+			// Find or create rolling stats entry by pass name
+			PassRollingStats* pStats = nullptr;
+			for (PassRollingStats& stats : m_passRollingStats)
+			{
+				if (std::strcmp(stats.passName, timing.passName) == 0)
+				{
+					pStats = &stats;
+					break;
+				}
+			}
+			if (pStats == nullptr)
+			{
+				m_passRollingStats.emplace_back();
+				pStats = &m_passRollingStats.back();
+				std::memcpy(pStats->passName, timing.passName, PHX::MAX_PASS_NAME_LEN);
+			}
+
+			pStats->samples.push_back({m_metricsAccumulatedTime, timing.timeInMs});
+
+			// Prune old samples
+			pStats->samples.erase(
+				std::remove_if(pStats->samples.begin(), pStats->samples.end(),
+					[windowStart](const MetricSample& s) { return s.time < windowStart; }),
+				pStats->samples.end());
+		}
+
+		// Display per-pass timings with rolling averages
+		if (ImGui::CollapsingHeader("GPU timings"))
+		{
+			for (const PassRollingStats& stats : m_passRollingStats)
+			{
+				if (stats.samples.empty()) { continue; }
+
+				float sum = 0.0f, minVal = stats.samples[0].value, maxVal = stats.samples[0].value;
+				for (const MetricSample& s : stats.samples)
+				{
+					sum += s.value;
+					minVal = std::min(minVal, s.value);
+					maxVal = std::max(maxVal, s.value);
+				}
+				const float avg = sum / static_cast<float>(stats.samples.size());
+				const float dev = maxVal - minVal;
+				ImGui::Text("  %s: %.3f (+- %.3f) ms", stats.passName, avg, dev);
+			}
+		}
 	}
 
 	void BaseSample::OverrideSettings(PHX::Settings& settings)
@@ -164,9 +277,9 @@ namespace Common
 	{
 		WindowCreateInfo windowCI{};
 		windowCI.cursorType = CURSOR_TYPE::SHOWN;
-		windowCI.windowMode = WINDOW_MODE::FULLSCREEN;
+		windowCI.windowMode = WINDOW_MODE::WINDOWED;
 		windowCI.canResize = false;
-		windowCI.size = { 2560, 1440 };
+		windowCI.size = { 1920, 1080 };
 		windowCI.position = { 400, 400 };
 
 		STATUS_CODE phxRes = PHX::CreateWindow(windowCI, m_window);
