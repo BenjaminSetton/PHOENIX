@@ -18,6 +18,7 @@
 #include "core/global_settings.h"
 #include "core/profiling.h"
 #include "device_context_vk.h"
+#include "profiling_vk.h"
 #include "render_device_vk.h"
 #include "swap_chain_vk.h"
 #include "texture_vk.h"
@@ -504,12 +505,7 @@ namespace PHX
 		m_passType(passType), m_registerResourceCallback(registerResourceCallback), m_index(index)
 	{
 		ASSERT_MSG(m_registerResourceCallback != nullptr, "Register resource callback is null");
-
-		m_name = HashCRC32(name);
-
-#if defined(PHX_DEBUG)
-		m_debugName = name;
-#endif
+		m_name = name;
 	}
 
 	RenderPassVk::~RenderPassVk()
@@ -698,11 +694,7 @@ namespace PHX
 	{
 		if (m_passType != PASS_TYPE::GRAPHICS)
 		{
-#if defined(PHX_DEBUG)
-			LogWarning("Attempting to bind a non-graphics pipeline in a graphics render pass \"%s\". This is likely an error", m_debugName);
-#else
-			LogWarning("Attempting to bind a non-graphics pipeline in a graphics render pass. This is likely an error");
-#endif
+			LogWarning("Attempting to bind a non-graphics pipeline in a graphics render pass \"%s\". This is likely an error", m_name);
 		}
 
 		graphicsDesc = graphicsPipelineDesc;
@@ -712,11 +704,7 @@ namespace PHX
 	{
 		if (m_passType != PASS_TYPE::COMPUTE)
 		{
-#if defined(PHX_DEBUG)
-			LogWarning("Attempting to bind a non-compute pipeline in a compute render pass \"%s\". This is likely an error", m_debugName);
-#else
-			LogWarning("Attempting to bind a non-compute pipeline in a compute render pass. This is likely an error");
-#endif
+			LogWarning("Attempting to bind a non-compute pipeline in a compute render pass \"%s\". This is likely an error", m_name);
 		}
 
 		computeDesc = computePipelineDesc;
@@ -726,11 +714,7 @@ namespace PHX
 	{
 		if (m_passType != PASS_TYPE::RAY_TRACING)
 		{
-#if defined(PHX_DEBUG)
-			LogWarning("Attempting to bind a non-raytracing pipeline in a raytracing render pass \"%s\". This is likely an error", m_debugName);
-#else
-			LogWarning("Attempting to bind a non-raytracing pipeline in a raytracing render pass. This is likely an error");
-#endif
+			LogWarning("Attempting to bind a non-raytracing pipeline in a raytracing render pass \"%s\". This is likely an error", m_name);
 		}
 
 		rayTracingDesc = rayTracingPipelineDesc;
@@ -967,15 +951,10 @@ namespace PHX
 			// Insert a label for GPU operations
 			{
 				const QUEUE_TYPE passQueueType = ConvertPassTypeToQueueType(currRenderPass.m_passType);
-#if defined(PHX_DEBUG)
-				const char* passName = currRenderPass.m_debugName;
-#else
-				const char* passName = "UnnamedPass";
-#endif
-				pDeviceContext->BeginLabel(passQueueType, passName);
+				pDeviceContext->BeginLabel(passQueueType, currRenderPass.m_name);
 			}
 
-			bool submissionBatchEnsured = pDeviceContext->EnsureSubmissionBatch(ConvertPassTypeToQueueType(currRenderPass.m_passType));
+			bool submissionBatchEnsured = pDeviceContext->EnsureSubmissionBatch(ConvertPassTypeToQueueType(currRenderPass.m_passType), currRenderPass.m_name);
 			ASSERT_MSG(submissionBatchEnsured, "Failed to ensure submission batch");
 
 			switch (currRenderPass.m_passType)
@@ -1253,12 +1232,7 @@ namespace PHX
 				}
 			}
 
-#if defined(PHX_DEBUG)
-			const char* passName = pRenderPass->m_debugName;
-#else
-			const std::string passNameStr = std::to_string(pRenderPass->m_index);
-			const char* passName = passNameStr.c_str();
-#endif
+			const char* passName = pRenderPass->m_name;
 			const char* passTypeStr = RG_UTILS::PassTypeToString(pRenderPass->m_passType);
 
 			const char* hue = HUE_GREY;
@@ -1698,12 +1672,7 @@ namespace PHX
 			TextureVk* pAttachmentTex = ResolveTexture(outputResource);
 			if (pAttachmentTex == nullptr)
 			{
-#if defined(PHX_DEBUG)
-				LogError("Failed to create framebuffer for render pass \"%s\"! Output texture resource does not have a valid texture pointer", renderPass.m_debugName);
-#else
-				// TODO - Maybe create crc database and convert crc to string for log message?
-				LogError("Failed to create framebuffer for render pass \"%X\"! Output texture resource does not have a valid texture pointer", renderPass.m_name);
-#endif
+				LogError("Failed to create framebuffer for render pass \"%s\"! Output texture resource does not have a valid texture pointer", renderPass.m_name);
 				return;
 			}
 
@@ -2546,11 +2515,7 @@ namespace PHX
 				newQuery.beginTimestampIndex = timestampIndex;
 
 				// Copy the pass name because it'll outlive the current frame
-#if defined(PHX_DEBUG)
-				const char* passName = renderPass.m_debugName;
-#else
-				const char* passName = "UnnamedPass";
-#endif
+				const char* passName = renderPass.m_name;
 				strncpy(newQuery.renderPassName, passName, MAX_PASS_NAME_LEN - 1);
 				newQuery.renderPassName[MAX_PASS_NAME_LEN - 1] = '\0'; // Null-terminate in case it overflows char buffer
 

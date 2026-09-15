@@ -30,6 +30,7 @@
 #include "core_vk.h"
 #include "device_context_vk.h"
 #include "pipeline_vk.h"
+#include "profiling_vk.h"
 #include "render_graph_vk.h"
 #include "shader_vk.h"
 #include "swap_chain_vk.h"
@@ -146,15 +147,25 @@ namespace PHX
 
 	RenderDeviceVk::RenderDeviceVk(const RenderDeviceCreateInfo& ci) : m_logicalDevice(VK_NULL_HANDLE), m_physicalDevice(VK_NULL_HANDLE),
 		m_physicalDeviceProperties(), m_physicalDeviceFeatures(), m_physicalDeviceMemoryProperties(), m_rayTracingPipelineProperties(), m_descriptorPool(VK_NULL_HANDLE), m_queryPool(VK_NULL_HANDLE),
-		m_rayTracingSupported(false), m_drawIndirectCountSupported(false), m_timestampQuerySupported(), m_pfnCreateRayTracingPipelines(nullptr), m_pfnGetRayTracingShaderGroupHandles(nullptr), m_pfnGetBufferDeviceAddress(nullptr), m_pfnCmdTraceRays(nullptr),
+		m_rayTracingSupported(false), m_drawIndirectCountSupported(false), m_timestampQuerySupported(), m_calibratedTimestampsSupported(false), m_pfnCreateRayTracingPipelines(nullptr), m_pfnGetRayTracingShaderGroupHandles(nullptr), m_pfnGetBufferDeviceAddress(nullptr), m_pfnCmdTraceRays(nullptr),
 		m_pfnCreateAccelerationStructure(nullptr), m_pfnDestroyAccelerationStructure(nullptr), m_pfnGetAccelerationStructureBuildSizes(nullptr), m_pfnGetAccelerationStructureDeviceAddress(nullptr), 
-		m_pfnCmdBuildAccelerationStructures(nullptr), m_pfnCmdDrawIndexedIndirectCount(nullptr), m_pfnResetQueryPool(nullptr), m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_renderGraphs(), m_accelerationStructures()
+		m_pfnCmdBuildAccelerationStructures(nullptr), m_pfnCmdDrawIndexedIndirectCount(nullptr), m_pfnResetQueryPool(nullptr),
+		m_pfnGetPhysicalDeviceCalibrateableTimeDomains(nullptr), m_pfnGetCalibratedTimestamps(nullptr),
+		m_textures(), m_buffers(), m_uniformCollections(), m_deviceContexts(), m_shaders(), m_swapChains(), m_renderGraphs(), m_accelerationStructures()
+#if defined(PROFILER_TRACY)
+		, m_tracyContexts()
+#endif
 	{
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
 
 		// Initialize timestampQuery support for all queues to false
 		std::fill(m_timestampQuerySupported.begin(), m_timestampQuerySupported.end(), false);
+
+#if defined(PROFILER_TRACY)
+		// Initialize Tracy contexts to null
+		std::fill(m_tracyContexts.begin(), m_tracyContexts.end(), nullptr);
+#endif
 
 		res = CreatePhysicalDevice(surface);
 		if (res != STATUS_CODE::SUCCESS)
@@ -207,12 +218,20 @@ namespace PHX
 		m_pipelineCache = new PipelineCache(this);
 		m_framesInFlight = ci.framesInFlight;
 
+#if defined(PROFILER_TRACY)
+		InitTracyContexts();
+#endif
+
 		LogInfo("Successfully constructed Vk device!");
 	}
 
 	RenderDeviceVk::~RenderDeviceVk()
 	{
 		vkDeviceWaitIdle(m_logicalDevice);
+
+#if defined(PROFILER_TRACY)
+		DestroyTracyContexts();
+#endif
 
 		SAFE_DEL(m_pipelineCache);
 		SAFE_DEL(m_renderPassCache);
@@ -752,6 +771,97 @@ namespace PHX
 		}
 	}
 
+#if defined(PROFILER_TRACY)
+	tracy::VkCtx* RenderDeviceVk::GetTracyContext(QUEUE_TYPE type) const
+	{
+		if (type == QUEUE_TYPE::COUNT)
+		{
+			return nullptr;
+		}
+
+		return m_tracyContexts[static_cast<u32>(type)];
+	}
+
+	void RenderDeviceVk::InitTracyContexts()
+	{
+		VkDevice device = m_logicalDevice;
+		VkPhysicalDevice physDevice = m_physicalDevice;
+
+		// Determine whether the calibrated context can be used. Requires the extension to be
+		// enabled and both function pointers to be loaded
+		const bool calibratedAvailable = m_calibratedTimestampsSupported &&
+			(m_pfnGetPhysicalDeviceCalibrateableTimeDomains != nullptr) &&
+			(m_pfnGetCalibratedTimestamps != nullptr);
+
+		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
+		{
+			QUEUE_TYPE queueType = static_cast<QUEUE_TYPE>(i);
+
+			// PRESENT queues are not used for command recording
+			if (queueType == QUEUE_TYPE::PRESENT)
+			{
+				continue;
+			}
+
+			VkQueue queue = GetQueue(queueType);
+			VkCommandPool pool = GetCommandPool(queueType, 0);
+			if (queue == VK_NULL_HANDLE || pool == VK_NULL_HANDLE)
+			{
+				continue;
+			}
+
+			// Allocate a scratch command buffer for the calibration query
+			VkCommandBuffer scratchCmdBuffer = VK_NULL_HANDLE;
+			VkCommandBufferAllocateInfo allocInfo{};
+			allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+			allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+			allocInfo.commandPool = pool;
+			allocInfo.commandBufferCount = 1;
+
+			VkResult res = vkAllocateCommandBuffers(device, &allocInfo, &scratchCmdBuffer);
+			if (res != VK_SUCCESS)
+			{
+				LogError("Failed to create Tracy VkCtx for queue type %s! Could not allocate scratch command buffer: \"%s\"", GetQueueTypeName(queueType), string_VkResult(res));
+				continue;
+			}
+
+			// This call waits until the device is idle, so we can safely free the scratch buffer after.
+			// Use the calibrated context when VK_EXT_calibrated_timestamps is available to keep CPU
+			// and GPU time domains synchronized; otherwise fall back to the standard context
+			tracy::VkCtx* pTracyCtx = nullptr;
+			if (calibratedAvailable)
+			{
+				pTracyCtx = PROFILE_VKCONTEXT_CREATE_CALIBRATED(physDevice, device, queue, scratchCmdBuffer, m_pfnGetPhysicalDeviceCalibrateableTimeDomains, m_pfnGetCalibratedTimestamps);
+			}
+			else
+			{
+				pTracyCtx = PROFILE_VKCONTEXT_CREATE(physDevice, device, queue, scratchCmdBuffer);
+			}
+
+			constexpr u16 tracyCtxNameMaxLen = 32;
+			char tracyCtxName[tracyCtxNameMaxLen];
+			const u16 tracyCtxNameLen = static_cast<u16>(snprintf(tracyCtxName, tracyCtxNameMaxLen, "Queue_%s", GetQueueTypeName(queueType)));
+			PROFILE_VKCONTEXT_NAME(pTracyCtx, tracyCtxName, tracyCtxNameLen);
+
+			m_tracyContexts[i] = pTracyCtx;
+
+			vkFreeCommandBuffers(device, pool, 1, &scratchCmdBuffer);
+		}
+	}
+
+	void RenderDeviceVk::DestroyTracyContexts()
+	{
+		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
+		{
+			if (m_tracyContexts[i] != nullptr)
+			{
+				PROFILE_VKCONTEXT_DESTROY(m_tracyContexts[i]);
+				m_tracyContexts[i] = nullptr;
+			}
+		}
+	}
+#endif
+
 	const VkPhysicalDeviceProperties& RenderDeviceVk::GetDeviceProperties() const
 	{
 		return m_physicalDeviceProperties;
@@ -1010,6 +1120,19 @@ namespace PHX
 			LogWarning("Draw indirect count is not supported on this device");
 		}
 
+		// Optionally enable VK_EXT_calibrated_timestamps, which synchronizes 
+		// CPU and GPU time domains for accurate GPU profiling timestamps
+		m_calibratedTimestampsSupported = IsExtensionSupported(physicalDevice, VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
+		if (m_calibratedTimestampsSupported)
+		{
+			LogInfo("Calibrated timestamps are supported on this device");
+			enabledExtensions.push_back(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
+		}
+		else
+		{
+			LogWarning("Calibrated timestamps are not supported on this device");
+		}
+
 		VkDeviceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 		createInfo.pNext = &deviceFeatures;
@@ -1049,6 +1172,24 @@ namespace PHX
 		if (m_pfnResetQueryPool == nullptr)
 		{
 			LogWarning("VK_EXT_host_query_reset is supported but vkResetQueryPoolEXT could not be loaded!");
+		}
+
+		// Load calibrated timestamps function pointers (VK_EXT_calibrated_timestamps)
+		if (m_calibratedTimestampsSupported)
+		{
+			VkInstance instance = CoreVk::Get().GetInstance();
+
+			m_pfnGetPhysicalDeviceCalibrateableTimeDomains = (PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT)vkGetInstanceProcAddr(instance, "vkGetPhysicalDeviceCalibrateableTimeDomainsEXT");
+			if (m_pfnGetPhysicalDeviceCalibrateableTimeDomains == nullptr)
+			{
+				LogWarning("VK_EXT_calibrated_timestamps is supported but vkGetPhysicalDeviceCalibrateableTimeDomainsEXT could not be loaded!");
+			}
+
+			m_pfnGetCalibratedTimestamps = (PFN_vkGetCalibratedTimestampsEXT)vkGetDeviceProcAddr(m_logicalDevice, "vkGetCalibratedTimestampsEXT");
+			if (m_pfnGetCalibratedTimestamps == nullptr)
+			{
+				LogWarning("VK_EXT_calibrated_timestamps is supported but vkGetCalibratedTimestampsEXT could not be loaded!");
+			}
 		}
 
 		// Get the queues from the logical device

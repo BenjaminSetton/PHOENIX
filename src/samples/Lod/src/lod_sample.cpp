@@ -295,8 +295,7 @@ void LodSample::ShutdownSample()
 
 void LodSample::UpdateSample(float dt)
 {
-	// ImGui
-	m_imguiBackend.NewFrame(dt, m_swapChain.GetWidth(), m_swapChain.GetHeight());
+	UNUSED(dt);
 
 	ImGui::Begin("LOD Controls");
 	ImGui::SliderInt("Instance Count", reinterpret_cast<int*>(&m_instanceCount), 100, 10000);
@@ -685,8 +684,7 @@ void LodSample::Draw()
 	}
 
 	// IMGUI PASS
-	ImGui::Render();
-	m_imguiRenderer.RenderDrawData(m_renderGraph, m_swapChain, ImGui::GetDrawData(), false);
+	RenderImGui();
 
 	m_renderGraph.Bake(m_swapChain);
 

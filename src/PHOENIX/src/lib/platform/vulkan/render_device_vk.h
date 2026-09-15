@@ -17,6 +17,13 @@
 #include "utils/queue_utils.h"
 #include "utils/render_pass_cache.h"
 
+#if defined(PROFILER_TRACY)
+namespace tracy
+{
+	class VkCtx;
+}
+#endif
+
 namespace PHX
 {
 	// Forward declarations
@@ -110,6 +117,12 @@ namespace PHX
 		u32 GetMaxQueryCount() const;
 		void ResetQueryPool(u32 firstQuery, u32 queryCount);
 
+#if defined(PROFILER_TRACY)
+		// Returns the Tracy Vulkan context for the given queue type, or nullptr if no context
+		// was created for that queue (e.g. PRESENT queues)
+		tracy::VkCtx* GetTracyContext(QUEUE_TYPE type) const;
+#endif
+
 		// Device info
 		const VkPhysicalDeviceProperties& GetDeviceProperties() const;
 		const VkPhysicalDeviceFeatures& GetDeviceFeatures() const;
@@ -151,6 +164,13 @@ namespace PHX
 
 		STATUS_CODE LoadRayTracingFunctions();
 
+#if defined(PROFILER_TRACY)
+		// Creates and destroys the per-queue Tracy Vulkan contexts. The calibrated variant is
+		// used when VK_EXT_calibrated_timestamps is available, otherwise the standard context
+		void InitTracyContexts();
+		void DestroyTracyContexts();
+#endif
+
 	private:
 
 		VmaAllocator m_allocator;
@@ -164,6 +184,7 @@ namespace PHX
 		bool m_rayTracingSupported;
 		bool m_drawIndirectCountSupported;
 		std::array<bool, static_cast<u32>(QUEUE_TYPE::COUNT)> m_timestampQuerySupported;
+		bool m_calibratedTimestampsSupported;
 
 		// Physical device cache
 		VkPhysicalDeviceProperties m_physicalDeviceProperties;
@@ -189,6 +210,15 @@ namespace PHX
 
 		// Query pool reset function pointer (VK_EXT_host_query_reset)
 		PFN_vkResetQueryPoolEXT m_pfnResetQueryPool;
+
+		// Calibrated timestamps function pointers (VK_EXT_calibrated_timestamps)
+		PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT m_pfnGetPhysicalDeviceCalibrateableTimeDomains;
+		PFN_vkGetCalibratedTimestampsEXT m_pfnGetCalibratedTimestamps;
+
+#if defined(PROFILER_TRACY)
+		// Per-queue Tracy Vulkan profiling contexts
+		std::array<tracy::VkCtx*, static_cast<u32>(QUEUE_TYPE::COUNT)> m_tracyContexts;
+#endif
 
 		// Descriptor pool
 		VkDescriptorPool m_descriptorPool;

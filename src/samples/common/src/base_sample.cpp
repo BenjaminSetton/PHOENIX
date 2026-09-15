@@ -2,9 +2,10 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-#include <iostream>
+//#include <iostream>
 
 #include "base_sample.h"
+#include "BSL/logger.h"
 #include "input_manager.h"
 
 #ifndef CACHE_ROOT_DIR
@@ -13,6 +14,7 @@
 
 #define CHECK_PHX_RES(phxRes) if(phxRes != PHX::STATUS_CODE::SUCCESS) { return; }
 
+using namespace BSL;
 using namespace PHX;
 
 namespace Common
@@ -94,12 +96,12 @@ namespace Common
 		// ImGui (always available to derived samples)
 		if (!m_imguiBackend.Init())
 		{
-			std::cout << "Failed to initialize ImGui backend!" << std::endl;
+			LogError("Failed to initialize ImGui backend!");;
 			return;
 		}
 		if (!m_imguiRenderer.Init(m_renderDevice, m_swapChain, m_pShaderManager))
 		{
-			std::cout << "Failed to initialize ImGui renderer!" << std::endl;
+			LogError("Failed to initialize ImGui renderer!");;
 			return;
 		}
 		m_imguiInitialized = true;
@@ -112,7 +114,7 @@ namespace Common
 		STATUS_CODE res = PHX::Shutdown();
 		if (res != STATUS_CODE::SUCCESS)
 		{
-			std::cout << "Failed to clean up PHX lib!" << std::endl;
+			LogError("Failed to clean up PHX lib!");
 		}
 
 		ShutdownSample();
@@ -133,7 +135,7 @@ namespace Common
 		STATUS_CODE res = PHX::Update(dt);
 		if (res != STATUS_CODE::SUCCESS)
 		{
-			std::cout << "Failed to update PHX lib!" << std::endl;
+			LogError("Failed to update PHX lib!");
 			return false; // Keep looping
 		}
 
@@ -151,9 +153,21 @@ namespace Common
 			m_pShaderManager->PollUpdates();
 		}
 
+		// Begin new ImGui frame, if applicable
+		if (m_imguiInitialized)
+		{
+			m_imguiBackend.NewFrame(dt, m_swapChain.GetWidth(), m_swapChain.GetHeight());
+		}
+
 		UpdateSample(dt);
 
 		ShowMetrics(dt);
+
+		// Render ImGui, if applicable
+		if (m_imguiInitialized)
+		{
+			ImGui::Render();
+		}
 
 		return m_window.ShouldClose();
 	}
@@ -247,7 +261,7 @@ namespace Common
 		}
 
 		// Display per-pass timings with rolling averages
-		if (ImGui::CollapsingHeader("GPU timings"))
+		if (ImGui::CollapsingHeader("GPU Timings"))
 		{
 			for (const PassRollingStats& stats : m_passRollingStats)
 			{
@@ -262,7 +276,7 @@ namespace Common
 				}
 				const float avg = sum / static_cast<float>(stats.samples.size());
 				const float dev = maxVal - minVal;
-				ImGui::Text("  %s: %.3f (+- %.3f) ms", stats.passName, avg, dev);
+				ImGui::Text("\t%s: %.3f (+- %.3f) ms", stats.passName, avg, dev);
 			}
 		}
 	}
@@ -374,5 +388,15 @@ namespace Common
 		char renderGraphVisName[nameLen];
 		snprintf(renderGraphVisName, nameLen, "render_graph_viz/%s_RG_%u.dot", name, frameNumber);
 		m_renderGraph.GenerateVisualization(renderGraphVisName);
+	}
+
+	void BaseSample::RenderImGui(bool clearBackbuffer)
+	{
+		if (!m_imguiInitialized)
+		{
+			return;
+		}
+
+		m_imguiRenderer.RenderDrawData(m_renderGraph, m_swapChain, ImGui::GetDrawData(), clearBackbuffer);
 	}
 }

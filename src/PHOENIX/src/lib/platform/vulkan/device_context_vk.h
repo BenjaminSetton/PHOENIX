@@ -71,7 +71,7 @@ namespace PHX
 
 		// Ensures a submission batch for the provided queue type is created in advance. This is used
 		// for calls that use the last submission batch (e.g. WriteBeginTimestamp, WriteEndTimestamp)
-		bool EnsureSubmissionBatch(QUEUE_TYPE type);
+		bool EnsureSubmissionBatch(QUEUE_TYPE type, const char* passName);
 
 		void SetMetricsPointer(Metrics* pMetrics) override;
 		void ResetMetricsPointer() override;
@@ -151,10 +151,6 @@ namespace PHX
 		void DeallocateCommandBuffers();
 		void ResetCommandBuffers();
 
-		// Manages the tracy VkCtx instances
-		void InitTracyContexts();
-		void DestroyTracyContexts();
-
 		// Ensures at least 'count' chain semaphores exist for this frame slot, creating more as needed.
 		// Chain semaphores are reused every frame (the BeginFrame fence wait guarantees they are unsignaled).
 		STATUS_CODE EnsureChainSemaphores(u32 count);
@@ -212,9 +208,5 @@ namespace PHX
 
 		// Non-owning, nullable
 		Metrics* m_pMetrics;
-
-#if defined(PROFILER_TRACY)
-		std::array<tracy::VkCtx*, static_cast<u32>(QUEUE_TYPE::COUNT)> m_tracyCtxs;
-#endif
 	};
 }

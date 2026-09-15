@@ -47,7 +47,6 @@ void TessellationSample::UpdateSample(float dt)
 	m_cameraData.camPos = m_pCamera->GetPosition();
 
 	// ImGui
-	m_imguiBackend.NewFrame(dt, m_swapChain.GetWidth(), m_swapChain.GetHeight());
 	BuildImGuiUI();
 }
 
@@ -118,8 +117,7 @@ void TessellationSample::Draw()
 	}
 
 	// ImGui pass
-	ImGui::Render();
-	m_imguiRenderer.RenderDrawData(m_renderGraph, m_swapChain, ImGui::GetDrawData(), false);
+	RenderImGui();
 
 	m_renderGraph.Bake(m_swapChain);
 

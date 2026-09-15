@@ -15,7 +15,7 @@ ImGuiSample::~ImGuiSample()
 
 void ImGuiSample::UpdateSample(float dt)
 {
-	m_imguiBackend.NewFrame(dt, m_swapChain.GetWidth(), m_swapChain.GetHeight());
+	UNUSED(dt);
 
 	// Build ImGui UI
 	ImGui::Begin("Hello, PHX!");
@@ -50,8 +50,7 @@ void ImGuiSample::Draw()
 {
 	m_renderGraph.BeginFrame(m_swapChain);
 
-	ImGui::Render();
-	m_imguiRenderer.RenderDrawData(m_renderGraph, m_swapChain, ImGui::GetDrawData(), true);
+	RenderImGui(true);
 
 	m_renderGraph.Bake(m_swapChain);
 

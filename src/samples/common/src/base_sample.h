@@ -67,6 +67,9 @@ namespace Common
 
 		void GenerateRenderGraphVisualization(const char* name);
 
+		// Called to render submitted ImGui data in Update
+		void RenderImGui(bool clearBackbuffer = false);
+
 	protected:
 
 		PHX::WindowHandle m_window;
@@ -76,9 +79,6 @@ namespace Common
 
 		BaseCamera* m_pCamera;
 		ShaderManager* m_pShaderManager;
-
-		ImGuiPhxBackend  m_imguiBackend;
-		ImGuiPhxRenderer m_imguiRenderer;
 
 		// Rolling metrics state for temporally-stable display.
 		// Samples are pruned to a METRICS_WINDOW_SECONDS time window each frame.
@@ -99,5 +99,8 @@ namespace Common
 	private:
 
 		bool m_imguiInitialized;
+
+		ImGuiPhxBackend  m_imguiBackend;
+		ImGuiPhxRenderer m_imguiRenderer;
 	};
 }

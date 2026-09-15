@@ -27,8 +27,6 @@ ComputeParticlesSample::~ComputeParticlesSample()
 
 void ComputeParticlesSample::UpdateSample(float dt)
 {
-	m_imguiBackend.NewFrame(dt, m_swapChain.GetWidth(), m_swapChain.GetHeight());
-
 	std::uniform_real_distribution<float> dist(0.0f, 1.0f + FLT_EPSILON); // Gotta add FLT_EPSILON since uniform_real_distribution is [a, b)
 	static bool isSimPaused = false;
 	static bool enableRandomExplosions = true;
@@ -160,8 +158,7 @@ void ComputeParticlesSample::Draw()
 	});
 
 	// ImGui pass
-	ImGui::Render();
-	m_imguiRenderer.RenderDrawData(m_renderGraph, m_swapChain, ImGui::GetDrawData(), false);
+	RenderImGui();
 
 	m_renderGraph.Bake(m_swapChain);
 

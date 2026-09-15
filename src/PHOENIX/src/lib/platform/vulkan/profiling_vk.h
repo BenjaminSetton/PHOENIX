@@ -7,6 +7,7 @@
 #include <tracy/TracyVulkan.hpp>
 
 #define PROFILE_VKCONTEXT_CREATE(physDevice, logDevice, queue, cmdBuffer) TracyVkContext(physDevice, logDevice, queue, cmdBuffer)
+#define PROFILE_VKCONTEXT_CREATE_CALIBRATED(physDevice, logDevice, queue, cmdBuffer, gpdctd, gct) TracyVkContextCalibrated(physDevice, logDevice, queue, cmdBuffer, gpdctd, gct)
 #define PROFILE_VKCONTEXT_DESTROY(context) TracyVkDestroy(context)
 #define PROFILE_VKCONTEXT_NAME(context, name, size) TracyVkContextName(context, name, size)
 #define PROFILE_VK_ZONE(context, cmdBuffer, name) TracyVkZone(context, cmdBuffer, name)
@@ -15,6 +16,7 @@
 #else
 
 #define PROFILE_VKCONTEXT_CREATE(physDevice, logDevice, queue, cmdBuffer)
+#define PROFILE_VKCONTEXT_CREATE_CALIBRATED(physDevice, logDevice, queue, cmdBuffer, gpdctd, gct)
 #define PROFILE_VKCONTEXT_DESTROY(context)
 #define PROFILE_VKCONTEXT_NAME(context, name, size)
 #define PROFILE_VK_ZONE(context, cmdBuffer, name)

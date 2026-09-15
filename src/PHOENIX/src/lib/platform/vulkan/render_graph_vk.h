@@ -100,13 +100,11 @@ namespace PHX
 		// Callbacks
 		void SetExecuteCallback(ExecuteRenderPassCallbackFn callback) override;
 
+		const char* GetName() const { return m_name; }
+
 	private:
 
-		BSL::CRC32 m_name;
-
-#if defined(PHX_DEBUG)
-		const char* m_debugName;
-#endif
+		const char* m_name;
 
 		ResourceIndexBitset m_inputResources;					// Physical resource indices which this pass reads from
 		ResourceIndexBitset m_outputResources;					// Physical resources indices which this pass writes to
