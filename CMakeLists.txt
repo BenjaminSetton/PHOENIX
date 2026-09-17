@@ -2,18 +2,25 @@ cmake_minimum_required(VERSION 3.24)
 
 project(PHOENIX CXX)
 
+option(PHX_BUILD_SAMPLES "Build PHOENIX sample apps" ${PROJECT_IS_TOP_LEVEL})
+
 # ---------------------------------------------------------------------------
 # Configurations
 # ---------------------------------------------------------------------------
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Sanitizer" CACHE STRING "" FORCE)
+# Only defined when PHOENIX is the top-level project. Consumers embedding via
+# add_subdirectory are expected to define the Debug;Release;Sanitizer configs
+# (and matching Sanitizer flags / runtime library) themselves.
+if(PROJECT_IS_TOP_LEVEL)
+    set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Sanitizer" CACHE STRING "" FORCE)
 
-# Sanitizer-specific compiler/linker flags
-set(CMAKE_CXX_FLAGS_SANITIZER "/Zi /Od /fsanitize=address" CACHE STRING "Sanitizer C++ flags" FORCE)
-set(CMAKE_C_FLAGS_SANITIZER "/Zi /Od /fsanitize=address" CACHE STRING "Sanitizer C flags" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS_SANITIZER "/INCREMENTAL:NO" CACHE STRING "Sanitizer exe linker flags" FORCE)
+    # Sanitizer-specific compiler/linker flags
+    set(CMAKE_CXX_FLAGS_SANITIZER "/Zi /Od /fsanitize=address" CACHE STRING "Sanitizer C++ flags" FORCE)
+    set(CMAKE_C_FLAGS_SANITIZER "/Zi /Od /fsanitize=address" CACHE STRING "Sanitizer C flags" FORCE)
+    set(CMAKE_EXE_LINKER_FLAGS_SANITIZER "/INCREMENTAL:NO" CACHE STRING "Sanitizer exe linker flags" FORCE)
 
-# MSVC runtime: Debug and Sanitizer use debug runtime, Release uses release
-set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL")
+    # MSVC runtime: Debug and Sanitizer use debug runtime, Release uses release
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<CONFIG:Sanitizer>:Debug>DLL")
+endif()
 
 # ---------------------------------------------------------------------------
 # Architecture
@@ -29,12 +36,25 @@ endif()
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-set(PHX_ROOT     "${CMAKE_SOURCE_DIR}/src/PHOENIX")
-set(SAMPLES_ROOT "${CMAKE_SOURCE_DIR}/src/samples")
-set(BSL_ROOT     "${CMAKE_SOURCE_DIR}/src/BSL")
+set(PHX_ROOT     "${CMAKE_CURRENT_SOURCE_DIR}/src/PHOENIX")
+set(SAMPLES_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/src/samples")
+set(BSL_ROOT     "${CMAKE_CURRENT_SOURCE_DIR}/src/BSL")
+
+# Prebuilt dependencies (GLFW, Slang) must exist before configuring
+if(NOT EXISTS "${PHX_ROOT}/out")
+    message(FATAL_ERROR
+        "Prebuilt dependencies not found at ${PHX_ROOT}/out. "
+        "Run utils/build_lib_dependencies.ps1 first to build GLFW and Slang.")
+endif()
 
 # System name in lowercase (windows, linux, darwin)
 string(TOLOWER "${CMAKE_SYSTEM_NAME}" PHX_SYSTEM_DIR)
+
+# Export path segments to consumers so phx_set_output_dirs() works from their scope
+if(NOT PROJECT_IS_TOP_LEVEL)
+    set(PHX_ARCH_DIR   "${PHX_ARCH_DIR}"   PARENT_SCOPE)
+    set(PHX_SYSTEM_DIR "${PHX_SYSTEM_DIR}" PARENT_SCOPE)
+endif()
 
 # ---------------------------------------------------------------------------
 # Vulkan SDK
@@ -59,7 +79,9 @@ if(MSVC)
 endif()
 
 # Default startup project for VS
-set_property(DIRECTORY ${CMAKE_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "ImGui")
+if(PHX_BUILD_SAMPLES)
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT "ImGui")
+endif()
 
 # ---------------------------------------------------------------------------
 # Output directory helper
@@ -124,7 +146,9 @@ set_target_properties(bsl PROPERTIES
 # Sub-projects
 # ---------------------------------------------------------------------------
 add_subdirectory(src/PHOENIX)
-add_subdirectory(src/samples)
+if(PHX_BUILD_SAMPLES)
+    add_subdirectory(src/samples)
+endif()
 
 # ---------------------------------------------------------------------------
 # VS solution organization
