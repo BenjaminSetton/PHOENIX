@@ -36,30 +36,46 @@
 #include "swap_chain_vk.h"
 #include "texture_vk.h"
 #include "uniform_vk.h"
-#include "utils/swap_chain_helpers.h"
+#include "utils/debug_utils.h"
+#include "utils/swap_chain_utils.h"
 
 using namespace BSL;
 
 namespace PHX
 {
-	static const std::vector<const char*> deviceExtensions =
+	struct VulkanExtensionInfo
 	{
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME,
-		VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,
-		VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME
+		const char* name;
+		u32 promotedToCore; // core version, or 0 if not in any core version
 	};
 
-	static const std::vector<const char*> rayTracingExtensions =
+	// Designated value for extensions which are not core at the latest version
+	static constexpr u32 VK_NOT_CORE = 0;
+
+	// Extensions required for the device to be suitable
+	static const std::vector<VulkanExtensionInfo> REQUIRED_EXTENSIONS =
 	{
-		VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME, // Needed to query extensions below
-		VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
-		VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
-		VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
-		VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,
-		VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,
-		VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,
-		VK_KHR_SPIRV_1_4_EXTENSION_NAME
+		{ VK_KHR_SWAPCHAIN_EXTENSION_NAME,                       VK_NOT_CORE        },
+		{ VK_KHR_SHADER_DRAW_PARAMETERS_EXTENSION_NAME,          VK_API_VERSION_1_1 },
+		{ VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME,                VK_API_VERSION_1_2 },
 	};
+
+	// All of these extensions must be supported for the device to be considered ray-tracing-capable
+	static const std::vector<VulkanExtensionInfo> RAY_TRACING_EXTENSIONS =
+	{
+		{ VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,  VK_API_VERSION_1_2 },
+		{ VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,            VK_NOT_CORE        },
+		{ VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,              VK_NOT_CORE        },
+		{ VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,          VK_NOT_CORE        },
+		{ VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME,             VK_API_VERSION_1_2 },
+		{ VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME,               VK_API_VERSION_1_2 },
+		{ VK_KHR_SHADER_FLOAT_CONTROLS_EXTENSION_NAME,             VK_API_VERSION_1_2 },
+		{ VK_KHR_SPIRV_1_4_EXTENSION_NAME,                         VK_API_VERSION_1_2 },
+	};
+
+	// OPTIONALS
+	static const VulkanExtensionInfo OPT_CALIBRATED_TIMESTAMPS_EXTENSION = { VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME, VK_NOT_CORE        };
+	static const VulkanExtensionInfo OPT_INDIRECT_COUNT_EXTENSION        = { VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME  , VK_API_VERSION_1_2 };
 
 	// Checks whether a specific single extension is supported by the physical device
 	static bool IsExtensionSupported(VkPhysicalDevice device, const char* extensionName)
@@ -81,11 +97,24 @@ namespace PHX
 		return false;
 	}
 
-	static bool SupportsAllExtensions(VkPhysicalDevice device, const std::vector<const char*>& extensions)
+	// Returns true if the extension is available in the provided API version
+	static bool IsExtensionInCore(const VulkanExtensionInfo& extension, u32 apiVersion)
 	{
-		for (const char* extension : extensions)
+		return (extension.promotedToCore != VK_NOT_CORE && apiVersion >= extension.promotedToCore);
+	}
+
+	// Returns true if all non-core extensions in the list are supported by the device.
+	// Core extensions are considered supported by default
+	static bool SupportsAllExtensions(VkPhysicalDevice device, const std::vector<VulkanExtensionInfo>& extensions, u32 apiVersion)
+	{
+		for (const auto& extension : extensions)
 		{
-			if (!IsExtensionSupported(device, extension))
+			if (IsExtensionInCore(extension, apiVersion))
+			{
+				continue;
+			}
+
+			if (!IsExtensionSupported(device, extension.name))
 			{
 				return false;
 			}
@@ -93,9 +122,40 @@ namespace PHX
 		return true;
 	}
 
-	static bool CheckRayTracingExtensionSupport(VkPhysicalDevice device)
+	// Collects extension names that need to be explicitly enabled
+	static std::vector<const char*> CollectExtensionsToEnable(VkPhysicalDevice device, const std::vector<VulkanExtensionInfo>& extensions, u32 apiVersion)
 	{
-		if (!SupportsAllExtensions(device, rayTracingExtensions))
+		std::vector<const char*> result;
+		for (const auto& extension : extensions)
+		{
+			if (IsExtensionInCore(extension, apiVersion))
+			{
+				continue;
+			}
+
+			if (IsExtensionSupported(device, extension.name))
+			{
+				result.push_back(extension.name);
+			}
+		}
+		return result;
+	}
+
+	// Returns true if the extension's functionality is available either through core
+	// Vulkan or through extension support on the device.
+	static bool IsFeatureAvailable(VkPhysicalDevice device, const VulkanExtensionInfo& ext, u32 apiVersion)
+	{
+		if (IsExtensionInCore(ext, apiVersion))
+		{
+			return true;
+		}
+
+		return IsExtensionSupported(device, ext.name);
+	}
+
+	static bool CheckRayTracingExtensionSupport(VkPhysicalDevice device, u32 apiVersion)
+	{
+		if (!SupportsAllExtensions(device, RAY_TRACING_EXTENSIONS, apiVersion))
 		{
 			return false;
 		}
@@ -122,8 +182,10 @@ namespace PHX
 
 	static bool IsDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface)
 	{
+		const u32 apiVersion = CoreVk::Get().GetAPIVersion();
+
 		QueueFamilyIndices indices = FindQueueFamilies(device, surface);
-		bool allExtensionsSupported = SupportsAllExtensions(device, deviceExtensions);
+		bool allExtensionsSupported = SupportsAllExtensions(device, REQUIRED_EXTENSIONS, apiVersion);
 		bool swapChainAdequate = false;
 		if (allExtensionsSupported)
 		{
@@ -796,9 +858,7 @@ namespace PHX
 		for (u32 i = 0; i < static_cast<u32>(QUEUE_TYPE::COUNT); i++)
 		{
 			QUEUE_TYPE queueType = static_cast<QUEUE_TYPE>(i);
-
-			// PRESENT queues are not used for command recording
-			if (queueType == QUEUE_TYPE::PRESENT)
+			if (!CanProfileQueueType(queueType))
 			{
 				continue;
 			}
@@ -954,6 +1014,7 @@ namespace PHX
 	STATUS_CODE RenderDeviceVk::CreateLogicalDevice(VkSurfaceKHR surface)
 	{
 		VkPhysicalDevice physicalDevice = GetPhysicalDevice();
+		const u32 apiVersion = CoreVk::Get().GetAPIVersion();
 
 		QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
 		if (!indices.IsComplete())
@@ -971,7 +1032,7 @@ namespace PHX
 		LogInfo("Checking feature support:");
 
 		// Check ray-tracing support
-		m_rayTracingSupported = CheckRayTracingExtensionSupport(physicalDevice);
+		m_rayTracingSupported = CheckRayTracingExtensionSupport(physicalDevice, apiVersion);
 		if (m_rayTracingSupported)
 		{
 			m_rayTracingPipelineProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR;
@@ -1033,7 +1094,6 @@ namespace PHX
 		{
 			LogWarning("Timestamp queries are not supported on this device!");
 		}
-#pragma endregion
 		
 		// Figure out, per unique family, how many distinct queue indices we actually need to
 		// request (some QUEUE_TYPEs may share both a family AND a queue index, e.g. GRAPHICS/COMPUTE,
@@ -1098,40 +1158,53 @@ namespace PHX
 		deviceFeatures.features.tessellationShader = VK_TRUE;
 		deviceFeatures.features.fillModeNonSolid = VK_TRUE;
 
-		std::vector<const char*> enabledExtensions = deviceExtensions;
+		std::vector<const char*> enabledExtensions = CollectExtensionsToEnable(physicalDevice, REQUIRED_EXTENSIONS, apiVersion);
 		if (m_rayTracingSupported)
 		{
-			enabledExtensions.insert(enabledExtensions.end(), rayTracingExtensions.begin(), rayTracingExtensions.end());
+			std::vector<const char*> rtExtensions = CollectExtensionsToEnable(physicalDevice, RAY_TRACING_EXTENSIONS, apiVersion);
+			enabledExtensions.insert(enabledExtensions.end(), rtExtensions.begin(), rtExtensions.end());
 
 			bdaFeatures.bufferDeviceAddress = VK_TRUE;
 			asFeatures.accelerationStructure = VK_TRUE;
 			rtpFeatures.rayTracingPipeline = VK_TRUE;
 		}
 
-		// Optionally enable VK_KHR_draw_indirect_count for GPU-driven indirect draws
-		m_drawIndirectCountSupported = IsExtensionSupported(physicalDevice, VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
-		if (m_drawIndirectCountSupported)
+		// Optionally enable VK_KHR_draw_indirect_count for GPU-driven indirect draws.
+		// Promoted to core in Vulkan 1.2.
 		{
-			LogInfo("Draw indirect count is supported on this device");
-			enabledExtensions.push_back(VK_KHR_DRAW_INDIRECT_COUNT_EXTENSION_NAME);
-		}
-		else
-		{
-			LogWarning("Draw indirect count is not supported on this device");
+			m_drawIndirectCountSupported = IsFeatureAvailable(physicalDevice, OPT_INDIRECT_COUNT_EXTENSION, apiVersion);
+			if (m_drawIndirectCountSupported)
+			{
+				LogInfo("\t- Draw indirect count is supported on this device");
+				if (!IsExtensionInCore(OPT_INDIRECT_COUNT_EXTENSION, apiVersion))
+				{
+					enabledExtensions.push_back(OPT_INDIRECT_COUNT_EXTENSION.name);
+				}
+			}
+			else
+			{
+				LogWarning("\t- Draw indirect count is not supported on this device");
+			}
 		}
 
-		// Optionally enable VK_EXT_calibrated_timestamps, which synchronizes 
+		// Optionally enable VK_EXT_calibrated_timestamps, which synchronizes
 		// CPU and GPU time domains for accurate GPU profiling timestamps
-		m_calibratedTimestampsSupported = IsExtensionSupported(physicalDevice, VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
-		if (m_calibratedTimestampsSupported)
 		{
-			LogInfo("Calibrated timestamps are supported on this device");
-			enabledExtensions.push_back(VK_EXT_CALIBRATED_TIMESTAMPS_EXTENSION_NAME);
+			m_calibratedTimestampsSupported = IsFeatureAvailable(physicalDevice, OPT_CALIBRATED_TIMESTAMPS_EXTENSION, apiVersion);
+			if (m_calibratedTimestampsSupported)
+			{
+				LogInfo("\t- Calibrated timestamps is supported on this device");
+				if (!IsExtensionInCore(OPT_CALIBRATED_TIMESTAMPS_EXTENSION, apiVersion))
+				{
+					enabledExtensions.push_back(OPT_CALIBRATED_TIMESTAMPS_EXTENSION.name);
+				}
+			}
+			else
+			{
+				LogWarning("\t- Calibrated timestamps is not supported on this device");
+			}
 		}
-		else
-		{
-			LogWarning("Calibrated timestamps are not supported on this device");
-		}
+#pragma endregion
 
 		VkDeviceCreateInfo createInfo{};
 		createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -1148,6 +1221,8 @@ namespace PHX
 			LogError("Failed to create the logical device! Got error: \"%s\"", string_VkResult(res));
 			return STATUS_CODE::ERR_INTERNAL;
 		}
+
+		DEBUG_UTILS::SetObjectName(m_logicalDevice, VK_OBJECT_TYPE_DEVICE, reinterpret_cast<uint64_t>(m_logicalDevice), "LogicalDevice");
 
 		// Load draw indirect count function pointer if the extension is enabled. Core on Vulkan 1.2
 		if (m_drawIndirectCountSupported)
@@ -1250,6 +1325,8 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
+		DEBUG_UTILS::SetObjectName(m_logicalDevice, VK_OBJECT_TYPE_DESCRIPTOR_POOL, reinterpret_cast<uint64_t>(m_descriptorPool), "DescriptorPool");
+
 		return STATUS_CODE::SUCCESS;
 	}
 
@@ -1271,6 +1348,8 @@ namespace PHX
 
 		// All queries must be reset once after pool creation before their first use
 		ResetQueryPool(0, queryPoolCI.queryCount);
+
+		DEBUG_UTILS::SetObjectName(m_logicalDevice, VK_OBJECT_TYPE_QUERY_POOL, reinterpret_cast<uint64_t>(m_queryPool), "QueryPool");
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -1326,7 +1405,12 @@ namespace PHX
 				LogError("Failed to create command pool of type %u for frame %u! Got error: \"%s\"", static_cast<u32>(type), i, string_VkResult(res));
 				return STATUS_CODE::ERR_INTERNAL;
 			}
+
+			char cmdPoolName[64];
+			snprintf(cmdPoolName, sizeof(cmdPoolName), "CommandPool_%s_%u", GetQueueTypeName(type), i);
+			DEBUG_UTILS::SetObjectName(m_logicalDevice, VK_OBJECT_TYPE_COMMAND_POOL, reinterpret_cast<uint64_t>(pools[i]), cmdPoolName);
 		}
+
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -1363,6 +1447,10 @@ namespace PHX
 				return STATUS_CODE::ERR_INTERNAL;
 			}
 
+			char semaphoreName[64];
+			snprintf(semaphoreName, sizeof(semaphoreName), "ImageAvailableSemaphore_%u", i);
+			DEBUG_UTILS::SetObjectName(m_logicalDevice, VK_OBJECT_TYPE_SEMAPHORE, reinterpret_cast<uint64_t>(m_imageAvailableSemaphores[i]), semaphoreName);
+
 			// PER-QUEUE FENCES
 			for (u32 queueIndex = 0; queueIndex < static_cast<u32>(QUEUE_TYPE::COUNT); queueIndex++)
 			{
@@ -1378,6 +1466,10 @@ namespace PHX
 					LogError("Failed to create queue fence! Got error: \"%s\"", string_VkResult(res));
 					return STATUS_CODE::ERR_INTERNAL;
 				}
+
+				char fenceName[64];
+				snprintf(fenceName, sizeof(fenceName), "QueueFence_%s_%u", GetQueueTypeName(queueType), i);
+				DEBUG_UTILS::SetObjectName(m_logicalDevice, VK_OBJECT_TYPE_FENCE, reinterpret_cast<uint64_t>(m_queueFences[queueIndex][i]), fenceName);
 			}
 		}
 

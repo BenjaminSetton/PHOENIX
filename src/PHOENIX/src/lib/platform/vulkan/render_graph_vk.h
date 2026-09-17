@@ -210,7 +210,7 @@ namespace PHX
 		void CallExecutionCallback(const RenderPassVk& renderPass, const DeviceContextHandle& deviceContext);
 
 		void WriteBeginTimestamp(DeviceContextVk* pDeviceContext, const RenderPassVk& renderPass);
-		void WriteEndTimestamp(DeviceContextVk* pDeviceContext, const RenderPassVk& renderPass);
+		void WriteEndTimestamp(DeviceContextVk* pDeviceContext);
 
 		// Reads back the timestamp queries submitted last frame and resolves them into
 		// time taken in milliseconds for each pass

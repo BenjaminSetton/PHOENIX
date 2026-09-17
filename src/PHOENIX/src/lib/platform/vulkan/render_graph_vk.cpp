@@ -818,7 +818,7 @@ namespace PHX
 				// Reset the timestamp index since we've wrapped around the frames in flight
 				m_lastTimestampIndex = 0;
 			}
-			pDeviceContext->SetBaseQueryIndex(m_lastTimestampIndex);
+			pDeviceContext->SetBaseQueryIndex(m_lastTimestampIndex + 1);
 		}
 
 		m_didExecuteWork = false;
@@ -954,8 +954,8 @@ namespace PHX
 				pDeviceContext->BeginLabel(passQueueType, currRenderPass.m_name);
 			}
 
-			bool submissionBatchEnsured = pDeviceContext->EnsureSubmissionBatch(ConvertPassTypeToQueueType(currRenderPass.m_passType), currRenderPass.m_name);
-			ASSERT_MSG(submissionBatchEnsured, "Failed to ensure submission batch");
+			// NOTE - This is a kinda hacky way to pre-create a command buffer of a given queue type
+			pDeviceContext->EnsureSubmissionBatch(ConvertPassTypeToQueueType(currRenderPass.m_passType));
 
 			switch (currRenderPass.m_passType)
 			{
@@ -1011,7 +1011,7 @@ namespace PHX
 						pDeviceContext->ResetContextualPipeline();
 					}
 
-					WriteEndTimestamp(pDeviceContext, currRenderPass);
+					WriteEndTimestamp(pDeviceContext);
 
 					res = pDeviceContext->EndRenderPass();
 					if (res != STATUS_CODE::SUCCESS)
@@ -1039,7 +1039,7 @@ namespace PHX
 					CallExecutionCallback(currRenderPass, deviceContext);
 					pDeviceContext->ResetContextualPipeline();
 
-					WriteEndTimestamp(pDeviceContext, currRenderPass);
+					WriteEndTimestamp(pDeviceContext);
 
 					break;
 				}
@@ -2505,6 +2505,10 @@ namespace PHX
 	{
 		PROFILE_SCOPE("RenderGraphVk_WriteBeginTimestamp");
 
+		// Begin GPU zone
+		pDeviceContext->BeginZoneScope(renderPass.m_name);
+
+		// Begin CPU zone
 		if (GetSettings().gatherMetrics)
 		{
 			u32 timestampIndex = U32_MAX;
@@ -2516,7 +2520,7 @@ namespace PHX
 
 				// Copy the pass name because it'll outlive the current frame
 				const char* passName = renderPass.m_name;
-				strncpy(newQuery.renderPassName, passName, MAX_PASS_NAME_LEN - 1);
+				strncpy_s(newQuery.renderPassName, passName, MAX_PASS_NAME_LEN - 1);
 				newQuery.renderPassName[MAX_PASS_NAME_LEN - 1] = '\0'; // Null-terminate in case it overflows char buffer
 
 				m_pendingTimestamps.push_back(newQuery);
@@ -2526,10 +2530,14 @@ namespace PHX
 		}
 	}
 
-	void RenderGraphVk::WriteEndTimestamp(DeviceContextVk* pDeviceContext, const RenderPassVk& renderPass)
+	void RenderGraphVk::WriteEndTimestamp(DeviceContextVk* pDeviceContext)
 	{
 		PROFILE_SCOPE("RenderGraphVk_WriteEndTimestamp");
 
+		// End GPU zone
+		pDeviceContext->EndZoneScope();
+
+		// End CPU zone
 		if (GetSettings().gatherMetrics)
 		{
 			u32 timestampIndex = U32_MAX;

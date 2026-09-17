@@ -227,5 +227,23 @@ namespace PHX
 		ASSERT_ALWAYS("Failed to get name for queue type. Unexpected value!");
 		return "Unknown";
 	}
+
+	bool CanProfileQueueType(QUEUE_TYPE type)
+	{
+		switch (type)
+		{
+		case QUEUE_TYPE::GRAPHICS:
+		case QUEUE_TYPE::COMPUTE:
+		{
+			return true;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		return false;
+	}
 }
 

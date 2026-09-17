@@ -11,10 +11,8 @@
 #include "utils/staging_buffer_pool.h"
 
 #if defined(PROFILER_TRACY)
-namespace tracy
-{
-	class VkCtx;
-}
+#include <optional>
+#include "profiling_vk.h"
 #endif
 
 namespace PHX
@@ -36,6 +34,7 @@ namespace PHX
 	struct SubmissionBatch
 	{
 		QUEUE_TYPE queueType       = QUEUE_TYPE::GRAPHICS;
+		u32 queueFamilyIndex       = QueueFamilyIndices::INVALID_INDEX;
 		u32 queueIndex             = QueueFamilyIndices::INVALID_INDEX;
 		VkCommandBuffer cmdBuffer  = VK_NULL_HANDLE;
 	};
@@ -71,7 +70,13 @@ namespace PHX
 
 		// Ensures a submission batch for the provided queue type is created in advance. This is used
 		// for calls that use the last submission batch (e.g. WriteBeginTimestamp, WriteEndTimestamp)
-		bool EnsureSubmissionBatch(QUEUE_TYPE type, const char* passName);
+		void EnsureSubmissionBatch(QUEUE_TYPE type);
+
+		// Begins/ends a Tracy GPU zone spanning the current render pass. The zone is recorded
+		// into the last submission batch's command buffer using the Tracy context for that
+		// queue type. Must be called after EnsureSubmissionBatch and before the batch is flushed
+		void BeginZoneScope(const char* name);
+		void EndZoneScope();
 
 		void SetMetricsPointer(Metrics* pMetrics) override;
 		void ResetMetricsPointer() override;
@@ -208,5 +213,10 @@ namespace PHX
 
 		// Non-owning, nullable
 		Metrics* m_pMetrics;
+
+#if defined(PROFILER_TRACY)
+		// In-place storage for a Tracy GPU zone spanning the current render pass
+		std::optional<tracy::VkCtxScope> m_zoneScope;
+#endif
 	};
 }

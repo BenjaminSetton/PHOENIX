@@ -1,7 +1,8 @@
 
-#include "swap_chain_helpers.h"
+#include "swap_chain_utils.h"
 
 #include "BSL/integral_types.h"
+#include "BSL/sanity.h"
 
 namespace PHX
 {
@@ -29,5 +30,19 @@ namespace PHX
 		}
 
 		return details;
+	}
+
+	VkPresentModeKHR ConvertPresentMode(PRESENT_MODE presentMode)
+	{
+		switch (presentMode)
+		{
+		case PRESENT_MODE::FIFO:         return VK_PRESENT_MODE_FIFO_KHR;
+		case PRESENT_MODE::FIFO_RELAXED: return VK_PRESENT_MODE_FIFO_RELAXED_KHR;
+		case PRESENT_MODE::MAILBOX:      return VK_PRESENT_MODE_MAILBOX_KHR;
+		case PRESENT_MODE::IMMEDIATE:    return VK_PRESENT_MODE_IMMEDIATE_KHR;
+		}
+
+		ASSERT_ALWAYS("Could not convert present mode to VkPresentModeKHR. Unknown present mode!");
+		return VK_PRESENT_MODE_FIFO_KHR;
 	}
 }

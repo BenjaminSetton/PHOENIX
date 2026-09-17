@@ -119,7 +119,7 @@ namespace PHX
 
 #if defined(PROFILER_TRACY)
 		// Returns the Tracy Vulkan context for the given queue type, or nullptr if no context
-		// was created for that queue (e.g. PRESENT queues)
+		// was created for that queue (e.g. PRESENT/TRANSFER queues)
 		tracy::VkCtx* GetTracyContext(QUEUE_TYPE type) const;
 #endif
 

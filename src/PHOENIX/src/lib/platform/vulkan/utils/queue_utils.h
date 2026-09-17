@@ -46,4 +46,9 @@ namespace PHX
 	bool NeedsSynchronization(QUEUE_TYPE type);
 
 	const char* GetQueueTypeName(QUEUE_TYPE type);
+
+	// Returns true if the queue type can be profiled. Only
+	// graphics and compute queue types can be profiled
+	TECHDEBT("Can we profile other operations like transfer/present as long as the queues support graphics and compute??");
+	bool CanProfileQueueType(QUEUE_TYPE type);
 }

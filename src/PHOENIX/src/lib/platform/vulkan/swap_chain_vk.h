@@ -36,7 +36,7 @@ namespace PHX
 
 	private:
 
-		STATUS_CODE CreateSwapChain(RenderDeviceVk* pRenderDevice, u32 width, u32 height, bool enableVSync);
+		STATUS_CODE CreateSwapChain(RenderDeviceVk* pRenderDevice, u32 width, u32 height, PRESENT_MODE presentMode);
 		STATUS_CODE CreateSwapChainImageViews(RenderDeviceVk* pRenderDevice, VkFormat imageFormat);
 		void DestroySwapChain();
 		bool IsValid() const;
@@ -53,7 +53,7 @@ namespace PHX
 		std::vector<TextureHandle> m_images;
 		u32 m_currImageIndex;
 		u32 m_imageCount;
-		bool m_isVSyncEnabled;
+		PRESENT_MODE m_presentMode;
 
 		std::vector<VkSemaphore> m_renderFinishedSemaphores;
 	};

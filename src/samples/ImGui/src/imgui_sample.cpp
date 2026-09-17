@@ -68,3 +68,8 @@ void ImGuiSample::InitSample()
 void ImGuiSample::ShutdownSample()
 {
 }
+
+void ImGuiSample::OverrideSettings(PHX::Settings& settings)
+{
+	settings.backendAPIMinorVersion = 0;
+}

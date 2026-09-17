@@ -2,9 +2,11 @@
 
 #if defined(PROFILER_TRACY)
 
-// Ignore "unreachable code" warnings
-//#pragma warning(disable: 4702)
+// [4702] Ignore "unreachable code" warnings
+#pragma warning(push)
+#pragma warning(disable: 4702)
 #include <tracy/TracyVulkan.hpp>
+#pragma warning(pop)
 
 #define PROFILE_VKCONTEXT_CREATE(physDevice, logDevice, queue, cmdBuffer) TracyVkContext(physDevice, logDevice, queue, cmdBuffer)
 #define PROFILE_VKCONTEXT_CREATE_CALIBRATED(physDevice, logDevice, queue, cmdBuffer, gpdctd, gct) TracyVkContextCalibrated(physDevice, logDevice, queue, cmdBuffer, gpdctd, gct)

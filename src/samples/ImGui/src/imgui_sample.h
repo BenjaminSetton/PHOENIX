@@ -16,4 +16,6 @@ protected:
 	void InitSample() override;
 	void ShutdownSample() override;
 	void UpdateSample(float dt) override;
+
+	void OverrideSettings(PHX::Settings& settings) override;
 };

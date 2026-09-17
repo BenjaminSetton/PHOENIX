@@ -31,6 +31,9 @@ namespace PHX
 		CoreVk();
 		~CoreVk();
 
+		// Returns the maximum Vulkan version supported by the installed loader
+		u32 GetMaxLoaderVersion();
+
 		STATUS_CODE CreateInstance(bool enableValidationLayers);
 		STATUS_CODE CreateSurface(WindowHandle window);
 

@@ -118,8 +118,24 @@ namespace PHX
 
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
-		// Set the API version
-		m_apiVersion = VK_MAKE_API_VERSION(0, settings.backendAPIMajorVersion, settings.backendAPIMinorVersion, 0);
+		const u32 maxLoaderVersion = GetMaxLoaderVersion();
+		const u32 requestedVersion = VK_MAKE_API_VERSION(0, settings.backendAPIMajorVersion, settings.backendAPIMinorVersion, 0);
+
+		LogInfo("Loader supports Vulkan %u.%u.%u. Application requires at least %u.%u.0",
+			VK_API_VERSION_MAJOR(maxLoaderVersion), VK_API_VERSION_MINOR(maxLoaderVersion), VK_API_VERSION_PATCH(maxLoaderVersion),
+			settings.backendAPIMajorVersion, settings.backendAPIMinorVersion);
+
+		// Ensure the client's minimum Vulkan version is supported by the loader, otherwise core functionality
+		// used by the application may not be available
+		if (maxLoaderVersion < requestedVersion)
+		{
+			LogError("The installed Vulkan loader only supports version %u.%u but the application requires at least %u.%u!",
+				VK_API_VERSION_MAJOR(maxLoaderVersion), VK_API_VERSION_MINOR(maxLoaderVersion),
+				settings.backendAPIMajorVersion, settings.backendAPIMinorVersion);
+			return STATUS_CODE::ERR_INTERNAL;
+		}
+
+		m_apiVersion = requestedVersion;
 
 		res = CreateInstance(settings.enableValidation);
 		if (res != STATUS_CODE::SUCCESS)
@@ -161,6 +177,23 @@ namespace PHX
 	{
 		DestroySurface();
 		DestroyInstance();
+	}
+
+	u32 CoreVk::GetMaxLoaderVersion()
+	{
+		// Check if the enumerateInstanceVersion function exists first. It's valid for it to be null, in which case the API version is the base 1.0
+		u32 loaderVersion = VK_API_VERSION_1_0;
+		PFN_vkEnumerateInstanceVersion pfnEnumerateInstanceVersion = reinterpret_cast<PFN_vkEnumerateInstanceVersion>(vkGetInstanceProcAddr(VK_NULL_HANDLE, "vkEnumerateInstanceVersion"));
+		if (pfnEnumerateInstanceVersion != nullptr)
+		{
+			if (pfnEnumerateInstanceVersion(&loaderVersion) != VK_SUCCESS)
+			{
+				LogWarning("Failed to query the loader's maximum supported version! Defaulting to Vulkan 1.0");
+				loaderVersion = VK_API_VERSION_1_0;
+			}
+		}
+
+		return loaderVersion;
 	}
 
 	STATUS_CODE CoreVk::CreateInstance(bool enableValidationLayers)

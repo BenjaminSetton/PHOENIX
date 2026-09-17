@@ -6,6 +6,7 @@
 #include "../render_device_vk.h"
 #include "BSL/logger.h"
 #include "core/core_object_manager.h"
+#include "core/profiling.h"
 #include "utils/cache_utils.h"
 
 using namespace BSL;
@@ -232,20 +233,16 @@ namespace PHX
 	// GRAPHICS
 	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, VkRenderPass renderPass, const GraphicsPipelineDesc& desc)
 	{
-		PipelineVk* res = nullptr;
-
-		auto iter = m_graphicsPipelineCache.find(desc);
-		if (iter == m_graphicsPipelineCache.end())
+		PipelineVk* res = Find(desc);
+		if (res == nullptr)
 		{
+			PROFILE_SCOPE("PipelineCache_NewGraphicsPipeline");
+
 			PipelineVk* newPipeline = new PipelineVk(pRenderDevice, m_vkCache, renderPass, desc);
 			m_graphicsPipelineCache.insert({desc, newPipeline});
 			res = newPipeline;
 
 			LogDebug("Graphics pipeline added to cache. New cache size: %u", m_graphicsPipelineCache.size());
-		}
-		else
-		{
-			res = iter->second;
 		}
 
 		return res;
@@ -253,6 +250,8 @@ namespace PHX
 
 	PipelineVk* PipelineCache::Find(const GraphicsPipelineDesc& desc)
 	{
+		PROFILE_SCOPE("PipelineCache_FindGraphicsPipeline");
+
 		auto iter = m_graphicsPipelineCache.find(desc);
 		if (iter != m_graphicsPipelineCache.end())
 		{
@@ -275,20 +274,16 @@ namespace PHX
 	// COMPUTE
 	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, const ComputePipelineDesc& desc)
 	{
-		PipelineVk* res = nullptr;
-
-		auto iter = m_computePipelineCache.find(desc);
-		if (iter == m_computePipelineCache.end())
+		PipelineVk* res = Find(desc);
+		if (res == nullptr)
 		{
+			PROFILE_SCOPE("PipelineCache_NewComputePipeline");
+
 			PipelineVk* newPipeline = new PipelineVk(pRenderDevice, m_vkCache, desc);
 			m_computePipelineCache.insert({ desc, newPipeline });
 			res = newPipeline;
 
 			LogDebug("Compute pipeline added to cache. New cache size: %u", m_computePipelineCache.size());
-		}
-		else
-		{
-			res = iter->second;
 		}
 
 		return res;
@@ -296,6 +291,8 @@ namespace PHX
 
 	PipelineVk* PipelineCache::Find(const ComputePipelineDesc& desc)
 	{
+		PROFILE_SCOPE("PipelineCache_FindComputePipeline");
+
 		auto iter = m_computePipelineCache.find(desc);
 		if (iter != m_computePipelineCache.end())
 		{
@@ -318,20 +315,16 @@ namespace PHX
 	// RAY TRACING
 	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, const RayTracingPipelineDesc& desc)
 	{
-		PipelineVk* res = nullptr;
-
-		auto iter = m_rayTracingPipelineCache.find(desc);
-		if (iter == m_rayTracingPipelineCache.end())
+		PipelineVk* res = Find(desc);
+		if (res == nullptr)
 		{
+			PROFILE_SCOPE("PipelineCache_NewRayTracingPipeline");
+
 			PipelineVk* newPipeline = new PipelineVk(pRenderDevice, m_vkCache, desc);
 			m_rayTracingPipelineCache.insert({ desc, newPipeline });
 			res = newPipeline;
 
 			LogDebug("Ray tracing pipeline added to cache. New cache size: %u", m_rayTracingPipelineCache.size());
-		}
-		else
-		{
-			res = iter->second;
 		}
 
 		return res;
@@ -339,6 +332,8 @@ namespace PHX
 
 	PipelineVk* PipelineCache::Find(const RayTracingPipelineDesc& desc)
 	{
+		PROFILE_SCOPE("PipelineCache_NewRayTracingPipeline");
+
 		auto iter = m_rayTracingPipelineCache.find(desc);
 		if (iter != m_rayTracingPipelineCache.end())
 		{

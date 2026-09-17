@@ -2,7 +2,6 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
-//#include <iostream>
 
 #include "base_sample.h"
 #include "BSL/logger.h"
@@ -64,7 +63,7 @@ namespace Common
 		settings.backendAPIMinorVersion = 1;
 		settings.logCallback = nullptr;
 
-		settings.enableValidation = false; // TODO - Add DEBUG project define for samples and guard this setting based on that
+		settings.enableValidation = true; // TODO - Add DEBUG project define for samples and guard this setting based on that
 		settings.swapChainOutdatedCallback = OnSwapChainOutdatedCallback;
 		settings.windowFocusChangedCallback = OnWindowFocusChangedCallback;
 		settings.windowMaximizedCallback = OnWindowMaximizedCallback;
@@ -303,7 +302,7 @@ namespace Common
 	void BaseSample::CreateSwapChain()
 	{
 		SwapChainCreateInfo swapChainCI{};
-		swapChainCI.enableVSync = false;
+		swapChainCI.presentMode = PRESENT_MODE::IMMEDIATE;
 		swapChainCI.width = m_window.GetCurrentWidth();
 		swapChainCI.height = m_window.GetCurrentHeight();
 

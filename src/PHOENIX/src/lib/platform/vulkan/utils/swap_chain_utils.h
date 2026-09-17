@@ -3,10 +3,8 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
-///
-/// Contains swap chain helper functions/types that must be called from more than one place.
-/// For example, the render device and the swap chain implementations must call QuerySwapChainSupport()
-/// 
+#include "PHX/interface/swap_chain.h"
+
 namespace PHX
 {
 	struct SwapChainSupportDetails
@@ -17,4 +15,6 @@ namespace PHX
 	};
 
 	SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device, VkSurfaceKHR surface);
+
+	VkPresentModeKHR ConvertPresentMode(PRESENT_MODE presentMode);
 }

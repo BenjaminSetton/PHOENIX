@@ -1,4 +1,5 @@
 
+#include <algorithm>
 #include <vector>
 #include <vulkan/vk_enum_string_helper.h>
 
@@ -11,7 +12,7 @@
 #include "core/profiling.h"
 #include "core_vk.h"
 #include "PHX/types/queue_type.h"
-#include "utils/swap_chain_helpers.h"
+#include "utils/swap_chain_utils.h"
 #include "utils/texture_type_converter.h"
 #include "utils/debug_utils.h"
 
@@ -40,42 +41,53 @@ namespace PHX
 		return {};
 	}
 
-	static VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes, bool enableVSync)
+	static bool IsPresentModeSupported(const std::vector<VkPresentModeKHR>& availablePresentModes, VkPresentModeKHR presentMode)
 	{
-		bool mailboxValid = false;
-		bool fifoValid = false;
-		for (const auto& presentMode : availablePresentModes)
+		return std::find(availablePresentModes.begin(), availablePresentModes.end(), presentMode) != availablePresentModes.end();
+	}
+
+	static VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes, PRESENT_MODE requested)
+	{
+		VkPresentModeKHR requestedVkMode = ConvertPresentMode(requested);
+
+		std::vector<VkPresentModeKHR> candidates;
+		switch (requested)
 		{
-			if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+		case PRESENT_MODE::IMMEDIATE:
+			candidates = { VK_PRESENT_MODE_IMMEDIATE_KHR, VK_PRESENT_MODE_FIFO_RELAXED_KHR, VK_PRESENT_MODE_FIFO_KHR };
+			break;
+		case PRESENT_MODE::MAILBOX:
+			candidates = { VK_PRESENT_MODE_MAILBOX_KHR, VK_PRESENT_MODE_FIFO_KHR };
+			break;
+		case PRESENT_MODE::FIFO_RELAXED:
+			candidates = { VK_PRESENT_MODE_FIFO_RELAXED_KHR, VK_PRESENT_MODE_FIFO_KHR };
+			break;
+		case PRESENT_MODE::FIFO:
+			candidates = { VK_PRESENT_MODE_FIFO_KHR };
+			break;
+		}
+
+		for (VkPresentModeKHR candidate : candidates)
+		{
+			if (IsPresentModeSupported(availablePresentModes, candidate))
 			{
-				mailboxValid = true;
-			}
-			else if (presentMode == VK_PRESENT_MODE_FIFO_KHR)
-			{
-				fifoValid = true;
+				// Pick the first supported mode, even if it's not the requested one
+				if (candidate == requestedVkMode)
+				{
+					LogInfo("Selected swap chain present mode \"%s\"", string_VkPresentModeKHR(candidate));
+				}
+				else
+				{
+					LogWarning("Requested swap chain present mode \"%s\" is not supported, falling back to \"%s\"",
+						string_VkPresentModeKHR(requestedVkMode), string_VkPresentModeKHR(candidate));
+				}
+				return candidate;
 			}
 		}
 
-		if (enableVSync)
-		{
-			if (fifoValid)
-			{
-				LogInfo("Selected swap chain FIFO present mode");
-				return VK_PRESENT_MODE_FIFO_KHR;
-			}
-		}
-		else
-		{
-			if (mailboxValid)
-			{
-				LogInfo("Selected swap chain mailbox present mode");
-				return VK_PRESENT_MODE_MAILBOX_KHR;
-			}
-		}
-
-		// Default to immediate presentation (is this guaranteed to be available?)
-		LogInfo("Defaulted to swap chain immediate mode presentation");
-		return VK_PRESENT_MODE_IMMEDIATE_KHR;
+		// FIFO is guaranteed by the spec; if even that's missing just return it anyway and let validation complain
+		ASSERT_ALWAYS("FIFO present mode is not supported by this device! This should never happen");
+		return VK_PRESENT_MODE_FIFO_KHR;
 	}
 
 	static VkExtent2D ChooseSwapChainExtent(const VkSurfaceCapabilitiesKHR& capabilities, u32 width, u32 height)
@@ -103,14 +115,14 @@ namespace PHX
 			return;
 		}
 
-		STATUS_CODE res = CreateSwapChain(pRenderDevice, createInfo.width, createInfo.height, createInfo.enableVSync);
+		STATUS_CODE res = CreateSwapChain(pRenderDevice, createInfo.width, createInfo.height, createInfo.presentMode);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			return;
 		}
 
 		m_renderDevice = pRenderDevice;
-		m_isVSyncEnabled = createInfo.enableVSync;
+		m_presentMode = createInfo.presentMode;
 	}
 
 	SwapChainVk::~SwapChainVk()
@@ -181,7 +193,7 @@ namespace PHX
 		// Invalidate the old swapchain framebuffers which are still stored in the render device's framebuffer cache
 		m_renderDevice->InvalidateBackbufferFramebuffers();
 
-		STATUS_CODE res = CreateSwapChain(m_renderDevice, newWidth, newHeight, m_isVSyncEnabled);
+		STATUS_CODE res = CreateSwapChain(m_renderDevice, newWidth, newHeight, m_presentMode);
 		if (res != STATUS_CODE::SUCCESS)
 		{
 			LogError("Failed to resize swap chain!");
@@ -237,7 +249,7 @@ namespace PHX
 		return static_cast<u32>(m_images.size());
 	}
 
-	STATUS_CODE SwapChainVk::CreateSwapChain(RenderDeviceVk* pRenderDevice, u32 width, u32 height, bool enableVSync)
+	STATUS_CODE SwapChainVk::CreateSwapChain(RenderDeviceVk* pRenderDevice, u32 width, u32 height, PRESENT_MODE presentMode)
 	{
 		// Clean up old swap chain data if necessary. This can happen when swap chain has already been created but
 		// needs to be resized because the window dimensions changed
@@ -253,7 +265,7 @@ namespace PHX
 
 		SwapChainSupportDetails details = QuerySwapChainSupport(physicalDevice, surface);
 		VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(details.formats);
-		VkPresentModeKHR presentMode = ChooseSwapPresentMode(details.presentModes, enableVSync);
+		VkPresentModeKHR vkPresentMode = ChooseSwapPresentMode(details.presentModes, presentMode);
 		VkExtent2D extent = ChooseSwapChainExtent(details.capabilities, width, height);
 
 		// Warn when we cannot use specified dimensions
@@ -263,7 +275,10 @@ namespace PHX
 				width, height, extent.width, extent.height);
 		}
 
-		uint32_t imageCount = details.capabilities.minImageCount + 1;
+		// Mailbox needs an extra image, on top of the +1 above the minimum, so the compositor (e.g. DWM in windowed mode) 
+		// holding one doesn't stall the acquireImage call
+		const bool requiresExtraImage = (vkPresentMode == VK_PRESENT_MODE_MAILBOX_KHR);
+		u32 imageCount = details.capabilities.minImageCount + (requiresExtraImage ? 2 : 1);
 		if (details.capabilities.maxImageCount > 0 && imageCount > details.capabilities.maxImageCount)
 		{
 			imageCount = details.capabilities.maxImageCount;
@@ -300,7 +315,7 @@ namespace PHX
 
 		createInfo.preTransform = details.capabilities.currentTransform;
 		createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
-		createInfo.presentMode = presentMode;
+		createInfo.presentMode = vkPresentMode;
 		createInfo.clipped = VK_TRUE;
 		createInfo.oldSwapchain = VK_NULL_HANDLE;
 

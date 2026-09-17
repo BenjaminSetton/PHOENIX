@@ -54,6 +54,10 @@ namespace PHX
 
 	DeviceContextVk::~DeviceContextVk()
 	{
+#if defined(PROFILER_TRACY)
+		m_zoneScope.reset();
+#endif
+
 		DeallocateCommandBuffers();
 		DestroyChainSemaphores();
 		m_stagingPool.Destroy();
@@ -762,8 +766,10 @@ namespace PHX
 
 #if defined(PROFILER_TRACY)
 			tracy::VkCtx* pTracyCtx = m_pRenderDevice->GetTracyContext(QUEUE_TYPE::TRANSFER);
-			ASSERT_PTR(pTracyCtx);
-			PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "CopyDataToBuffer");
+			if (pTracyCtx != nullptr)
+			{
+				PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "CopyDataToBuffer");
+			}
 #endif
 
 			memcpy(stagingAlloc.mappedData, data, sizeBytes);
@@ -815,8 +821,10 @@ namespace PHX
 
 #if defined(PROFILER_TRACY)
 		tracy::VkCtx* pTracyCtx = m_pRenderDevice->GetTracyContext(QUEUE_TYPE::TRANSFER);
-		ASSERT_PTR(pTracyCtx);
-		PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "CopyDataToTexture");
+		if (pTracyCtx != nullptr)
+		{
+			PROFILE_VK_ZONE(pTracyCtx, cmdBuffer, "CopyDataToTexture");
+		}
 #endif
 
 		// Sub-allocate from staging pool and copy data
@@ -851,23 +859,49 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
-	bool DeviceContextVk::EnsureSubmissionBatch(QUEUE_TYPE type, const char* passName)
+	void DeviceContextVk::EnsureSubmissionBatch(QUEUE_TYPE type)
 	{
 		// Ensure submission batch is created through command buffer creation. If a submission batch
 		// does not exist for the provided queue type it will be created here and subsequent
 		// calls will simply get their data from the cache
 		VkCommandBuffer cmdBuffer;
-		STATUS_CODE res = GetOrCreateCommandBuffer(type, cmdBuffer);
+		GetOrCreateCommandBuffer(type, cmdBuffer);
+	}
 
+	void DeviceContextVk::BeginZoneScope(const char* name)
+	{
 #if defined(PROFILER_TRACY)
-		tracy::VkCtx* pTracyContext = m_pRenderDevice->GetTracyContext(type);
-		if (pTracyContext != nullptr && cmdBuffer != VK_NULL_HANDLE)
-		{
-			PROFILE_VK_ZONE(pTracyContext, cmdBuffer, "Test");
-		}
-#endif
+		ASSERT_MSG(!m_zoneScope.has_value(), "BeginZoneScope called while a GPU zone is already active. Did you forget to call EndZoneScope?");
 
-		return (res == STATUS_CODE::SUCCESS);
+		if (m_submissionBatches.empty())
+		{
+			return;
+		}
+
+		const SubmissionBatch& batch = m_submissionBatches.back();
+		tracy::VkCtx* pTracyCtx = m_pRenderDevice->GetTracyContext(batch.queueType);
+		if (pTracyCtx == nullptr || batch.cmdBuffer == VK_NULL_HANDLE)
+		{
+			return;
+		}
+
+		m_zoneScope.emplace(
+			pTracyCtx,
+			TracyLine, TracyFile, strlen(TracyFile),
+			TracyFunction, strlen(TracyFunction),
+			name, strlen(name),
+			batch.cmdBuffer, true
+		);
+#else
+		UNUSED(name);
+#endif
+	}
+
+	void DeviceContextVk::EndZoneScope()
+	{
+#if defined(PROFILER_TRACY)
+		m_zoneScope.reset();
+#endif
 	}
 
 	STATUS_CODE DeviceContextVk::BeginFrame(SwapChainVk* pSwapChain)
@@ -1276,14 +1310,18 @@ namespace PHX
 
 	bool DeviceContextVk::TryReuseActiveCommandBuffer(QUEUE_TYPE type, VkCommandBuffer& out_cmdBuffer)
 	{
+		const u32 queueFamilyIndex = m_pRenderDevice->GetQueueFamilyIndex(type);
 		const u32 queueIndex = m_pRenderDevice->GetQueueIndex(type);
 
 		TECHDEBT("Double check this logic");
 		if (!m_submissionBatches.empty())
 		{
-			// Reuse submission batches based on whether or not they're for the same queue
+			// Reuse submission batches using the following criteria:
+			// 1. Queue family index must match to ensure compatible queue capabilities (graphics, transfer, sparse bindings, etc)
+			// 2. Queue index must match to ensure correct synchronization
 			const SubmissionBatch& lastSubmissionBatch = m_submissionBatches.back();
-			if (lastSubmissionBatch.queueIndex == queueIndex)
+			if ((lastSubmissionBatch.queueFamilyIndex == queueFamilyIndex) &&
+				(lastSubmissionBatch.queueIndex == queueIndex))
 			{
 				out_cmdBuffer = lastSubmissionBatch.cmdBuffer;
 				return true;
@@ -1298,6 +1336,7 @@ namespace PHX
 		PROFILE_SCOPE("DeviceContextVk_AllocateCommandBuffer")
 
 		u32 queueType = static_cast<u32>(type);
+		u32 queueFamilyIndex = m_pRenderDevice->GetQueueFamilyIndex(type);
 		u32 queueIndex = m_pRenderDevice->GetQueueIndex(type);
 		VkDevice device = m_pRenderDevice->GetLogicalDevice();
 		VkCommandPool pool = m_pRenderDevice->GetCommandPool(type, m_assignedFrameIndex);
@@ -1339,6 +1378,7 @@ namespace PHX
 
 		SubmissionBatch newBatch{};
 		newBatch.queueType = type;
+		newBatch.queueFamilyIndex = queueFamilyIndex;
 		newBatch.queueIndex = queueIndex;
 		newBatch.cmdBuffer = out_cmdBuffer;
 		m_submissionBatches.push_back(newBatch);
@@ -1483,12 +1523,15 @@ namespace PHX
 
 #if defined(PROFILER_TRACY)
 		// Collect must be called while the command buffer is still recording
-		tracy::VkCtx* pTracyCtx = m_pRenderDevice->GetTracyContext(queueType);
-		if (pTracyCtx != nullptr)
+		if (queueType == QUEUE_TYPE::GRAPHICS || queueType == QUEUE_TYPE::COMPUTE)
 		{
-			for (u32 i = 0; i < commandBufferCount; i++)
+			tracy::VkCtx* pTracyCtx = m_pRenderDevice->GetTracyContext(queueType);
+			if (pTracyCtx != nullptr)
 			{
-				PROFILE_VK_COLLECT(pTracyCtx, pCommandBuffers[i]);
+				for (u32 i = 0; i < commandBufferCount; i++)
+				{
+					PROFILE_VK_COLLECT(pTracyCtx, pCommandBuffers[i]);
+				}
 			}
 		}
 #endif
