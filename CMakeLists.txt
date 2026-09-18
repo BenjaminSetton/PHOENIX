@@ -7,9 +7,6 @@ option(PHX_BUILD_SAMPLES "Build PHOENIX sample apps" OFF)
 # ---------------------------------------------------------------------------
 # Configurations
 # ---------------------------------------------------------------------------
-# Only defined when PHOENIX is the top-level project. Consumers embedding via
-# add_subdirectory use their own configs and map them onto PHOENIX's via
-# PHX_CONFIG_MAP_<Config> (see Config mapping below).
 if(PROJECT_IS_TOP_LEVEL)
     set(CMAKE_CONFIGURATION_TYPES "Debug;Release;Sanitizer" CACHE STRING "" FORCE)
 
@@ -49,68 +46,49 @@ endif()
 string(TOLOWER "${CMAKE_SYSTEM_NAME}" PHX_SYSTEM_DIR)
 
 # ---------------------------------------------------------------------------
-# Config mapping
+# Config classification
 # ---------------------------------------------------------------------------
-# PHOENIX's prebuilt deps and per-config defines are keyed on Debug/Release/
-# Sanitizer; every config of the enclosing build must map to one of them.
-# Same-named configs map to themselves; anything else requires the consumer to
-# set PHX_CONFIG_MAP_<Config> (e.g. set(PHX_CONFIG_MAP_RelWithDebInfo Release))
-# before add_subdirectory.
-set(PHX_CONFIGS Debug Release Sanitizer)
-
-if(CMAKE_CONFIGURATION_TYPES)
-    set(PHX_BUILD_CONFIGS ${CMAKE_CONFIGURATION_TYPES})
-elseif(CMAKE_BUILD_TYPE)
-    set(PHX_BUILD_CONFIGS ${CMAKE_BUILD_TYPE})
-else()
-    message(FATAL_ERROR "CMAKE_BUILD_TYPE must be set when using a single-config generator")
+# PHOENIX keys its prebuilt deps, defines and runtime settings on three config
+# kinds: debug, sanitizer and profile; every other config is treated as
+# Release. Consumers embedding via add_subdirectory declare which of their
+# configs are which through these lists (defaults match PHOENIX standalone).
+if(NOT DEFINED PHX_DEBUG_CONFIGS)
+    set(PHX_DEBUG_CONFIGS Debug)
+endif()
+if(NOT DEFINED PHX_SANITIZER_CONFIGS)
+    set(PHX_SANITIZER_CONFIGS Sanitizer)
+endif()
+if(NOT DEFINED PHX_PROFILE_CONFIGS)
+    set(PHX_PROFILE_CONFIGS Release)
 endif()
 
-# PHX_<PHXCFG>_CONFIGS = list of build configs that map to that PHOENIX config
-foreach(phx_cfg IN LISTS PHX_CONFIGS)
-    string(TOUPPER ${phx_cfg} phx_cfg_upper)
-    set(PHX_${phx_cfg_upper}_CONFIGS "")
-endforeach()
-
-foreach(cfg IN LISTS PHX_BUILD_CONFIGS)
-    if(cfg IN_LIST PHX_CONFIGS)
-        set(mapped ${cfg})
-    elseif(DEFINED PHX_CONFIG_MAP_${cfg})
-        set(mapped ${PHX_CONFIG_MAP_${cfg}})
-        if(NOT mapped IN_LIST PHX_CONFIGS)
-            message(FATAL_ERROR "PHX_CONFIG_MAP_${cfg} is '${mapped}', must be one of: ${PHX_CONFIGS}")
-        endif()
+# $<CONFIG> conditions for each kind ("0" when the list is empty). Sanitizer
+# counts as a debug build; Release is whatever isn't debug/sanitizer.
+foreach(kind DEBUG SANITIZER PROFILE)
+    if(PHX_${kind}_CONFIGS)
+        set(PHX_IS_${kind} "$<IN_LIST:$<CONFIG>,${PHX_${kind}_CONFIGS}>")
     else()
-        message(FATAL_ERROR "Config '${cfg}' is not a PHOENIX config. Set PHX_CONFIG_MAP_${cfg} to one of: ${PHX_CONFIGS}")
-    endif()
-    string(TOUPPER ${mapped} mapped_upper)
-    list(APPEND PHX_${mapped_upper}_CONFIGS ${cfg})
-    string(TOUPPER ${cfg} cfg_upper)
-    set(PHX_CONFIG_MAP_${cfg_upper} ${mapped})  # normalized lookup used by phx_map_imported_configs
-endforeach()
-
-# Generator-expression conditions: PHX_IS_<PHXCFG> is "$<CONFIG:a,b>" or "0" if nothing maps to it
-foreach(phx_cfg IN LISTS PHX_CONFIGS)
-    string(TOUPPER ${phx_cfg} phx_cfg_upper)
-    if(PHX_${phx_cfg_upper}_CONFIGS)
-        string(REPLACE ";" "," cfg_list "${PHX_${phx_cfg_upper}_CONFIGS}")
-        set(PHX_IS_${phx_cfg_upper} "$<CONFIG:${cfg_list}>")
-    else()
-        set(PHX_IS_${phx_cfg_upper} "0")
+        set(PHX_IS_${kind} "0")
     endif()
 endforeach()
+set(PHX_IS_DEBUG   "$<OR:${PHX_IS_DEBUG},${PHX_IS_SANITIZER}>")
+set(PHX_IS_RELEASE "$<NOT:${PHX_IS_DEBUG}>")
 
-# Export paths, path segments, the build-config list and the mapped config
-# conditions to consumers so phx_set_output_dirs()/phx_copy_slang_dlls() work
-# from their scope
+# Map each build config onto the prebuilt deps' configs (Debug/Release/
+# Sanitizer) so the matching imported binary gets picked. Done per-target via
+# phx_map_imported_configs() below, since config-agnostic imported targets
+# (e.g. phx_vulkan) must not get a mapping.
+
+# Export paths and config conditions to consumers so phx_set_output_dirs()/
+# phx_copy_slang_dlls() work from their scope
 if(NOT PROJECT_IS_TOP_LEVEL)
-    set(PHX_ROOT          "${PHX_ROOT}"          PARENT_SCOPE)
-    set(PHX_ARCH_DIR      "${PHX_ARCH_DIR}"      PARENT_SCOPE)
-    set(PHX_SYSTEM_DIR    "${PHX_SYSTEM_DIR}"    PARENT_SCOPE)
-    set(PHX_BUILD_CONFIGS "${PHX_BUILD_CONFIGS}" PARENT_SCOPE)
-    set(PHX_IS_DEBUG      "${PHX_IS_DEBUG}"      PARENT_SCOPE)
+    set(PHX_ROOT         "${PHX_ROOT}"         PARENT_SCOPE)
+    set(PHX_ARCH_DIR     "${PHX_ARCH_DIR}"     PARENT_SCOPE)
+    set(PHX_SYSTEM_DIR   "${PHX_SYSTEM_DIR}"   PARENT_SCOPE)
+    set(PHX_IS_DEBUG     "${PHX_IS_DEBUG}"     PARENT_SCOPE)
     set(PHX_IS_RELEASE    "${PHX_IS_RELEASE}"    PARENT_SCOPE)
-    set(PHX_IS_SANITIZER  "${PHX_IS_SANITIZER}"  PARENT_SCOPE)
+    set(PHX_IS_SANITIZER "${PHX_IS_SANITIZER}" PARENT_SCOPE)
+    set(PHX_IS_PROFILE   "${PHX_IS_PROFILE}"   PARENT_SCOPE)
 endif()
 
 # ---------------------------------------------------------------------------
@@ -147,29 +125,30 @@ endif()
 # ---------------------------------------------------------------------------
 # Output directory helper
 # ---------------------------------------------------------------------------
-# Sets per-config ARCHIVE/RUNTIME/LIBRARY output directories for a target
+# Sets per-config ARCHIVE/RUNTIME/LIBRARY output directories for a target.
+# Using a $<CONFIG> genex also stops multi-config generators from appending
+# their own per-config subdirectory
 function(phx_set_output_dirs target base_dir)
-    foreach(cfg IN LISTS PHX_BUILD_CONFIGS)
-        string(TOLOWER ${cfg} cfgLower)
-        set(dir "${base_dir}/${PHX_SYSTEM_DIR}/${cfgLower}/${PHX_ARCH_DIR}")
-        # Per-config output directory properties use uppercase <CONFIG> suffix
-        string(TOUPPER ${cfg} cfgUpper)
-        set_target_properties(${target} PROPERTIES
-            "ARCHIVE_OUTPUT_DIRECTORY_${cfgUpper}"  "${dir}"
-            "RUNTIME_OUTPUT_DIRECTORY_${cfgUpper}"  "${dir}"
-            "LIBRARY_OUTPUT_DIRECTORY_${cfgUpper}"  "${dir}"
-        )
-    endforeach()
+    set_target_properties(${target} PROPERTIES
+        ARCHIVE_OUTPUT_DIRECTORY "${base_dir}/${PHX_SYSTEM_DIR}/$<LOWER_CASE:$<CONFIG>>/${PHX_ARCH_DIR}"
+        RUNTIME_OUTPUT_DIRECTORY "${base_dir}/${PHX_SYSTEM_DIR}/$<LOWER_CASE:$<CONFIG>>/${PHX_ARCH_DIR}"
+        LIBRARY_OUTPUT_DIRECTORY "${base_dir}/${PHX_SYSTEM_DIR}/$<LOWER_CASE:$<CONFIG>>/${PHX_ARCH_DIR}"
+    )
 endfunction()
 
-# Maps each non-PHOENIX build config of an imported target onto the PHOENIX
-# config it was mapped to, so the right prebuilt binary gets picked
+# Points each build config of an imported target at the matching prebuilt
+# binary config (Debug/Release/Sanitizer), per the classification above
 function(phx_map_imported_configs target)
-    foreach(cfg IN LISTS PHX_BUILD_CONFIGS)
-        if(NOT cfg IN_LIST PHX_CONFIGS)
-            string(TOUPPER ${cfg} cfg_upper)
-            set_property(TARGET ${target} PROPERTY MAP_IMPORTED_CONFIG_${cfg_upper} ${PHX_CONFIG_MAP_${cfg_upper}})
+    foreach(cfg IN LISTS CMAKE_CONFIGURATION_TYPES CMAKE_BUILD_TYPE)
+        if(cfg IN_LIST PHX_SANITIZER_CONFIGS)
+            set(mapped Sanitizer)
+        elseif(cfg IN_LIST PHX_DEBUG_CONFIGS)
+            set(mapped Debug)
+        else()
+            set(mapped Release)
         endif()
+        string(TOUPPER ${cfg} cfg_upper)
+        set_property(TARGET ${target} PROPERTY MAP_IMPORTED_CONFIG_${cfg_upper} ${mapped})
     endforeach()
 endfunction()
 
@@ -177,11 +156,10 @@ endfunction()
 # config passed to the script is the PHOENIX config the build config maps to,
 # so consumers with their own config names get the right (d-suffixed) DLLs
 function(phx_copy_slang_dlls target)
-    set(phx_cfg "$<IF:$<OR:${PHX_IS_DEBUG},${PHX_IS_SANITIZER}>,Debug,Release>")
     add_custom_command(TARGET ${target} POST_BUILD
         COMMAND "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/utils/copy_slang_dll.bat"
                 "$<TARGET_FILE_DIR:${target}>"
-                "${phx_cfg}"
+                "$<IF:${PHX_IS_DEBUG},Debug,Release>"
                 "${PHX_ROOT}/out/slang/bin/${PHX_SYSTEM_DIR}/$<IF:${PHX_IS_RELEASE},release,debug>/${PHX_ARCH_DIR}"
         VERBATIM
     )

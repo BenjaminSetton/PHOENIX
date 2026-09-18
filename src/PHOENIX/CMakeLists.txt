@@ -18,7 +18,7 @@ else()
 endif()
 
 # Mirror the directory structure
-source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}/src" FILES ${PHX_SOURCES})
+source_group(TREE "${CMAKE_CURRENT_SOURCE_DIR}" FILES ${PHX_SOURCES})
 
 target_include_directories(PHOENIX
     PUBLIC
@@ -41,20 +41,18 @@ target_link_libraries(PHOENIX PUBLIC
 )
 
 # Pin the MSVC runtime to match the prebuilt dependencies (debug CRT for Debug/Sanitizer)
-set_property(TARGET PHOENIX PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<OR:${PHX_IS_DEBUG},${PHX_IS_SANITIZER}>:Debug>DLL")
+set_property(TARGET PHOENIX PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<${PHX_IS_DEBUG}:Debug>DLL")
 
 # Per-config defines
 target_compile_definitions(PHOENIX PRIVATE
     $<${PHX_IS_DEBUG}:PHX_DEBUG>
     $<${PHX_IS_DEBUG}:BSL_ENABLE_DEBUG_LOG>
     $<${PHX_IS_RELEASE}:PHX_RELEASE>
-    $<${PHX_IS_SANITIZER}:PHX_DEBUG>
     $<${PHX_IS_SANITIZER}:PHX_SANITIZE>
-    $<${PHX_IS_SANITIZER}:BSL_ENABLE_DEBUG_LOG>
 
-    # Profiling (only in Release)
-	$<${PHX_IS_RELEASE}:TRACY_ENABLE>
-    $<${PHX_IS_RELEASE}:PROFILER_TRACY>
+    # Profiling
+    $<${PHX_IS_PROFILE}:TRACY_ENABLE>
+    $<${PHX_IS_PROFILE}:PROFILER_TRACY>
 )
 
 # Platform-specific settings

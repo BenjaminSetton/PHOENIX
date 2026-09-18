@@ -210,7 +210,7 @@ namespace PHX
 		u32 shaderCount								= 0;
 
 		////////
-		bool GraphicsPipelineDesc::operator==(const GraphicsPipelineDesc& other) const;
+		bool operator==(const GraphicsPipelineDesc& other) const;
 		////////
 	};
 
