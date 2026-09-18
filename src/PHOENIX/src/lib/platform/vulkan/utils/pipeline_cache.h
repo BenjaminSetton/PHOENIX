@@ -7,20 +7,11 @@
 
 namespace PHX
 {
-	struct GraphicsPipelineDescHasher
-	{
-		size_t operator()(const GraphicsPipelineDesc& desc) const;
-	};
+	using PipelineDescKey = u64;
 
-	struct ComputePipelineDescHasher
-	{
-		size_t operator()(const ComputePipelineDesc& desc) const;
-	};
-
-	struct RayTracingPipelineDescHasher
-	{
-		size_t operator()(const RayTracingPipelineDesc& desc) const;
-	};
+	PipelineDescKey HashPipelineDesc(const GraphicsPipelineDesc& desc);
+	PipelineDescKey HashPipelineDesc(const ComputePipelineDesc& desc);
+	PipelineDescKey HashPipelineDesc(const RayTracingPipelineDesc& desc);
 
 	class PipelineCache
 	{
@@ -34,17 +25,14 @@ namespace PHX
 
 		// Graphics pipeline
 		PipelineVk* FindOrCreate(RenderDeviceVk* pRenderDevice, VkRenderPass renderPass, const GraphicsPipelineDesc& desc);
-		PipelineVk* Find(const GraphicsPipelineDesc& desc);
 		void Delete(const GraphicsPipelineDesc& desc);
 
 		// Compute pipeline
 		PipelineVk* FindOrCreate(RenderDeviceVk* pRenderDevice, const ComputePipelineDesc& desc);
-		PipelineVk* Find(const ComputePipelineDesc& desc);
 		void Delete(const ComputePipelineDesc& desc);
 
 		// Ray tracing pipeline
 		PipelineVk* FindOrCreate(RenderDeviceVk* pRenderDevice, const RayTracingPipelineDesc& desc);
-		PipelineVk* Find(const RayTracingPipelineDesc& desc);
 		void Delete(const RayTracingPipelineDesc& desc);
 
 		// Deletes all cached pipelines from all three caches. The VkPipelineCache is preserved
@@ -54,12 +42,14 @@ namespace PHX
 
 	private:
 
+		PipelineVk* Find_Internal(PipelineDescKey key, const std::unordered_map<PipelineDescKey, PipelineVk*>& cache);
+
 		RenderDeviceVk* m_renderDevice;
 
 		// PipelineVk caches
-		std::unordered_map<GraphicsPipelineDesc, PipelineVk*, GraphicsPipelineDescHasher> m_graphicsPipelineCache;
-		std::unordered_map<ComputePipelineDesc, PipelineVk*, ComputePipelineDescHasher> m_computePipelineCache;
-		std::unordered_map<RayTracingPipelineDesc, PipelineVk*, RayTracingPipelineDescHasher> m_rayTracingPipelineCache;
+		std::unordered_map<PipelineDescKey, PipelineVk*> m_graphicsPipelineCache;
+		std::unordered_map<PipelineDescKey, PipelineVk*> m_computePipelineCache;
+		std::unordered_map<PipelineDescKey, PipelineVk*> m_rayTracingPipelineCache;
 
 		// VkPipeline cache
 		VkPipelineCache m_vkCache;

@@ -2412,20 +2412,17 @@ namespace PHX
 			{
 			case PASS_TYPE::GRAPHICS:
 			{
-				GraphicsPipelineDescHasher hasher;
-				HashCombine(seed, hasher(pCurrRenderPass->graphicsDesc));
+				HashCombine(seed, HashPipelineDesc(pCurrRenderPass->graphicsDesc));
 				break;
 			}
 			case PASS_TYPE::COMPUTE:
 			{
-				ComputePipelineDescHasher hasher;
-				HashCombine(seed, hasher(pCurrRenderPass->computeDesc));
+				HashCombine(seed, HashPipelineDesc(pCurrRenderPass->computeDesc));
 				break;
 			}
 			case PASS_TYPE::RAY_TRACING:
 			{
-				RayTracingPipelineDescHasher hasher;
-				HashCombine(seed, hasher(pCurrRenderPass->rayTracingDesc));
+				HashCombine(seed, HashPipelineDesc(pCurrRenderPass->rayTracingDesc));
 				break;
 			}
 			case PASS_TYPE::TRANSFER:

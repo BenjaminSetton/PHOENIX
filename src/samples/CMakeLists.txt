@@ -118,13 +118,7 @@ function(add_sample name)
     )
 
     # Post-build - copy Slang DLLs
-    add_custom_command(TARGET ${name} POST_BUILD
-        COMMAND "${CMAKE_SOURCE_DIR}/utils/copy_slang_dll.bat"
-                "$<TARGET_FILE_DIR:${name}>"
-                "$<CONFIG>"
-                "${PHX_ROOT}/out/slang/bin/${PHX_SYSTEM_DIR}/$<IF:$<CONFIG:Release>,release,debug>/${PHX_ARCH_DIR}"
-        VERBATIM
-    )
+    phx_copy_slang_dlls(${name})
 
     # Post-build - copy ASAN DLL for Sanitizer config only
     add_custom_command(TARGET ${name} POST_BUILD

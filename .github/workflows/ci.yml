@@ -50,7 +50,7 @@ jobs:
         run: ./utils/build_sample_dependencies.ps1 -Config ${{ matrix.config }} -Architecture x64
 
       - name: Generate Project
-        run: cmake -B build -G "Visual Studio 17 2022" -A x64
+        run: cmake -B build -G "Visual Studio 17 2022" -A x64 -DPHX_BUILD_SAMPLES=ON
 
       - name: Build
         run: cmake --build build --config ${{ matrix.config }} --parallel

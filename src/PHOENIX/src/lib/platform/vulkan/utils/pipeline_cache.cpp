@@ -61,7 +61,7 @@ namespace PHX
 		}
 	}
 
-	size_t GraphicsPipelineDescHasher::operator()(const GraphicsPipelineDesc& desc) const
+	PipelineDescKey HashPipelineDesc(const GraphicsPipelineDesc& desc)
 	{
 		STATIC_ASSERT_MSG(sizeof(desc) == 256, "If graphics pipeline description changed, make sure to change this hashing function!");
 
@@ -125,12 +125,14 @@ namespace PHX
 		HashCombine(seed, desc.stencilFront.depthFailOp);
 		HashCombine(seed, desc.stencilFront.compareOp);
 		HashCombine(seed, desc.stencilFront.compareMask);
+		HashCombine(seed, desc.stencilFront.writeMask);
 		HashCombine(seed, desc.stencilFront.reference);
 		HashCombine(seed, desc.stencilBack.failOp);
 		HashCombine(seed, desc.stencilBack.passOp);
 		HashCombine(seed, desc.stencilBack.depthFailOp);
 		HashCombine(seed, desc.stencilBack.compareOp);
 		HashCombine(seed, desc.stencilBack.compareMask);
+		HashCombine(seed, desc.stencilBack.writeMask);
 		HashCombine(seed, desc.stencilBack.reference);
 		HashCombine(seed, desc.depthBoundsRange);
 
@@ -153,7 +155,7 @@ namespace PHX
 		return seed;
 	}
 
-	size_t ComputePipelineDescHasher::operator()(const ComputePipelineDesc& desc) const
+	PipelineDescKey HashPipelineDesc(const ComputePipelineDesc& desc)
 	{
 		STATIC_ASSERT_MSG(sizeof(desc) == 32, "If compute pipeline description changed, make sure to change this hashing function!");
 
@@ -168,7 +170,7 @@ namespace PHX
 		return seed;
 	}
 
-	size_t RayTracingPipelineDescHasher::operator()(const RayTracingPipelineDesc& desc) const
+	PipelineDescKey HashPipelineDesc(const RayTracingPipelineDesc& desc)
 	{
 		STATIC_ASSERT_MSG(sizeof(desc) == 56, "If ray tracing pipeline description changed, make sure to change this hashing function!");
 
@@ -233,13 +235,14 @@ namespace PHX
 	// GRAPHICS
 	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, VkRenderPass renderPass, const GraphicsPipelineDesc& desc)
 	{
-		PipelineVk* res = Find(desc);
+		const PipelineDescKey key = HashPipelineDesc(desc);
+		PipelineVk* res = Find_Internal(key, m_graphicsPipelineCache);
 		if (res == nullptr)
 		{
 			PROFILE_SCOPE("PipelineCache_NewGraphicsPipeline");
 
 			PipelineVk* newPipeline = new PipelineVk(pRenderDevice, m_vkCache, renderPass, desc);
-			m_graphicsPipelineCache.insert({desc, newPipeline});
+			m_graphicsPipelineCache.insert({key, newPipeline});
 			res = newPipeline;
 
 			LogDebug("Graphics pipeline added to cache. New cache size: %u", m_graphicsPipelineCache.size());
@@ -248,22 +251,10 @@ namespace PHX
 		return res;
 	}
 
-	PipelineVk* PipelineCache::Find(const GraphicsPipelineDesc& desc)
-	{
-		PROFILE_SCOPE("PipelineCache_FindGraphicsPipeline");
-
-		auto iter = m_graphicsPipelineCache.find(desc);
-		if (iter != m_graphicsPipelineCache.end())
-		{
-			return iter->second;
-		}
-
-		return nullptr;
-	}
-
 	void PipelineCache::Delete(const GraphicsPipelineDesc& desc)
 	{
-		auto iter = m_graphicsPipelineCache.find(desc);
+		const PipelineDescKey key = HashPipelineDesc(desc);
+		auto iter = m_graphicsPipelineCache.find(key);
 		if (iter != m_graphicsPipelineCache.end())
 		{
 			delete iter->second;
@@ -274,13 +265,14 @@ namespace PHX
 	// COMPUTE
 	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, const ComputePipelineDesc& desc)
 	{
-		PipelineVk* res = Find(desc);
+		const PipelineDescKey key = HashPipelineDesc(desc);
+		PipelineVk* res = Find_Internal(key, m_computePipelineCache);
 		if (res == nullptr)
 		{
 			PROFILE_SCOPE("PipelineCache_NewComputePipeline");
 
 			PipelineVk* newPipeline = new PipelineVk(pRenderDevice, m_vkCache, desc);
-			m_computePipelineCache.insert({ desc, newPipeline });
+			m_computePipelineCache.insert({ key, newPipeline });
 			res = newPipeline;
 
 			LogDebug("Compute pipeline added to cache. New cache size: %u", m_computePipelineCache.size());
@@ -289,22 +281,10 @@ namespace PHX
 		return res;
 	}
 
-	PipelineVk* PipelineCache::Find(const ComputePipelineDesc& desc)
-	{
-		PROFILE_SCOPE("PipelineCache_FindComputePipeline");
-
-		auto iter = m_computePipelineCache.find(desc);
-		if (iter != m_computePipelineCache.end())
-		{
-			return iter->second;
-		}
-
-		return nullptr;
-	}
-
 	void PipelineCache::Delete(const ComputePipelineDesc& desc)
 	{
-		auto iter = m_computePipelineCache.find(desc);
+		const PipelineDescKey key = HashPipelineDesc(desc);
+		auto iter = m_computePipelineCache.find(key);
 		if (iter != m_computePipelineCache.end())
 		{
 			delete iter->second;
@@ -315,13 +295,14 @@ namespace PHX
 	// RAY TRACING
 	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, const RayTracingPipelineDesc& desc)
 	{
-		PipelineVk* res = Find(desc);
+		const PipelineDescKey key = HashPipelineDesc(desc);
+		PipelineVk* res = Find_Internal(key, m_rayTracingPipelineCache);
 		if (res == nullptr)
 		{
 			PROFILE_SCOPE("PipelineCache_NewRayTracingPipeline");
 
 			PipelineVk* newPipeline = new PipelineVk(pRenderDevice, m_vkCache, desc);
-			m_rayTracingPipelineCache.insert({ desc, newPipeline });
+			m_rayTracingPipelineCache.insert({ key, newPipeline });
 			res = newPipeline;
 
 			LogDebug("Ray tracing pipeline added to cache. New cache size: %u", m_rayTracingPipelineCache.size());
@@ -330,22 +311,10 @@ namespace PHX
 		return res;
 	}
 
-	PipelineVk* PipelineCache::Find(const RayTracingPipelineDesc& desc)
-	{
-		PROFILE_SCOPE("PipelineCache_NewRayTracingPipeline");
-
-		auto iter = m_rayTracingPipelineCache.find(desc);
-		if (iter != m_rayTracingPipelineCache.end())
-		{
-			return iter->second;
-		}
-
-		return nullptr;
-	}
-
 	void PipelineCache::Delete(const RayTracingPipelineDesc& desc)
 	{
-		auto iter = m_rayTracingPipelineCache.find(desc);
+		const PipelineDescKey key = HashPipelineDesc(desc);
+		auto iter = m_rayTracingPipelineCache.find(key);
 		if (iter != m_rayTracingPipelineCache.end())
 		{
 			delete iter->second;
@@ -383,5 +352,18 @@ namespace PHX
 	u32 PipelineCache::GetCount() const
 	{
 		return static_cast<u32>(m_graphicsPipelineCache.size() + m_computePipelineCache.size() + m_rayTracingPipelineCache.size());
+	}
+
+	PipelineVk* PipelineCache::Find_Internal(PipelineDescKey key, const std::unordered_map<PipelineDescKey, PipelineVk*>& cache)
+	{
+		PROFILE_SCOPE("PipelineCache_FindPipeline");
+
+		auto iter = cache.find(key);
+		if (iter != cache.end())
+		{
+			return iter->second;
+		}
+
+		return nullptr;
 	}
 }

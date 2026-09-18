@@ -40,18 +40,21 @@ target_link_libraries(PHOENIX PUBLIC
     bsl
 )
 
+# Pin the MSVC runtime to match the prebuilt dependencies (debug CRT for Debug/Sanitizer)
+set_property(TARGET PHOENIX PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<OR:${PHX_IS_DEBUG},${PHX_IS_SANITIZER}>:Debug>DLL")
+
 # Per-config defines
 target_compile_definitions(PHOENIX PRIVATE
-    $<$<CONFIG:Debug>:PHX_DEBUG>
-    $<$<CONFIG:Debug>:BSL_ENABLE_DEBUG_LOG>
-    $<$<CONFIG:Release>:PHX_RELEASE>
-    $<$<CONFIG:Sanitizer>:PHX_DEBUG>
-    $<$<CONFIG:Sanitizer>:PHX_SANITIZE>
-    $<$<CONFIG:Sanitizer>:BSL_ENABLE_DEBUG_LOG>
-    
+    $<${PHX_IS_DEBUG}:PHX_DEBUG>
+    $<${PHX_IS_DEBUG}:BSL_ENABLE_DEBUG_LOG>
+    $<${PHX_IS_RELEASE}:PHX_RELEASE>
+    $<${PHX_IS_SANITIZER}:PHX_DEBUG>
+    $<${PHX_IS_SANITIZER}:PHX_SANITIZE>
+    $<${PHX_IS_SANITIZER}:BSL_ENABLE_DEBUG_LOG>
+
     # Profiling (only in Release)
-	$<$<CONFIG:Release>:TRACY_ENABLE>
-    $<$<CONFIG:Release>:PROFILER_TRACY>
+	$<${PHX_IS_RELEASE}:TRACY_ENABLE>
+    $<${PHX_IS_RELEASE}:PROFILER_TRACY>
 )
 
 # Platform-specific settings
