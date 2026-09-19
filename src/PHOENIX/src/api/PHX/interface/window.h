@@ -33,8 +33,15 @@ namespace PHX
 	{
 		DECLARE_PHX_HANDLE(WindowHandle);
 
+		// Returns the current size of the window. This represent the logical size of the OS window, not
+		// the renderable space. All rendering-related sizes should use the swap chain's GetWidth() / GetHeight() functions,
+		// while these functions can be used for user input coordinates, etc.
 		u32 GetCurrentWidth() const;
 		u32 GetCurrentHeight() const;
+
+		// Returns the ratio between the current DPI and the platform's default DPI
+		// (e.g. 2.0 for a 200% display scale)
+		float GetContentScale() const;
 
 		int GetPositionX() const;
 		int GetPositionY() const;

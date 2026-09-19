@@ -179,6 +179,16 @@ namespace PHX
 		userPointer->OnWindowMaximizedCallback(bWasMaximized);
 	}
 
+	static void Global_OnWindowContentScaleChanged(GLFWwindow* window, float xscale, float yscale)
+	{
+		// Non-uniform content scale isn't possible on Windows
+		UNUSED(yscale);
+
+		WindowWin64* userPointer = reinterpret_cast<WindowWin64*>(glfwGetWindowUserPointer(window));
+		ASSERT_PTR(userPointer);
+		userPointer->OnWindowContentScaleChangedCallback(xscale);
+	}
+
 	static void Global_OnKeyEvent(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
 		UNUSED(mods);
@@ -239,7 +249,7 @@ namespace PHX
 		return GLFW_CURSOR_NORMAL;
 	}
 
-	WindowWin64::WindowWin64(const WindowCreateInfo& createInfo) : m_size(0), m_position(0), m_title(""), m_inFocus(true), 
+	WindowWin64::WindowWin64(const WindowCreateInfo& createInfo) : m_size(0), m_position(0), m_title(""), m_contentScale(1.0f), m_inFocus(true), 
 																   m_isMinimized(false), m_isMaximized(false), m_handle(nullptr)
 	{
 		if (m_handle != nullptr)
@@ -274,6 +284,7 @@ namespace PHX
 		glfwSetWindowFocusCallback(m_handle, Global_OnWindowFocusChanged);
 		glfwSetWindowIconifyCallback(m_handle, Global_OnWindowMinimized);
 		glfwSetWindowMaximizeCallback(m_handle, Global_OnWindowMaximized);
+		glfwSetWindowContentScaleCallback(m_handle, Global_OnWindowContentScaleChanged);
 		glfwSetCursorPosCallback(m_handle, Global_OnMouseMoved);
 		glfwSetMouseButtonCallback(m_handle, Global_OnMouseButtonEvent);
 		glfwSetScrollCallback(m_handle, Global_OnMouseScrollEvent);
@@ -299,6 +310,10 @@ namespace PHX
 		m_position = createInfo.position;
 		m_title = titleUsed;
 		m_inFocus = true;
+
+		TECHDEBT("Verify that this is correct");
+		float yscale = 1.0f;
+		glfwGetWindowContentScale(m_handle, &m_contentScale, &yscale);
 
 		if (createInfo.windowMode == WINDOW_MODE::FULLSCREEN)
 		{
@@ -363,6 +378,11 @@ namespace PHX
 	u32 WindowWin64::GetCurrentHeight() const
 	{
 		return m_size.GetY();
+	}
+
+	float WindowWin64::GetContentScale() const
+	{
+		return m_contentScale;
 	}
 
 	int WindowWin64::GetPositionX() const
@@ -445,6 +465,17 @@ namespace PHX
 		}
 
 		settings.windowMaximizedCallback(m_isMaximized);
+	}
+
+	void WindowWin64::OnWindowContentScaleChangedCallback(float newContentScale)
+	{
+		m_contentScale = newContentScale;
+
+		auto& settings = GetSettings();
+		if (settings.windowContentScaleChangedCallback != nullptr)
+		{
+			settings.windowContentScaleChangedCallback(newContentScale);
+		}
 	}
 
 	void WindowWin64::OnWindowKeyEventCallback(int key, int scancode, int action)

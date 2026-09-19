@@ -25,6 +25,7 @@ namespace PHX
 
 		u32 GetCurrentWidth() const override;
 		u32 GetCurrentHeight() const override;
+		float GetContentScale() const override;
 		int GetPositionX() const override;
 		int GetPositionY() const override;
 		const char* GetName() const override;
@@ -34,6 +35,7 @@ namespace PHX
 		void OnWindowFocusChangedCallback(bool inFocus);
 		void OnWindowMinimizedCallback(bool wasIconified);
 		void OnWindowMaximizedCallback(bool wasMaximized);
+		void OnWindowContentScaleChangedCallback(float newContentScale);
 		void OnWindowKeyEventCallback(int key, int scancode, int action);
 
 		void OnMouseMovedCallback(float newX, float newY);
@@ -47,6 +49,7 @@ namespace PHX
 		BSL::Vec2u m_size;
 		BSL::Vec2u m_position;
 		const char* m_title;
+		float m_contentScale;
 		bool m_inFocus;
 		bool m_isMinimized;
 		bool m_isMaximized;

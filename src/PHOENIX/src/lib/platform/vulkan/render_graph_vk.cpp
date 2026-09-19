@@ -936,6 +936,11 @@ namespace PHX
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
 		DeviceContextHandle deviceContext = GetCurrentDeviceContextHandle();
 
+		if (GetSettings().gatherMetrics)
+		{
+			pDeviceContext->SetMetricsPointer(&m_metrics);
+		}
+
 		for (u32 activeRenderPassIndex : activeRenderPassIndices)
 		{
 			const RenderPassVk& currRenderPass = *m_registeredRenderPasses.Get(activeRenderPassIndex);

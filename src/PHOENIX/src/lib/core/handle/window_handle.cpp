@@ -37,6 +37,18 @@ namespace PHX
 		return 0;
 	}
 
+	float WindowHandle::GetContentScale() const
+	{
+		IWindow* pWindow = HANDLE_UTILS::ResolveHandle(*this);
+		if (pWindow != nullptr)
+		{
+			return pWindow->GetContentScale();
+		}
+
+		LogError("Failed to get content scale. Could not resolve window handle!");
+		return 1.0f;
+	}
+
 	int WindowHandle::GetPositionX() const
 	{
 		IWindow* pWindow = HANDLE_UTILS::ResolveHandle(*this);

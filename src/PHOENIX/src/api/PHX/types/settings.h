@@ -32,6 +32,7 @@ namespace PHX
 	typedef std::function<void(bool inFocus)>                       fpWindowFocusChangedCallback;
 	typedef std::function<void(bool wasMinimized)>                  fpWindowMinimizedCallback;
 	typedef std::function<void(bool wasMaximized)>                  fpWindowMaximizedCallback;
+	typedef std::function<void(float newContentScale)>              fpWindowContentScaleChangedCallback;
 	typedef std::function<void(KeyCode keycode)>                    fpWindowKeyEventCallback;
 	typedef std::function<void(float newX, float newY)>             fpMouseMovedEventCallback;
 	typedef std::function<void(MouseButtonCode keycode)>            fpMouseButtonEventCallback;
@@ -40,29 +41,30 @@ namespace PHX
 
 	struct Settings
 	{
-		/* [MANDATORY] */ GRAPHICS_API backendAPI;                                             // Select the graphics backend API
-		/* [MANDATORY] */ i32 backendAPIMajorVersion                                = -1;      // Set the major version of the selected graphics API (e.g. 1.X)
-		/* [MANDATORY] */ i32 backendAPIMinorVersion                                = -1;      // Set the minor version of the selected graphics API (e.g. X.1)
-		/* [MANDATORY] */ fpSwapChainOutdatedCallback swapChainOutdatedCallback     = nullptr; // Callback for when swap chain object became suboptimal or outdated
-		/* [MANDATORY] */ fpWindowResizedCallback windowResizedCallback             = nullptr; // Callback for when the window is resized
-		/* [MANDATORY] */ fpWindowFocusChangedCallback windowFocusChangedCallback   = nullptr; // Callback for when the window focus changes (e.g. minimize, maximize, clicking on other windows, etc)
-		/* [MANDATORY] */ fpWindowMinimizedCallback windowMinimizedCallback         = nullptr; // Callback for when window is minimized (wasMinimized is true) or restored from a minimize (wasMinimized is false)
-		/* [MANDATORY] */ fpWindowMaximizedCallback windowMaximizedCallback         = nullptr; // Callback for when window is maximized (wasMaximized is true) or restored from a maximize (wasMaximized is false)
-		/* [MANDATORY] */ bool gatherMetrics                                        = false;   // Enable metric gathering. If false, calling GetMetrics() will return default data
-		/* [MANDATORY] */ const char* cacheDirectory                                = nullptr; // Root directory for all cache files (shaders, render graph viz, etc.)
+		/* [MANDATORY] */ GRAPHICS_API backendAPI;                                                         // Select the graphics backend API
+		/* [MANDATORY] */ i32 backendAPIMajorVersion                                            = -1;      // Set the major version of the selected graphics API (e.g. 1.X)
+		/* [MANDATORY] */ i32 backendAPIMinorVersion                                            = -1;      // Set the minor version of the selected graphics API (e.g. X.1)
+		/* [MANDATORY] */ fpSwapChainOutdatedCallback swapChainOutdatedCallback                 = nullptr; // Callback for when swap chain object became suboptimal or outdated
+		/* [MANDATORY] */ fpWindowResizedCallback windowResizedCallback                         = nullptr; // Callback for when the window is resized
+		/* [MANDATORY] */ fpWindowFocusChangedCallback windowFocusChangedCallback               = nullptr; // Callback for when the window focus changes (e.g. minimize, maximize, clicking on other windows, etc)
+		/* [MANDATORY] */ fpWindowMinimizedCallback windowMinimizedCallback                     = nullptr; // Callback for when window is minimized (wasMinimized is true) or restored from a minimize (wasMinimized is false)
+		/* [MANDATORY] */ fpWindowMaximizedCallback windowMaximizedCallback                     = nullptr; // Callback for when window is maximized (wasMaximized is true) or restored from a maximize (wasMaximized is false)
+		/* [MANDATORY] */ bool gatherMetrics                                                    = false;   // Enable metric gathering. If false, calling GetMetrics() will return default data
+		/* [MANDATORY] */ const char* cacheDirectory                                            = nullptr; // Root directory for all cache files (shaders, render graph viz, etc.)
 
-		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyDownCallback            = nullptr; // Callback for when the window detects a key-press
-		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyUpCallback              = nullptr; // Callback for when the window detects a key-press has been lifted
-		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyRepeatCallback          = nullptr; // Callback for when the window detects a repeated key-press
+		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyDownCallback                        = nullptr; // Callback for when the window detects a key-press
+		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyUpCallback                          = nullptr; // Callback for when the window detects a key-press has been lifted
+		/* [OPTIONAL ] */ fpWindowKeyEventCallback windowKeyRepeatCallback                      = nullptr; // Callback for when the window detects a repeated key-press
+		/* [OPTIONAL ] */ fpWindowContentScaleChangedCallback windowContentScaleChangedCallback = nullptr; // Callback for when the window's content scale (DPI) changes
 		
-		/* [OPTIONAL ] */ fpMouseMovedEventCallback mouseMovedCallback              = nullptr; // Callback for when the mouse moves over the window. Provides new mouse coordinates relative to the window's top-left corner
-		/* [OPTIONAL ] */ fpMouseButtonEventCallback mouseButtonDownCallback        = nullptr; // Callback for when the window detects a mouse button press
-		/* [OPTIONAL ] */ fpMouseButtonEventCallback mouseButtonUpCallback          = nullptr; // Callback for when the window detects a mouse button de-press
-		/* [OPTIONAL ] */ fpMouseScrollEventCallback mouseScrollCallback            = nullptr; // Callback for when the window detects a mouse scroll
+		/* [OPTIONAL ] */ fpMouseMovedEventCallback mouseMovedCallback                          = nullptr; // Callback for when the mouse moves over the window. Provides new mouse coordinates relative to the window's top-left corner
+		/* [OPTIONAL ] */ fpMouseButtonEventCallback mouseButtonDownCallback                    = nullptr; // Callback for when the window detects a mouse button press
+		/* [OPTIONAL ] */ fpMouseButtonEventCallback mouseButtonUpCallback                      = nullptr; // Callback for when the window detects a mouse button de-press
+		/* [OPTIONAL ] */ fpMouseScrollEventCallback mouseScrollCallback                        = nullptr; // Callback for when the window detects a mouse scroll
 
-		/* [OPTIONAL ] */ fpLogCallback logCallback                                 = nullptr; // Provide a callback for log messages. If null, logs will use PHX's default log callback
-		/* [OPTIONAL ] */ bool enableValidation                                     = false;   // Enable validation messages, whenever applicable
+		/* [OPTIONAL ] */ fpLogCallback logCallback                                             = nullptr; // Provide a callback for log messages. If null, logs will use PHX's default log callback
+		/* [OPTIONAL ] */ bool enableValidation                                                 = false;   // Enable validation messages, whenever applicable
 
-		/* [OPTIONAL ] */ bool enableShaderCache                                    = true;    // Toggle shader caching without clearing the cache directory. If false, always compiles
+		/* [OPTIONAL ] */ bool enableShaderCache                                                = true;    // Toggle shader caching without clearing the cache directory. If false, always compiles
 	};
 }
