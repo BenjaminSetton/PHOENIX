@@ -679,6 +679,13 @@ namespace PHX
 
 	void RenderDeviceVk::InvalidateBackbufferFramebuffers()
 	{
+		// Wait for the device to be idle so we don't interfere with any frames in flight
+		STATUS_CODE res = WaitIdle();
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogWarning("Failed to wait for device to become idle when re-creating swap chain!");
+		}
+
 		std::vector<const FramebufferDescription*> m_invalidFramebufferDescs;
 		m_invalidFramebufferDescs.reserve(5); // Should be plenty for any reasonable amount of backbuffer framebuffers
 
