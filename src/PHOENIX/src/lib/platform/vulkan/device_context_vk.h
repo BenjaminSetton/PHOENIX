@@ -84,9 +84,6 @@ namespace PHX
 		// Timestamp queries
 		STATUS_CODE WriteBeginTimestamp(u32& out_timestampIndex);
 		STATUS_CODE WriteEndTimestamp(u32& out_timestampIndex);
-		
-		void SetBaseQueryIndex(u32 index);
-		void ResetQueryPool();
 
 		// This is called by the current render pass during baking, so that the device context
 		// is aware of the pipeline contextually and can use it directly. This is different
@@ -174,6 +171,8 @@ namespace PHX
 		StagingAllocation AllocateStaging(u64 sizeBytes, u64 alignment = 16);
 		void ResetStagingPool();
 
+		void ResetQueryPool();
+
 		STATUS_CODE WriteTimestamp(VkPipelineStageFlagBits pipelineStage, u32& out_timestampIndex);
 
 	private:
@@ -189,7 +188,7 @@ namespace PHX
 
 		// Binary semaphores used to chain consecutive submission batches together (batch i signals
 		// m_chainSemaphores[i], batch i+1 waits on it). Grown on demand and reused across frames
-		TECHDEBT("Remove this in favor or better sync");
+		TECHDEBT("Remove this in favor of better sync");
 		std::vector<VkSemaphore> m_chainSemaphores;
 
 		// Staging buffer pool for efficient sub-allocation. Avoids creating thousands

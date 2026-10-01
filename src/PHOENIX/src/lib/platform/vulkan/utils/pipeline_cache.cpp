@@ -61,7 +61,7 @@ namespace PHX
 		}
 	}
 
-	PipelineDescKey HashPipelineDesc(const GraphicsPipelineDesc& desc)
+	PipelineDescKey HashPipelineDesc(const GraphicsPipelineDesc& desc, VkRenderPass renderPass)
 	{
 		STATIC_ASSERT_MSG(sizeof(desc) == 256, "If graphics pipeline description changed, make sure to change this hashing function!");
 
@@ -152,6 +152,11 @@ namespace PHX
 		// Shader info
 		HashCombineShaderArray(desc.pShaders, desc.shaderCount, seed);
 
+		// Render pass
+		// https://docs.vulkan.org/spec/latest/chapters/renderpass.html#renderpass-compatibility
+		TECHDEBT("Check for compatibility vs hashing render pass pointer!");
+		HashCombine(seed, renderPass);
+
 		return seed;
 	}
 
@@ -235,7 +240,7 @@ namespace PHX
 	// GRAPHICS
 	PipelineVk* PipelineCache::FindOrCreate(RenderDeviceVk* pRenderDevice, VkRenderPass renderPass, const GraphicsPipelineDesc& desc)
 	{
-		const PipelineDescKey key = HashPipelineDesc(desc);
+		const PipelineDescKey key = HashPipelineDesc(desc, renderPass);
 		PipelineVk* res = Find_Internal(key, m_graphicsPipelineCache);
 		if (res == nullptr)
 		{
@@ -251,9 +256,9 @@ namespace PHX
 		return res;
 	}
 
-	void PipelineCache::Delete(const GraphicsPipelineDesc& desc)
+	void PipelineCache::Delete(const GraphicsPipelineDesc& desc, VkRenderPass renderPass)
 	{
-		const PipelineDescKey key = HashPipelineDesc(desc);
+		const PipelineDescKey key = HashPipelineDesc(desc, renderPass);
 		auto iter = m_graphicsPipelineCache.find(key);
 		if (iter != m_graphicsPipelineCache.end())
 		{

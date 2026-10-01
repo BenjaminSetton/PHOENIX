@@ -233,8 +233,6 @@ namespace PHX
 		u32 m_frameInFlightIndex;
 		u32 m_frameNumber;
 
-		u32 m_lastTimestampIndex;
-
 		// Holds information about pending timestamp queries submitted this frame
 		std::vector<TimestampPendingQueryInfo> m_pendingTimestamps;
 

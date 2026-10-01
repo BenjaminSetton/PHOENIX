@@ -9,7 +9,7 @@ namespace PHX
 {
 	using PipelineDescKey = u64;
 
-	PipelineDescKey HashPipelineDesc(const GraphicsPipelineDesc& desc);
+	PipelineDescKey HashPipelineDesc(const GraphicsPipelineDesc& desc, VkRenderPass renderPass);
 	PipelineDescKey HashPipelineDesc(const ComputePipelineDesc& desc);
 	PipelineDescKey HashPipelineDesc(const RayTracingPipelineDesc& desc);
 
@@ -25,7 +25,7 @@ namespace PHX
 
 		// Graphics pipeline
 		PipelineVk* FindOrCreate(RenderDeviceVk* pRenderDevice, VkRenderPass renderPass, const GraphicsPipelineDesc& desc);
-		void Delete(const GraphicsPipelineDesc& desc);
+		void Delete(const GraphicsPipelineDesc& desc, VkRenderPass renderPass);
 
 		// Compute pipeline
 		PipelineVk* FindOrCreate(RenderDeviceVk* pRenderDevice, const ComputePipelineDesc& desc);

@@ -50,6 +50,7 @@ namespace PHX
 		m_workFlushed = true;
 
 		m_assignedFrameIndex = createInfo.assignedFrameIndex;
+		m_queryBaseIndex = m_assignedFrameIndex * m_pRenderDevice->GetMaxQueryCount();
 	}
 
 	DeviceContextVk::~DeviceContextVk()
@@ -956,9 +957,10 @@ namespace PHX
 			}
 		}
 
-		// Reset staging pools for reuse
+		// Reset objects for reuse
 		ResetStagingPool();
 		ResetCommandBuffers();
+		ResetQueryPool();
 
 		// Acquire next image
 		{
@@ -1605,7 +1607,7 @@ namespace PHX
 		// NOTE - Not sure if this should be above the warnings below
 		out_timestampIndex = currQueryIndex;
 
-		if (currQueryIndex >= maxQueryCount)
+		if (m_queryIndexCount >= maxQueryCount)
 		{
 			// Reaching max query count is not an error, just warn
 			LogWarning("Failed to write timestamp. Max query limit of %u has been reached!", maxQueryCount);
@@ -1680,11 +1682,6 @@ namespace PHX
 	STATUS_CODE DeviceContextVk::WriteEndTimestamp(u32& out_timestampIndex)
 	{
 		return WriteTimestamp(VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, out_timestampIndex);
-	}
-
-	void DeviceContextVk::SetBaseQueryIndex(u32 index)
-	{
-		m_queryBaseIndex = index;
 	}
 
 	void DeviceContextVk::ResetQueryPool()

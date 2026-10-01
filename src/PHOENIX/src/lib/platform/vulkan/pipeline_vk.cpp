@@ -5,6 +5,7 @@
 #include <vulkan/vk_enum_string_helper.h>
 
 #include "BSL/logger.h"
+#include "BSL/math.h"
 #include "BSL/sanity.h"
 #include "core/profiling.h"
 #include "framebuffer_vk.h"
@@ -186,10 +187,19 @@ namespace PHX
 			createInfo.enableStencilTest, 
 			createInfo.stencilFront, 
 			createInfo.stencilBack);
-		VkPipelineRasterizationStateCreateInfo		rasterizer           = PopulateRasterizerStateCreateInfo(PIPELINE_UTILS::ConvertCullMode(createInfo.cullMode), 
+
+		// See if larger line widths are supported. Use client's lineWidth, but if not supported simply clamp to supported range
+		const float* lineWidthRange = pRenderDevice->GetDeviceProperties().limits.lineWidthRange;
+		const float clampedLineWidth = Clamp(createInfo.lineWidth, lineWidthRange[0], lineWidthRange[1]);
+		if (clampedLineWidth != createInfo.lineWidth)
+		{
+			LogWarning("Requested line width of %2.3f is not supported! Clamping to %2.3f instead", createInfo.lineWidth, clampedLineWidth);
+		}
+
+		VkPipelineRasterizationStateCreateInfo rasterizer = PopulateRasterizerStateCreateInfo(PIPELINE_UTILS::ConvertCullMode(createInfo.cullMode), 
 			PIPELINE_UTILS::ConvertFrontFaceWinding(createInfo.frontFaceWinding), 
 			PIPELINE_UTILS::ConvertPolygonMode(createInfo.polygonMode), 
-			createInfo.lineWidth, 
+			clampedLineWidth, 
 			createInfo.enableDepthClamp, 
 			createInfo.enableRasterizerDiscard, 
 			createInfo.enableDepthBias, 
@@ -230,12 +240,24 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(m_pipeline), "GraphicsPipeline");
-		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE_LAYOUT, reinterpret_cast<uint64_t>(m_layout), "GraphicsPipelineLayout");
-
 		m_bindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 
-		LogDebug("GRAPHICS PIPELINE CREATED: %u stages", pipelineInfo.stageCount);
+#pragma region DEBUG_UTILS
+		// Pipeline debug name
+		{
+			char pipelineName[64];
+			snprintf(pipelineName, sizeof(pipelineName), "GraphicsPipeline_0x%p", m_pipeline);
+			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(m_pipeline), pipelineName);
+		}
+
+		// Pipeline layout debug name
+		{
+			char pipelineLayoutName[64];
+			snprintf(pipelineLayoutName, sizeof(pipelineLayoutName), "GraphicsPipelineLayout_0x%p", m_layout);
+			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE_LAYOUT, reinterpret_cast<uint64_t>(m_layout), pipelineLayoutName);
+		}
+
+		LogDebug("GRAPHICS PIPELINE CREATED: %u stages [0x%p]", pipelineInfo.stageCount, m_pipeline);
 		for (u32 i = 0; i < pipelineInfo.stageCount; i++)
 		{
 			const VkPipelineShaderStageCreateInfo& shaderStage = shaderStages[i];
@@ -252,8 +274,9 @@ namespace PHX
 		LogDebug("\tPolygon mode:          %s", string_VkPolygonMode(rasterizer.polygonMode));
 		LogDebug("\tLine width:            %u", rasterizer.lineWidth);
 		LogDebug("\tRasterizer discard:    %s", rasterizer.rasterizerDiscardEnable ? "true" : "false");
-		LogDebug("\tLayout ptr:            %p", pipelineInfo.layout);
-		LogDebug("\tRender pass:           %p", pipelineInfo.renderPass);
+		LogDebug("\tRender pass:           0x%p", pipelineInfo.renderPass);
+		LogDebug("\tLayout ptr:            0x%p", m_layout);
+#pragma endregion
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -290,14 +313,27 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(m_pipeline), "ComputePipeline");
-		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE_LAYOUT, reinterpret_cast<uint64_t>(m_layout), "ComputePipelineLayout");
-
 		m_bindPoint = VK_PIPELINE_BIND_POINT_COMPUTE;
 
-		LogDebug("COMPUTE PIPELINE CREATED");
+#pragma region DEBUG_UTILS
+		// Pipeline debug name
+		{
+			char pipelineName[64];
+			snprintf(pipelineName, sizeof(pipelineName), "ComputePipeline_0x%p", m_pipeline);
+			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(m_pipeline), pipelineName);
+		}
+
+		// Pipeline layout debug name
+		{
+			char pipelineLayoutName[64];
+			snprintf(pipelineLayoutName, sizeof(pipelineLayoutName), "ComputePipelineLayout_0x%p", m_layout);
+			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE_LAYOUT, reinterpret_cast<uint64_t>(m_layout), pipelineLayoutName);
+		}
+
+		LogDebug("COMPUTE PIPELINE CREATED [0x%p]", m_pipeline);
 		LogDebug("\tShader name: %s", pipelineInfo.stage.pName);
-		LogDebug("\tLayout ptr:  %p", pipelineInfo.layout);
+		LogDebug("\tLayout ptr:  0x%p", m_layout);
+#pragma endregion
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -583,9 +619,6 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(m_pipeline), "RayTracingPipeline");
-		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE_LAYOUT, reinterpret_cast<uint64_t>(m_layout), "RayTracingPipelineLayout");
-
 		// Build the shader binding table
 		const VkPhysicalDeviceRayTracingPipelinePropertiesKHR& rtProps = pRenderDevice->GetRayTracingPipelineProperties();
 		const u32 handleSize = rtProps.shaderGroupHandleSize;
@@ -676,7 +709,22 @@ namespace PHX
 
 		m_bindPoint = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
 
-		LogDebug("RAY TRACING PIPELINE CREATED");
+#pragma region DEBUG_UTILS
+		// Pipeline debug name
+		{
+			char pipelineName[64];
+			snprintf(pipelineName, sizeof(pipelineName), "RayTracingPipeline_0x%p", m_pipeline);
+			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE, reinterpret_cast<uint64_t>(m_pipeline), pipelineName);
+		}
+
+		// Pipeline layout debug name
+		{
+			char pipelineLayoutName[64];
+			snprintf(pipelineLayoutName, sizeof(pipelineLayoutName), "RayTracingPipelineLayout_0x%p", m_layout);
+			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_PIPELINE_LAYOUT, reinterpret_cast<uint64_t>(m_layout), pipelineLayoutName);
+		}
+
+		LogDebug("RAY TRACING PIPELINE CREATED [0x%p]", m_pipeline);
 		LogDebug("\tShader stages: %u", pipelineInfo.stageCount);
 		LogDebug("\tShader groups: %u", pipelineInfo.groupCount);
 		LogDebug("\tRaygen groups: %u", raygenGroupCount);
@@ -686,7 +734,8 @@ namespace PHX
 		LogDebug("\tHandle size: %u", handleSize);
 		LogDebug("\tHandle stride: %u", handleStride);
 		LogDebug("\tSBT size: %llu", sbtSize);
-		LogDebug("\tLayout ptr: %p", pipelineInfo.layout);
+		LogDebug("\tLayout ptr: 0x%p", m_layout);
+#pragma endregion
 
 		return STATUS_CODE::SUCCESS;
 	}

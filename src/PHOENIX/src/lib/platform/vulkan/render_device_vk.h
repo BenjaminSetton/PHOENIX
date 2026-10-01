@@ -79,20 +79,20 @@ namespace PHX
 		void DecrementHandleRefCount(const Handle& handle) override;
 
 		// Cached creation calls - vulkan only
-		FramebufferVk* CreateFramebuffer(const FramebufferDescription& desc);
+		FramebufferVk* GetOrCreateFramebuffer(const FramebufferDescription& desc);
 		void DestroyFramebuffer(const FramebufferDescription& desc);
 
 		VkRenderPass GetOrCreateRenderPass(const RenderPassDescription& desc);
 		void DestroyRenderPass(const RenderPassDescription& desc);
 		VkRenderPass GetRenderPass(const RenderPassDescription& desc) const;
 
-		PipelineVk* CreateGraphicsPipeline(const GraphicsPipelineDesc& desc, VkRenderPass renderPass);
-		void DestroyGraphicsPipeline(const GraphicsPipelineDesc& desc);
+		PipelineVk* GetOrCreateGraphicsPipeline(const GraphicsPipelineDesc& desc, VkRenderPass renderPass);
+		void DestroyGraphicsPipeline(const GraphicsPipelineDesc& desc, VkRenderPass renderPass);
 
-		PipelineVk* CreateComputePipeline(const ComputePipelineDesc& desc);
+		PipelineVk* GetOrCreateComputePipeline(const ComputePipelineDesc& desc);
 		void DestroyComputePipeline(const ComputePipelineDesc& desc);
 
-		PipelineVk* CreateRayTracingPipeline(const RayTracingPipelineDesc& desc);
+		PipelineVk* GetOrCreateRayTracingPipeline(const RayTracingPipelineDesc& desc);
 		void DestroyRayTracingPipeline(const RayTracingPipelineDesc& desc);
 
 		// Removes all framebuffer entries in the cache related to the backbuffer. 

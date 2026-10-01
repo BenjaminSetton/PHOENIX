@@ -11,7 +11,6 @@ namespace PHX
 	// Forward declarations
 	class RenderDeviceVk;
 
-	// TODO - Step away from singleton pattern, and instead have this cache as a private member variable that the render device owns!
 	class RenderPassCache
 	{
 	public:

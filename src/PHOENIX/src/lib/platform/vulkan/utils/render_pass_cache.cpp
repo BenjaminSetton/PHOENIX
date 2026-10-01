@@ -159,11 +159,17 @@ namespace PHX
 		if (res != VK_SUCCESS)
 		{
 			LogError("Failed to create render pass from description! Got error: \"%s\"", string_VkResult(res));
+			return VK_NULL_HANDLE;
 		}
 
-		DEBUG_UTILS::SetObjectName(pRenderDevice->GetLogicalDevice(), VK_OBJECT_TYPE_RENDER_PASS, reinterpret_cast<uint64_t>(renderPass), "RenderPass");
+#pragma region DEBUG_UTILS
+		{
+			char renderPassName[64];
+			snprintf(renderPassName, sizeof(renderPassName), "RenderPass_0x%p", renderPass);
+			DEBUG_UTILS::SetObjectName(pRenderDevice->GetLogicalDevice(), VK_OBJECT_TYPE_RENDER_PASS, reinterpret_cast<uint64_t>(renderPass), renderPassName);
+		}
 
-		LogDebug("RENDER PASS CREATED: %u attachments, %u subpasses, %u subpass dependencies", static_cast<u32>(attachmentDescs.size()), 1, 1);
+		LogDebug("RENDER PASS CREATED: %u attachments, %u subpasses, %u subpass dependencies [0x%p]", static_cast<u32>(attachmentDescs.size()), 1, 1, renderPass);
 
 		// ATTACHMENTS
 		for (u32 i = 0; i < static_cast<u32>(attachmentDescs.size()); i++)
@@ -197,8 +203,8 @@ namespace PHX
 			LogDebug("\t- Src stage mask:           %s", string_VkPipelineStageFlags(subpassDepVk.srcStageMask).c_str());
 			LogDebug("\t- Dst stage mask:           %s", string_VkPipelineStageFlags(subpassDepVk.dstStageMask).c_str());
 		}
+#pragma endregion
 
-		// If the above fails, is renderPass still VK_NULL_HANDLE?
 		return renderPass;
 	}
 }

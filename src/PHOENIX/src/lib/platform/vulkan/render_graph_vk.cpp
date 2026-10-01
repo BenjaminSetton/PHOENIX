@@ -734,7 +734,7 @@ namespace PHX
 	//--------------------------------------------------------------------------------------------
 
 	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pRenderDevice(nullptr), m_deviceContextHandles(), m_currentFrameGraphHash(0), m_uniqueVisualizationHashes(),
-		m_frameInFlightIndex(0), m_frameNumber(0), m_lastTimestampIndex(0), m_pendingTimestamps(), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), 
+		m_frameInFlightIndex(0), m_frameNumber(0), m_pendingTimestamps(), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), 
 		m_presentResID(0), m_didExecuteWork(false), m_metrics()
 	{
 		if (pRenderDevice == nullptr)
@@ -787,13 +787,6 @@ namespace PHX
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
 		ASSERT_PTR(pDeviceContext);
 
-		res = pDeviceContext->BeginFrame(swapChainVk);
-		if (res != STATUS_CODE::SUCCESS)
-		{
-			LogError("Failed to begin frame. Device context could not begin frame!");
-			return res;
-		}
-
 		// Metrics
 		if (GetSettings().gatherMetrics)
 		{
@@ -806,19 +799,13 @@ namespace PHX
 			{
 				ResolvePendingTimestampQueries();
 			}
+		}
 
-			// Now that the previous results (if any) have been read, it's safe to reset this
-			// device context's query range for reuse
-			pDeviceContext->ResetQueryPool();
-
-			// Give the device context the next timestamp base index
-			const u32 framesInFlight = m_pRenderDevice->GetFramesInFlight();
-			if (framesInFlight > 0 && (m_frameNumber % framesInFlight == 0))
-			{
-				// Reset the timestamp index since we've wrapped around the frames in flight
-				m_lastTimestampIndex = 0;
-			}
-			pDeviceContext->SetBaseQueryIndex(m_lastTimestampIndex + 1);
+		res = pDeviceContext->BeginFrame(swapChainVk);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to begin frame. Device context could not begin frame!");
+			return res;
 		}
 
 		m_didExecuteWork = false;
@@ -1710,7 +1697,7 @@ namespace PHX
 		framebufferCI.attachmentCount = static_cast<u32>(attachments.size());
 		framebufferCI.renderPass = renderPassVk;
 		framebufferCI.isBackbuffer = isBackBuffer;
-		FramebufferVk* pFramebuffer = m_pRenderDevice->CreateFramebuffer(framebufferCI);
+		FramebufferVk* pFramebuffer = m_pRenderDevice->GetOrCreateFramebuffer(framebufferCI);
 		return pFramebuffer;
 	}
 
@@ -1725,17 +1712,17 @@ namespace PHX
 		{
 		case PASS_TYPE::GRAPHICS:
 		{
-			pipeline = m_pRenderDevice->CreateGraphicsPipeline(renderPass.graphicsDesc, renderPassVk);
+			pipeline = m_pRenderDevice->GetOrCreateGraphicsPipeline(renderPass.graphicsDesc, renderPassVk);
 			break;
 		}
 		case PASS_TYPE::COMPUTE:
 		{
-			pipeline = m_pRenderDevice->CreateComputePipeline(renderPass.computeDesc);
+			pipeline = m_pRenderDevice->GetOrCreateComputePipeline(renderPass.computeDesc);
 			break;
 		}
 		case PASS_TYPE::RAY_TRACING:
 		{
-			pipeline = m_pRenderDevice->CreateRayTracingPipeline(renderPass.rayTracingDesc);
+			pipeline = m_pRenderDevice->GetOrCreateRayTracingPipeline(renderPass.rayTracingDesc);
 			break;
 		}
 		case PASS_TYPE::TRANSFER:
@@ -2417,7 +2404,7 @@ namespace PHX
 			{
 			case PASS_TYPE::GRAPHICS:
 			{
-				HashCombine(seed, HashPipelineDesc(pCurrRenderPass->graphicsDesc));
+				HashCombine(seed, HashPipelineDesc(pCurrRenderPass->graphicsDesc, VK_NULL_HANDLE));
 				break;
 			}
 			case PASS_TYPE::COMPUTE:
@@ -2526,8 +2513,6 @@ namespace PHX
 				newQuery.renderPassName[MAX_PASS_NAME_LEN - 1] = '\0'; // Null-terminate in case it overflows char buffer
 
 				m_pendingTimestamps.push_back(newQuery);
-
-				m_lastTimestampIndex = timestampIndex;
 			}
 		}
 	}
@@ -2548,8 +2533,6 @@ namespace PHX
 				ASSERT_MSG(m_pendingTimestamps.size() > 0, "Trying to write end timestamp but no begin timestamp was found!");
 				TimestampPendingQueryInfo& pendingQuery = m_pendingTimestamps.back();
 				pendingQuery.endTimestampIndex = timestampIndex;
-
-				m_lastTimestampIndex = timestampIndex;
 			}
 		}
 	}

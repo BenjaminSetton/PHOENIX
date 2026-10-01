@@ -612,7 +612,7 @@ namespace PHX
 		}
 	}
 
-	FramebufferVk* RenderDeviceVk::CreateFramebuffer(const FramebufferDescription& desc)
+	FramebufferVk* RenderDeviceVk::GetOrCreateFramebuffer(const FramebufferDescription& desc)
 	{
 		PROFILE_SCOPE("RenderDeviceVk_CreateFramebuffer");
 
@@ -641,7 +641,7 @@ namespace PHX
 		return m_renderPassCache->Find(desc);
 	}
 
-	PipelineVk* RenderDeviceVk::CreateGraphicsPipeline(const GraphicsPipelineDesc& desc, VkRenderPass renderPass)
+	PipelineVk* RenderDeviceVk::GetOrCreateGraphicsPipeline(const GraphicsPipelineDesc& desc, VkRenderPass renderPass)
 	{
 		PROFILE_SCOPE("RenderDeviceVk_CreateGraphicsPipeline");
 
@@ -654,12 +654,12 @@ namespace PHX
 		return pipeline;
 	}
 
-	void RenderDeviceVk::DestroyGraphicsPipeline(const GraphicsPipelineDesc& desc)
+	void RenderDeviceVk::DestroyGraphicsPipeline(const GraphicsPipelineDesc& desc, VkRenderPass renderPass)
 	{
-		m_pipelineCache->Delete(desc);
+		m_pipelineCache->Delete(desc, renderPass);
 	}
 
-	PipelineVk* RenderDeviceVk::CreateComputePipeline(const ComputePipelineDesc& desc)
+	PipelineVk* RenderDeviceVk::GetOrCreateComputePipeline(const ComputePipelineDesc& desc)
 	{
 		PROFILE_SCOPE("RenderDeviceVk_CreateComputePipeline");
 
@@ -1164,6 +1164,7 @@ namespace PHX
 		deviceFeatures.features.geometryShader = VK_TRUE;
 		deviceFeatures.features.tessellationShader = VK_TRUE;
 		deviceFeatures.features.fillModeNonSolid = VK_TRUE;
+		deviceFeatures.features.wideLines = m_physicalDeviceFeatures.wideLines;
 
 		std::vector<const char*> enabledExtensions = CollectExtensionsToEnable(physicalDevice, REQUIRED_EXTENSIONS, apiVersion);
 		if (m_rayTracingSupported)
@@ -1661,7 +1662,7 @@ namespace PHX
 		m_pfnCmdDrawIndexedIndirectCount(commandBuffer, argsBuffer, argsOffset, countBuffer, countOffset, maxDrawCount, stride);
 	}
 
-	PipelineVk* RenderDeviceVk::CreateRayTracingPipeline(const RayTracingPipelineDesc& desc)
+	PipelineVk* RenderDeviceVk::GetOrCreateRayTracingPipeline(const RayTracingPipelineDesc& desc)
 	{
 		PROFILE_SCOPE("RenderDeviceVk_CreateRayTracingPipeline");
 

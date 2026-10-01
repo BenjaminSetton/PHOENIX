@@ -28,6 +28,9 @@ namespace PHX
 			HashCombine(seed, currAtt.loadOp);
 			HashCombine(seed, currAtt.storeOp);
 		}
+
+		// https://docs.vulkan.org/spec/latest/chapters/renderpass.html#renderpass-compatibility
+		TECHDEBT("Check for real render pass compatibility vs comparing pointers");
 		HashCombine(seed, desc.renderPass);
 		HashCombine(seed, desc.isBackbuffer);
 
