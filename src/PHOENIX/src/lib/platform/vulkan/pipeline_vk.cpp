@@ -847,7 +847,7 @@ namespace PHX
 		VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
 		if (uniformCollection.IsValid())
 		{
-			// TODO - Add support for push constants
+			TECHDEBT("Add support for push constants");
 			UniformCollectionVk* pUniformCollectionVk = static_cast<UniformCollectionVk*>(m_pRenderDevice->ResolveHandle(uniformCollection));
 			pipelineLayoutInfo = PopulatePipelineLayoutCreateInfo(pUniformCollectionVk->GetDescriptorSetLayouts(), pUniformCollectionVk->GetDescriptorSetLayoutCount(), nullptr, 0);
 		}

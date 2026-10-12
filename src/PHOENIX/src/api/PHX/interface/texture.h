@@ -42,6 +42,7 @@ namespace PHX
 		DECLARE_PHX_HANDLE(TextureHandle);
 
 		void CopyFrom(TextureHandle other);
+		const char* GetName() const;
 		u32 GetWidth() const;
 		u32 GetHeight() const;
 		BASE_FORMAT GetFormat() const;

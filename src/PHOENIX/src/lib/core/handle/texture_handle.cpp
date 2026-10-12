@@ -18,6 +18,17 @@ namespace PHX
 		}
 	}
 
+	const char* TextureHandle::GetName() const
+	{
+		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);
+		if (pTexture != nullptr)
+		{
+			return pTexture->GetName();
+		}
+
+		return "";
+	}
+
 	u32 TextureHandle::GetWidth() const
 	{
 		ITexture* pTexture = HANDLE_UTILS::ResolveHandle(*this);

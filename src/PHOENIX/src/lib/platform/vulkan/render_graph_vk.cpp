@@ -643,7 +643,7 @@ namespace PHX
 
 		// LOAD-op outputs also read from the attachment (read-modify-write). Register an input so the render graph
 		// handles the read half naturally
-		// TODO - Clean this up
+		TECHDEBT("Clean this up");
 		if (loadOp == ATTACHMENT_LOAD_OP::LOAD)
 		{
 			ResourceUsage inputUsage{};
@@ -896,7 +896,7 @@ namespace PHX
 		u32 finalRPIndex = FindPresentRenderPassIndex(m_presentResID);
 		if (finalRPIndex == s_invalidRenderPassIndex)
 		{
-			LogError("Failed to bake render graph. No render pass writes to the swapchain image!");
+			LogError("Failed to bake render graph. No render pass writes to the swapchain image \"%s\"!", currentImage.GetName());
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 		

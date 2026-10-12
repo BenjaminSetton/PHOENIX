@@ -103,7 +103,7 @@ namespace PHX
 
 	const char* TextureVk::GetName() const
 	{
-		return m_pName;
+		return m_pName.c_str();
 	}
 
 	u32 TextureVk::GetWidth() const
@@ -335,13 +335,15 @@ namespace PHX
 		// Cache some of the image data
 		m_bytesPerTexel = GetBaseFormatSize(createInfo.format);
 		m_layout = initialImageLayout;
-		m_pName = createInfo.pName;
 		m_width = createInfo.width;
 		m_height = createInfo.height;
 		m_arrayLayers = effectiveArrayLayers;
 		m_format = createInfo.format;
 		m_sampleCount = createInfo.sampleFlags;
 		m_mipLevels = mipsToUse;
+
+		// Copy string to support dynamic strings
+		m_pName = createInfo.pName;
 
 		return STATUS_CODE::SUCCESS;
 	}
@@ -391,7 +393,7 @@ namespace PHX
 				return STATUS_CODE::ERR_INTERNAL;
 			}
 
-			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageView), m_pName);
+			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageView), m_pName.c_str());
 
 			break;
 		}
@@ -413,7 +415,7 @@ namespace PHX
 					return STATUS_CODE::ERR_INTERNAL;
 				}
 
-				DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageView), m_pName);
+				DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageView), m_pName.c_str());
 			}
 
 			break;
@@ -461,7 +463,7 @@ namespace PHX
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_SAMPLER, reinterpret_cast<uint64_t>(m_sampler), m_pName);
+		DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_SAMPLER, reinterpret_cast<uint64_t>(m_sampler), m_pName.c_str());
 
 		return STATUS_CODE::SUCCESS;
 	}

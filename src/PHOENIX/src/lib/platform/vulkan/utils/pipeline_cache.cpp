@@ -63,7 +63,7 @@ namespace PHX
 
 	PipelineDescKey HashPipelineDesc(const GraphicsPipelineDesc& desc, VkRenderPass renderPass)
 	{
-		STATIC_ASSERT_MSG(sizeof(desc) == 256, "If graphics pipeline description changed, make sure to change this hashing function!");
+		STATIC_ASSERT_MSG(sizeof(desc) == 440, "If graphics pipeline description changed, make sure to change this hashing function!");
 
 		size_t seed = 0;
 
@@ -177,7 +177,7 @@ namespace PHX
 
 	PipelineDescKey HashPipelineDesc(const RayTracingPipelineDesc& desc)
 	{
-		STATIC_ASSERT_MSG(sizeof(desc) == 56, "If ray tracing pipeline description changed, make sure to change this hashing function!");
+		STATIC_ASSERT_MSG(sizeof(desc) == 240, "If ray tracing pipeline description changed, make sure to change this hashing function!");
 
 		size_t seed = 0;
 

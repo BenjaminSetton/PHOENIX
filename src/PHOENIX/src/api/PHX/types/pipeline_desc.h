@@ -10,6 +10,12 @@
 
 namespace PHX
 {
+	// This is used to create stack-allocated arrays in the pipeline descriptions instead of relying on pointers to local data for shaders.
+	// This is because clients pass in stack arrays as for the shaders, which went out of scope shortly after and caused crashes in Handle code.
+	// This makes it an array of 12 ShaderHandle objects which is around 192 bytes extra...not great
+	TECHDEBT("Reconsider?");
+	inline constexpr u32 MAX_PIPELINE_SHADER_COUNT = static_cast<u32>(SHADER_STAGE::MAX);
+
 	enum class PRIMITIVE_TOPOLOGY
 	{
 		POINT_LIST = 0,
@@ -206,8 +212,8 @@ namespace PHX
 		UniformCollectionHandle uniformCollection	= INVALID_HANDLE;
 
 		// Shader create info
-		ShaderHandle* pShaders						= nullptr;
-		u32 shaderCount								= 0;
+		ShaderHandle pShaders[MAX_PIPELINE_SHADER_COUNT]	= {};
+		u32 shaderCount										= 0;
 
 		////////
 		bool operator==(const GraphicsPipelineDesc& other) const;
@@ -226,11 +232,12 @@ namespace PHX
 
 	struct RayTracingPipelineDesc
 	{
-		ShaderHandle* pShaders = nullptr;
-		u32 shaderCount        = 0;
+		ShaderHandle pShaders[MAX_PIPELINE_SHADER_COUNT]	= {};
+		u32 shaderCount										= 0;
 
 		// May be used to combine hit shaders into a single SBT hit group, if necessary
 		// Allows things like alpha discarding since any-hit and closest-hit can be grouped into a single hit group
+		TECHDEBT("Convert to stack array");
 		HitGroupDesc* pHitGroups = nullptr;
 		u32 hitGroupCount        = 0;
 

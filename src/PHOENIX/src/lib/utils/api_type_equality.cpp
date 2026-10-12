@@ -260,7 +260,7 @@ namespace PHX
 
 	bool GraphicsPipelineDesc::operator==(const GraphicsPipelineDesc& other) const
 	{
-		STATIC_ASSERT_MSG(sizeof(GraphicsPipelineDesc) == 256, "If graphics pipeline description changed, make sure to change this equality function!");
+		STATIC_ASSERT_MSG(sizeof(other) == 440, "If graphics pipeline description changed, make sure to change this equality function!");
 
 		// Input assembler
 		if (topology != other.topology ||
@@ -376,7 +376,7 @@ namespace PHX
 
 	bool RayTracingPipelineDesc::operator==(const RayTracingPipelineDesc& other) const
 	{
-		STATIC_ASSERT_MSG(sizeof(RayTracingPipelineDesc) == 56, "If ray tracing pipeline description changed, make sure to change this equality function!");
+		STATIC_ASSERT_MSG(sizeof(other) == 240, "If ray tracing pipeline description changed, make sure to change this equality function!");
 
 		// SHADERS
 		if (shaderCount != other.shaderCount)

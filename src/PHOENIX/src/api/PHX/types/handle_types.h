@@ -2,7 +2,7 @@
 
 namespace PHX
 {
-	enum class HANDLE_TYPE
+	enum class HANDLE_TYPE : u16
 	{
 		BUFFER = 0,
 		TEXTURE,

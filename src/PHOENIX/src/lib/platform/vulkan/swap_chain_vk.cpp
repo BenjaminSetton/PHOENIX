@@ -385,44 +385,23 @@ namespace PHX
 		std::vector<VkImage> swapChainImages(m_imageCount);
 		vkGetSwapchainImagesKHR(logicalDevice, m_swapChain, &m_imageCount, swapChainImages.data());
 
-		for (uint32_t i = 0; i < m_imageCount; i++)
-		{
-			char imgName[64];
-			snprintf(imgName, sizeof(imgName), "BackbufferImage_%u", i);
-			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(swapChainImages[i]), imgName);
-		}
-
-		VkImageViewCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		createInfo.format = imageFormat;
-		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		createInfo.subresourceRange.baseMipLevel = 0;
-		createInfo.subresourceRange.levelCount = 1;
-		createInfo.subresourceRange.baseArrayLayer = 0;
-		createInfo.subresourceRange.layerCount = 1;
-
 		std::vector<VkImageView> imageViews;
 		imageViews.resize(m_imageCount);
+		m_images.reserve(m_imageCount);
 
-		for (uint32_t i = 0; i < m_imageCount; i++)
-		{
-			createInfo.image = swapChainImages[i];
-			if (vkCreateImageView(logicalDevice, &createInfo, nullptr, &(imageViews.at(i))) != VK_SUCCESS)
-			{
-				LogError("Failed to create one or more swap chain image views!");
-				return STATUS_CODE::ERR_INTERNAL;
-			}
-
-			char name[64];
-			snprintf(name, sizeof(name), "BackbufferImageView_%u", i);
-			DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageViews.at(i)), name);
-		}
+		VkImageViewCreateInfo imageViewCI{};
+		imageViewCI.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		imageViewCI.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		imageViewCI.format = imageFormat;
+		imageViewCI.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		imageViewCI.subresourceRange.baseMipLevel = 0;
+		imageViewCI.subresourceRange.levelCount = 1;
+		imageViewCI.subresourceRange.baseArrayLayer = 0;
+		imageViewCI.subresourceRange.layerCount = 1;
 
 		// Once all image views are successfully created, create 
 		// internal texture objects from swap chain image views
 		TextureBaseCreateInfo texBaseCI{};
-		texBaseCI.pName = "Backbuffer";
 		texBaseCI.width = m_width;
 		texBaseCI.height = m_height;
 		texBaseCI.mipLevels = 1;
@@ -431,9 +410,35 @@ namespace PHX
 		texBaseCI.sampleFlags = SAMPLE_COUNT::COUNT_1;
 		texBaseCI.format = TEX_UTILS::ConvertSurfaceFormat(m_format);
 
-		m_images.reserve(m_imageCount);
 		for (u32 i = 0; i < m_imageCount; i++)
 		{
+			// Backbuffer image debug name
+			{
+				char imgName[64];
+				snprintf(imgName, sizeof(imgName), "BackbufferImage_%u", i);
+				DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE, reinterpret_cast<uint64_t>(swapChainImages[i]), imgName);
+			}
+
+			// Image views
+			imageViewCI.image = swapChainImages[i];
+			if (vkCreateImageView(logicalDevice, &imageViewCI, nullptr, &(imageViews.at(i))) != VK_SUCCESS)
+			{
+				LogError("Failed to create one or more swap chain image views!");
+				return STATUS_CODE::ERR_INTERNAL;
+			}
+
+			// Backbuffer image view debug name
+			{
+				char imgViewName[64];
+				snprintf(imgViewName, sizeof(imgViewName), "BackbufferImageView_%u", i);
+				DEBUG_UTILS::SetObjectName(logicalDevice, VK_OBJECT_TYPE_IMAGE_VIEW, reinterpret_cast<uint64_t>(imageViews.at(i)), imgViewName);
+			}
+
+			// Image texture objects
+			char textureName[64];
+			snprintf(textureName, sizeof(textureName), "Backbuffer_%u", i);
+			texBaseCI.pName = textureName;
+
 			TextureHandle texture;
 			STATUS_CODE res = pRenderDevice->AllocateSwapchainTexture(texBaseCI, imageViews.at(i), texture);
 			if (res != STATUS_CODE::SUCCESS)

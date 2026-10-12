@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -79,7 +80,7 @@ namespace PHX
 		VkSampler m_sampler;
 		VkImageLayout m_layout;
 
-		const char* m_pName;
+		std::string m_pName;
 		u32 m_width;
 		u32 m_height;
 		BASE_FORMAT m_format;
