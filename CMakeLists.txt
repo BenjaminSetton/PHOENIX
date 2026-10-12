@@ -213,6 +213,11 @@ set_target_properties(bsl PROPERTIES
 # ---------------------------------------------------------------------------
 add_subdirectory(src/PHOENIX)
 
+# Propagate natvis to consumers via INTERFACE sources
+if(MSVC)
+    target_sources(PHOENIX INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/utils/phoenix.natvis")
+endif()
+
 if(PHX_BUILD_SAMPLES)
     add_subdirectory(src/samples)
 endif()

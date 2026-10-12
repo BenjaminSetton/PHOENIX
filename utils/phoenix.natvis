@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+  <!-- Reference STL natvis: https://github.com/microsoft/STL/blob/main/stl/debugger/STL.natvis -->
+
+  <!-- PHX::Handle and all derived handle types (TextureHandle, BufferHandle, ...)
+       inherit this visualizer. Resolves the handle against its owner's
+       HandleList so the actual resource shows up on hover -->
+  <Type Name="PHX::Handle">
+    <DisplayString Condition="m_pOwner == 0">[unresolved] type={m_type}</DisplayString>
+    <DisplayString>type={m_type}, index={m_index}, owner={m_pOwner}</DisplayString>
+    <Expand><!-- RenderDeviceVk-owned handles -->
+      <ExpandedItem Condition="
+          m_pOwner != 0 &amp;&amp; dynamic_cast&lt;PHX::RenderDeviceVk*&gt;(m_pOwner) != 0 &amp;&amp;
+          m_type == PHX::HANDLE_TYPE::BUFFER &amp;&amp;
+          m_index &lt; (((PHX::RenderDeviceVk*)m_pOwner)->m_buffers.m_slots._Mypair._Myval2._Mylast - ((PHX::RenderDeviceVk*)m_pOwner)->m_buffers.m_slots._Mypair._Myval2._Myfirst) &amp;&amp;
+          ((PHX::RenderDeviceVk*)m_pOwner)->m_buffers.m_slots._Mypair._Myval2._Myfirst[m_index] != 0"
+          >*((PHX::RenderDeviceVk*)m_pOwner)->m_buffers.m_slots._Mypair._Myval2._Myfirst[m_index]</ExpandedItem>
+      <ExpandedItem Condition="
+          m_pOwner != 0 &amp;&amp; dynamic_cast&lt;PHX::RenderDeviceVk*&gt;(m_pOwner) != 0 &amp;&amp;
+          m_type == PHX::HANDLE_TYPE::TEXTURE &amp;&amp;
+          m_index &lt; (((PHX::RenderDeviceVk*)m_pOwner)->m_textures.m_slots._Mypair._Myval2._Mylast - ((PHX::RenderDeviceVk*)m_pOwner)->m_textures.m_slots._Mypair._Myval2._Myfirst) &amp;&amp;
+          ((PHX::RenderDeviceVk*)m_pOwner)->m_textures.m_slots._Mypair._Myval2._Myfirst[m_index] != 0"
+          >*((PHX::RenderDeviceVk*)m_pOwner)->m_textures.m_slots._Mypair._Myval2._Myfirst[m_index]</ExpandedItem>
+      <ExpandedItem Condition="
+          m_pOwner != 0 &amp;&amp; dynamic_cast&lt;PHX::RenderDeviceVk*&gt;(m_pOwner) != 0 &amp;&amp;
+          m_type == PHX::HANDLE_TYPE::UNIFORM &amp;&amp;
+          m_index &lt; (((PHX::RenderDeviceVk*)m_pOwner)->m_uniformCollections.m_slots._Mypair._Myval2._Mylast - ((PHX::RenderDeviceVk*)m_pOwner)->m_uniformCollections.m_slots._Mypair._Myval2._Myfirst) &amp;&amp;
+          ((PHX::RenderDeviceVk*)m_pOwner)->m_uniformCollections.m_slots._Mypair._Myval2._Myfirst[m_index] != 0"
+          >*((PHX::RenderDeviceVk*)m_pOwner)->m_uniformCollections.m_slots._Mypair._Myval2._Myfirst[m_index]</ExpandedItem>
+      <ExpandedItem Condition="
+          m_pOwner != 0 &amp;&amp; dynamic_cast&lt;PHX::RenderDeviceVk*&gt;(m_pOwner) != 0 &amp;&amp;
+          m_type == PHX::HANDLE_TYPE::DEVICE_CONTEXT &amp;&amp;
+          m_index &lt; (((PHX::RenderDeviceVk*)m_pOwner)->m_deviceContexts.m_slots._Mypair._Myval2._Mylast - ((PHX::RenderDeviceVk*)m_pOwner)->m_deviceContexts.m_slots._Mypair._Myval2._Myfirst) &amp;&amp;
+          ((PHX::RenderDeviceVk*)m_pOwner)->m_deviceContexts.m_slots._Mypair._Myval2._Myfirst[m_index] != 0"
+          >*((PHX::RenderDeviceVk*)m_pOwner)->m_deviceContexts.m_slots._Mypair._Myval2._Myfirst[m_index]</ExpandedItem>
+      <ExpandedItem Condition="
+          m_pOwner != 0 &amp;&amp; dynamic_cast&lt;PHX::RenderDeviceVk*&gt;(m_pOwner) != 0 &amp;&amp;
+          m_type == PHX::HANDLE_TYPE::SHADER &amp;&amp;
+          m_index &lt; (((PHX::RenderDeviceVk*)m_pOwner)->m_shaders.m_slots._Mypair._Myval2._Mylast - ((PHX::RenderDeviceVk*)m_pOwner)->m_shaders.m_slots._Mypair._Myval2._Myfirst) &amp;&amp;
+          ((PHX::RenderDeviceVk*)m_pOwner)->m_shaders.m_slots._Mypair._Myval2._Myfirst[m_index] != 0"
+          >*((PHX::RenderDeviceVk*)m_pOwner)->m_shaders.m_slots._Mypair._Myval2._Myfirst[m_index]</ExpandedItem>
+      <ExpandedItem Condition="
+          m_pOwner != 0 &amp;&amp; dynamic_cast&lt;PHX::RenderDeviceVk*&gt;(m_pOwner) != 0 &amp;&amp;
+          m_type == PHX::HANDLE_TYPE::SWAP_CHAIN &amp;&amp;
+          m_index &lt; (((PHX::RenderDeviceVk*)m_pOwner)->m_swapChains.m_slots._Mypair._Myval2._Mylast - ((PHX::RenderDeviceVk*)m_pOwner)->m_swapChains.m_slots._Mypair._Myval2._Myfirst) &amp;&amp;
+          ((PHX::RenderDeviceVk*)m_pOwner)->m_swapChains.m_slots._Mypair._Myval2._Myfirst[m_index] != 0"
+          >*((PHX::RenderDeviceVk*)m_pOwner)->m_swapChains.m_slots._Mypair._Myval2._Myfirst[m_index]</ExpandedItem>
+      <ExpandedItem Condition="
+          m_pOwner != 0 &amp;&amp; dynamic_cast&lt;PHX::RenderDeviceVk*&gt;(m_pOwner) != 0 &amp;&amp;
+          m_type == PHX::HANDLE_TYPE::RENDER_GRAPH &amp;&amp;
+          m_index &lt; (((PHX::RenderDeviceVk*)m_pOwner)->m_renderGraphs.m_slots._Mypair._Myval2._Mylast - ((PHX::RenderDeviceVk*)m_pOwner)->m_renderGraphs.m_slots._Mypair._Myval2._Myfirst) &amp;&amp;
+          ((PHX::RenderDeviceVk*)m_pOwner)->m_renderGraphs.m_slots._Mypair._Myval2._Myfirst[m_index] != 0"
+          >*((PHX::RenderDeviceVk*)m_pOwner)->m_renderGraphs.m_slots._Mypair._Myval2._Myfirst[m_index]</ExpandedItem>
+      <ExpandedItem Condition="
+          m_pOwner != 0 &amp;&amp; dynamic_cast&lt;PHX::RenderDeviceVk*&gt;(m_pOwner) != 0 &amp;&amp;
+          m_type == PHX::HANDLE_TYPE::ACCELERATION_STRUCTURE &amp;&amp;
+          m_index &lt; (((PHX::RenderDeviceVk*)m_pOwner)->m_accelerationStructures.m_slots._Mypair._Myval2._Mylast - ((PHX::RenderDeviceVk*)m_pOwner)->m_accelerationStructures.m_slots._Mypair._Myval2._Myfirst) &amp;&amp;
+          ((PHX::RenderDeviceVk*)m_pOwner)->m_accelerationStructures.m_slots._Mypair._Myval2._Myfirst[m_index] != 0"
+          >*((PHX::RenderDeviceVk*)m_pOwner)->m_accelerationStructures.m_slots._Mypair._Myval2._Myfirst[m_index]</ExpandedItem>
+
+      <!-- RenderGraphVk-owned handles -->
+      <ExpandedItem Condition="
+          m_pOwner != 0 &amp;&amp; dynamic_cast&lt;PHX::RenderGraphVk*&gt;(m_pOwner) != 0 &amp;&amp;
+          m_type == PHX::HANDLE_TYPE::RENDER_PASS &amp;&amp;
+          m_index &lt; (((PHX::RenderGraphVk*)m_pOwner)->m_registeredRenderPasses.m_slots._Mypair._Myval2._Mylast - ((PHX::RenderGraphVk*)m_pOwner)->m_registeredRenderPasses.m_slots._Mypair._Myval2._Myfirst) &amp;&amp;
+          ((PHX::RenderGraphVk*)m_pOwner)->m_registeredRenderPasses.m_slots._Mypair._Myval2._Myfirst[m_index] != 0"
+          >*((PHX::RenderGraphVk*)m_pOwner)->m_registeredRenderPasses.m_slots._Mypair._Myval2._Myfirst[m_index]</ExpandedItem>
+
+      <!-- CoreObjectManager-owned handles. Slots are interface pointers, so the
+           concrete slot type is guarded per-entry via dynamic_cast too -->
+      <ExpandedItem Condition="
+          m_pOwner != 0 &amp;&amp; m_type == PHX::HANDLE_TYPE::WINDOW &amp;&amp;
+          m_index &lt; (((PHX::CoreObjectManager*)m_pOwner)->m_windows.m_slots._Mypair._Myval2._Mylast - ((PHX::CoreObjectManager*)m_pOwner)->m_windows.m_slots._Mypair._Myval2._Myfirst) &amp;&amp;
+          dynamic_cast&lt;PHX::WindowWin64*&gt;(((PHX::CoreObjectManager*)m_pOwner)->m_windows.m_slots._Mypair._Myval2._Myfirst[m_index]) != 0"
+          >*(PHX::WindowWin64*)((PHX::CoreObjectManager*)m_pOwner)->m_windows.m_slots._Mypair._Myval2._Myfirst[m_index]</ExpandedItem>
+      <ExpandedItem Condition="
+          m_pOwner != 0 &amp;&amp; m_type == PHX::HANDLE_TYPE::RENDER_DEVICE &amp;&amp;
+          m_index &lt; (((PHX::CoreObjectManager*)m_pOwner)->m_renderDevices.m_slots._Mypair._Myval2._Mylast - ((PHX::CoreObjectManager*)m_pOwner)->m_renderDevices.m_slots._Mypair._Myval2._Myfirst) &amp;&amp;
+          dynamic_cast&lt;PHX::RenderDeviceVk*&gt;(((PHX::CoreObjectManager*)m_pOwner)->m_renderDevices.m_slots._Mypair._Myval2._Myfirst[m_index]) != 0"
+          >*(PHX::RenderDeviceVk*)((PHX::CoreObjectManager*)m_pOwner)->m_renderDevices.m_slots._Mypair._Myval2._Myfirst[m_index]</ExpandedItem>
+    </Expand>
+  </Type>
+
+  <!-- PHX::HandleList<T> slot list. Shows slot count/active count and expands
+       to the raw slot array (freed slots display as nullptr). -->
+  <Type Name="PHX::HandleList&lt;*&gt;">
+    <DisplayString>{{ size={m_slots._Mypair._Myval2._Mylast - m_slots._Mypair._Myval2._Myfirst} active={(m_slots._Mypair._Myval2._Mylast - m_slots._Mypair._Myval2._Myfirst) - (m_freeList._Mypair._Myval2._Mylast - m_freeList._Mypair._Myval2._Myfirst)} }}</DisplayString>
+    <Expand>
+      <Item Name="[size]">m_slots._Mypair._Myval2._Mylast - m_slots._Mypair._Myval2._Myfirst</Item>
+      <Item Name="[active]">(m_slots._Mypair._Myval2._Mylast - m_slots._Mypair._Myval2._Myfirst) - (m_freeList._Mypair._Myval2._Mylast - m_freeList._Mypair._Myval2._Myfirst)</Item>
+      <ArrayItems>
+        <Size>m_slots._Mypair._Myval2._Mylast - m_slots._Mypair._Myval2._Myfirst</Size>
+        <ValuePointer>m_slots._Mypair._Myval2._Myfirst</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+
+</AutoVisualizer>
