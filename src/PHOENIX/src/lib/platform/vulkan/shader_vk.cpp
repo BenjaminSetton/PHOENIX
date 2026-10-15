@@ -2,6 +2,7 @@
 #include "shader_vk.h"
 
 #include "BSL/logger.h"
+#include "platform/vulkan/utils/debug_utils.h"
 #include "render_device_vk.h"
 
 using namespace BSL;
@@ -38,6 +39,12 @@ namespace PHX
 		{
 			LogError("Failed to create shader of type %u", static_cast<u32>(createInfo.stage));
 			return;
+		}
+
+		{
+			char shaderName[64];
+			snprintf(shaderName, sizeof(shaderName), "Shader_0x%p", m_shader);
+			DEBUG_UTILS::SetObjectName(pRenderDevice->GetLogicalDevice(), VK_OBJECT_TYPE_SHADER_MODULE, reinterpret_cast<uint64_t>(m_shader), shaderName);
 		}
 
 		m_pRenderDevice = pRenderDevice;
