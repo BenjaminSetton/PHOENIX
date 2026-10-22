@@ -792,8 +792,6 @@ namespace PHX
 		{
 			// Reset to defaults
 			m_metrics = Metrics{};
-
-			// Set now instead of during baking so the context can resolve timestamp queries in BeginFrame
 			pDeviceContext->SetMetricsPointer(&m_metrics);
 		}
 
@@ -1420,8 +1418,12 @@ namespace PHX
 			const Settings& settings = GlobalSettings::Get().GetSettings();
 
 			std::string fullPath = std::string(settings.cacheDirectory) + "/" + fileName;
-			FileIO io(fullPath.c_str());
-			if (!io.IsOpen())
+			FileIO io;
+			FileOpenData openData{};
+			openData.mode = FileMode::Truncate;
+			openData.binary = false;
+			openData.shareable = false;
+			if (!io.Open(fullPath.c_str()))
 			{
 				LogError("Failed to generate render graph visualization. Could not open file \"%s\" for writing!", fullPath.c_str());
 				return STATUS_CODE::ERR_INTERNAL;

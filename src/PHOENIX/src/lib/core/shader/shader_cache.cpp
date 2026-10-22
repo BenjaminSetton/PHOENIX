@@ -223,8 +223,13 @@ namespace PHX
 		header.sourcePathLen     = static_cast<u32>(sourceFilePath.size());
 
 		// Write the cache file
-		FileIO io(cacheFilePath.c_str(), true);
-		if (!io.IsOpen())
+		FileIO io;
+
+		FileOpenData openData{};
+		openData.mode = FileMode::Truncate;
+		openData.binary = true;
+		openData.shareable = false;
+		if (!io.Open(cacheFilePath.c_str(), openData))
 		{
 			LogError("Failed to write to shader cache. Could not open shader cache file for writing: \"%s\"", cacheFilePath.c_str());
 			return STATUS_CODE::ERR_INTERNAL;
