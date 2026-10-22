@@ -6,6 +6,7 @@
 
 #include "buffer_vk.h"
 #include "core/interface_types/device_context_interface.h"
+#include "PHX/types/pass_timing.h"
 #include "render_device_vk.h"
 #include "texture_vk.h"
 #include "utils/staging_buffer_pool.h"
@@ -37,6 +38,14 @@ namespace PHX
 		u32 queueFamilyIndex       = QueueFamilyIndices::INVALID_INDEX;
 		u32 queueIndex             = QueueFamilyIndices::INVALID_INDEX;
 		VkCommandBuffer cmdBuffer  = VK_NULL_HANDLE;
+	};
+
+	// Holds information about pending timestamp queries
+	struct TimestampPendingQueryInfo
+	{
+		char     renderPassName[MAX_PASS_NAME_LEN] = {};
+		u32      beginTimestampIndex               = U32_MAX;
+		u32      endTimestampIndex                 = U32_MAX;
 	};
 
 	class DeviceContextVk : public IDeviceContext
@@ -81,9 +90,10 @@ namespace PHX
 		void SetMetricsPointer(Metrics* pMetrics) override;
 		void ResetMetricsPointer() override;
 
-		// Timestamp queries
-		STATUS_CODE WriteBeginTimestamp(u32& out_timestampIndex);
-		STATUS_CODE WriteEndTimestamp(u32& out_timestampIndex);
+		// Timestamp queries - writes a timestamp into the last submission batch and tracks the
+		// begin/end pair internally for readback on the next use of this frame-in-flight
+		STATUS_CODE WriteBeginTimestamp(const char* passName);
+		STATUS_CODE WriteEndTimestamp();
 
 		// This is called by the current render pass during baking, so that the device context
 		// is aware of the pipeline contextually and can use it directly. This is different
@@ -173,6 +183,10 @@ namespace PHX
 
 		void ResetQueryPool();
 
+		// Reads back this frame-in-flight's pending timestamp queries into the metrics pointer.
+		// Must be called after the frame fence wait and before ResetQueryPool
+		void ResolvePendingTimestampQueries();
+
 		STATUS_CODE WriteTimestamp(VkPipelineStageFlagBits pipelineStage, u32& out_timestampIndex);
 
 	private:
@@ -206,6 +220,10 @@ namespace PHX
 		//                 and index count contains the number of queries written
 		u32 m_queryBaseIndex;
 		u32 m_queryIndexCount;
+
+		// Timestamp queries written the last time this frame-in-flight was used. Resolved in BeginFrame
+		// once the frame fence guarantees the results are available
+		std::vector<TimestampPendingQueryInfo> m_pendingTimestamps;
 
 		// Non-owning
 		PipelineVk* m_contextualPipeline;

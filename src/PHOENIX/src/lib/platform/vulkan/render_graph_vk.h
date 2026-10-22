@@ -60,14 +60,6 @@ namespace PHX
 		ResourceIndexBitset resources;
 	};
 
-	// Holds information about pending timestamp queries
-	struct TimestampPendingQueryInfo
-	{
-		char     renderPassName[MAX_PASS_NAME_LEN] = {};
-		u32      beginTimestampIndex               = U32_MAX;
-		u32      endTimestampIndex                 = U32_MAX;
-	};
-
 	class RenderPassVk : public IRenderPass
 	{
 	public:
@@ -212,10 +204,6 @@ namespace PHX
 		void WriteBeginTimestamp(DeviceContextVk* pDeviceContext, const RenderPassVk& renderPass);
 		void WriteEndTimestamp(DeviceContextVk* pDeviceContext);
 
-		// Reads back the timestamp queries submitted last frame and resolves them into
-		// time taken in milliseconds for each pass
-		void ResolvePendingTimestampQueries();
-
 	private:
 
 		HandleList<RenderPassVk> m_registeredRenderPasses;
@@ -233,16 +221,8 @@ namespace PHX
 		u32 m_frameInFlightIndex;
 		u32 m_frameNumber;
 
-		// Holds information about pending timestamp queries submitted this frame
-		std::vector<TimestampPendingQueryInfo> m_pendingTimestamps;
-
 		const BSL::CRC32 m_reservedDepthBufferNameCRC;
 		u64 m_presentResID;
-
-		// True if last frame submitted work, false otherwise
-		// NOTE - This is NOT equivalent to DeviceContext->WasWorkFlushed()
-		//        because device contexts represent frames-in-flight, not sequential frames
-		bool m_didExecuteWork;
 
 		// Metrics
 		mutable Metrics m_metrics;

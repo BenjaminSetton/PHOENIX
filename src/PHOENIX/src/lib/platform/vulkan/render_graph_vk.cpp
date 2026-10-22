@@ -734,8 +734,8 @@ namespace PHX
 	//--------------------------------------------------------------------------------------------
 
 	RenderGraphVk::RenderGraphVk(RenderDeviceVk* pRenderDevice) : m_pRenderDevice(nullptr), m_deviceContextHandles(), m_currentFrameGraphHash(0), m_uniqueVisualizationHashes(),
-		m_frameInFlightIndex(0), m_frameNumber(0), m_pendingTimestamps(), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), 
-		m_presentResID(0), m_didExecuteWork(false), m_metrics()
+		m_frameInFlightIndex(0), m_frameNumber(0), m_reservedDepthBufferNameCRC(HashCRC32(s_pReservedDepthBufferName)), 
+		m_presentResID(0), m_metrics()
 	{
 		if (pRenderDevice == nullptr)
 		{
@@ -793,12 +793,8 @@ namespace PHX
 			// Reset to defaults
 			m_metrics = Metrics{};
 
-			// Do not attempt to read from frame 0 when no work has been submitted
-			const bool canQueryResults = (m_frameNumber > 0);
-			if (m_didExecuteWork && canQueryResults)
-			{
-				ResolvePendingTimestampQueries();
-			}
+			// Set now instead of during baking so the context can resolve timestamp queries in BeginFrame
+			pDeviceContext->SetMetricsPointer(&m_metrics);
 		}
 
 		res = pDeviceContext->BeginFrame(swapChainVk);
@@ -807,8 +803,6 @@ namespace PHX
 			LogError("Failed to begin frame. Device context could not begin frame!");
 			return res;
 		}
-
-		m_didExecuteWork = false;
 
 		return res;
 	}
@@ -843,11 +837,6 @@ namespace PHX
 			if (res != STATUS_CODE::SUCCESS)
 			{
 				LogError("Failed to end frame #%u. Swap chain present failed!", m_frameNumber);
-			}
-			else
-			{
-				// Cache work submitted so next frame can use this information
-				m_didExecuteWork = true;
 			}
 		}
 
@@ -922,11 +911,6 @@ namespace PHX
 
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
 		DeviceContextHandle deviceContext = GetCurrentDeviceContextHandle();
-
-		if (GetSettings().gatherMetrics)
-		{
-			pDeviceContext->SetMetricsPointer(&m_metrics);
-		}
 
 		for (u32 activeRenderPassIndex : activeRenderPassIndices)
 		{
@@ -2500,20 +2484,7 @@ namespace PHX
 		// Begin CPU zone
 		if (GetSettings().gatherMetrics)
 		{
-			u32 timestampIndex = U32_MAX;
-			if (pDeviceContext->WriteBeginTimestamp(timestampIndex) == STATUS_CODE::SUCCESS)
-			{
-				// Add new pending timestamp entry
-				TimestampPendingQueryInfo newQuery{};
-				newQuery.beginTimestampIndex = timestampIndex;
-
-				// Copy the pass name because it'll outlive the current frame
-				const char* passName = renderPass.m_name;
-				strncpy_s(newQuery.renderPassName, passName, MAX_PASS_NAME_LEN - 1);
-				newQuery.renderPassName[MAX_PASS_NAME_LEN - 1] = '\0'; // Null-terminate in case it overflows char buffer
-
-				m_pendingTimestamps.push_back(newQuery);
-			}
+			pDeviceContext->WriteBeginTimestamp(renderPass.m_name);
 		}
 	}
 
@@ -2527,111 +2498,8 @@ namespace PHX
 		// End CPU zone
 		if (GetSettings().gatherMetrics)
 		{
-			u32 timestampIndex = U32_MAX;
-			if (pDeviceContext->WriteEndTimestamp(timestampIndex) == STATUS_CODE::SUCCESS)
-			{
-				ASSERT_MSG(m_pendingTimestamps.size() > 0, "Trying to write end timestamp but no begin timestamp was found!");
-				TimestampPendingQueryInfo& pendingQuery = m_pendingTimestamps.back();
-				pendingQuery.endTimestampIndex = timestampIndex;
-			}
+			pDeviceContext->WriteEndTimestamp();
 		}
 	}
 
-	void RenderGraphVk::ResolvePendingTimestampQueries()
-	{
-		PROFILE_SCOPE("RenderGraphVk_ResolvePendingTimestampQueries");
-
-		if (m_pendingTimestamps.empty())
-		{
-			return;
-		}
-
-		// Calculate the query count
-		const u32 firstQuery = m_pendingTimestamps.front().beginTimestampIndex;
-		ASSERT_MSG(firstQuery != U32_MAX, "First pending timestamp has an invalid begin index!");
-
-		u32 lastQuery = firstQuery;
-		for (const TimestampPendingQueryInfo& q : m_pendingTimestamps)
-		{
-			lastQuery = BSL::Max(q.endTimestampIndex, lastQuery);
-		}
-
-		const u32 queryCount = (lastQuery - firstQuery) + 1;
-
-		// With VK_QUERY_RESULT_WITH_AVAILABILITY_BIT, each query returns two u64s:
-		// timestamp value and availability
-		constexpr u64 valuesPerQuery = 2;
-		std::vector<u64> results(queryCount * valuesPerQuery, 0);
-
-		VkResult vkRes = vkGetQueryPoolResults(
-			m_pRenderDevice->GetLogicalDevice(),
-			m_pRenderDevice->GetQueryPool(),
-			firstQuery,
-			queryCount,
-			results.size() * sizeof(u64),
-			results.data(),
-			valuesPerQuery * sizeof(u64),
-			VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WITH_AVAILABILITY_BIT);
-
-		// VK_NOT_READY is also an expected return value for any queries which are not ready
-		if (vkRes != VK_SUCCESS && vkRes != VK_NOT_READY)
-		{
-			LogWarning("Failed to read back timestamp query results. Got error: \"%s\"", string_VkResult(vkRes));
-			m_pendingTimestamps.clear();
-			return;
-		}
-
-		const float timestampPeriod = m_pRenderDevice->GetTimestampPeriod();
-
-		// Track the full frame span (across all pass types) for gpuFrameTime.
-		u64 minBeginTimestamp = U64_MAX;
-		u64 maxEndTimestamp = 0;
-		bool anyAvailable = false;
-
-		m_metrics.passTimings.clear();
-		m_metrics.passTimings.reserve(m_pendingTimestamps.size());
-		for (TimestampPendingQueryInfo& pendingTimestamp : m_pendingTimestamps)
-		{
-			const u64 beginOffset = pendingTimestamp.beginTimestampIndex - firstQuery;
-			const u64 beginValue  = results[beginOffset * valuesPerQuery];
-			const u64 beginAvail  = results[beginOffset * valuesPerQuery + 1];
-
-			// Skip unavailable timestamps
-			if (beginAvail == 0)
-			{
-				continue;
-			}
-
-			const u64 endOffset = pendingTimestamp.endTimestampIndex - firstQuery;
-			const u64 endValue = results[endOffset * valuesPerQuery];
-			const u64 endAvail = results[endOffset * valuesPerQuery + 1];
-
-			// Skip unavailable timestamps
-			if (endAvail == 0)
-			{
-				continue;
-			}
-
-			// Track the overall frame span from every available pass.
-			if (beginValue < minBeginTimestamp) { minBeginTimestamp = beginValue; }
-			if (endValue > maxEndTimestamp)     { maxEndTimestamp = endValue; }
-			anyAvailable = true;
-
-			const u64 tickDiff = (endValue >= beginValue) ? (endValue - beginValue) : 0;
-			const float durationMs = static_cast<float>(tickDiff) * timestampPeriod / 1000000.0f;
-
-			PassTiming& timing = m_metrics.passTimings.emplace_back();
-			std::memcpy(timing.passName, pendingTimestamp.renderPassName, MAX_PASS_NAME_LEN);
-			timing.timeInMs = durationMs;
-		}
-
-		if (anyAvailable)
-		{
-			const u64 frameSpanTicks = (maxEndTimestamp >= minBeginTimestamp) ? (maxEndTimestamp - minBeginTimestamp) : 0;
-			m_metrics.gpuFrameTime = static_cast<float>(frameSpanTicks) * timestampPeriod / 1000000.0f;
-		}
-
-		// Clear the pending timestamps for next frame
-		m_pendingTimestamps.clear();
-	}
 }
