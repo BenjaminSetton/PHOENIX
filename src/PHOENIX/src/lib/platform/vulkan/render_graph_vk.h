@@ -147,8 +147,6 @@ namespace PHX
 		// Holds the barriers calculated in CalculateResourceBarriers() that handles both access hazards as well
 		// as texture layout transitions
 		std::unordered_map<ResourceID, Barrier> m_barriers;
-
-		bool m_isVirtual;
 	};
 
 	class RenderGraphVk : public IRenderGraph
@@ -188,8 +186,6 @@ namespace PHX
 		// in as dependencies via the write-after-write hazard on the shared image.
 		u32 FindPresentRenderPassIndex(ResourceID presentResID);
 
-		void RegisterVirtualPasses();
-		void BuildVirtualInputPass(u32 inputPassIndex);
 		void BuildDependencyTree(u32 renderPassIndex);
 		void CalculateActivePasses(u32 presentRenderPassIndex, std::vector<u32>& out_activePasses);
 		void AdjustResourceUsages(const std::vector<u32>& activePassIndices);

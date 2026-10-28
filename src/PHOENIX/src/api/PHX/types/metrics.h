@@ -35,6 +35,9 @@ namespace PHX
 		// GPU frame time in milliseconds
 		float gpuFrameTime = 0.0f;
 
+		// Render graph data
+		u64 graphHash = 0;
+
 		// Per-pass GPU frame time in milliseconds. Note that this does not necessarily equal the sum
 		// of gpuFrameTime, since only GRAPHICS and COMPUTE queues can potentially support timestamp queries
 		std::vector<PassTiming> passTimings;

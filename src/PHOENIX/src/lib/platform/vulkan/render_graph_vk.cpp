@@ -383,7 +383,7 @@ namespace PHX
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 	RenderPassVk::RenderPassVk(const char* name, PASS_TYPE passType, u32 index, RegisterResourceCallbackFn registerResourceCallback) : 
-		m_passType(passType), m_registerResourceCallback(registerResourceCallback), m_index(index), m_isVirtual(false)
+		m_passType(passType), m_registerResourceCallback(registerResourceCallback), m_index(index)
 	{
 		ASSERT_MSG(m_registerResourceCallback != nullptr, "Register resource callback is null");
 		m_name = name;
@@ -672,9 +672,6 @@ namespace PHX
 			return res;
 		}
 
-		// Re-register the virtual input pass now so it's always "first in submission order"
-		RegisterVirtualPasses();
-
 		return res;
 	}
 
@@ -755,20 +752,16 @@ namespace PHX
 		u32 presentRenderPassIndex = FindPresentRenderPassIndex(m_presentResID);
 
 		// Create the render graph tree using the following steps:
-
-		// 1. Build the "virtual" pass that simulates the work done in the previous frame as a single pass
-		const u32 inputPassIndex = 0; // This is assumed to ALWAYS be true, and asserted in RegisterVirtualInputPass()
-		BuildVirtualInputPass(inputPassIndex);
 		
-		// 2. Once that render pass is found, build the dependency tree
+		// 1. Once that render pass is found, build the dependency tree
 		BuildDependencyTree(presentRenderPassIndex);
 
-		// 3. [TRIMMING] Accumulate all contributing render passes into a separate container for the render graph. This is done so that
+		// 2. [TRIMMING] Accumulate all contributing render passes into a separate container for the render graph. This is done so that
 		//               all non-contributing passes are indirectly trimmed
 		std::vector<u32> activePassIndices;
 		CalculateActivePasses(presentRenderPassIndex, activePassIndices);
 
-		// 4. Removes all resource usages from trimmed passes
+		// 3. Removes all resource usages from trimmed passes
 		AdjustResourceUsages(activePassIndices);
 
 		// 4. [COMBINATION] Combine as many separate render passes into one for optimal GPU usage
@@ -783,17 +776,13 @@ namespace PHX
 		DeviceContextVk* pDeviceContext = static_cast<DeviceContextVk*>(GetCurrentDeviceContext());
 		DeviceContextHandle deviceContext = GetCurrentDeviceContextHandle();
 
-		// Traverse the passes in submission order, skipping invalid passes (virtual, inactive, etc)
+		// Traverse the passes in submission order, skipping invalid passes (inactive, etc)
 		for (u32 passIndex : activePassIndices)
 		{
 			RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(passIndex);
 			ASSERT_PTR(pRenderPass);
 
 			RenderPassVk& currRenderPass = *pRenderPass;
-			if (currRenderPass.m_isVirtual)
-			{
-				continue;
-			}
 
 			// Before calling execution callback, calculate all barriers necessary for the pass
 			res = CalculateResourceBarriers(currRenderPass);
@@ -934,16 +923,17 @@ namespace PHX
 			pDeviceContext->EndLabel(ConvertPassTypeToQueueType(currRenderPass.m_passType));
 		}
 
+		// Hash the state of the render graph after baking
+		// and store it in the map
+		m_currentFrameGraphHash = HashState();
+
 		// Clear metrics pointer after pass execution
 		if (GetSettings().gatherMetrics)
 		{
 			pDeviceContext->ResetMetricsPointer();
 			m_metrics.passCount = static_cast<u32>(activePassIndices.size());
+			m_metrics.graphHash = m_currentFrameGraphHash;
 		}
-
-		// Hash the state of the render graph after baking
-		// and store it in the map
-		m_currentFrameGraphHash = HashState();
 
 		return res;
 	}
@@ -991,6 +981,7 @@ namespace PHX
 		const u32 passCount = m_registeredRenderPasses.Size();
 
 		VizGraph graph{};
+		graph.graphHash = m_currentFrameGraphHash;
 		graph.finalPassIndex = FindPresentRenderPassIndex(m_presentResID);
 		ASSERT(graph.finalPassIndex != INVALID_RENDER_PASS_INDEX);
 
@@ -1000,7 +991,7 @@ namespace PHX
 		graph.submissionOrder.erase(std::remove_if(graph.submissionOrder.begin(), graph.submissionOrder.end(), [&](u32 passIndex)
 		{
 			const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(passIndex);
-			return (pRenderPass == nullptr || pRenderPass->m_isVirtual);
+			return (pRenderPass == nullptr);
 		}), graph.submissionOrder.end());
 
 		graph.passes.resize(passCount);
@@ -1009,7 +1000,7 @@ namespace PHX
 			const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(passIndex);
 			if (pRenderPass != nullptr)
 			{
-				graph.passes[passIndex] = { pRenderPass->m_name, pRenderPass->m_passType, pRenderPass->m_isVirtual };
+				graph.passes[passIndex] = { pRenderPass->m_name, pRenderPass->m_passType };
 			}
 		}
 
@@ -1057,7 +1048,7 @@ namespace PHX
 					vizResource.usages.push_back(std::move(vizUsage));
 				}
 
-				// The virtual input pass registers its usages during Bake(), which places them at the end of the chain
+				// Usages are stored in registration order, which isn't guaranteed to match pass order
 				std::stable_sort(vizResource.usages.begin(), vizResource.usages.end(), [](const VizUsage& a, const VizUsage& b)
 				{
 					return a.passIndex < b.passIndex;
@@ -1454,60 +1445,6 @@ namespace PHX
 		return presentRenderPassIndex;
 	}
 
-	void RenderGraphVk::RegisterVirtualPasses()
-	{
-		PROFILE_SCOPE("RenderGraphVk_RegisterVirtualPasses");
-
-		RenderPassVk* pInputPass = RegisterPass_Internal("VirtualInputPass", PASS_TYPE::GRAPHICS);
-		ASSERT_PTR(pInputPass);
-		pInputPass->m_isVirtual = true;
-
-		ASSERT_MSG(pInputPass->m_index == 0, "Virtual input pass is not the first registered pass??");
-	}
-
-	void RenderGraphVk::BuildVirtualInputPass(u32 inputPassIndex)
-	{
-		PROFILE_SCOPE("RenderGraphVk_BuildVirtualInputPass");
-
-		RenderPassVk* pInputPass = m_registeredRenderPasses.Get(inputPassIndex);
-		ASSERT_PTR(pInputPass); // We should never fail to get this unless the index is wrong!
-
-		// Loop through all resources and register input-only and output-only resources
-		for (const RenderResource& physicalResource : m_physicalResources)
-		{
-			TECHDEBT("Ugly resource registration. Clean up");
-			// Virtual input pass writes are declared for resources whose first usage is read-only
-			const auto& resourceUsageChain = m_resourcesUsageChain[physicalResource.resourceID];
-			if (resourceUsageChain.size() <= 0)
-			{
-				continue;
-			}
-
-			const ResourceUsage& firstUsage = resourceUsageChain[0];
-			if (firstUsage.access == RESOURCE_ACCESS::READ_ONLY)
-			{
-				switch (physicalResource.type)
-				{
-				case RESOURCE_TYPE::TEXTURE:
-				{
-					pInputPass->SetTextureOutput(static_cast<TextureHandle>(physicalResource.handle), ATTACHMENT_LOAD_OP::IGNORE, ATTACHMENT_STORE_OP::IGNORE);
-					break;
-				}
-				case RESOURCE_TYPE::BUFFER:
-				{
-					pInputPass->SetBufferOutput(static_cast<BufferHandle>(physicalResource.handle));
-					break;
-				}
-				default:
-				{
-					ASSERT_ALWAYS("Failed to register virtual passes. Unhandled resource type!");
-					break;
-				}
-				}
-			}
-		}
-	}
-
 	void RenderGraphVk::BuildDependencyTree(u32 renderPassIndex)
 	{
 		PROFILE_SCOPE("RenderGraphVk_BuildDependencyTree");
@@ -1756,27 +1693,14 @@ namespace PHX
 		ASSERT_PTR(pDstPass);
 		const PASS_TYPE dstPassType = pDstPass->m_passType;
 
+		VkAccessFlags srcAccessFlags = CalculateResourceAccessFlags(srcUsage, physicalResource, srcPassType);
+		VkAccessFlags dstAccessFlags = CalculateResourceAccessFlags(dstUsage, physicalResource, dstPassType);
+
 		Barrier barrier(physicalResource);
-
-		VkAccessFlags srcAccessFlags = VK_ACCESS_NONE;
-		VkAccessFlags dstAccessFlags = VK_ACCESS_NONE;
-		bool isSync = false;
-		if (!pDstPass->m_isVirtual)
-		{
-			srcAccessFlags = CalculateResourceAccessFlags(srcUsage, physicalResource, srcPassType);
-			dstAccessFlags = CalculateResourceAccessFlags(dstUsage, physicalResource, dstPassType);
-
-			barrier.srcAccessMask = srcAccessFlags;
-			barrier.dstAccessMask = dstAccessFlags;
-			isSync = true;
-		}
-
-		// Only insert stage masks if we have sync data, otherwise Barrier::IsValid() will fail
-		if (isSync)
-		{
-			barrier.srcStageMask = CalculateResourcePipelineStageFlags(srcPassType, srcAccessFlags, true);
-			barrier.dstStageMask = CalculateResourcePipelineStageFlags(dstPassType, dstAccessFlags, false);
-		}
+		barrier.srcAccessMask = srcAccessFlags;
+		barrier.dstAccessMask = dstAccessFlags;
+		barrier.srcStageMask = CalculateResourcePipelineStageFlags(srcPassType, srcAccessFlags, true);
+		barrier.dstStageMask = CalculateResourcePipelineStageFlags(dstPassType, dstAccessFlags, false);
 
 		return barrier;
 	}
@@ -2104,7 +2028,7 @@ namespace PHX
 		PROFILE_SCOPE("RenderGraphVk_HashState");
 
 		// If this changes it's likely that this function must be updated!
-		STATIC_ASSERT(sizeof(RenderPassVk) == 896);
+		STATIC_ASSERT(sizeof(RenderPassVk) == 888);
 
 		size_t seed = 0;
 
@@ -2170,8 +2094,6 @@ namespace PHX
 				// Uses a separate seed to keep the hash order-independent since we iterate over an unordered_map
 				seed += currBarrierSeed;
 			}
-
-			HashCombine(seed, pCurrRenderPass->m_isVirtual);
 		}
 
 		// Resource usages

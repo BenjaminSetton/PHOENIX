@@ -79,7 +79,6 @@ namespace PHX
 	{
 		const char* name = nullptr;	// Null for unused pass slots
 		PASS_TYPE passType = PASS_TYPE::GRAPHICS;
-		bool isVirtual = false;
 	};
 
 	struct VizGraph
@@ -88,6 +87,7 @@ namespace PHX
 		std::vector<u32> submissionOrder;			// Executed pass indices, in submission order
 		std::vector<VizResource> resources;
 		u32 finalPassIndex = U32_MAX;
+		u64 graphHash = 0;
 	};
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

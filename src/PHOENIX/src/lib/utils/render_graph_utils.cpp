@@ -418,14 +418,10 @@ namespace PHX
 		});
 
 		// ---- Dependency levels (stages) ----
-		// Level = 1 + max(level of dependencies), with virtual passes at level 0. Passes on the
-		// same level have no hazards between them, so the barriers allow them to execute in parallel
-		std::vector<u32> passLevels(passCount);
+		// Level = 1 + max(level of dependencies). Passes on the same level have no hazards
+		// between them, so the barriers allow them to execute in parallel
+		std::vector<u32> passLevels(passCount, 1);
 		std::vector<u32> criticalPreds(passCount, U32_MAX);
-		for (u32 passIndex = 0; passIndex < passCount; passIndex++)
-		{
-			passLevels[passIndex] = graph.passes[passIndex].isVirtual ? 0 : 1;
-		}
 		for (const PassEdge& edge : edges)
 		{
 			if (passLevels[edge.srcPass] + 1 > passLevels[edge.dstPass])
@@ -478,7 +474,7 @@ namespace PHX
 
 		std::vector<u32> criticalPath;
 		std::vector<bool> isOnCriticalPath(passCount, false);
-		for (u32 passIndex = criticalEnd; passIndex != U32_MAX && !graph.passes[passIndex].isVirtual; passIndex = criticalPreds[passIndex])
+		for (u32 passIndex = criticalEnd; passIndex != U32_MAX; passIndex = criticalPreds[passIndex])
 		{
 			criticalPath.push_back(passIndex);
 			isOnCriticalPath[passIndex] = true;
@@ -500,10 +496,14 @@ namespace PHX
 		char parallelismStr[16];
 		std::snprintf(parallelismStr, sizeof(parallelismStr), "%.2f", (levelCount > 0) ? static_cast<float>(executedCount) / static_cast<float>(levelCount) : 0.0f);
 
+		char graphHashLine[48];
+		std::snprintf(graphHashLine, sizeof(graphHashLine), "// graph_hash: %016llx\n", static_cast<unsigned long long>(graph.graphHash));
+
 		// ===========================================================================================
 		// Main graph: passes as nodes, grouped into stages (columns), connected by reduced hazard edges
 		// ===========================================================================================
 		std::ostringstream dot;
+		dot << graphHashLine;
 		dot << "digraph RenderGraph {\n";
 		dot << "\trankdir=LR;\n";
 		dot << "\tnewrank=true;\n";
@@ -524,10 +524,11 @@ namespace PHX
 			const char* hue = getPassHue(passIndex);
 			const std::string fillColor = isExecuted ? ShiftColor(hue, SHADE_BRIGHT) : std::string(hue);
 
-			std::string subtitle = pass.isVirtual ? "VIRTUAL" : PassTypeToString(pass.passType);
-			if (isExecuted)            subtitle += " &#8226; #" + std::to_string(submissionSlots[passIndex] + 1);
-			else if (!pass.isVirtual)  subtitle += " &#8226; TRIMMED";
-			if (isFinalPass)           subtitle += " &#8226; FINAL";
+			std::string subtitle = PassTypeToString(pass.passType);
+			if (isExecuted)  subtitle += " &#8226; #" + std::to_string(submissionSlots[passIndex] + 1);
+			else             subtitle += " &#8226; TRIMMED";
+
+			if (isFinalPass) subtitle += " &#8226; FINAL";
 
 			dot << indent << "pass" << passIndex
 				<< " [shape=box, style=\"filled,rounded\", fontcolor=\"" << COLOR_TEXT_PRIMARY << "\", margin=\"0.25,0.14\""
@@ -538,8 +539,8 @@ namespace PHX
 			dot << ", label=<<b>" << EscapeHtml(pass.name) << "</b><br/><font point-size=\"9\">" << subtitle << "</font>>];\n";
 		};
 
-		// ---- Virtual + trimmed passes (outside of the stage columns) ----
-		dot << "\t// Virtual and trimmed passes\n";
+		// ---- Trimmed passes (outside of the stage columns) ----
+		dot << "\t// Trimmed passes\n";
 		for (u32 passIndex = 0; passIndex < passCount; passIndex++)
 		{
 			if (graph.passes[passIndex].name == nullptr || isExecutedPass(passIndex))
@@ -548,10 +549,6 @@ namespace PHX
 			}
 
 			emitPassNode(passIndex, "\t");
-			if (graph.passes[passIndex].isVirtual)
-			{
-				dot << "\t{ rank=min; pass" << passIndex << "; }\n";
-			}
 		}
 
 		// ---- Stages: one column per dependency level ----
@@ -632,14 +629,14 @@ namespace PHX
 		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_ORANGE, SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Transfer pass</TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_PURPLE, SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Ray tracing pass</TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_TEAL,   SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">AS build pass</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"" << HUE_GREY                       << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Trimmed / virtual pass (not executed)</TD></TR>\n";
+		dot << "\t\t<TR><TD BGCOLOR=\"" << HUE_GREY                       << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Trimmed pass (not executed)</TD></TR>\n";
 		dot << "\t\t<TR><TD BORDER=\"1\" COLOR=\"" << COLOR_BORDER_DIM << "\" STYLE=\"dashed\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Stage: no hazards between its passes (could overlap)</TD></TR>\n";
 
 		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Edges</B></FONT></TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_GREEN,  SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">True dependency (read-after-write)</TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_ORANGE, SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">False dependency (WAR / WAW, resource reuse)</TD></TR>\n";
 		dot << "\t\t<TR><TD BGCOLOR=\"" << COLOR_SUBMISSION << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Submission order (dotted)</TD></TR>\n";
-		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"" << COLOR_TEXT_SECONDARY << "\">Bold = critical path &#8226; Dashed = trimmed / virtual pass &#8226; Hover edges for barriers</FONT></TD></TR>\n";
+		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"" << COLOR_TEXT_SECONDARY << "\">Bold = critical path &#8226; Dashed = trimmed pass &#8226; Hover edges for barriers</FONT></TD></TR>\n";
 		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"" << COLOR_TEXT_SECONDARY << "\">Parallelism is an upper bound: barriers allow it, a single queue may still serialize</FONT></TD></TR>\n";
 		dot << "\t\t</TABLE>>];\n";
 
@@ -658,16 +655,8 @@ namespace PHX
 		// ===========================================================================================
 		// Resource file: usage matrix (rows = resources, columns = passes in submission order)
 		// ===========================================================================================
-		std::vector<u32> matrixColumns;
-		for (u32 passIndex = 0; passIndex < passCount; passIndex++)
-		{
-			if (graph.passes[passIndex].name != nullptr && graph.passes[passIndex].isVirtual)
-			{
-				matrixColumns.push_back(passIndex);
-			}
-		}
-		matrixColumns.insert(matrixColumns.end(), graph.submissionOrder.begin(), graph.submissionOrder.end());
-		const u32 columnCount = static_cast<u32>(matrixColumns.size());
+		const std::vector<u32>& matrixColumns = graph.submissionOrder;
+		const u32 columnCount = executedCount;
 
 		std::vector<u32> passColumns(passCount, U32_MAX);
 		for (u32 column = 0; column < columnCount; column++)
@@ -676,6 +665,7 @@ namespace PHX
 		}
 
 		std::ostringstream resDot;
+		resDot << graphHashLine;
 		resDot << "digraph RenderGraphResources {\n";
 		resDot << "\tbgcolor=\"" << COLOR_BG << "\";\n";
 		resDot << "\tfontname=\"Helvetica\";\n";
@@ -688,12 +678,6 @@ namespace PHX
 		for (u32 passIndex : matrixColumns)
 		{
 			const VizPass& pass = graph.passes[passIndex];
-			if (pass.isVirtual)
-			{
-				resDot << "<TD BGCOLOR=\"" << HUE_GREY << "\"><B>Prev frame</B><BR/><FONT POINT-SIZE=\"9\">" << EscapeHtml(pass.name) << "</FONT></TD>";
-				continue;
-			}
-
 			resDot << "<TD BGCOLOR=\"" << ShiftColor(getPassHue(passIndex), SHADE_BRIGHT) << "\"><B>#" << (submissionSlots[passIndex] + 1) << "</B><BR/><FONT POINT-SIZE=\"9\">"
 				<< EscapeHtml(pass.name) << "</FONT><BR/><FONT POINT-SIZE=\"8\">Stage " << passLevels[passIndex] << "</FONT></TD>";
 		}
@@ -743,12 +727,6 @@ namespace PHX
 				}
 
 				const VizPass& pass = graph.passes[pUsage->passIndex];
-				if (pass.isVirtual)
-				{
-					resDot << "<TD BGCOLOR=\"" << HUE_GREY << "\" HREF=\"#\" TOOLTIP=\"Provided by the previous frame (virtual input pass)\">IN</TD>";
-					continue;
-				}
-
 				const bool isRead = IsReadAccess(pUsage->access);
 				const bool isWrite = IsWriteAccess(pUsage->access);
 				const char* cellHue = (isRead && isWrite) ? HUE_TEAL : (isWrite ? HUE_GREEN : HUE_BLUE);
