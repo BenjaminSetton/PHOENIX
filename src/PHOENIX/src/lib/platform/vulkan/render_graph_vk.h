@@ -2,6 +2,7 @@
 
 #include <bitset>
 #include <functional>
+#include <variant>
 #include <vector>
 
 #include "BSL/crc32.h"
@@ -15,7 +16,9 @@
 namespace PHX
 {
 	using ResourceIndex = u16;
-	static constexpr ResourceIndex MAX_REGISTERED_RESOURCES = U16_MAX;
+
+	TECHDEBT("Kinda arbitrary. Find better solution?");
+	static constexpr ResourceIndex MAX_REGISTERED_RESOURCES = 512;
 
 	// Forward declarations
 	class AccelerationStructureVk;
@@ -45,19 +48,49 @@ namespace PHX
 
 	struct Barrier
 	{
-		VkPipelineStageFlags srcStageMask;
-		VkPipelineStageFlags dstStageMask;
-		VkAccessFlags srcAccessMask;
-		VkAccessFlags dstAccessMask;
+		Barrier() = default;
+		Barrier(RenderResource res) : physicalResource(res)
+		{
+		}
 
-		VkImageLayout oldLayout; // Only for images, ignored for buffers
-		VkImageLayout newLayout; // Only for images, ignored for buffers
+		RenderResource physicalResource;
+
+		// Access hazards
+		VkPipelineStageFlags srcStageMask	= VK_PIPELINE_STAGE_NONE;
+		VkPipelineStageFlags dstStageMask	= VK_PIPELINE_STAGE_NONE;
+		VkAccessFlags srcAccessMask			= VK_ACCESS_NONE;
+		VkAccessFlags dstAccessMask			= VK_ACCESS_NONE;
+
+		// Texture layout
+		VkImageLayout oldLayout		= VK_IMAGE_LAYOUT_UNDEFINED; // Only for images, ignored for buffers
+		VkImageLayout currentLayout	= VK_IMAGE_LAYOUT_UNDEFINED; // Only for images, ignored for buffers
+		VkImageLayout nextLayout	= VK_IMAGE_LAYOUT_UNDEFINED; // Only for images, ignored for buffers
+
+		bool IsValid()
+		{
+			return !(srcStageMask	== VK_PIPELINE_STAGE_NONE		&&
+					dstStageMask	== VK_PIPELINE_STAGE_NONE		&&
+					srcAccessMask	== VK_ACCESS_NONE				&&
+					dstAccessMask	== VK_ACCESS_NONE				&&
+					oldLayout		== VK_IMAGE_LAYOUT_UNDEFINED	&&
+					currentLayout	== VK_IMAGE_LAYOUT_UNDEFINED	&&
+					nextLayout		== VK_IMAGE_LAYOUT_UNDEFINED);
+		}
 	};
 
+	// Each entry has two pieces of information: the other render pass and a list of resources 
+	// which were found to pose access hazards. Dependency information can go both ways
+	// (dependent-relative and dependee-relative), so this terminology is purposefully ambiguous
 	struct DependencyInfo
 	{
 		RenderPassVk* renderPass = nullptr;
 		ResourceIndexBitset resources;
+	};
+
+	enum class TraversalDirection : u8
+	{
+		FORWARD,
+		BACKWARD
 	};
 
 	class RenderPassVk : public IRenderPass
@@ -72,15 +105,15 @@ namespace PHX
 		// Inputs
 		void SetTextureInput(TextureHandle texture) override;
 		void SetBufferInput(BufferHandle buffer) override;
-		void SetUniformInput(UniformCollectionHandle uniformCollection) override; // Not sure if I want to keep this
+		/*[unused]*/ void SetUniformInput(UniformCollectionHandle uniformCollection) override;
 		void SetAccelerationStructureInput(AccelerationStructureHandle accelerationStructure) override;
 
 		// Outputs
 		void SetTextureOutput(TextureHandle texture, ATTACHMENT_LOAD_OP loadOp, ATTACHMENT_STORE_OP storeOp, ClearValues clearValue = {}) override;
 		void SetColorOutput(TextureHandle texture) override;
 		void SetDepthOutput(TextureHandle texture) override;
-		void SetDepthStencilOutput(TextureHandle texture) override;
-		void SetResolveOutput(TextureHandle texture) override;
+		/*[unused]*/ void SetDepthStencilOutput(TextureHandle texture) override;
+		/*[unused]*/ void SetResolveOutput(TextureHandle texture) override;
 		void SetBufferOutput(BufferHandle buffer) override;
 		void SetAccelerationStructureOutput(AccelerationStructureHandle accelerationStructure) override;
 
@@ -92,39 +125,30 @@ namespace PHX
 		// Callbacks
 		void SetExecuteCallback(ExecuteRenderPassCallbackFn callback) override;
 
-		const char* GetName() const { return m_name; }
-
 	private:
 
 		const char* m_name;
 
-		ResourceIndexBitset m_inputResources;					// Physical resource indices which this pass reads from
-		ResourceIndexBitset m_outputResources;					// Physical resources indices which this pass writes to
+		ResourceIndexBitset m_readResources;					// Physical resource indices which this pass reads from
+		ResourceIndexBitset m_writeResources;					// Physical resources indices which this pass writes to
 		ExecuteRenderPassCallbackFn m_execCallback;				// Execution callback called by the render graph if all validation checks are passed
 		RegisterResourceCallbackFn m_registerResourceCallback;	// Callback used to register resources into the render graph
 		u32 m_index;											// Index of the render pass in the context of the render graph
 
-		// TODO - Use union
-		GraphicsPipelineDesc graphicsDesc;
-		ComputePipelineDesc computeDesc;
-		RayTracingPipelineDesc rayTracingDesc;
+		std::variant<GraphicsPipelineDesc, ComputePipelineDesc, RayTracingPipelineDesc> m_pipelineDesc;
 		PASS_TYPE m_passType;
 
-		std::vector<DependencyInfo> m_dependencyInfos;
+		// The forward and backward dependency infos, relative to submission order
+		// Forward-facing means from submission order onward, and backward essentially
+		// starts at the "end of the graph" (backbuffer write) to first submission
+		std::vector<DependencyInfo> m_forwardDependencies;
+		std::vector<DependencyInfo> m_backwardDependencies;
 
-		// Maps a physical resource ID to it's barrier. These barriers guard the inputs to this render
-		// pass against all dependencies' outputs depending on usage. All src flags correspond to a dependent 
-		// resource, and all dst flags correspond to an input resource in this pass. For any given barrier, 
-		// the src/dst flags are all related to the same physical resource, but the usage is different between 
-		// the dependency and this pass.
-		std::unordered_map<u64, Barrier> m_inputBarriers;
+		// Holds the barriers calculated in CalculateResourceBarriers() that handles both access hazards as well
+		// as texture layout transitions
+		std::unordered_map<ResourceID, Barrier> m_barriers;
 
-		// Maps a physical resource ID to it's barrier. Same concept as m_inputBarriers above, except
-		// that this holds barrier information for all outputs in this pass. This is useful when creating
-		// render passes, since the finalLayout of an image must be specified during subpass creation.
-		std::unordered_map<u64, Barrier> m_outputBarriers;
-
-		//bool m_isRootPass; // TODO? Might be useful to prevent certain passes from being trimmed even if unused. E.g. their result is used in subsequent frames
+		bool m_isVirtual;
 	};
 
 	class RenderGraphVk : public IRenderGraph
@@ -155,41 +179,34 @@ namespace PHX
 		VkRenderPass CreateRenderPass(const RenderPassVk& renderPass);
 		FramebufferVk* CreateFramebuffer(const RenderPassVk& renderPass, VkRenderPass renderPassVk, bool isBackBuffer);
 		PipelineVk* CreatePipeline(const RenderPassVk& renderPass, VkRenderPass renderPassVk);
+
 		ResourceIndex RegisterResource(Handle resource, RESOURCE_TYPE type, const ResourceUsage& usage);
+		RenderPassVk* RegisterPass_Internal(const char* passName, PASS_TYPE passType);
 
 		// Returns the index of the pass that owns presentation: the last (highest submission index)
 		// active pass that writes to the current swapchain image. Earlier swapchain writers are pulled
 		// in as dependencies via the write-after-write hazard on the shared image.
-		u32 FindPresentRenderPassIndex(u64 presentResID);
+		u32 FindPresentRenderPassIndex(ResourceID presentResID);
 
-		// Returns true if the given pass writes to the physical resource with the given resource ID
-		bool PassWritesResource(u32 renderPassIndex, u64 resourceID) const;
+		void RegisterVirtualPasses();
+		void BuildVirtualInputPass(u32 inputPassIndex);
+		void BuildDependencyTree(u32 renderPassIndex);
+		void CalculateActivePasses(u32 presentRenderPassIndex, std::vector<u32>& out_activePasses);
+		void AdjustResourceUsages(const std::vector<u32>& activePassIndices);
 
-		void BuildDependencyTree(u32 finalPassIndex);
-		void FindActivePasses(u32 finalPassIndex, std::vector<u32>& out_activeRenderPasses);
-		void CalculateResourceBarriers(const std::vector<u32>& activeRenderPasses, u32 finalPassIndex);
-
-		// Returns true if an explicit pipeline barrier should be inserted for the given resource
-		// in the given render pass. Texture resources that are also render pass outputs (attachments)
-		// are handled implicitly by the VkRenderPass initialLayout/finalLayout transitions, so they
-		// do not need (and in the case of swapchain textures, cannot use) explicit image barriers.
-		bool RequiresExplicitResourceBarrier(const RenderPassVk& renderPass, u64 resourceID) const;
-
+		STATUS_CODE CalculateResourceBarriers(RenderPassVk& renderPass);
+		Barrier BuildSyncResourceBarrier(const RenderResource& physicalResource, const ResourceUsage& srcUsage, const ResourceUsage& dstUsage);
+		Barrier BuildLayoutResourceBarrier(const RenderResource& physicalResource, const ResourceUsage* prevUsage, const ResourceUsage* currUsage, const ResourceUsage* nextUsage);
 		STATUS_CODE InsertResourceBarriers(const RenderPassVk& renderPass);
 
-		void TraverseDependencyTree(u32 renderPassIndex, TraverseDependenciesCallbackFn callback);
-
+		void TraverseDependencyTree(u32 renderPassIndex, TraversalDirection dir, TraverseDependenciesCallbackFn callback);
 		void TraverseResources(const ResourceIndexBitset& resourceBitset, TraverseResourceCallbackFn callback) const;
-		void TraverseRenderPassInputs(u32 renderPassIndex, TraverseResourceCallbackFn callback) const;
-		void TraverseRenderPassOutputs(u32 renderPassIndex, TraverseResourceCallbackFn callback) const;
 
-		// Returns ResourceUsage* if found, nullptr otherwise
-		const ResourceUsage* GetResourceUsageFromPass(const RenderPassVk& renderPass, u64 resourceID) const;
-		const RenderResource* GetPhysicalResource(u64 resourceID) const;
-
-		// Updates the render pass' textures to whatever layout they were implicitly transitioned to
-		// by the render pass dependency. This information is stored in the output barriers
-		void UpdateTextureLayouts(u32 renderPassIndex);
+		// Searches for a resource usage for the given physical resource made by passIndex, at the provided offset.
+		// An offset of 0 represents the "current usage" (at passIndex), while -1/+1 represent the "previous usage" 
+		// and "next usage" in the chain respectively.
+		// Returns the ResourceUsage when successful, or nullptr if something went wrong or the usage does not exist
+		const ResourceUsage* GetResourceUsageFromPass(ResourceID resourceId, u32 passIndex, i32 offset);
 
 		TextureVk* ResolveTexture(const RenderResource& resource);
 		BufferVk* ResolveBuffer(const RenderResource& resource);
@@ -207,7 +224,7 @@ namespace PHX
 	private:
 
 		HandleList<RenderPassVk> m_registeredRenderPasses;
-		std::vector<ResourceUsage> m_resourceUsages;
+		std::unordered_map<ResourceID, std::vector<ResourceUsage>> m_resourcesUsageChain;
 		std::vector<RenderResource> m_physicalResources;
 		RenderDeviceVk* m_pRenderDevice;
 
@@ -221,8 +238,7 @@ namespace PHX
 		u32 m_frameInFlightIndex;
 		u32 m_frameNumber;
 
-		const BSL::CRC32 m_reservedDepthBufferNameCRC;
-		u64 m_presentResID;
+		ResourceID m_presentResID;
 
 		// Metrics
 		mutable Metrics m_metrics;
