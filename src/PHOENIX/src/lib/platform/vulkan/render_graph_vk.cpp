@@ -1,15 +1,10 @@
 
 #include <algorithm>
-#include <cstdio>
-#include <cstring>
-#include <queue>
-#include <sstream>
 #include <vulkan/vk_enum_string_helper.h>
 
 #include "render_graph_vk.h"
 
 #include "acceleration_structure_vk.h"
-#include "BSL/file_io.h"
 #include "BSL/logger.h"
 #include "BSL/math.h"
 #include "BSL/sanity.h"
@@ -19,7 +14,6 @@
 #include "core/global_settings.h"
 #include "core/profiling.h"
 #include "device_context_vk.h"
-#include "profiling_vk.h"
 #include "render_device_vk.h"
 #include "swap_chain_vk.h"
 #include "texture_vk.h"
@@ -981,858 +975,106 @@ namespace PHX
 
 	STATUS_CODE RenderGraphVk::GenerateVisualization(const char* fileName, bool generateIfUnique)
 	{
-		if (fileName == nullptr)
-		{
-			LogError("Failed to generate render graph visualization. File name is null!");
-			return STATUS_CODE::ERR_API;
-		}
-
 		if (m_registeredRenderPasses.Empty())
 		{
 			LogError("Failed to generate render graph visualization. No render passes registered - call after Bake()!");
 			return STATUS_CODE::ERR_INTERNAL;
 		}
 
-		if (generateIfUnique)
+		if (generateIfUnique && m_uniqueVisualizationHashes.find(m_currentFrameGraphHash) != m_uniqueVisualizationHashes.end())
 		{
-			auto hashIter = m_uniqueVisualizationHashes.find(m_currentFrameGraphHash);
-			if (hashIter != m_uniqueVisualizationHashes.end())
-			{
-				// We've already generated a visualization for the current state. Don't re-generate
-				return STATUS_CODE::SUCCESS;
-			}
+			// We've already generated a visualization for the current state. Don't re-generate
+			return STATUS_CODE::SUCCESS;
 		}
 
-		// ---- Color palette (dark mode) ----
-		// Base hues — one per color family. All shades are derived from these.
-		constexpr const char* HUE_BLUE   = "#2E86C1";
-		constexpr const char* HUE_GREEN  = "#239B56";
-		constexpr const char* HUE_ORANGE = "#CA6F1E";
-		constexpr const char* HUE_PURPLE = "#7D3C98";
-		constexpr const char* HUE_TEAL   = "#117864";
-		constexpr const char* HUE_RED    = "#C0392B";
-		constexpr const char* HUE_GREY   = "#656565";
-
-		// Shade offsets (added to each RGB component, clamped to 0-255)
-		constexpr int SHADE_DARK   = -0x000032;  // resource fills (darkest)
-		constexpr int SHADE_BRIGHT =  0x00001E;  // pass fills / edges
-		constexpr int SHADE_LIGHT  =  0x00003C;  // edge labels (lightest)
-
-		// Chrome (not hue-derived)
-		constexpr const char* COLOR_BG             = "#2B2B2B";
-		constexpr const char* COLOR_TEXT_PRIMARY   = "#FFFFFF";
-		constexpr const char* COLOR_TEXT_SECONDARY = "#BDC3C7";
-		constexpr const char* COLOR_PANEL_FILL     = "#3C3C3C";
-		constexpr const char* COLOR_BORDER_DEFAULT = "#BDC3C7";
-		constexpr const char* COLOR_BORDER_DIM     = "#5D6D7E";
-		constexpr const char* COLOR_SUBMISSION     = "#909497";
-
-		// Hazard flags. RAW is a true data dependency, WAR/WAW are false dependencies caused by resource reuse
-		constexpr u8 HAZARD_RAW = 1 << 0;
-		constexpr u8 HAZARD_WAR = 1 << 1;
-		constexpr u8 HAZARD_WAW = 1 << 2;
-
-		// Shift each RGB component of a #RRGGBB color by delta, clamped to 0-255
-		auto ShiftColor = [](const char* hex, int delta) -> std::string
-		{
-			int r = std::stoi(std::string(hex + 1, 2), nullptr, 16);
-			int g = std::stoi(std::string(hex + 3, 2), nullptr, 16);
-			int b = std::stoi(std::string(hex + 5, 2), nullptr, 16);
-			char buf[8];
-			std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", 
-				Clamp(r + delta, 0, 255), 
-				Clamp(g + delta, 0, 255), 
-				Clamp(b + delta, 0, 255));
-			return buf;
-		};
-
-		// Escapes text for HTML-like labels and their attributes
-		auto escapeHtml = [](const std::string& str) -> std::string
-		{
-			std::string out;
-			out.reserve(str.size());
-			for (char c : str)
-			{
-				switch (c)
-				{
-				case '&': out += "&amp;";  break;
-				case '<': out += "&lt;";   break;
-				case '>': out += "&gt;";   break;
-				case '"': out += "&quot;"; break;
-				default:  out += c;        break;
-				}
-			}
-			return out;
-		};
-
-		// Escapes text for quoted DOT strings
-		auto escapeDot = [](const std::string& str) -> std::string
-		{
-			std::string out;
-			out.reserve(str.size());
-			for (char c : str)
-			{
-				if (c == '"' || c == '\\')
-				{
-					out += '\\';
-				}
-				out += c;
-			}
-			return out;
-		};
-
+		// Build a backend-agnostic snapshot of the baked render graph
 		const u32 passCount = m_registeredRenderPasses.Size();
-		const u32 physicalResourceCount = static_cast<u32>(m_physicalResources.size());
 
-		auto isVirtualPass = [&](u32 passIndex)
+		VizGraph graph{};
+		graph.finalPassIndex = FindPresentRenderPassIndex(m_presentResID);
+		ASSERT(graph.finalPassIndex != INVALID_RENDER_PASS_INDEX);
+
+		// Executed passes in submission order (same procedure as Bake())
+		CalculateActivePasses(graph.finalPassIndex, graph.submissionOrder);
+		std::reverse(graph.submissionOrder.begin(), graph.submissionOrder.end());
+		graph.submissionOrder.erase(std::remove_if(graph.submissionOrder.begin(), graph.submissionOrder.end(), [&](u32 passIndex)
 		{
 			const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(passIndex);
-			return (pRenderPass != nullptr && pRenderPass->m_isVirtual);
-		};
+			return (pRenderPass == nullptr || pRenderPass->m_isVirtual);
+		}), graph.submissionOrder.end());
 
-		// ---- Executed passes, in submission order (same procedure as Bake()) ----
-		const u32 finalRPIndex = FindPresentRenderPassIndex(m_presentResID);
-		ASSERT(finalRPIndex != INVALID_RENDER_PASS_INDEX);
-
-		std::vector<u32> submissionOrder;
-		submissionOrder.reserve(passCount);
-		CalculateActivePasses(finalRPIndex, submissionOrder);
-		std::reverse(submissionOrder.begin(), submissionOrder.end());
-		submissionOrder.erase(std::remove_if(submissionOrder.begin(), submissionOrder.end(), [&](u32 passIndex)
-		{
-			return (m_registeredRenderPasses.Get(passIndex) == nullptr || isVirtualPass(passIndex));
-		}), submissionOrder.end());
-
-		std::vector<u32> submissionSlots(passCount, U32_MAX);
-		for (u32 i = 0; i < static_cast<u32>(submissionOrder.size()); i++)
-		{
-			submissionSlots[submissionOrder[i]] = i;
-		}
-
-		auto isExecutedPass = [&](u32 passIndex)
-		{
-			return (submissionSlots[passIndex] != U32_MAX);
-		};
-
-		// ---- Display helpers ----
-		auto getPassHue = [&](const RenderPassVk& renderPass) -> const char*
-		{
-			if (!isExecutedPass(renderPass.m_index))
-			{
-				return HUE_GREY;
-			}
-
-			switch (renderPass.m_passType)
-			{
-			case PASS_TYPE::GRAPHICS:    return HUE_BLUE;
-			case PASS_TYPE::COMPUTE:     return HUE_GREEN;
-			case PASS_TYPE::TRANSFER:    return HUE_ORANGE;
-			case PASS_TYPE::RAY_TRACING: return HUE_PURPLE;
-			case PASS_TYPE::AS_BUILD:    return HUE_TEAL;
-			default:                     return HUE_GREY;
-			}
-		};
-
-		auto getResourceHue = [&](const RenderResource& resource) -> const char*
-		{
-			if (resource.resourceID == m_presentResID)
-			{
-				return HUE_RED;
-			}
-
-			switch (resource.type)
-			{
-			case RESOURCE_TYPE::BUFFER:                 return HUE_PURPLE;
-			case RESOURCE_TYPE::UNIFORM:                return HUE_ORANGE;
-			case RESOURCE_TYPE::ACCELERATION_STRUCTURE: return HUE_TEAL;
-			default:                                    return HUE_BLUE;
-			}
-		};
-
-		auto getResourceTypeTag = [&](const RenderResource& resource) -> const char*
-		{
-			if (resource.resourceID == m_presentResID)
-			{
-				return "PRESENT";
-			}
-
-			switch (resource.type)
-			{
-			case RESOURCE_TYPE::BUFFER:                 return "BUFFER";
-			case RESOURCE_TYPE::UNIFORM:                return "UNIFORM";
-			case RESOURCE_TYPE::ACCELERATION_STRUCTURE: return "ACCELERATION STRUCTURE";
-			default:                                    return "TEXTURE";
-			}
-		};
-
-		// Prefers the resource's debug name, falling back to "<Type> <physical index>"
-		auto getResourceDisplayName = [&](u32 physicalIndex) -> std::string
-		{
-			const RenderResource& resource = m_physicalResources[physicalIndex];
-			const char* resourceName = GetResourceName(resource);
-			if (resourceName != nullptr && resourceName[0] != '\0')
-			{
-				return resourceName;
-			}
-
-			const char* typeName = "Texture";
-			switch (resource.type)
-			{
-			case RESOURCE_TYPE::BUFFER:                 typeName = "Buffer";                 break;
-			case RESOURCE_TYPE::UNIFORM:                typeName = "Uniforms";               break;
-			case RESOURCE_TYPE::ACCELERATION_STRUCTURE: typeName = "Acceleration Structure"; break;
-			default:                                                                         break;
-			}
-			return std::string(typeName) + " " + std::to_string(physicalIndex);
-		};
-
-		auto accessToString = [](RESOURCE_ACCESS access) -> const char*
-		{
-			switch (access)
-			{
-			case RESOURCE_ACCESS::READ_ONLY:  return "READ_ONLY";
-			case RESOURCE_ACCESS::WRITE_ONLY: return "WRITE_ONLY";
-			case RESOURCE_ACCESS::READ_WRITE: return "READ_WRITE";
-			default:                          return "UNKNOWN";
-			}
-		};
-
-		auto attachmentTypeToString = [](ATTACHMENT_TYPE type) -> const char*
-		{
-			switch (type)
-			{
-			case ATTACHMENT_TYPE::COLOR:         return "COLOR";
-			case ATTACHMENT_TYPE::DEPTH:         return "DEPTH";
-			case ATTACHMENT_TYPE::STENCIL:       return "STENCIL";
-			case ATTACHMENT_TYPE::DEPTH_STENCIL: return "DEPTH_STENCIL";
-			case ATTACHMENT_TYPE::RESOLVE:       return "RESOLVE";
-			default:                             return "NONE";
-			}
-		};
-
-		auto loadOpToString = [](ATTACHMENT_LOAD_OP loadOp) -> const char*
-		{
-			switch (loadOp)
-			{
-			case ATTACHMENT_LOAD_OP::LOAD:   return "LOAD";
-			case ATTACHMENT_LOAD_OP::CLEAR:  return "CLEAR";
-			case ATTACHMENT_LOAD_OP::IGNORE: return "IGNORE";
-			default:                         return "-";
-			}
-		};
-
-		auto storeOpToString = [](ATTACHMENT_STORE_OP storeOp) -> const char*
-		{
-			switch (storeOp)
-			{
-			case ATTACHMENT_STORE_OP::STORE:  return "STORE";
-			case ATTACHMENT_STORE_OP::IGNORE: return "IGNORE";
-			default:                          return "-";
-			}
-		};
-
-		auto hazardsToString = [&](u8 hazards) -> std::string
-		{
-			std::string str;
-			if (hazards & HAZARD_RAW) { str += "RAW"; }
-			if (hazards & HAZARD_WAR) { str += (str.empty() ? "" : "/"); str += "WAR"; }
-			if (hazards & HAZARD_WAW) { str += (str.empty() ? "" : "/"); str += "WAW"; }
-			return str;
-		};
-
-		// Side-effect free equivalent of BuildResourceBarrier() (which modifies the texture's cached layout)
-		/*[repetitive]*/ auto calculateBarrier = [&](const RenderResource& resource, const ResourceUsage& srcUsage, const ResourceUsage& dstUsage) -> Barrier
-		{
-			const PASS_TYPE srcPassType = m_registeredRenderPasses.Get(srcUsage.passIndex)->m_passType;
-			const PASS_TYPE dstPassType = m_registeredRenderPasses.Get(dstUsage.passIndex)->m_passType;
-
-			Barrier barrier(resource);
-			barrier.srcAccessMask = CalculateResourceAccessFlags(srcUsage, resource, srcPassType);
-			barrier.dstAccessMask = CalculateResourceAccessFlags(dstUsage, resource, dstPassType);
-			barrier.srcStageMask = CalculateResourcePipelineStageFlags(srcPassType, barrier.srcAccessMask, true);
-			barrier.dstStageMask = CalculateResourcePipelineStageFlags(dstPassType, barrier.dstAccessMask, false);
-
-			if (resource.type == RESOURCE_TYPE::TEXTURE)
-			{
-				barrier.oldLayout = CalculateResourceImageLayout(srcUsage, srcPassType);
-				barrier.currentLayout = CalculateResourceImageLayout(dstUsage, dstPassType);
-			}
-			return barrier;
-		};
-
-		// Unescaped, human-readable barrier description (one entry per line)
-		auto barrierToLines = [&](const RenderResource& resource, const Barrier& barrier) -> std::vector<std::string>
-		{
-			std::vector<std::string> lines;
-			if (resource.type == RESOURCE_TYPE::TEXTURE)
-			{
-				lines.push_back("layout: " + RG_UTILS::ShortImageLayout(barrier.oldLayout) + " -> " + RG_UTILS::ShortImageLayout(barrier.currentLayout));
-			}
-			lines.push_back("stage: " + string_VkPipelineStageFlags(barrier.srcStageMask) + " -> " + string_VkPipelineStageFlags(barrier.dstStageMask));
-			lines.push_back("access: " + string_VkAccessFlags(barrier.srcAccessMask) + " -> " + string_VkAccessFlags(barrier.dstAccessMask));
-			return lines;
-		};
-
-		// ---- Pass-to-pass hazard edges (transitive reduction over each resource's usage chain) ----
-		// Only consecutive hazards are kept: last writer -> readers (RAW), readers -> next writer (WAR),
-		// writer -> next writer with no readers in between (WAW). All other hazards are implied transitively
-		struct HazardResource
-		{
-			u32 physicalIndex;
-			u8 hazards;
-			Barrier barrier;
-		};
-
-		struct PassEdge
-		{
-			u32 srcPass;
-			u32 dstPass;
-			u8 hazards;
-			bool isCritical;
-			std::vector<HazardResource> resources;
-		};
-
-		std::vector<PassEdge> edges;
-		auto addHazard = [&](u32 physicalIndex, const ResourceUsage& srcUsage, const ResourceUsage& dstUsage, u8 hazard)
-		{
-			if (srcUsage.passIndex == dstUsage.passIndex)
-			{
-				return;
-			}
-
-			auto edgeIter = std::find_if(edges.begin(), edges.end(), [&](const PassEdge& edge)
-			{
-				return (edge.srcPass == srcUsage.passIndex && edge.dstPass == dstUsage.passIndex);
-			});
-			if (edgeIter == edges.end())
-			{
-				edges.push_back({ srcUsage.passIndex, dstUsage.passIndex, 0, false, {} });
-				edgeIter = edges.end() - 1;
-			}
-			edgeIter->hazards = static_cast<u8>(edgeIter->hazards | hazard);
-
-			auto resourceIter = std::find_if(edgeIter->resources.begin(), edgeIter->resources.end(), [&](const HazardResource& hazardResource)
-			{
-				return (hazardResource.physicalIndex == physicalIndex);
-			});
-			if (resourceIter == edgeIter->resources.end())
-			{
-				edgeIter->resources.push_back({ physicalIndex, hazard, calculateBarrier(m_physicalResources[physicalIndex], srcUsage, dstUsage) });
-			}
-			else
-			{
-				resourceIter->hazards = static_cast<u8>(resourceIter->hazards | hazard);
-			}
-		};
-
-		// Usage chains sorted by pass index (submission order). The virtual input pass registers its usages during
-		// Bake(), which places them at the end of the chain even though it's always the first pass
-		std::vector<std::vector<const ResourceUsage*>> sortedChains(physicalResourceCount);
-		for (u32 physicalIndex = 0; physicalIndex < physicalResourceCount; physicalIndex++)
-		{
-			auto iter = m_resourcesUsageChain.find(m_physicalResources[physicalIndex].resourceID);
-			if (iter == m_resourcesUsageChain.end())
-			{
-				continue;
-			}
-
-			std::vector<const ResourceUsage*>& sortedChain = sortedChains[physicalIndex];
-			for (const ResourceUsage& usage : iter->second)
-			{
-				sortedChain.push_back(&usage);
-			}
-			std::stable_sort(sortedChain.begin(), sortedChain.end(), [](const ResourceUsage* a, const ResourceUsage* b)
-			{
-				return a->passIndex < b->passIndex;
-			});
-
-			const ResourceUsage* pLastWriter = nullptr;
-			std::vector<const ResourceUsage*> readersSinceWrite;
-			for (const ResourceUsage* pUsage : sortedChain)
-			{
-				const bool isRead = IsReadAccess(pUsage->access);
-				const bool isWrite = IsWriteAccess(pUsage->access);
-
-				if (isRead && pLastWriter != nullptr)
-				{
-					addHazard(physicalIndex, *pLastWriter, *pUsage, HAZARD_RAW);
-				}
-
-				if (!isWrite)
-				{
-					readersSinceWrite.push_back(pUsage);
-					continue;
-				}
-
-				bool hasOtherReaders = false;
-				for (const ResourceUsage* pReader : readersSinceWrite)
-				{
-					hasOtherReaders |= (pReader->passIndex != pUsage->passIndex);
-					addHazard(physicalIndex, *pReader, *pUsage, HAZARD_WAR);
-				}
-
-				if (!isRead && !hasOtherReaders && pLastWriter != nullptr)
-				{
-					addHazard(physicalIndex, *pLastWriter, *pUsage, HAZARD_WAW);
-				}
-
-				pLastWriter = pUsage;
-				readersSinceWrite.clear();
-			}
-		}
-
-		// Edges always point to a higher pass index, so sorting by destination guarantees every
-		// source pass is fully resolved before it's used in the level calculation below
-		std::sort(edges.begin(), edges.end(), [](const PassEdge& a, const PassEdge& b)
-		{
-			return (a.dstPass != b.dstPass) ? (a.dstPass < b.dstPass) : (a.srcPass < b.srcPass);
-		});
-
-		// ---- Dependency levels (stages) ----
-		// Level = 1 + max(level of dependencies), with the virtual input pass at level 0. Passes on the
-		// same level have no hazards between them, so the barriers allow them to execute in parallel
-		std::vector<u32> passLevels(passCount);
-		std::vector<u32> criticalPreds(passCount, U32_MAX);
+		graph.passes.resize(passCount);
 		for (u32 passIndex = 0; passIndex < passCount; passIndex++)
-		{
-			passLevels[passIndex] = isVirtualPass(passIndex) ? 0 : 1;
-		}
-		for (const PassEdge& edge : edges)
-		{
-			if (passLevels[edge.srcPass] + 1 > passLevels[edge.dstPass])
-			{
-				passLevels[edge.dstPass] = passLevels[edge.srcPass] + 1;
-				criticalPreds[edge.dstPass] = edge.srcPass;
-			}
-		}
-
-		// ---- Stats ----
-		const u32 executedCount = static_cast<u32>(submissionOrder.size());
-		u32 levelCount = 0;
-		for (u32 passIndex : submissionOrder)
-		{
-			levelCount = Max(levelCount, passLevels[passIndex]);
-		}
-
-		std::vector<u32> levelWidths(levelCount + 1, 0);
-		u32 maxWidth = 0;
-		for (u32 passIndex : submissionOrder)
-		{
-			maxWidth = Max(maxWidth, ++levelWidths[passLevels[passIndex]]);
-		}
-
-		u32 hazardCount = 0;
-		u32 falseHazardCount = 0;
-		for (const PassEdge& edge : edges)
-		{
-			if (!isExecutedPass(edge.dstPass) || !(isExecutedPass(edge.srcPass) || isVirtualPass(edge.srcPass)))
-			{
-				continue;
-			}
-
-			for (const HazardResource& hazardResource : edge.resources)
-			{
-				hazardCount++;
-				falseHazardCount += ((hazardResource.hazards & HAZARD_RAW) == 0) ? 1 : 0;
-			}
-		}
-
-		// Critical path: longest dependency chain, ending at the deepest executed pass (preferring the final pass)
-		u32 criticalEnd = U32_MAX;
-		for (u32 passIndex : submissionOrder)
-		{
-			if (criticalEnd == U32_MAX || passLevels[passIndex] > passLevels[criticalEnd] ||
-				(passLevels[passIndex] == passLevels[criticalEnd] && passIndex == finalRPIndex))
-			{
-				criticalEnd = passIndex;
-			}
-		}
-
-		std::vector<u32> criticalPath;
-		for (u32 passIndex = criticalEnd; passIndex != U32_MAX && !isVirtualPass(passIndex); passIndex = criticalPreds[passIndex])
-		{
-			criticalPath.push_back(passIndex);
-		}
-		std::reverse(criticalPath.begin(), criticalPath.end());
-
-		std::string criticalPathStr;
-		for (u32 i = 0; i < static_cast<u32>(criticalPath.size()); i++)
-		{
-			criticalPathStr += (i == 0) ? "" : " &#8594; ";
-			criticalPathStr += escapeHtml(m_registeredRenderPasses.Get(criticalPath[i])->m_name);
-
-			if (i > 0)
-			{
-				for (PassEdge& edge : edges)
-				{
-					edge.isCritical |= (edge.srcPass == criticalPath[i - 1] && edge.dstPass == criticalPath[i]);
-				}
-			}
-		}
-
-		char parallelismStr[16];
-		std::snprintf(parallelismStr, sizeof(parallelismStr), "%.2f", (levelCount > 0) ? static_cast<float>(executedCount) / static_cast<float>(levelCount) : 0.0f);
-
-		// ===========================================================================================
-		// Main graph: passes as nodes, grouped into stages (columns), connected by reduced hazard edges
-		// ===========================================================================================
-		std::ostringstream dot;
-		dot << "digraph RenderGraph {\n";
-		dot << "\trankdir=LR;\n";
-		dot << "\tnewrank=true;\n";
-		dot << "\tbgcolor=\"" << COLOR_BG << "\";\n";
-		dot << "\tnodesep=0.35;\n";
-		dot << "\tranksep=1.0;\n";
-		dot << "\tfontname=\"Helvetica\";\n";
-		dot << "\tnode [fontname=\"Helvetica\", fontsize=11, fontcolor=\"" << COLOR_TEXT_PRIMARY << "\"];\n";
-		dot << "\tedge [fontname=\"Helvetica\", fontsize=9, arrowsize=0.8];\n\n";
-
-		auto emitPassNode = [&](u32 passIndex, const char* indent)
 		{
 			const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(passIndex);
-			const bool isExecuted = isExecutedPass(passIndex);
-			const bool isFinalPass = (passIndex == finalRPIndex);
-
-			// Greyed passes use the grey hue directly; executed passes use a bright shade
-			const char* hue = getPassHue(*pRenderPass);
-			const std::string fillColor = isExecuted ? ShiftColor(hue, SHADE_BRIGHT) : std::string(hue);
-
-			std::string subtitle = pRenderPass->m_isVirtual ? "VIRTUAL" : RG_UTILS::PassTypeToString(pRenderPass->m_passType);
-			if (isExecuted)                        subtitle += " &#8226; #" + std::to_string(submissionSlots[passIndex] + 1);
-			else if (!pRenderPass->m_isVirtual)    subtitle += " &#8226; TRIMMED";
-			if (isFinalPass)                       subtitle += " &#8226; FINAL";
-
-			dot << indent << "pass" << passIndex
-				<< " [shape=box, style=\"filled,rounded\", fontcolor=\"" << COLOR_TEXT_PRIMARY << "\", margin=\"0.25,0.14\""
-				<< ", fillcolor=\"" << fillColor << "\"";
-			if (isFinalPass)  dot << ", penwidth=3, color=\"" << HUE_RED << "\"";
-			else              dot << ", penwidth=1, color=\"" << COLOR_BORDER_DEFAULT << "\"";
-
-			dot << ", label=<<b>" << escapeHtml(pRenderPass->m_name) << "</b><br/><font point-size=\"9\">" << subtitle << "</font>>];\n";
-		};
-
-		// ---- Virtual + trimmed passes (outside of the stage columns) ----
-		dot << "\t// Virtual and trimmed passes\n";
-		for (u32 passIndex = 0; passIndex < passCount; passIndex++)
-		{
-			if (m_registeredRenderPasses.Get(passIndex) == nullptr || isExecutedPass(passIndex))
+			if (pRenderPass != nullptr)
 			{
-				continue;
-			}
-
-			emitPassNode(passIndex, "\t");
-			if (isVirtualPass(passIndex))
-			{
-				dot << "\t{ rank=min; pass" << passIndex << "; }\n";
+				graph.passes[passIndex] = { pRenderPass->m_name, pRenderPass->m_passType, pRenderPass->m_isVirtual };
 			}
 		}
 
-		// ---- Stages: one column per dependency level ----
-		dot << "\n\t// Stages (passes within a stage have no hazards between them)\n";
-		for (u32 level = 1; level <= levelCount; level++)
+		graph.resources.reserve(m_physicalResources.size());
+		for (const RenderResource& physicalResource : m_physicalResources)
 		{
-			if (levelWidths[level] == 0)
-			{
-				continue;
-			}
+			VizResource vizResource{};
+			const char* resourceName = GetResourceName(physicalResource);
+			vizResource.name = (resourceName != nullptr) ? resourceName : "";
+			vizResource.type = physicalResource.type;
+			vizResource.isPresent = (physicalResource.resourceID == m_presentResID);
 
-			dot << "\tsubgraph cluster_stage" << level << " {\n";
-			dot << "\t\tlabel=\"Stage " << level << " (" << levelWidths[level] << (levelWidths[level] == 1 ? " pass" : " passes") << ")\";\n";
-			dot << "\t\tstyle=\"dashed,rounded\";\n";
-			dot << "\t\tcolor=\"" << COLOR_BORDER_DIM << "\";\n";
-			dot << "\t\tfontcolor=\"" << COLOR_TEXT_SECONDARY << "\";\n";
-			dot << "\t\tfontsize=10;\n";
-			dot << "\t\trank=same;\n";
-			for (u32 passIndex : submissionOrder)
+			auto chainIter = m_resourcesUsageChain.find(physicalResource.resourceID);
+			if (chainIter != m_resourcesUsageChain.end())
 			{
-				if (passLevels[passIndex] == level)
+				for (const ResourceUsage& usage : chainIter->second)
 				{
-					emitPassNode(passIndex, "\t\t");
-				}
-			}
-			dot << "\t}\n";
-		}
+					VizUsage vizUsage{};
+					vizUsage.passIndex = usage.passIndex;
+					vizUsage.access = usage.access;
+					vizUsage.attachmentType = usage.attachmentType;
+					vizUsage.loadOp = usage.loadOp;
+					vizUsage.storeOp = usage.storeOp;
+					vizUsage.bufferUsage = usage.bufferUsage;
 
-		// ---- Hazard edges ----
-		dot << "\n\t// Dependencies (green = RAW, orange = WAR/WAW only)\n";
-		for (const PassEdge& edge : edges)
-		{
-			const bool isGreyed = !isExecutedPass(edge.srcPass) || !isExecutedPass(edge.dstPass);
-			const char* hue = (edge.hazards & HAZARD_RAW) ? HUE_GREEN : HUE_ORANGE;
-
-			std::string label;
-			std::string tooltip;
-			for (const HazardResource& hazardResource : edge.resources)
-			{
-				const std::string resourceName = escapeDot(getResourceDisplayName(hazardResource.physicalIndex));
-				const std::string hazardStr = hazardsToString(hazardResource.hazards);
-
-				label += (label.empty() ? "" : "\\n") + resourceName + " (" + hazardStr + ")";
-				tooltip += (tooltip.empty() ? "" : "\\n\\n") + resourceName + " [" + hazardStr + "]";
-				for (const std::string& line : barrierToLines(m_physicalResources[hazardResource.physicalIndex], hazardResource.barrier))
-				{
-					tooltip += "\\n" + escapeDot(line);
-				}
-			}
-
-			dot << "\tpass" << edge.srcPass << " -> pass" << edge.dstPass
-				<< " [color=\"" << ShiftColor(hue, SHADE_BRIGHT) << "\", penwidth=" << (edge.isCritical ? "3" : "1.4")
-				<< ", label=\"" << label << "\", fontcolor=\"" << ShiftColor(hue, SHADE_LIGHT) << "\""
-				<< ", labeltooltip=\"" << tooltip << "\", edgetooltip=\"" << tooltip << "\"";
-			if (isGreyed) dot << ", style=\"dashed\"";
-			dot << "];\n";
-		}
-
-		// ---- Submission order (doesn't affect layout) ----
-		dot << "\n\t// Submission order\n";
-		for (u32 i = 1; i < executedCount; i++)
-		{
-			dot << "\tpass" << submissionOrder[i - 1] << " -> pass" << submissionOrder[i]
-				<< " [style=\"dotted\", color=\"" << COLOR_SUBMISSION << "\", penwidth=1, arrowsize=0.5, constraint=false];\n";
-		}
-
-		// ---- Legend ----
-		dot << "\n\t// Legend (floating, not connected to the graph)\n";
-		dot << "\tlegend [shape=box, style=filled, fillcolor=\"" << COLOR_PANEL_FILL << "\", color=\"" << COLOR_BORDER_DEFAULT << "\", fontcolor=\"" << COLOR_TEXT_PRIMARY << "\", margin=0, label=<\n";
-		dot << "\t\t<TABLE BORDER=\"0\" CELLBORDER=\"0\" CELLSPACING=\"4\" CELLPADDING=\"3\">\n";
-		dot << "\t\t<TR><TD COLSPAN=\"2\"><B>Legend</B></TD></TR>\n";
-		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"" << COLOR_TEXT_SECONDARY << "\">#N = submission order &#8226; Resource details in the _resources file</FONT></TD></TR>\n";
-
-		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Passes</B></FONT></TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_BLUE,   SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Graphics pass</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_GREEN,  SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Compute pass</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_ORANGE, SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Transfer pass</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_PURPLE, SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Ray tracing pass</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_TEAL,   SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">AS build pass</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"" << HUE_GREY                       << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Trimmed / virtual pass (not executed)</TD></TR>\n";
-		dot << "\t\t<TR><TD BORDER=\"1\" COLOR=\"" << COLOR_BORDER_DIM << "\" STYLE=\"dashed\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Stage: no hazards between its passes (could overlap)</TD></TR>\n";
-
-		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"10\"><B>Edges</B></FONT></TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_GREEN,  SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">True dependency (read-after-write)</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"" << ShiftColor(HUE_ORANGE, SHADE_BRIGHT) << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">False dependency (WAR / WAW, resource reuse)</TD></TR>\n";
-		dot << "\t\t<TR><TD BGCOLOR=\"" << COLOR_SUBMISSION << "\" WIDTH=\"24\"> </TD><TD ALIGN=\"LEFT\">Submission order (dotted)</TD></TR>\n";
-		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"" << COLOR_TEXT_SECONDARY << "\">Bold = critical path &#8226; Dashed = trimmed / virtual pass &#8226; Hover edges for barriers</FONT></TD></TR>\n";
-		dot << "\t\t<TR><TD COLSPAN=\"2\"><FONT POINT-SIZE=\"9\" COLOR=\"" << COLOR_TEXT_SECONDARY << "\">Parallelism is an upper bound: barriers allow it, a single queue may still serialize</FONT></TD></TR>\n";
-		dot << "\t\t</TABLE>>];\n";
-
-		// ---- Header (set last so the stage clusters don't inherit it) ----
-		dot << "\n\tlabelloc=\"t\";\n";
-		dot << "\tlabeljust=\"l\";\n";
-		dot << "\tfontsize=12;\n";
-		dot << "\tfontcolor=\"" << COLOR_TEXT_PRIMARY << "\";\n";
-		dot << "\tlabel=<<b>Render graph</b> &#8226; " << executedCount << " executed passes &#8226; " << levelCount << " stages &#8226; parallelism "
-			<< parallelismStr << " &#8226; max width " << maxWidth
-			<< "<br/><font point-size=\"10\" color=\"" << COLOR_TEXT_SECONDARY << "\">" << hazardCount << " hazards (" << falseHazardCount
-			<< " false) &#8226; critical path: " << criticalPathStr << "</font>>;\n";
-
-		dot << "}\n";
-
-		// ===========================================================================================
-		// Resource file: usage matrix (rows = physical resources, columns = passes in submission order)
-		// ===========================================================================================
-		std::vector<u32> matrixColumns;
-		for (u32 passIndex = 0; passIndex < passCount; passIndex++)
-		{
-			if (isVirtualPass(passIndex))
-			{
-				matrixColumns.push_back(passIndex);
-			}
-		}
-		matrixColumns.insert(matrixColumns.end(), submissionOrder.begin(), submissionOrder.end());
-		const u32 columnCount = static_cast<u32>(matrixColumns.size());
-
-		std::ostringstream resDot;
-		resDot << "digraph RenderGraphResources {\n";
-		resDot << "\tbgcolor=\"" << COLOR_BG << "\";\n";
-		resDot << "\tfontname=\"Helvetica\";\n";
-		resDot << "\tnode [shape=plaintext, fontname=\"Helvetica\", fontsize=10, fontcolor=\"" << COLOR_TEXT_PRIMARY << "\"];\n\n";
-		resDot << "\tmatrix [label=<\n";
-		resDot << "\t\t<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\" CELLPADDING=\"5\" COLOR=\"" << COLOR_BORDER_DIM << "\">\n";
-
-		// Header row
-		resDot << "\t\t<TR><TD BGCOLOR=\"" << COLOR_PANEL_FILL << "\" ALIGN=\"LEFT\"><B>Resource</B></TD>";
-		for (u32 passIndex : matrixColumns)
-		{
-			const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(passIndex);
-			if (pRenderPass->m_isVirtual)
-			{
-				resDot << "<TD BGCOLOR=\"" << HUE_GREY << "\"><B>Prev frame</B><BR/><FONT POINT-SIZE=\"9\">" << escapeHtml(pRenderPass->m_name) << "</FONT></TD>";
-				continue;
-			}
-
-			resDot << "<TD BGCOLOR=\"" << ShiftColor(getPassHue(*pRenderPass), SHADE_BRIGHT) << "\"><B>#" << (submissionSlots[passIndex] + 1) << "</B><BR/><FONT POINT-SIZE=\"9\">"
-				<< escapeHtml(pRenderPass->m_name) << "</FONT><BR/><FONT POINT-SIZE=\"8\">Stage " << passLevels[passIndex] << "</FONT></TD>";
-		}
-		resDot << "</TR>\n";
-
-		// One row per physical resource
-		for (u32 physicalIndex = 0; physicalIndex < physicalResourceCount; physicalIndex++)
-		{
-			const RenderResource& resource = m_physicalResources[physicalIndex];
-			const std::vector<const ResourceUsage*>& sortedChain = sortedChains[physicalIndex];
-
-			// Find each column's usage, plus the first/last used columns to shade the resource's lifetime
-			std::vector<const ResourceUsage*> columnUsages(columnCount, nullptr);
-			u32 firstColumn = U32_MAX;
-			u32 lastColumn = 0;
-			for (u32 column = 0; column < columnCount; column++)
-			{
-				for (const ResourceUsage* pUsage : sortedChain)
-				{
-					if (pUsage->passIndex == matrixColumns[column])
+					// Use the barrier that was actually calculated for this pass during Bake()
+					const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(usage.passIndex);
+					auto barrierIter = pRenderPass->m_barriers.find(physicalResource.resourceID);
+					if (barrierIter != pRenderPass->m_barriers.end())
 					{
-						columnUsages[column] = pUsage;
-						firstColumn = Min(firstColumn, column);
-						lastColumn = Max(lastColumn, column);
-						break;
+						const Barrier& barrier = barrierIter->second;
+						if (physicalResource.type == RESOURCE_TYPE::TEXTURE)
+						{
+							vizUsage.layout = RG_UTILS::ShortImageLayout(barrier.currentLayout);
+							vizUsage.barrierLines.push_back("layout: " + RG_UTILS::ShortImageLayout(barrier.oldLayout) + " -> " + vizUsage.layout);
+							if (barrier.nextLayout != barrier.currentLayout)
+							{
+								vizUsage.barrierLines.push_back("final layout: " + RG_UTILS::ShortImageLayout(barrier.nextLayout));
+							}
+						}
+						vizUsage.barrierLines.push_back("stage: " + string_VkPipelineStageFlags(barrier.srcStageMask) + " -> " + string_VkPipelineStageFlags(barrier.dstStageMask));
+						vizUsage.barrierLines.push_back("access: " + string_VkAccessFlags(barrier.srcAccessMask) + " -> " + string_VkAccessFlags(barrier.dstAccessMask));
 					}
+
+					vizResource.usages.push_back(std::move(vizUsage));
 				}
+
+				// The virtual input pass registers its usages during Bake(), which places them at the end of the chain
+				std::stable_sort(vizResource.usages.begin(), vizResource.usages.end(), [](const VizUsage& a, const VizUsage& b)
+				{
+					return a.passIndex < b.passIndex;
+				});
 			}
 
-			if (firstColumn == U32_MAX)
-			{
-				// Not used by any executed pass
-				continue;
-			}
-
-			const char* resourceHue = getResourceHue(resource);
-			resDot << "\t\t<TR><TD ALIGN=\"LEFT\" BGCOLOR=\"" << ShiftColor(resourceHue, SHADE_DARK) << "\"><B>" << escapeHtml(getResourceDisplayName(physicalIndex))
-				<< "</B><BR/><FONT POINT-SIZE=\"8\" COLOR=\"" << COLOR_TEXT_SECONDARY << "\">" << getResourceTypeTag(resource) << "</FONT></TD>";
-
-			for (u32 column = 0; column < columnCount; column++)
-			{
-				const ResourceUsage* pUsage = columnUsages[column];
-				if (pUsage == nullptr)
-				{
-					// Shaded if the resource is alive (between its first and last usage)
-					const bool isAlive = (column > firstColumn && column < lastColumn);
-					resDot << "<TD BGCOLOR=\"" << (isAlive ? COLOR_PANEL_FILL : COLOR_BG) << "\"> </TD>";
-					continue;
-				}
-
-				const RenderPassVk* pRenderPass = m_registeredRenderPasses.Get(pUsage->passIndex);
-				if (pRenderPass->m_isVirtual)
-				{
-					resDot << "<TD BGCOLOR=\"" << HUE_GREY << "\" HREF=\"#\" TOOLTIP=\"Provided by the previous frame (virtual input pass)\">IN</TD>";
-					continue;
-				}
-
-				const bool isRead = IsReadAccess(pUsage->access);
-				const bool isWrite = IsWriteAccess(pUsage->access);
-				const char* cellHue = (isRead && isWrite) ? HUE_TEAL : (isWrite ? HUE_GREEN : HUE_BLUE);
-
-				std::string text = std::string("<B>") + ((isRead && isWrite) ? "RW" : (isWrite ? "W" : "R")) + "</B>";
-				std::vector<std::string> tooltipLines;
-				tooltipLines.push_back(std::string(pRenderPass->m_name) + " (#" + std::to_string(submissionSlots[pUsage->passIndex] + 1) + ", stage " + std::to_string(passLevels[pUsage->passIndex]) + ")");
-				tooltipLines.push_back(std::string("access: ") + accessToString(pUsage->access));
-
-				if (resource.type == RESOURCE_TYPE::TEXTURE)
-				{
-					const std::string layout = RG_UTILS::ShortImageLayout(CalculateResourceImageLayout(*pUsage, pRenderPass->m_passType));
-					text += "<BR/>" + escapeHtml(layout);
-					tooltipLines.push_back("layout: " + layout);
-
-					if (pUsage->attachmentType != ATTACHMENT_TYPE::INVALID && pRenderPass->m_passType == PASS_TYPE::GRAPHICS)
-					{
-						const std::string ops = std::string(loadOpToString(pUsage->loadOp)) + "/" + storeOpToString(pUsage->storeOp);
-						text += std::string("<BR/><FONT POINT-SIZE=\"8\">") + attachmentTypeToString(pUsage->attachmentType) + " " + ops + "</FONT>";
-						tooltipLines.push_back(std::string("attachment: ") + attachmentTypeToString(pUsage->attachmentType));
-						tooltipLines.push_back("load/store: " + ops);
-					}
-				}
-				else if (resource.type == RESOURCE_TYPE::BUFFER)
-				{
-					char usageStr[32];
-					std::snprintf(usageStr, sizeof(usageStr), "buffer usage: 0x%X", static_cast<u32>(pUsage->bufferUsage));
-					tooltipLines.push_back(usageStr);
-				}
-
-				// Barrier from the closest earlier usage that actually executes (or the previous frame)
-				const ResourceUsage* pPrevUsage = nullptr;
-				for (const ResourceUsage* pOtherUsage : sortedChain)
-				{
-					if (pOtherUsage->passIndex < pUsage->passIndex && (isExecutedPass(pOtherUsage->passIndex) || isVirtualPass(pOtherUsage->passIndex)))
-					{
-						pPrevUsage = pOtherUsage;
-					}
-				}
-
-				if (pPrevUsage != nullptr)
-				{
-					const RenderPassVk* pPrevPass = m_registeredRenderPasses.Get(pPrevUsage->passIndex);
-					tooltipLines.push_back("");
-					tooltipLines.push_back(std::string("barrier from ") + (pPrevPass->m_isVirtual ? "previous frame" : pPrevPass->m_name) + ":");
-					for (const std::string& line : barrierToLines(resource, calculateBarrier(resource, *pPrevUsage, *pUsage)))
-					{
-						tooltipLines.push_back(line);
-					}
-				}
-
-				std::string tooltip;
-				for (u32 i = 0; i < static_cast<u32>(tooltipLines.size()); i++)
-				{
-					tooltip += (i == 0) ? "" : "&#10;";
-					tooltip += escapeHtml(tooltipLines[i]);
-				}
-
-				resDot << "<TD BGCOLOR=\"" << ShiftColor(cellHue, SHADE_DARK) << "\" HREF=\"#\" TOOLTIP=\"" << tooltip << "\">" << text << "</TD>";
-			}
-			resDot << "</TR>\n";
+			graph.resources.push_back(std::move(vizResource));
 		}
 
-		resDot << "\t\t</TABLE>>];\n";
-
-		resDot << "\n\tlabelloc=\"t\";\n";
-		resDot << "\tlabeljust=\"l\";\n";
-		resDot << "\tfontsize=12;\n";
-		resDot << "\tfontcolor=\"" << COLOR_TEXT_PRIMARY << "\";\n";
-		resDot << "\tlabel=<<b>Resource usage chains</b><br/><font point-size=\"9\" color=\"" << COLOR_TEXT_SECONDARY << "\">"
-			<< "Columns = executed passes in submission order (trimmed passes omitted) &#8226; R = read (blue), W = write (green), RW = read-write (teal)"
-			<< " &#8226; Shaded = alive between usages &#8226; Hover a cell for usage + barrier details</font>>;\n";
-		resDot << "}\n";
-
-		// ---- Write files ----
-		// The resource file sits next to the main one: "graph.dot" -> "graph_resources.dot"
-		std::string resourcesFileName = fileName;
-		const size_t extensionPos = resourcesFileName.rfind(".dot");
-		if (extensionPos != std::string::npos && extensionPos == resourcesFileName.size() - 4)
+		const STATUS_CODE res = CreateGraphVisualization(graph, fileName);
+		if (res == STATUS_CODE::SUCCESS)
 		{
-			resourcesFileName.insert(extensionPos, "_resources");
-		}
-		else
-		{
-			resourcesFileName += "_resources.dot";
+			// Cache the hash that we've generated a visualization for
+			m_uniqueVisualizationHashes.insert({ m_currentFrameGraphHash, true });
 		}
 
-		const Settings& settings = GlobalSettings::Get().GetSettings();
-		auto writeFile = [&](const std::string& name, const std::string& contents) -> bool
-		{
-			const std::string fullPath = std::string(settings.cacheDirectory) + "/" + name;
-			FileIO io;
-			FileOpenData openData{};
-			openData.mode = FileMode::Truncate;
-			openData.binary = false;
-			openData.shareable = false;
-			if (!io.Open(fullPath.c_str(), openData))
-			{
-				LogError("Failed to generate render graph visualization. Could not open file \"%s\" for writing!", fullPath.c_str());
-				return false;
-			}
-
-			io.Write(contents.c_str(), static_cast<u32>(contents.size()));
-			return true;
-		};
-
-		if (!writeFile(fileName, dot.str()) || !writeFile(resourcesFileName, resDot.str()))
-		{
-			return STATUS_CODE::ERR_INTERNAL;
-		}
-
-		// Cache the hash that we've generated a visualization for
-		m_uniqueVisualizationHashes.insert({ m_currentFrameGraphHash, true });
-
-		LogDebug("Render graph visualization written to \"%s\" and \"%s\" for hash %llX", fileName, resourcesFileName.c_str(), m_currentFrameGraphHash);
-		return STATUS_CODE::SUCCESS;
+		return res;
 	}
 
 	IDeviceContext* RenderGraphVk::GetCurrentDeviceContext()

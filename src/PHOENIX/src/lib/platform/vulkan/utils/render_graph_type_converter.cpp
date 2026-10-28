@@ -31,25 +31,6 @@ namespace PHX
 			return VK_PIPELINE_BIND_POINT_MAX_ENUM;
 		}
 
-		const char* PassTypeToString(PASS_TYPE passType)
-		{
-			switch (passType)
-			{
-			case PASS_TYPE::GRAPHICS:     return "GRAPHICS";
-			case PASS_TYPE::COMPUTE:      return "COMPUTE";
-			case PASS_TYPE::TRANSFER:     return "TRANSFER";
-			case PASS_TYPE::RAY_TRACING:  return "RAY_TRACING";
-			case PASS_TYPE::AS_BUILD:     return "AS_BUILD";
-			default:
-			{
-				break;
-			}
-			}
-
-			ASSERT_ALWAYS("Failed to convert pass type to string");
-			return "UNKNOWN";
-		}
-
 		// Strips a leading prefix from a string if present (used to make Vulkan enum names compact)
 		std::string StripVkPrefix(const std::string& str, const std::string& prefix)
 		{
