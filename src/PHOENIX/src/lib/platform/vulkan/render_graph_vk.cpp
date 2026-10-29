@@ -2027,8 +2027,10 @@ namespace PHX
 	{
 		PROFILE_SCOPE("RenderGraphVk_HashState");
 
+#if defined(ATR_DEBUG)
 		// If this changes it's likely that this function must be updated!
 		STATIC_ASSERT(sizeof(RenderPassVk) == 888);
+#endif
 
 		size_t seed = 0;
 
