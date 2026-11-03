@@ -1747,7 +1747,12 @@ namespace PHX
 		TextureVk* textureResource = ResolveTexture(physicalResource);
 		ASSERT_PTR(textureResource);
 
-		VkImageLayout oldImageLayout = (prevUsage == nullptr) ? textureResource->GetLayout() : CalculateResourceImageLayout(*prevUsage, prevPassType);
+		// NOTE!
+		// Unconditionally set the old layout from the texture's stored layout. The layout is tracked through the baking process,
+		// and doing this handles two cases: (1) previous usage comes from non-graphics pass in which case layout transitions
+		// are performed through explicit barriers and (2) previous usage comes from graphics pass in which case layout transitions
+		// are performed by the render pass itself, and it automatically sets the texture layout to the next usage's layout (when applicable)
+		VkImageLayout oldImageLayout = textureResource->GetLayout();
 		VkImageLayout srcImageLayout = CalculateResourceImageLayout(*currUsage, currPassType);
 		
 		// Special case for present resource. Also, finalLayout may not be UNDEFINED, so if nextUsage
