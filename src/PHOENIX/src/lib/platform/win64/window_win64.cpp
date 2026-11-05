@@ -260,8 +260,9 @@ namespace PHX
 
 		glfwInit();
 
+		const bool resizeable = (createInfo.windowMode == WINDOW_MODE::FULLSCREEN) ? GLFW_FALSE : createInfo.canResize;
+		glfwWindowHint(GLFW_RESIZABLE, resizeable);
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-		glfwWindowHint(GLFW_RESIZABLE, createInfo.canResize ? GLFW_TRUE : GLFW_FALSE);
 
 		const char* titleUsed = createInfo.title;
 		if (createInfo.title == nullptr)
@@ -271,11 +272,24 @@ namespace PHX
 		}
 
 		GLFWmonitor* pMonitor = nullptr;
+		int windowWidth = 0;
+		int windowHeight = 0;
 		if (createInfo.windowMode == WINDOW_MODE::FULLSCREEN)
 		{
 			pMonitor = glfwGetPrimaryMonitor();
+			ASSERT_PTR(pMonitor);
+			const GLFWvidmode* pVideoMode = glfwGetVideoMode(pMonitor);
+			ASSERT_PTR(pVideoMode);
+
+			windowWidth = pVideoMode->width;
+			windowHeight = pVideoMode->height;
 		}
-		m_handle = glfwCreateWindow(createInfo.size.GetX(), createInfo.size.GetY(), titleUsed, pMonitor, nullptr);
+		else
+		{
+			windowWidth = createInfo.size.GetX();
+			windowHeight = createInfo.size.GetY();
+		}
+		m_handle = glfwCreateWindow(windowWidth, windowHeight, titleUsed, pMonitor, nullptr);
 
 		glfwSetWindowUserPointer(m_handle, this);
 		glfwSetInputMode(m_handle, GLFW_CURSOR, ConvertGLFWCursorTypeToInternal(createInfo.cursorType));
@@ -306,7 +320,7 @@ namespace PHX
 			LogInfo("Raw mouse motion is not supported");
 		}
 
-		m_size = createInfo.size;
+		m_size = { static_cast<u32>(windowWidth), static_cast<u32>(windowHeight) };
 		m_position = createInfo.position;
 		m_title = titleUsed;
 		m_inFocus = true;

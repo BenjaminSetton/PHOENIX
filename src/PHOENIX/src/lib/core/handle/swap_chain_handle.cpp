@@ -49,7 +49,7 @@ namespace PHX
 		ISwapChain* pSwapChain = HANDLE_UTILS::ResolveHandle(*this);
 		if (pSwapChain != nullptr)
 		{
-			return pSwapChain->Resize(newWidth, newHeight);
+			pSwapChain->Resize(newWidth, newHeight);
 		}
 	}
 

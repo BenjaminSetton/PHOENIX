@@ -251,19 +251,20 @@ namespace PHX
 
 	STATUS_CODE SwapChainVk::CreateSwapChain(RenderDeviceVk* pRenderDevice, u32 width, u32 height, PRESENT_MODE presentMode)
 	{
-		// Clean up old swap chain data if necessary. This can happen when swap chain has already been created but
-		// needs to be resized because the window dimensions changed
-		if (IsValid())
-		{
-			DestroySwapChain();
-		}
-
 		VkDevice logicalDevice = pRenderDevice->GetLogicalDevice();
 		VkPhysicalDevice physicalDevice = pRenderDevice->GetPhysicalDevice();
 
 		const VkSurfaceKHR surface = CoreVk::Get().GetSurface();
 
 		SwapChainSupportDetails details = QuerySwapChainSupport(physicalDevice, surface);
+
+		// Bail if the reported extent is (0, 0). This is expected behavior when fullscreen windows lose focus
+		if (details.capabilities.currentExtent.width == 0 && details.capabilities.currentExtent.height == 0)
+		{
+			LogInfo("Skipped swapchain recreation due to an extent of (0, 0) being reported. This is usually happens when a fullscreen window is iconified");
+			return STATUS_CODE::SUCCESS;
+		}
+
 		VkSurfaceFormatKHR surfaceFormat = ChooseSwapSurfaceFormat(details.formats);
 		VkPresentModeKHR vkPresentMode = ChooseSwapPresentMode(details.presentModes, presentMode);
 		VkExtent2D extent = ChooseSwapChainExtent(details.capabilities, width, height);
@@ -273,6 +274,13 @@ namespace PHX
 		{
 			LogWarning("Could not create swap chain with specified dimensions (%ux%u)! Using %ux%u instead",
 				width, height, extent.width, extent.height);
+		}
+
+		// Clean up old swap chain data if necessary. This can happen when swap chain has already been created but
+		// needs to be resized because the window dimensions changed
+		if (IsValid())
+		{
+			DestroySwapChain();
 		}
 
 		// Mailbox needs an extra image, on top of the +1 above the minimum, so the compositor (e.g. DWM in windowed mode) 
