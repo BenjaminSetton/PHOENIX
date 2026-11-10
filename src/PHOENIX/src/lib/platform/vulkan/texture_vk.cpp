@@ -263,6 +263,12 @@ namespace PHX
 	{
 		PROFILE_SCOPE("TextureVk_CreateBaseImage");
 
+		if (createInfo.usageFlags == 0)
+		{
+			LogError("Failed to create texture. Usage flags is invalid (0)!");
+			return STATUS_CODE::ERR_API;
+		}
+
 		// Re-calculate mip count, if necessary. Vulkan disallows 0 mip levels
 		u32 mipsToUse = 1;
 		if (createInfo.mipLevels == 0)
