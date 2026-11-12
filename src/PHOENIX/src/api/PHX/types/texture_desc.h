@@ -1,6 +1,7 @@
 #pragma once
 
-#include "BSL/integral_types.h"
+#include <BSL/vec_types.h>
+#include <BSL/integral_types.h>
 
 namespace PHX
 {
@@ -214,5 +215,14 @@ namespace PHX
 		BC6H_SFLOAT,
 		BC7_UNORM,
 		BC7_SRGB,
+	};
+
+	struct BlitRegion
+	{
+		u32 mipLevel			= 0;
+		u32 baseArrayLayer		= 0;
+		u32 layerCount			= 1;
+		BSL::Vec2u regionSize	= { 0, 0 };
+		BSL::Vec2u regionOffset = { 0, 0 };
 	};
 }

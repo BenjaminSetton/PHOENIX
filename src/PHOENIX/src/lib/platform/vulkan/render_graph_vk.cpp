@@ -306,7 +306,7 @@ namespace PHX
 			}
 			case PASS_TYPE::COMPUTE:
 			{
-				return VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+				return VK_IMAGE_LAYOUT_GENERAL;
 			}
 			case PASS_TYPE::TRANSFER:
 			{

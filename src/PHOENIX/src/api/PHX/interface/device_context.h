@@ -1,14 +1,14 @@
 #pragma once
 
-#include "BSL/integral_types.h"
-#include "BSL/vec_types.h"
+#include <BSL/integral_types.h>
+#include <BSL/vec_types.h>
+
 #include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
+#include "PHX/interface/handle.h"
 #include "PHX/interface/uniform.h"
 #include "PHX/types/clear_color.h"
 #include "PHX/types/status_code.h"
-
-#include "PHX/interface/handle.h"
 
 namespace PHX
 {
@@ -41,5 +41,6 @@ namespace PHX
 
 		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes);
 		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel = 0);
+		STATUS_CODE Blit(TextureHandle srcTexture, BlitRegion srcBlitRegion, TextureHandle dstTexture, BlitRegion dstBlitRegion, FILTER_MODE filter);
 	};
 }

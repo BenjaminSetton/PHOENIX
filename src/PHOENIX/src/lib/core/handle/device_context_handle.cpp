@@ -215,4 +215,16 @@ namespace PHX
 		LogError("Failed to copy data to texture. Could not resolve device context handle!");
 		return STATUS_CODE::ERR_INTERNAL;
 	}
+
+	STATUS_CODE DeviceContextHandle::Blit(TextureHandle srcTexture, BlitRegion srcBlitRegion, TextureHandle dstTexture, BlitRegion dstBlitRegion, FILTER_MODE filter)
+	{
+		IDeviceContext* pContext = HANDLE_UTILS::ResolveHandle(*this);
+		if (pContext != nullptr)
+		{
+			return pContext->Blit(srcTexture, srcBlitRegion, dstTexture, dstBlitRegion, filter);
+		}
+
+		LogError("Failed to blit. Could not resolve device context handle!");
+		return STATUS_CODE::ERR_INTERNAL;
+	}
 }

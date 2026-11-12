@@ -956,6 +956,79 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	STATUS_CODE DeviceContextVk::Blit(TextureHandle srcTexture, BlitRegion srcBlitRegion, TextureHandle dstTexture, BlitRegion dstBlitRegion, FILTER_MODE filter)
+	{
+		PROFILE_SCOPE("DeviceContextVk_Blit");
+
+		if (!EnsureMatchingContext(PASS_TYPE::TRANSFER) &&
+			!EnsureMatchingContext(PASS_TYPE::GRAPHICS))
+		{
+			LogError("Cannot call Blit() outside of a TRANSFER or GRAPHICS pass!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		TextureVk* srcTextureVk = static_cast<TextureVk*>(m_pRenderDevice->ResolveHandle(srcTexture));
+		if (srcTextureVk == nullptr)
+		{
+			LogError("Failed to blit. Source texture pointer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		TextureVk* dstTextureVk = static_cast<TextureVk*>(m_pRenderDevice->ResolveHandle(dstTexture));
+		if (dstTextureVk == nullptr)
+		{
+			LogError("Failed to blit. Destination texture pointer is null!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		const BSL::Vec2u zeroVec = BSL::Vec2u(0, 0);
+		if (srcBlitRegion.regionSize == zeroVec || dstBlitRegion.regionSize == zeroVec)
+		{
+			LogError("Failed to blit. Source or destination region size is (0, 0)!");
+			return STATUS_CODE::ERR_API;
+		}
+
+		STATUS_CODE res = STATUS_CODE::SUCCESS;
+
+		// I'm not a fan of having to declare a full graphics pass (create/bind pipeline, set scissor/viewport, etc)
+		// just to blit from a texture to another. The spec requires blit operations to be recorded on a graphics queue,
+		// but we'll allow both TRANSFER and GRAPHICS passes to use Blit() in this case
+		TECHDEBT("This is a strange thing to do. Rethink this");
+		VkCommandBuffer cmdBuffer;
+		res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
+		if (res != STATUS_CODE::SUCCESS)
+		{
+			LogError("Failed to copy data to texture! Command buffer creation failed");
+			return res;
+		}
+
+		const BSL::Vec2i srcTopLeft     = { static_cast<i32>(srcBlitRegion.regionOffset.GetX()), static_cast<i32>(srcBlitRegion.regionOffset.GetY()) };
+		const BSL::Vec2i srcBottomRight = { srcTopLeft.GetX() + static_cast<i32>(srcBlitRegion.regionSize.GetX()), srcTopLeft.GetY() + static_cast<i32>(srcBlitRegion.regionSize.GetY()), 0 };
+		const BSL::Vec2i dstTopLeft     = { static_cast<i32>(dstBlitRegion.regionOffset.GetX()), static_cast<i32>(dstBlitRegion.regionOffset.GetY()) };
+		const BSL::Vec2i dstBottomRight = { dstTopLeft.GetX() + static_cast<i32>(dstBlitRegion.regionSize.GetX()), dstTopLeft.GetY() + static_cast<i32>(dstBlitRegion.regionSize.GetY()), 0 };
+
+		VkImageBlit blitRegion{};
+		blitRegion.srcSubresource.aspectMask = TEX_UTILS::ConvertAspectFlags(srcTextureVk->GetAspectFlags());
+		blitRegion.srcSubresource.baseArrayLayer = srcBlitRegion.baseArrayLayer;
+		blitRegion.srcSubresource.layerCount = srcBlitRegion.layerCount;
+		blitRegion.srcSubresource.mipLevel = srcBlitRegion.mipLevel;
+		blitRegion.srcOffsets[0] = { srcTopLeft.GetX(), srcTopLeft.GetY(), 0 };
+		blitRegion.srcOffsets[1] = { srcBottomRight.GetX(), srcBottomRight.GetY(), 1 };
+
+		blitRegion.dstSubresource.aspectMask = TEX_UTILS::ConvertAspectFlags(dstTextureVk->GetAspectFlags());
+		blitRegion.dstSubresource.baseArrayLayer = dstBlitRegion.baseArrayLayer;
+		blitRegion.dstSubresource.layerCount = dstBlitRegion.layerCount;
+		blitRegion.dstSubresource.mipLevel = dstBlitRegion.mipLevel;
+		blitRegion.dstOffsets[0] = { dstTopLeft.GetX(), dstTopLeft.GetY(), 0 };
+		blitRegion.dstOffsets[1] = { dstBottomRight.GetX(), dstBottomRight.GetY(), 1 };
+
+		vkCmdBlitImage(cmdBuffer, srcTextureVk->GetBaseImage(), srcTextureVk->GetLayout(), 
+			dstTextureVk->GetBaseImage(), dstTextureVk->GetLayout(),
+			1, &blitRegion, TEX_UTILS::ConvertFilterMode(filter));
+
+		return STATUS_CODE::SUCCESS;
+	}
+
 	void DeviceContextVk::EnsureSubmissionBatch(QUEUE_TYPE type)
 	{
 		// Ensure submission batch is created through command buffer creation. If a submission batch

@@ -77,6 +77,7 @@ namespace PHX
 
 		STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) override;
 		STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel) override;
+		STATUS_CODE Blit(TextureHandle srcTexture, BlitRegion srcBlitRegion, TextureHandle dstTexture, BlitRegion dstBlitRegion, FILTER_MODE filter) override;
 
 		// Ensures a submission batch for the provided queue type is created in advance. This is used
 		// for calls that use the last submission batch (e.g. WriteBeginTimestamp, WriteEndTimestamp)

@@ -37,7 +37,7 @@ namespace PHX
 
 		virtual STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) = 0;
 		virtual STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel) = 0;
-		TECHDEBT("Implement texture blit");
+		virtual STATUS_CODE Blit(TextureHandle srcTexture, BlitRegion srcBlitRegion, TextureHandle dstTexture, BlitRegion dstBlitRegion, FILTER_MODE filter) = 0;
 
 		virtual void SetMetricsPointer(Metrics* pMetrics) = 0;
 		virtual void ResetMetricsPointer() = 0;
