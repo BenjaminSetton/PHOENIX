@@ -245,5 +245,34 @@ namespace PHX
 
 		return false;
 	}
+
+	QUEUE_TYPE GetQueueTypeFromBindPoint(VkPipelineBindPoint bindPoint)
+	{
+		QUEUE_TYPE cmdQueueType = QUEUE_TYPE::COUNT;
+		switch (bindPoint)
+		{
+		case VK_PIPELINE_BIND_POINT_GRAPHICS:
+		{
+			cmdQueueType = QUEUE_TYPE::GRAPHICS;
+			break;
+		}
+		case VK_PIPELINE_BIND_POINT_COMPUTE:
+		{
+			cmdQueueType = QUEUE_TYPE::COMPUTE;
+			break;
+		}
+		case VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR:
+		{
+			cmdQueueType = QUEUE_TYPE::GRAPHICS;
+			break;
+		}
+		default:
+		{
+			break;
+		}
+		}
+
+		return cmdQueueType;
+	}
 }
 

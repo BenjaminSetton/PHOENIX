@@ -3,6 +3,7 @@
 #include "core/ref.h"
 #include "PHX/interface/acceleration_structure.h"
 #include "PHX/interface/buffer.h"
+#include "PHX/interface/render_graph.h"
 #include "PHX/interface/uniform.h"
 #include "PHX/types/metrics.h"
 #include "PHX/types/status_code.h"
@@ -36,8 +37,12 @@ namespace PHX
 
 		virtual STATUS_CODE CopyDataToBuffer(BufferHandle buffer, const void* data, u64 sizeBytes) = 0;
 		virtual STATUS_CODE CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel) = 0;
+		TECHDEBT("Implement texture blit");
 
 		virtual void SetMetricsPointer(Metrics* pMetrics) = 0;
 		virtual void ResetMetricsPointer() = 0;
+
+		virtual void SetPassTypeContext(PASS_TYPE passType) = 0;
+		virtual void ResetPassTypeContext() = 0;
 	};
 }

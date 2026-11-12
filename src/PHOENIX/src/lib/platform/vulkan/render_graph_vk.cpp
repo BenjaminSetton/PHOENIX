@@ -799,10 +799,12 @@ namespace PHX
 				return res;
 			}
 
-			// Insert a label for GPU operations
+			// Set transient device context data
 			{
 				const QUEUE_TYPE passQueueType = ConvertPassTypeToQueueType(currRenderPass.m_passType);
 				pDeviceContext->BeginLabel(passQueueType, currRenderPass.m_name);
+
+				pDeviceContext->SetPassTypeContext(currRenderPass.m_passType);
 			}
 
 			switch (currRenderPass.m_passType)
@@ -919,8 +921,12 @@ namespace PHX
 			}
 			}
 
-			// End the label for this pass
-			pDeviceContext->EndLabel(ConvertPassTypeToQueueType(currRenderPass.m_passType));
+			// Reset transient device context data
+			{
+				pDeviceContext->EndLabel(ConvertPassTypeToQueueType(currRenderPass.m_passType));
+
+				pDeviceContext->ResetPassTypeContext();
+			}
 		}
 
 		// Hash the state of the render graph after baking

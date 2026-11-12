@@ -68,6 +68,12 @@ namespace PHX
 	{
 		PROFILE_SCOPE("DeviceContextVk_BindVertexBuffer");
 
+		if (!EnsureMatchingContext(PASS_TYPE::GRAPHICS))
+		{
+			LogError("Cannot call BindVertexBuffer() outside of a GRAPHICS pass!");
+			return STATUS_CODE::ERR_API;
+		}
+
 		BufferVk* vBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(vertexBuffer));
 		if (vBufferVk == nullptr)
 		{
@@ -93,6 +99,12 @@ namespace PHX
 	STATUS_CODE DeviceContextVk::BindMesh(BufferHandle vertexBuffer, BufferHandle indexBuffer, INDEX_TYPE indexType)
 	{
 		PROFILE_SCOPE("DeviceContextVk_BindMesh");
+
+		if (!EnsureMatchingContext(PASS_TYPE::GRAPHICS))
+		{
+			LogError("Cannot call BindMesh() outside of a GRAPHICS pass!");
+			return STATUS_CODE::ERR_API;
+		}
 
 		BufferVk* vBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(vertexBuffer));
 		if (vBufferVk == nullptr)
@@ -127,6 +139,14 @@ namespace PHX
 	STATUS_CODE DeviceContextVk::BindUniformCollection(UniformCollectionHandle uniformCollection)
 	{
 		PROFILE_SCOPE("DeviceContextVk_BindUniformCollection");
+
+		if (!EnsureMatchingContext(PASS_TYPE::GRAPHICS) && 
+			!EnsureMatchingContext(PASS_TYPE::COMPUTE)  &&
+			!EnsureMatchingContext(PASS_TYPE::RAY_TRACING))
+		{
+			LogError("Cannot call BindUniformCollection() outside of a GRAPHICS, COMPUTE or RAY_TRACING pass!");
+			return STATUS_CODE::ERR_API;
+		}
 
 		UniformCollectionVk* uniformCollectionVk = static_cast<UniformCollectionVk*>(m_pRenderDevice->ResolveHandle(uniformCollection));
 		if (uniformCollectionVk == nullptr)
@@ -166,6 +186,14 @@ namespace PHX
 	{
 		PROFILE_SCOPE("DeviceContextVk_FlushUniformUpdates");
 
+		if (!EnsureMatchingContext(PASS_TYPE::GRAPHICS) &&
+			!EnsureMatchingContext(PASS_TYPE::COMPUTE) &&
+			!EnsureMatchingContext(PASS_TYPE::RAY_TRACING))
+		{
+			LogError("Cannot call FlushUniformUpdates() outside of a GRAPHICS, COMPUTE or RAY_TRACING pass!");
+			return STATUS_CODE::ERR_API;
+		}
+
 		UniformCollectionVk* uniformCollectionVk = static_cast<UniformCollectionVk*>(m_pRenderDevice->ResolveHandle(uniformCollection));
 		if (uniformCollectionVk == nullptr)
 		{
@@ -185,10 +213,9 @@ namespace PHX
 	{
 		PROFILE_SCOPE("DeviceContextVk_SetViewport");
 
-		// Only relevant for graphics calls
-		if (GetContextualBindPoint() != VK_PIPELINE_BIND_POINT_GRAPHICS)
+		if (!EnsureMatchingContext(PASS_TYPE::GRAPHICS))
 		{
-			LogError("Failed to set viewport! The currently bound pipeline is not a graphics pipeline");
+			LogError("Cannot call SetViewport() outside of a GRAPHICS pass!");
 			return STATUS_CODE::ERR_API;
 		}
 
@@ -221,10 +248,9 @@ namespace PHX
 	{
 		PROFILE_SCOPE("DeviceContextVk_SetScissor");
 
-		// Only relevant for graphics calls
-		if (GetContextualBindPoint() != VK_PIPELINE_BIND_POINT_GRAPHICS)
+		if (!EnsureMatchingContext(PASS_TYPE::GRAPHICS))
 		{
-			LogError("Failed to set scissor! The currently bound pipeline is not a graphics pipeline");
+			LogError("Cannot call SetScissor() outside of a GRAPHICS pass!");
 			return STATUS_CODE::ERR_API;
 		}
 
@@ -252,6 +278,12 @@ namespace PHX
 	STATUS_CODE DeviceContextVk::Draw(u32 vertexCount)
 	{
 		PROFILE_SCOPE("DeviceContextVk_Draw");
+
+		if (!EnsureMatchingContext(PASS_TYPE::GRAPHICS))
+		{
+			LogError("Cannot call Draw() outside of a GRAPHICS pass!");
+			return STATUS_CODE::ERR_API;
+		}
 
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
@@ -283,6 +315,12 @@ namespace PHX
 	{
 		PROFILE_SCOPE("DeviceContextVk_DrawIndexed");
 
+		if (!EnsureMatchingContext(PASS_TYPE::GRAPHICS))
+		{
+			LogError("Cannot call DrawIndexed() outside of a GRAPHICS pass!");
+			return STATUS_CODE::ERR_API;
+		}
+
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
@@ -313,6 +351,12 @@ namespace PHX
 	{
 		PROFILE_SCOPE("DeviceContextVk_DrawIndexedInstanced");
 
+		if (!EnsureMatchingContext(PASS_TYPE::GRAPHICS))
+		{
+			LogError("Cannot call DrawIndexedInstanced() outside of a GRAPHICS pass!");
+			return STATUS_CODE::ERR_API;
+		}
+
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::GRAPHICS, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
@@ -342,6 +386,12 @@ namespace PHX
 	STATUS_CODE DeviceContextVk::DrawIndexedIndirect(BufferHandle argsBuffer, u32 drawCount, u32 stride, u64 argsOffset)
 	{
 		PROFILE_SCOPE("DeviceContextVk_DrawIndexedIndirect");
+
+		if (!EnsureMatchingContext(PASS_TYPE::GRAPHICS))
+		{
+			LogError("Cannot call DrawIndexedIndirect() outside of a GRAPHICS pass!");
+			return STATUS_CODE::ERR_API;
+		}
 
 		BufferVk* argsBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(argsBuffer));
 		if (argsBufferVk == nullptr)
@@ -377,6 +427,12 @@ namespace PHX
 	STATUS_CODE DeviceContextVk::DrawIndexedIndirectCount(BufferHandle argsBuffer, u64 argsOffset, BufferHandle countBuffer, u64 countOffset, u32 maxDrawCount, u32 stride)
 	{
 		PROFILE_SCOPE("DeviceContextVk_DrawIndexedIndirectCount");
+
+		if (!EnsureMatchingContext(PASS_TYPE::GRAPHICS))
+		{
+			LogError("Cannot call DrawIndexedIndirectCount() outside of a GRAPHICS pass!");
+			return STATUS_CODE::ERR_API;
+		}
 
 		BufferVk* argsBufferVk = static_cast<BufferVk*>(m_pRenderDevice->ResolveHandle(argsBuffer));
 		if (argsBufferVk == nullptr)
@@ -424,6 +480,12 @@ namespace PHX
 	{
 		PROFILE_SCOPE("DeviceContextVk_Dispatch");
 
+		if (!EnsureMatchingContext(PASS_TYPE::COMPUTE))
+		{
+			LogError("Cannot call Dispatch() outside of a COMPUTE pass!");
+			return STATUS_CODE::ERR_API;
+		}
+
 		VkCommandBuffer cmdBuffer = VK_NULL_HANDLE;
 		STATUS_CODE res = GetOrCreateCommandBuffer(QUEUE_TYPE::COMPUTE, cmdBuffer);
 		if (res != STATUS_CODE::SUCCESS)
@@ -446,8 +508,14 @@ namespace PHX
 	{
 		PROFILE_SCOPE("DeviceContextVk_TraceRays");
 
-		ASSERT_PTR(m_contextualPipeline);
+		if (!EnsureMatchingContext(PASS_TYPE::RAY_TRACING))
+		{
+			LogError("Cannot call TraceRays() outside of a RAY_TRACING pass!");
+			return STATUS_CODE::ERR_API;
+		}
 
+		ASSERT_PTR(m_contextualPipeline);
+		TECHDEBT("Why not just use RAY_TRACING?");
 		QUEUE_TYPE cmdQueueType = GetQueueTypeFromBindPoint(m_contextualPipeline->GetBindPoint());
 		if (cmdQueueType == QUEUE_TYPE::COUNT)
 		{
@@ -486,6 +554,12 @@ namespace PHX
 	STATUS_CODE DeviceContextVk::BuildBottomLevelAccelerationStructure(AccelerationStructureHandle handle)
 	{
 		PROFILE_SCOPE("DeviceContextVk_BuildBottomLevelAccelerationStructure");
+
+		if (!EnsureMatchingContext(PASS_TYPE::AS_BUILD))
+		{
+			LogError("Cannot call BuildBottomLevelAccelerationStructure() outside of a AS_BUILD pass!");
+			return STATUS_CODE::ERR_API;
+		}
 
 		ASSERT_MSG(m_pRenderDevice->IsRayTracingSupported(), "Failed to build acceleration structure. Ray tracing is not supported on this device!");
 
@@ -628,6 +702,12 @@ namespace PHX
 	{
 		PROFILE_SCOPE("DeviceContextVk_BuildTopLevelAccelerationStructure");
 
+		if (!EnsureMatchingContext(PASS_TYPE::AS_BUILD))
+		{
+			LogError("Cannot call BuildTopLevelAccelerationStructure() outside of a AS_BUILD pass!");
+			return STATUS_CODE::ERR_API;
+		}
+
 		ASSERT_MSG(m_pRenderDevice->IsRayTracingSupported(), "Failed to build top-level acceleration structure. Ray tracing is not supported on this device!");
 
 		AccelerationStructureVk* pAS = static_cast<AccelerationStructureVk*>(m_pRenderDevice->ResolveHandle(handle));
@@ -737,9 +817,19 @@ namespace PHX
 			return STATUS_CODE::ERR_API;
 		}
 
+		const bool usesDirectMapping = ShouldUseDirectMemoryMapping(bufferVk->GetUsage());
+		if (!usesDirectMapping)
+		{
+			if (!EnsureMatchingContext(PASS_TYPE::TRANSFER))
+			{
+				LogError("Cannot call CopyDataToBuffer() for a buffer with no direct mapping outside of a TRANSFER pass!");
+				return STATUS_CODE::ERR_API;
+			}
+		}
+
 		STATUS_CODE res = STATUS_CODE::SUCCESS;
 
-		if (ShouldUseDirectMemoryMapping(bufferVk->GetUsage()))
+		if (usesDirectMapping)
 		{
 			// Copy to memory directly, no need to go through a staging buffer
 			bufferVk->CopyToMappedData(data, sizeBytes);
@@ -789,6 +879,12 @@ namespace PHX
 	STATUS_CODE DeviceContextVk::CopyDataToTexture(TextureHandle texture, const void* data, u64 sizeBytes, u32 mipLevel)
 	{
 		PROFILE_SCOPE("DeviceContextVk_CopyDataToTexture");
+
+		if (!EnsureMatchingContext(PASS_TYPE::TRANSFER))
+		{
+			LogError("Cannot call CopyDataToTexture() outside of a TRANSFER pass!");
+			return STATUS_CODE::ERR_API;
+		}
 
 		TextureVk* textureVk = static_cast<TextureVk*>(m_pRenderDevice->ResolveHandle(texture));
 		if (textureVk == nullptr)
@@ -1486,45 +1582,6 @@ namespace PHX
 		m_chainSemaphores.clear();
 	}
 
-	QUEUE_TYPE DeviceContextVk::GetQueueTypeFromBindPoint(VkPipelineBindPoint bindPoint)
-	{
-		QUEUE_TYPE cmdQueueType = QUEUE_TYPE::COUNT;
-		switch (bindPoint)
-		{
-		case VK_PIPELINE_BIND_POINT_GRAPHICS:
-		{
-			cmdQueueType = QUEUE_TYPE::GRAPHICS;
-			break;
-		}
-		case VK_PIPELINE_BIND_POINT_COMPUTE:
-		{
-			cmdQueueType = QUEUE_TYPE::COMPUTE;
-			break;
-		}
-		case VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR:
-		{
-			cmdQueueType = QUEUE_TYPE::GRAPHICS;
-			break;
-		}
-		default:
-		{
-			break;
-		}
-		}
-
-		return cmdQueueType;
-	}
-
-	VkPipelineBindPoint DeviceContextVk::GetContextualBindPoint() const
-	{
-		if (m_contextualPipeline == nullptr)
-		{
-			return VK_PIPELINE_BIND_POINT_MAX_ENUM;
-		}
-
-		return m_contextualPipeline->GetBindPoint();
-	}
-
 	STATUS_CODE DeviceContextVk::FlushInternal(QUEUE_TYPE queueType, const VkCommandBuffer* pCommandBuffers, u32 commandBufferCount, const FlushSyncData& syncData)
 	{
 		PROFILE_SCOPE("DeviceContextVk_FlushInternal");
@@ -1634,6 +1691,16 @@ namespace PHX
 		return STATUS_CODE::SUCCESS;
 	}
 
+	bool DeviceContextVk::EnsureMatchingContext(PASS_TYPE desiredPassType)
+	{
+		if (m_passTypeContext.has_value())
+		{
+			return m_passTypeContext.value() == desiredPassType;
+		}
+
+		return false;
+	}
+
 	STATUS_CODE DeviceContextVk::SetContextualPipeline(PipelineVk* pPipeline)
 	{
 		if (pPipeline == nullptr)
@@ -1678,6 +1745,16 @@ namespace PHX
 	void DeviceContextVk::ResetMetricsPointer()
 	{
 		m_pMetrics = nullptr;
+	}
+
+	void DeviceContextVk::SetPassTypeContext(PASS_TYPE passType)
+	{
+		m_passTypeContext = passType;
+	}
+
+	void DeviceContextVk::ResetPassTypeContext()
+	{
+		m_passTypeContext.reset();
 	}
 
 	STATUS_CODE DeviceContextVk::WriteBeginTimestamp(const char* passName)

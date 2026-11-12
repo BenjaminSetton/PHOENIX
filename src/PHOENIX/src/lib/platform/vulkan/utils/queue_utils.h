@@ -51,4 +51,7 @@ namespace PHX
 	// graphics and compute queue types can be profiled
 	TECHDEBT("Can we profile other operations like transfer/present as long as the queues support graphics and compute??");
 	bool CanProfileQueueType(QUEUE_TYPE type);
+
+	// Returns the queue type from the bind point. May return invalid result in the form of QUEUE_TYPE::COUNT!
+	QUEUE_TYPE GetQueueTypeFromBindPoint(VkPipelineBindPoint bindPoint);
 }

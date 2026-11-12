@@ -264,6 +264,9 @@ namespace PHX
 		glfwWindowHint(GLFW_RESIZABLE, resizeable);
 		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
+		bool autoIconify = createInfo.autoIconify ? GLFW_TRUE : GLFW_FALSE;
+		glfwWindowHint(GLFW_AUTO_ICONIFY, autoIconify);
+
 		const char* titleUsed = createInfo.title;
 		if (createInfo.title == nullptr)
 		{

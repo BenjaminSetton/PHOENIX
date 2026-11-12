@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <optional>
 #include <vector>
 #include <vulkan/vulkan.h>
 
@@ -90,6 +91,9 @@ namespace PHX
 		void SetMetricsPointer(Metrics* pMetrics) override;
 		void ResetMetricsPointer() override;
 
+		void SetPassTypeContext(PASS_TYPE passType) override;
+		void ResetPassTypeContext() override;
+
 		// Timestamp queries - writes a timestamp into the last submission batch and tracks the
 		// begin/end pair internally for readback on the next use of this frame-in-flight
 		STATUS_CODE WriteBeginTimestamp(const char* passName);
@@ -168,14 +172,6 @@ namespace PHX
 		STATUS_CODE EnsureChainSemaphores(u32 count);
 		void DestroyChainSemaphores();
 
-		// TODO - MOVE TO UTILS!
-		// Returns the queue type from the bind point. May return invalid result in the form of QUEUE_TYPE::COUNT!
-		QUEUE_TYPE GetQueueTypeFromBindPoint(VkPipelineBindPoint bindPoint);
-
-		// Returns the currently bound contextual pipeline's bind point, or VK_PIPELINE_BIND_POINT_MAX_ENUM
-		// if no pipeline is currently bound
-		VkPipelineBindPoint GetContextualBindPoint() const;
-
 		STATUS_CODE FlushInternal(QUEUE_TYPE queueType, const VkCommandBuffer* pCommandBuffers, u32 commandBufferCount, const FlushSyncData& syncData);
 
 		StagingAllocation AllocateStaging(u64 sizeBytes, u64 alignment = 16);
@@ -188,6 +184,10 @@ namespace PHX
 		void ResolvePendingTimestampQueries();
 
 		STATUS_CODE WriteTimestamp(VkPipelineStageFlagBits pipelineStage, u32& out_timestampIndex);
+
+		// Returns true if the current context matches the provided desired pass type, or false
+		// if it's doesn't match OR the current context does not exist
+		bool EnsureMatchingContext(PASS_TYPE desiredPassType);
 
 	private:
 
@@ -230,6 +230,8 @@ namespace PHX
 
 		// Non-owning, nullable
 		Metrics* m_pMetrics;
+
+		std::optional<PASS_TYPE> m_passTypeContext;
 
 #if defined(PROFILER_TRACY)
 		// In-place storage for a Tracy GPU zone spanning the current render pass

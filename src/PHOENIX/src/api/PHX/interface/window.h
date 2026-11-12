@@ -26,7 +26,8 @@ namespace PHX
 		BSL::Vec2u position		= { 0, 0 };
 		CURSOR_TYPE cursorType	= CURSOR_TYPE::SHOWN;
 		WINDOW_MODE windowMode	= WINDOW_MODE::WINDOWED;
-		bool canResize			= true;
+		bool autoIconify		= false;	// Fullscreen-only: determines whether window is auto-iconified when focus is lost
+		bool canResize			= true;		// Windowed-only: determines if the window can be resized
 	};
 
 	struct PHX_API WindowHandle : public Handle
